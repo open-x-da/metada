@@ -1,0 +1,31 @@
+PROJECT_NAME           = "CUDA Learning"
+PROJECT_NUMBER        = 0.1.0
+PROJECT_BRIEF         = "CUDA and Python Integration Examples"
+
+OUTPUT_DIRECTORY      = @CMAKE_BINARY_DIR@/docs/doxygen
+INPUT                 = ./src ./tests
+FILE_PATTERNS         = *.cpp *.h *.hpp *.cu *.cuh *.py *.f90 *.f *.F
+RECURSIVE             = YES
+
+GENERATE_HTML         = YES
+GENERATE_LATEX        = NO
+
+EXTRACT_ALL           = YES
+EXTRACT_PRIVATE       = YES
+EXTRACT_STATIC        = YES
+
+ENABLE_PREPROCESSING  = YES
+MACRO_EXPANSION       = YES
+EXPAND_ONLY_PREDEF   = YES
+
+# Language-specific optimizations
+OPTIMIZE_FOR_PYTHON   = YES
+OPTIMIZE_FOR_FORTRAN  = YES
+
+# For better looking documentation
+HAVE_DOT             = YES
+UML_LOOK             = YES
+CALL_GRAPH           = YES
+CALLER_GRAPH         = YES 
+
+PYTHON_DOCSTRING = YES 
