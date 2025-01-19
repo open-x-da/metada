@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.abspath('../..'))
 sys.path.insert(0, os.path.abspath('../../build/tests'))
 
-project = 'METADA'
+project = 'METADA Documentation'
 copyright = '2024'
 author = 'Xin Zhang'
 version = '0.1.0'

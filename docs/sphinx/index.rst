@@ -5,6 +5,7 @@ Modern Data Assimilation System for Earth Sciences
    :maxdepth: 2
    :caption: Contents:
 
+   design/index
    installation/index
    references/index
 
