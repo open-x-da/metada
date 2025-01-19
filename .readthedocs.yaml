@@ -9,13 +9,13 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
+  apt_packages:
+    - doxygen
+    - graphviz
   jobs:
     post_create_environment:
       # Install dependencies for building docs
       - pip install sphinx sphinx-rtd-theme breathe sphinx-copybutton
-      # Install doxygen
-      - apt-get update
-      - apt-get install -y doxygen graphviz
 
 # Build documentation in the docs/sphinx directory with Sphinx
 sphinx:
