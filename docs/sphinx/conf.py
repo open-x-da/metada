@@ -8,6 +8,8 @@ sys.path.insert(0, os.path.abspath('../../build/tests'))
 project = 'METADA'
 copyright = '2024'
 author = 'Xin Zhang'
+version = '0.1.0'
+release = '0.1.0'
 
 extensions = [
     'sphinx.ext.autodoc',
