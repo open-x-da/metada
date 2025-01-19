@@ -14,8 +14,8 @@ build:
       # Install dependencies for building docs
       - pip install sphinx sphinx-rtd-theme breathe sphinx-copybutton
       # Install doxygen
-      - sudo apt-get update
-      - sudo apt-get install -y doxygen graphviz
+      - apt-get update
+      - apt-get install -y doxygen graphviz
 
 # Build documentation in the docs/sphinx directory with Sphinx
 sphinx:
