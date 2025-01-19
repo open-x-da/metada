@@ -1,6 +1,6 @@
-PROJECT_NAME           = "CUDA Learning"
+PROJECT_NAME          = "METADA"
 PROJECT_NUMBER        = 0.1.0
-PROJECT_BRIEF         = "CUDA and Python Integration Examples"
+PROJECT_BRIEF         = "Modern Data Assimilation System for Earth Sciences"
 
 OUTPUT_DIRECTORY      = @CMAKE_BINARY_DIR@/docs/doxygen
 INPUT                 = ./src ./tests
@@ -16,7 +16,7 @@ EXTRACT_STATIC        = YES
 
 ENABLE_PREPROCESSING  = YES
 MACRO_EXPANSION       = YES
-EXPAND_ONLY_PREDEF   = YES
+EXPAND_ONLY_PREDEF    = YES
 
 # Language-specific optimizations
 OPTIMIZE_FOR_PYTHON   = YES
@@ -28,4 +28,4 @@ UML_LOOK             = YES
 CALL_GRAPH           = YES
 CALLER_GRAPH         = YES 
 
-PYTHON_DOCSTRING = YES 
+PYTHON_DOCSTRING     = YES 

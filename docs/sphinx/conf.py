@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.abspath('../..'))
 sys.path.insert(0, os.path.abspath('../../build/tests'))
 
-project = 'CUDA Learning'
+project = 'METADA'
 copyright = '2024'
 author = 'Xin Zhang'
 
