@@ -1,0 +1,39 @@
+# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+# Set the OS, Python version and other tools
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+  jobs:
+    post_create_environment:
+      # Install dependencies for building docs
+      - pip install sphinx sphinx-rtd-theme breathe sphinx-copybutton
+      # Install doxygen
+      - sudo apt-get update
+      - sudo apt-get install -y doxygen graphviz
+
+# Build documentation in the docs/sphinx directory with Sphinx
+sphinx:
+  configuration: docs/sphinx/conf.py
+  builder: html
+  fail_on_warning: true
+
+# Optionally declare the Python requirements required to build your docs
+python:
+  install:
+    - requirements: docs/sphinx/requirements.txt
+
+# Declare formats for documentation
+formats:
+  - pdf
+  - epub
+
+# Submodules configuration
+submodules:
+  include: all
+  recursive: true 
