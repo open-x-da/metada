@@ -5,11 +5,11 @@ Modern Data Assimilation System for Earth Sciences
    :maxdepth: 2
    :caption: Contents:
 
-   installation
+   installation/index
    lorenz95
-   references
+   references/index
 
 Python Integration
 ------------------
-
+>
 Documentation for Python integration components. 

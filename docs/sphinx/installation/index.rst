@@ -7,7 +7,7 @@ This guide provides instructions for setting up the development environment for 
    :maxdepth: 2
    :caption: Platform-specific Instructions:
 
-   installation/windows
-   installation/linux
-   installation/macos
-   installation/container 
+   windows
+   linux
+   macos
+   container

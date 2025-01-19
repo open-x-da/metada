@@ -101,7 +101,7 @@ Available Options
 3. **Azure ML Studio**
 
 Setup Instructions
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 1. Google Colab
    
