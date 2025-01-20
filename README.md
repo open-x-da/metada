@@ -1,7 +1,7 @@
 # METADA (Modern Data Assimilation System for Earth Sciences)
 
 ### Documentation Status:
-[![Documentation Status](https://readthedocs.org/projects/metada/badge/?version=latest)](https://metada.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/modern-data-assimilation-system-for-earth-sciences/badge/?version=latest)](https://modern-data-assimilation-system-for-earth-sciences.readthedocs.io/en/latest/?badge=latest)
 
 ### Continuous Integration:
 | Platform      | Status |
