@@ -5,13 +5,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "In-source builds are not allowed. Please create a 'build' directory and run CMake from there.")
 endif()
 
-project(cuda_learning VERSION 0.1.0 LANGUAGES C CXX Fortran)
+project(metada VERSION 0.1.0 LANGUAGES C CXX Fortran)
 
 # Find packages
 find_package(CUDAToolkit REQUIRED)
 find_package(GTest REQUIRED)
 find_package(Python3 COMPONENTS Development NumPy REQUIRED)
 find_package(Doxygen OPTIONAL_COMPONENTS dot)
+find_package(glog REQUIRED)
 
 # Add custom CMake modules path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -20,9 +21,8 @@ if(MSVC)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 endif()
 
-# Main executable
-add_executable(cuda_learning src/main.cpp)
-target_link_libraries(cuda_learning PRIVATE CUDA::cudart)
+# Add source directory
+add_subdirectory(src)
 
 # Enable testing before adding subdirectory
 enable_testing()
