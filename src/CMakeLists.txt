@@ -4,9 +4,13 @@ add_executable(metada main.cpp)
 # Link required libraries
 target_link_libraries(metada 
     PRIVATE 
-        CUDA::cudart
         glog::glog
 )
+
+if(USE_CUDA)
+    target_link_libraries(metada PRIVATE CUDA::cudart)
+    target_compile_definitions(metada PRIVATE USE_CUDA)
+endif()
 
 # Set include directories
 target_include_directories(metada

@@ -7,8 +7,18 @@ endif()
 
 project(metada VERSION 0.1.0 LANGUAGES C CXX Fortran)
 
-# Find packages
-find_package(CUDAToolkit REQUIRED)
+# Make CUDA optional
+option(USE_CUDA "Enable CUDA support" ON)
+
+# Find required packages
+if(USE_CUDA)
+    find_package(CUDAToolkit QUIET)
+    if(NOT CUDAToolkit_FOUND)
+        message(STATUS "CUDA not found - disabling CUDA support")
+        set(USE_CUDA OFF)
+    endif()
+endif()
+
 find_package(GTest REQUIRED)
 find_package(Python3 COMPONENTS Development NumPy REQUIRED)
 find_package(Doxygen OPTIONAL_COMPONENTS dot)
