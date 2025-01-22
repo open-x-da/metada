@@ -6,7 +6,7 @@ function(configure_documentation)
     # Create main docs target first
     add_custom_target(docs)
 
-    if(DOXYGEN_FOUND)
+    if(USE_DOXYGEN AND DOXYGEN_FOUND)
         # Configure Doxygen
         set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs/doxygen)
         set(DOXYGEN_GENERATE_HTML YES)
@@ -29,7 +29,7 @@ function(configure_documentation)
         add_dependencies(docs doxygen)
     endif()
 
-    if(SPHINX_FOUND)
+    if(USE_SPHINX AND SPHINX_FOUND)
         # Add Sphinx target
         add_custom_target(sphinx
             ${SPHINX_EXECUTABLE} -b html
@@ -38,7 +38,9 @@ function(configure_documentation)
             COMMENT "Generating documentation with Sphinx"
             VERBATIM
         )
-        add_dependencies(sphinx lorenz95_python_test)
+        if(TARGET lorenz95_python_test)
+            add_dependencies(sphinx lorenz95_python_test)
+        endif()
         add_dependencies(docs sphinx)
     endif()
 endfunction() 
