@@ -7,9 +7,9 @@ target_link_libraries(metada
         glog::glog
 )
 
+# Link CUDA if available
 if(USE_CUDA)
-    target_link_libraries(metada PRIVATE CUDA::cudart)
-    target_compile_definitions(metada PRIVATE USE_CUDA)
+    target_link_libraries(metada PRIVATE cuda_settings)
 endif()
 
 # Set include directories

@@ -9,7 +9,7 @@ if(USE_CUDA)
     )
     target_link_libraries(device_query_test 
         PRIVATE 
-            CUDA::cudart
+            cuda_settings
             GTest::gtest 
             GTest::gtest_main
     )
@@ -19,7 +19,7 @@ if(USE_CUDA)
     add_executable(cuda_test cuda_test.cpp)
     target_link_libraries(cuda_test
         PRIVATE
-            CUDA::cudart
+            cuda_settings
             glog::glog
             GTest::gtest
             GTest::gtest_main

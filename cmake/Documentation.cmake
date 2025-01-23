@@ -1,6 +1,19 @@
 # Find documentation tools
-find_package(Doxygen OPTIONAL_COMPONENTS dot)
-find_package(Sphinx OPTIONAL_COMPONENTS build)
+if(USE_DOXYGEN)
+    find_package(Doxygen QUIET OPTIONAL_COMPONENTS dot)
+    if(NOT DOXYGEN_FOUND)
+        message(STATUS "Doxygen not found - disabling Doxygen documentation")
+        set(USE_DOXYGEN OFF)
+    endif()
+endif()
+
+if(USE_SPHINX)
+    find_package(Sphinx QUIET OPTIONAL_COMPONENTS build)
+    if(NOT SPHINX_FOUND)
+        message(STATUS "Sphinx not found - disabling Sphinx documentation")
+        set(USE_SPHINX OFF)
+    endif()
+endif()
 
 function(configure_documentation)
     # Create main docs target first
