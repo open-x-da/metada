@@ -1,10 +1,18 @@
-# CUDA configuration function
-function(configure_cuda)
-    if(USE_CUDA)
-        find_package(CUDAToolkit QUIET)
+# Option to enable/disable CUDA support
+option(ENABLE_CUDA_ACCELERATION "Enable GPU acceleration using CUDA (requires NVIDIA GPU and CUDA Toolkit)" ON)
+
+# Function to configure CUDA support
+function(configure_cuda_support)
+    if(ENABLE_CUDA_ACCELERATION)
+        metada_find_package(CUDAToolkit
+            OPTIONAL
+            QUIET
+            CONDITION ENABLE_CUDA_ACCELERATION
+        )
+
         if(NOT CUDAToolkit_FOUND)
-            message(STATUS "CUDA not found - disabling CUDA support")
-            set(USE_CUDA OFF PARENT_SCOPE)
+            message(STATUS "CUDA acceleration disabled: CUDA Toolkit not found in PATH")
+            set(ENABLE_CUDA_ACCELERATION OFF CACHE BOOL "Enable GPU acceleration using CUDA" FORCE)
             return()
         endif()
 
@@ -14,6 +22,9 @@ function(configure_cuda)
         target_compile_definitions(cuda_settings INTERFACE USE_CUDA)
         
         # Make it available to parent scope
-        set(USE_CUDA ON PARENT_SCOPE)
+        set(ENABLE_CUDA_ACCELERATION ON PARENT_SCOPE)
     endif()
-endfunction() 
+endfunction()
+
+# Configure CUDA support immediately when this module is included
+configure_cuda_support() 

@@ -1,29 +1,30 @@
-# Helper function to print a section header
-function(_print_section_header text)
-    message(STATUS "")
-    message(STATUS "${text}")
-    string(LENGTH "${text}" text_length)
-    string(REPEAT "-" ${text_length} separator)
-    message(STATUS "${separator}")
-    message(STATUS "")
-endfunction()
+# Function to configure print support
+function(configure_print_support)
+    # Helper function to print a section header
+    function(_print_section_header text)
+        message(STATUS "")
+        message(STATUS "${text}")
+        string(LENGTH "${text}" text_length)
+        string(REPEAT "-" ${text_length} separator)
+        message(STATUS "${separator}")
+        message(STATUS "")
+    endfunction()
 
-# Helper function to print package info
-function(_print_package_info package_name)
-    if(${package_name}_FOUND)
-        set(version "${${package_name}_VERSION}")
-        if(version)
-            message(STATUS "  - ${package_name}: Found (${version})")
+    # Helper function to print package info
+    function(_print_package_info package_name)
+        if(${package_name}_FOUND)
+            set(version "${${package_name}_VERSION}")
+            if(version)
+                message(STATUS "  - ${package_name}: Found (${version})")
+            else()
+                message(STATUS "  - ${package_name}: Found")
+            endif()
         else()
-            message(STATUS "  - ${package_name}: Found")
+            message(STATUS "  - ${package_name}: Not found")
         endif()
-    else()
-        message(STATUS "  - ${package_name}: Not found")
-    endif()
-endfunction()
+    endfunction()
 
-# Main configuration printing function
-function(print_configuration_summary)
+    # Print configuration summary
     _print_section_header("Build Configuration")
     
     # Print compiler info
@@ -46,4 +47,7 @@ function(print_configuration_summary)
     foreach(pkg IN LISTS METADA_OPTIONAL_PACKAGES)
         _print_package_info(${pkg})
     endforeach()
-endfunction() 
+endfunction()
+
+# Configure print support immediately when this module is included
+configure_print_support() 
