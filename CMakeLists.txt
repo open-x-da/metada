@@ -8,10 +8,10 @@ project(metada)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Include project configuration module
-include(Project)
+include(metada_building)
 
 # Configure project with additional settings
-configure_project_settings(metada
+metada_project_settings(metada
     VERSION 0.1.0
     LANGUAGES C CXX Fortran
 )

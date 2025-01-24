@@ -35,21 +35,55 @@ function(metada_find_package package)
         list(APPEND find_args REQUIRED)
     endif()
 
-    # Find package
+    # Find package with its components
     find_package(${find_args})
 
-    # Set _FOUND variable in cache
-    set(${package}_FOUND ${${package}_FOUND} 
-        CACHE INTERNAL "${package} found status"
-        FORCE
-    )
+    # Convert package name to uppercase for compatibility with some CMake variables
+    string(TOUPPER ${package} PACKAGE_UPPER)
+    
+    # Set _FOUND variable in cache if it exists
+    if(DEFINED ${PACKAGE_UPPER}_FOUND)
+        set(${package}_FOUND ${${PACKAGE_UPPER}_FOUND} 
+            CACHE INTERNAL "${package} found status"
+            FORCE
+        )
+    elseif(DEFINED ${package}_FOUND)
+        set(${package}_FOUND ${${package}_FOUND} 
+            CACHE INTERNAL "${package} found status"
+            FORCE
+        )
+    endif()
     
     # Set version in cache if it exists
-    if(DEFINED ${package}_VERSION)
+    if(DEFINED ${PACKAGE_UPPER}_VERSION)
+        set(${package}_VERSION "${${PACKAGE_UPPER}_VERSION}"
+            CACHE INTERNAL "${package} version"
+            FORCE
+        )
+    elseif(DEFINED ${package}_VERSION)
         set(${package}_VERSION "${${package}_VERSION}"
             CACHE INTERNAL "${package} version"
             FORCE
         )
+    endif()
+
+    # Set component found status in cache
+    if(ARG_COMPONENTS)
+        foreach(component ${ARG_COMPONENTS})
+            string(TOUPPER ${component} COMPONENT_UPPER)
+            # Check both uppercase and regular variable names
+            if(DEFINED ${PACKAGE_UPPER}_${COMPONENT_UPPER}_FOUND)
+                set(${package}_${component}_FOUND ${${PACKAGE_UPPER}_${COMPONENT_UPPER}_FOUND}
+                    CACHE INTERNAL "${package} ${component} component found status"
+                    FORCE
+                )
+            elseif(DEFINED ${package}_${component}_FOUND)
+                set(${package}_${component}_FOUND ${${package}_${component}_FOUND}
+                    CACHE INTERNAL "${package} ${component} component found status"
+                    FORCE
+                )
+            endif()
+        endforeach()
     endif()
 
     # Register package

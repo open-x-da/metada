@@ -26,7 +26,7 @@ function(configure_documentation_support)
             set(DOXYGEN_GENERATE_LATEX NO)
             
             # Optional dot tool configuration
-            if(Doxygen_DOT_FOUND)
+            if(Doxygen_dot_FOUND)
                 set(DOXYGEN_HAVE_DOT YES)
                 set(DOXYGEN_UML_LOOK YES)
                 set(DOXYGEN_CALL_GRAPH YES)
