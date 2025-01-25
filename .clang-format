@@ -1,0 +1,52 @@
+---
+Language: Cpp
+BasedOnStyle: Google
+# Basic formatting
+IndentWidth: 2
+ColumnLimit: 80
+UseTab: Never
+
+# Braces
+BreakBeforeBraces: Attach
+
+# Indentation
+AccessModifierOffset: -1
+NamespaceIndentation: None
+ContinuationIndentWidth: 4
+
+# Alignment
+DerivePointerAlignment: true
+PointerAlignment: Left
+
+# Line breaks
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+
+# Comments
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 2
+
+# Function declarations/definitions
+BinPackArguments: true
+BinPackParameters: true
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# Template declarations
+AlwaysBreakTemplateDeclarations: Yes
+
+# Include sorting
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:           '^<ext/.*\.h>'
+    Priority:        2
+  - Regex:           '^<.*\.h>'
+    Priority:        1
+  - Regex:           '^<.*'
+    Priority:        2
+  - Regex:           '.*'
+    Priority:        3
+--- 

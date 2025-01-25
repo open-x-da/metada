@@ -50,16 +50,16 @@
 
 // CUDA Runtime error messages
 #ifdef __DRIVER_TYPES_H__
-static const char *_cudaGetErrorEnum(cudaError_t error) {
+static const char* _cudaGetErrorEnum(cudaError_t error) {
   return cudaGetErrorName(error);
 }
 #endif
 
 #ifdef CUDA_DRIVER_API
 // CUDA Driver API errors
-static const char *_cudaGetErrorEnum(CUresult error) {
+static const char* _cudaGetErrorEnum(CUresult error) {
   static char unknown[] = "<unknown>";
-  const char *ret = NULL;
+  const char* ret = NULL;
   cuGetErrorName(error, &ret);
   return ret ? ret : unknown;
 }
@@ -67,7 +67,7 @@ static const char *_cudaGetErrorEnum(CUresult error) {
 
 #ifdef CUBLAS_API_H_
 // cuBLAS API errors
-static const char *_cudaGetErrorEnum(cublasStatus_t error) {
+static const char* _cudaGetErrorEnum(cublasStatus_t error) {
   switch (error) {
     case CUBLAS_STATUS_SUCCESS:
       return "CUBLAS_STATUS_SUCCESS";
@@ -106,7 +106,7 @@ static const char *_cudaGetErrorEnum(cublasStatus_t error) {
 
 #ifdef _CUFFT_H_
 // cuFFT API errors
-static const char *_cudaGetErrorEnum(cufftResult error) {
+static const char* _cudaGetErrorEnum(cufftResult error) {
   switch (error) {
     case CUFFT_SUCCESS:
       return "CUFFT_SUCCESS";
@@ -166,7 +166,7 @@ static const char *_cudaGetErrorEnum(cufftResult error) {
 
 #ifdef CUSPARSEAPI
 // cuSPARSE API errors
-static const char *_cudaGetErrorEnum(cusparseStatus_t error) {
+static const char* _cudaGetErrorEnum(cusparseStatus_t error) {
   switch (error) {
     case CUSPARSE_STATUS_SUCCESS:
       return "CUSPARSE_STATUS_SUCCESS";
@@ -202,7 +202,7 @@ static const char *_cudaGetErrorEnum(cusparseStatus_t error) {
 
 #ifdef CUSOLVER_COMMON_H_
 // cuSOLVER API errors
-static const char *_cudaGetErrorEnum(cusolverStatus_t error) {
+static const char* _cudaGetErrorEnum(cusolverStatus_t error) {
   switch (error) {
     case CUSOLVER_STATUS_SUCCESS:
       return "CUSOLVER_STATUS_SUCCESS";
@@ -236,7 +236,7 @@ static const char *_cudaGetErrorEnum(cusolverStatus_t error) {
 
 #ifdef CURAND_H_
 // cuRAND API errors
-static const char *_cudaGetErrorEnum(curandStatus_t error) {
+static const char* _cudaGetErrorEnum(curandStatus_t error) {
   switch (error) {
     case CURAND_STATUS_SUCCESS:
       return "CURAND_STATUS_SUCCESS";
@@ -284,7 +284,7 @@ static const char *_cudaGetErrorEnum(curandStatus_t error) {
 
 #ifdef NVJPEGAPI
 // nvJPEG API errors
-static const char *_cudaGetErrorEnum(nvjpegStatus_t error) {
+static const char* _cudaGetErrorEnum(nvjpegStatus_t error) {
   switch (error) {
     case NVJPEG_STATUS_SUCCESS:
       return "NVJPEG_STATUS_SUCCESS";
@@ -320,7 +320,7 @@ static const char *_cudaGetErrorEnum(nvjpegStatus_t error) {
 
 #ifdef NV_NPPIDEFS_H
 // NPP API errors
-static const char *_cudaGetErrorEnum(NppStatus error) {
+static const char* _cudaGetErrorEnum(NppStatus error) {
   switch (error) {
     case NPP_NOT_SUPPORTED_MODE_ERROR:
       return "NPP_NOT_SUPPORTED_MODE_ERROR";
@@ -580,7 +580,7 @@ static const char *_cudaGetErrorEnum(NppStatus error) {
 #endif
 
 template <typename T>
-void check(T result, char const *const func, const char *const file,
+void check(T result, char const* const func, const char* const file,
            int const line) {
   if (result) {
     fprintf(stderr, "CUDA error at %s:%d code=%d(%s) \"%s\" \n", file, line,
@@ -597,7 +597,7 @@ void check(T result, char const *const func, const char *const file,
 // This will output the proper error string when calling cudaGetLastError
 #define getLastCudaError(msg) __getLastCudaError(msg, __FILE__, __LINE__)
 
-inline void __getLastCudaError(const char *errorMessage, const char *file,
+inline void __getLastCudaError(const char* errorMessage, const char* file,
                                const int line) {
   cudaError_t err = cudaGetLastError();
 
@@ -615,7 +615,7 @@ inline void __getLastCudaError(const char *errorMessage, const char *file,
 // but not exit program incase error detected.
 #define printLastCudaError(msg) __printLastCudaError(msg, __FILE__, __LINE__)
 
-inline void __printLastCudaError(const char *errorMessage, const char *file,
+inline void __printLastCudaError(const char* errorMessage, const char* file,
                                  const int line) {
   cudaError_t err = cudaGetLastError();
 
@@ -650,25 +650,10 @@ inline int _ConvertSMVer2Cores(int major, int minor) {
   } sSMtoCores;
 
   sSMtoCores nGpuArchCoresPerSM[] = {
-      {0x30, 192},
-      {0x32, 192},
-      {0x35, 192},
-      {0x37, 192},
-      {0x50, 128},
-      {0x52, 128},
-      {0x53, 128},
-      {0x60,  64},
-      {0x61, 128},
-      {0x62, 128},
-      {0x70,  64},
-      {0x72,  64},
-      {0x75,  64},
-      {0x80,  64},
-      {0x86, 128},
-      {0x87, 128},
-      {0x89, 128},
-      {0x90, 128},
-      {-1, -1}};
+      {0x30, 192}, {0x32, 192}, {0x35, 192}, {0x37, 192}, {0x50, 128},
+      {0x52, 128}, {0x53, 128}, {0x60, 64},  {0x61, 128}, {0x62, 128},
+      {0x70, 64},  {0x72, 64},  {0x75, 64},  {0x80, 64},  {0x86, 128},
+      {0x87, 128}, {0x89, 128}, {0x90, 128}, {-1, -1}};
 
   int index = 0;
 
@@ -699,24 +684,12 @@ inline const char* _ConvertSMVer2ArchName(int major, int minor) {
   } sSMtoArchName;
 
   sSMtoArchName nGpuArchNameSM[] = {
-      {0x30, "Kepler"},
-      {0x32, "Kepler"},
-      {0x35, "Kepler"},
-      {0x37, "Kepler"},
-      {0x50, "Maxwell"},
-      {0x52, "Maxwell"},
-      {0x53, "Maxwell"},
-      {0x60, "Pascal"},
-      {0x61, "Pascal"},
-      {0x62, "Pascal"},
-      {0x70, "Volta"},
-      {0x72, "Xavier"},
-      {0x75, "Turing"},
-      {0x80, "Ampere"},
-      {0x86, "Ampere"},
-      {0x87, "Ampere"},
-      {0x89, "Ada"},
-      {0x90, "Hopper"},
+      {0x30, "Kepler"},       {0x32, "Kepler"},  {0x35, "Kepler"},
+      {0x37, "Kepler"},       {0x50, "Maxwell"}, {0x52, "Maxwell"},
+      {0x53, "Maxwell"},      {0x60, "Pascal"},  {0x61, "Pascal"},
+      {0x62, "Pascal"},       {0x70, "Volta"},   {0x72, "Xavier"},
+      {0x75, "Turing"},       {0x80, "Ampere"},  {0x86, "Ampere"},
+      {0x87, "Ampere"},       {0x89, "Ada"},     {0x90, "Hopper"},
       {-1, "Graphics Device"}};
 
   int index = 0;
@@ -737,7 +710,7 @@ inline const char* _ConvertSMVer2ArchName(int major, int minor) {
       major, minor, nGpuArchNameSM[index - 1].name);
   return nGpuArchNameSM[index - 1].name;
 }
-  // end of GPU Architecture definitions
+// end of GPU Architecture definitions
 
 #ifdef __CUDA_RUNTIME_H__
 // General GPU Device CUDA Initialization
@@ -769,9 +742,12 @@ inline int gpuDeviceInit(int devID) {
   }
 
   int computeMode = -1, major = 0, minor = 0;
-  checkCudaErrors(cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode, devID));
-  checkCudaErrors(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devID));
-  checkCudaErrors(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devID));
+  checkCudaErrors(
+      cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode, devID));
+  checkCudaErrors(
+      cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devID));
+  checkCudaErrors(
+      cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devID));
   if (computeMode == cudaComputeModeProhibited) {
     fprintf(stderr,
             "Error: device is running in <Compute Mode "
@@ -785,7 +761,8 @@ inline int gpuDeviceInit(int devID) {
   }
 
   checkCudaErrors(cudaSetDevice(devID));
-  printf("gpuDeviceInit() CUDA Device [%d]: \"%s\n", devID, _ConvertSMVer2ArchName(major, minor));
+  printf("gpuDeviceInit() CUDA Device [%d]: \"%s\n", devID,
+         _ConvertSMVer2ArchName(major, minor));
 
   return devID;
 }
@@ -812,9 +789,12 @@ inline int gpuGetMaxGflopsDeviceId() {
 
   while (current_device < device_count) {
     int computeMode = -1, major = 0, minor = 0;
-    checkCudaErrors(cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode, current_device));
-    checkCudaErrors(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, current_device));
-    checkCudaErrors(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, current_device));
+    checkCudaErrors(cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode,
+                                           current_device));
+    checkCudaErrors(cudaDeviceGetAttribute(
+        &major, cudaDevAttrComputeCapabilityMajor, current_device));
+    checkCudaErrors(cudaDeviceGetAttribute(
+        &minor, cudaDevAttrComputeCapabilityMinor, current_device));
 
     // If this GPU is not running on Compute Mode prohibited,
     // then we can add it to the list
@@ -822,25 +802,28 @@ inline int gpuGetMaxGflopsDeviceId() {
       if (major == 9999 && minor == 9999) {
         sm_per_multiproc = 1;
       } else {
-        sm_per_multiproc =
-            _ConvertSMVer2Cores(major,  minor);
+        sm_per_multiproc = _ConvertSMVer2Cores(major, minor);
       }
       int multiProcessorCount = 0, clockRate = 0;
-      checkCudaErrors(cudaDeviceGetAttribute(&multiProcessorCount, cudaDevAttrMultiProcessorCount, current_device));
-      cudaError_t result = cudaDeviceGetAttribute(&clockRate, cudaDevAttrClockRate, current_device);
+      checkCudaErrors(cudaDeviceGetAttribute(&multiProcessorCount,
+                                             cudaDevAttrMultiProcessorCount,
+                                             current_device));
+      cudaError_t result = cudaDeviceGetAttribute(
+          &clockRate, cudaDevAttrClockRate, current_device);
       if (result != cudaSuccess) {
         // If cudaDevAttrClockRate attribute is not supported we
         // set clockRate as 1, to consider GPU with most SMs and CUDA Cores.
-        if(result == cudaErrorInvalidValue) {
+        if (result == cudaErrorInvalidValue) {
           clockRate = 1;
-        }
-        else {
-          fprintf(stderr, "CUDA error at %s:%d code=%d(%s) \n", __FILE__, __LINE__,
-            static_cast<unsigned int>(result), _cudaGetErrorEnum(result));
+        } else {
+          fprintf(stderr, "CUDA error at %s:%d code=%d(%s) \n", __FILE__,
+                  __LINE__, static_cast<unsigned int>(result),
+                  _cudaGetErrorEnum(result));
           exit(EXIT_FAILURE);
         }
       }
-      uint64_t compute_perf = (uint64_t)multiProcessorCount * sm_per_multiproc * clockRate;
+      uint64_t compute_perf =
+          (uint64_t)multiProcessorCount * sm_per_multiproc * clockRate;
 
       if (compute_perf > max_compute_perf) {
         max_compute_perf = compute_perf;
@@ -864,7 +847,7 @@ inline int gpuGetMaxGflopsDeviceId() {
 }
 
 // Initialization code to find the best CUDA Device
-inline int findCudaDevice(int argc, const char **argv) {
+inline int findCudaDevice(int argc, const char** argv) {
   int devID = 0;
 
   // If the command-line has a device number specified, use it
@@ -887,11 +870,12 @@ inline int findCudaDevice(int argc, const char **argv) {
     devID = gpuGetMaxGflopsDeviceId();
     checkCudaErrors(cudaSetDevice(devID));
     int major = 0, minor = 0;
-    checkCudaErrors(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devID));
-    checkCudaErrors(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devID));
-    printf("GPU Device %d: \"%s\" with compute capability %d.%d\n\n",
-           devID, _ConvertSMVer2ArchName(major, minor), major, minor);
-
+    checkCudaErrors(cudaDeviceGetAttribute(
+        &major, cudaDevAttrComputeCapabilityMajor, devID));
+    checkCudaErrors(cudaDeviceGetAttribute(
+        &minor, cudaDevAttrComputeCapabilityMinor, devID));
+    printf("GPU Device %d: \"%s\" with compute capability %d.%d\n\n", devID,
+           _ConvertSMVer2ArchName(major, minor), major, minor);
   }
 
   return devID;
@@ -912,18 +896,23 @@ inline int findIntegratedGPU() {
   // Find the integrated GPU which is compute capable
   while (current_device < device_count) {
     int computeMode = -1, integrated = -1;
-    checkCudaErrors(cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode, current_device));
-    checkCudaErrors(cudaDeviceGetAttribute(&integrated, cudaDevAttrIntegrated, current_device));
+    checkCudaErrors(cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode,
+                                           current_device));
+    checkCudaErrors(cudaDeviceGetAttribute(&integrated, cudaDevAttrIntegrated,
+                                           current_device));
     // If GPU is integrated and is not running on Compute Mode prohibited,
     // then cuda can map to GLES resource
     if (integrated && (computeMode != cudaComputeModeProhibited)) {
       checkCudaErrors(cudaSetDevice(current_device));
 
       int major = 0, minor = 0;
-      checkCudaErrors(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, current_device));
-      checkCudaErrors(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, current_device));
+      checkCudaErrors(cudaDeviceGetAttribute(
+          &major, cudaDevAttrComputeCapabilityMajor, current_device));
+      checkCudaErrors(cudaDeviceGetAttribute(
+          &minor, cudaDevAttrComputeCapabilityMinor, current_device));
       printf("GPU Device %d: \"%s\" with compute capability %d.%d\n\n",
-             current_device, _ConvertSMVer2ArchName(major, minor), major, minor);
+             current_device, _ConvertSMVer2ArchName(major, minor), major,
+             minor);
 
       return current_device;
     } else {
@@ -949,12 +938,13 @@ inline bool checkCudaCapabilities(int major_version, int minor_version) {
   int major = 0, minor = 0;
 
   checkCudaErrors(cudaGetDevice(&dev));
-  checkCudaErrors(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, dev));
-  checkCudaErrors(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, dev));
+  checkCudaErrors(
+      cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, dev));
+  checkCudaErrors(
+      cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, dev));
 
   if ((major > major_version) ||
-      (major == major_version &&
-       minor >= minor_version)) {
+      (major == major_version && minor >= minor_version)) {
     printf("  Device %d: <%16s >, Compute SM %d.%d detected\n", dev,
            _ConvertSMVer2ArchName(major, minor), major, minor);
     return true;
@@ -968,6 +958,6 @@ inline bool checkCudaCapabilities(int major_version, int minor_version) {
 }
 #endif
 
-  // end of CUDA Helper Functions
+// end of CUDA Helper Functions
 
 #endif  // COMMON_HELPER_CUDA_H_

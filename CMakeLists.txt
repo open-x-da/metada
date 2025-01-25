@@ -9,6 +9,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Include project configuration module
 include(ProjectSetup)
+include(CodeFormat)
 
 # Configure project with additional settings
 metada_project_settings(metada
@@ -27,7 +28,11 @@ include(CUDA)
 # Add source directory
 add_subdirectory(src)
 
-# Add tests subdirectory for unit testing and integration tests
+# Add format target
+add_format_target()
+
+# Enable testing
+include(CTest)
 add_subdirectory(tests)
 
 # Add documentation directory

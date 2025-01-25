@@ -31,6 +31,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <fstream>
 #include <string>
 
@@ -93,7 +94,7 @@
 #endif
 
 // CUDA Utility Helper Functions
-inline int stringRemoveDelimiter(char delimiter, const char *string) {
+inline int stringRemoveDelimiter(char delimiter, const char* string) {
   int string_start = 0;
 
   while (string[string_start] == delimiter) {
@@ -107,7 +108,7 @@ inline int stringRemoveDelimiter(char delimiter, const char *string) {
   return string_start;
 }
 
-inline int getFileExtension(char *filename, char **extension) {
+inline int getFileExtension(char* filename, char** extension) {
   int string_length = static_cast<int>(strlen(filename));
 
   while (filename[string_length--] != '.') {
@@ -124,16 +125,16 @@ inline int getFileExtension(char *filename, char **extension) {
   return string_length;
 }
 
-inline bool checkCmdLineFlag(const int argc, const char **argv,
-                             const char *string_ref) {
+inline bool checkCmdLineFlag(const int argc, const char** argv,
+                             const char* string_ref) {
   bool bFound = false;
 
   if (argc >= 1) {
     for (int i = 1; i < argc; i++) {
       int string_start = stringRemoveDelimiter('-', argv[i]);
-      const char *string_argv = &argv[i][string_start];
+      const char* string_argv = &argv[i][string_start];
 
-      const char *equal_pos = strchr(string_argv, '=');
+      const char* equal_pos = strchr(string_argv, '=');
       int argv_length = static_cast<int>(
           equal_pos == 0 ? strlen(string_argv) : equal_pos - string_argv);
 
@@ -152,14 +153,14 @@ inline bool checkCmdLineFlag(const int argc, const char **argv,
 
 // This function wraps the CUDA Driver API into a template function
 template <class T>
-inline bool getCmdLineArgumentValue(const int argc, const char **argv,
-                                    const char *string_ref, T *value) {
+inline bool getCmdLineArgumentValue(const int argc, const char** argv,
+                                    const char* string_ref, T* value) {
   bool bFound = false;
 
   if (argc >= 1) {
     for (int i = 1; i < argc; i++) {
       int string_start = stringRemoveDelimiter('-', argv[i]);
-      const char *string_argv = &argv[i][string_start];
+      const char* string_argv = &argv[i][string_start];
       int length = static_cast<int>(strlen(string_ref));
 
       if (!STRNCASECMP(string_argv, string_ref, length)) {
@@ -177,15 +178,15 @@ inline bool getCmdLineArgumentValue(const int argc, const char **argv,
   return bFound;
 }
 
-inline int getCmdLineArgumentInt(const int argc, const char **argv,
-                                 const char *string_ref) {
+inline int getCmdLineArgumentInt(const int argc, const char** argv,
+                                 const char* string_ref) {
   bool bFound = false;
   int value = -1;
 
   if (argc >= 1) {
     for (int i = 1; i < argc; i++) {
       int string_start = stringRemoveDelimiter('-', argv[i]);
-      const char *string_argv = &argv[i][string_start];
+      const char* string_argv = &argv[i][string_start];
       int length = static_cast<int>(strlen(string_ref));
 
       if (!STRNCASECMP(string_argv, string_ref, length)) {
@@ -209,15 +210,15 @@ inline int getCmdLineArgumentInt(const int argc, const char **argv,
   }
 }
 
-inline float getCmdLineArgumentFloat(const int argc, const char **argv,
-                                     const char *string_ref) {
+inline float getCmdLineArgumentFloat(const int argc, const char** argv,
+                                     const char* string_ref) {
   bool bFound = false;
   float value = -1;
 
   if (argc >= 1) {
     for (int i = 1; i < argc; i++) {
       int string_start = stringRemoveDelimiter('-', argv[i]);
-      const char *string_argv = &argv[i][string_start];
+      const char* string_argv = &argv[i][string_start];
       int length = static_cast<int>(strlen(string_ref));
 
       if (!STRNCASECMP(string_argv, string_ref, length)) {
@@ -241,15 +242,15 @@ inline float getCmdLineArgumentFloat(const int argc, const char **argv,
   }
 }
 
-inline bool getCmdLineArgumentString(const int argc, const char **argv,
-                                     const char *string_ref,
-                                     char **string_retval) {
+inline bool getCmdLineArgumentString(const int argc, const char** argv,
+                                     const char* string_ref,
+                                     char** string_retval) {
   bool bFound = false;
 
   if (argc >= 1) {
     for (int i = 1; i < argc; i++) {
       int string_start = stringRemoveDelimiter('-', argv[i]);
-      char *string_argv = const_cast<char *>(&argv[i][string_start]);
+      char* string_argv = const_cast<char*>(&argv[i][string_start]);
       int length = static_cast<int>(strlen(string_ref));
 
       if (!STRNCASECMP(string_argv, string_ref, length)) {
@@ -275,8 +276,8 @@ inline bool getCmdLineArgumentString(const int argc, const char **argv,
 //! @param filename         name of the file
 //! @param executable_path  optional absolute path of the executable
 //////////////////////////////////////////////////////////////////////////////
-inline char *sdkFindFilePath(const char *filename,
-                             const char *executable_path) {
+inline char* sdkFindFilePath(const char* filename,
+                             const char* executable_path) {
   // <executable_name> defines a variable that is replaced with the name of the
   // executable
 
@@ -284,13 +285,13 @@ inline char *sdkFindFilePath(const char *filename,
   // input data, or JIT source files) The origin for the relative search may be
   // the .exe file, a .bat file launching an .exe, a browser .exe launching the
   // .exe or .bat, etc
-  const char *searchPath[] = {
-      "./",                                           // same dir
-      "./data/",                                      // same dir
+  const char* searchPath[] = {
+      "./",       // same dir
+      "./data/",  // same dir
 
-      "../../../../Samples/<executable_name>/",       // up 4 in tree
-      "../../../Samples/<executable_name>/",          // up 3 in tree
-      "../../Samples/<executable_name>/",             // up 2 in tree
+      "../../../../Samples/<executable_name>/",  // up 4 in tree
+      "../../../Samples/<executable_name>/",     // up 3 in tree
+      "../../Samples/<executable_name>/",        // up 2 in tree
 
       "../../../../Samples/<executable_name>/data/",  // up 4 in tree
       "../../../Samples/<executable_name>/data/",     // up 3 in tree
@@ -304,57 +305,81 @@ inline char *sdkFindFilePath(const char *filename,
       "../../../Samples/1_Utilities/<executable_name>/",     // up 3 in tree
       "../../Samples/1_Utilities/<executable_name>/",        // up 2 in tree
 
-      "../../../../Samples/2_Concepts_and_Techniques/<executable_name>/",  // up 4 in tree
-      "../../../Samples/2_Concepts_and_Techniques/<executable_name>/",     // up 3 in tree
-      "../../Samples/2_Concepts_and_Techniques/<executable_name>/",        // up 2 in tree
+      "../../../../Samples/2_Concepts_and_Techniques/<executable_name>/",  // up
+                                                                           // 4
+                                                                           // in
+                                                                           // tree
+      "../../../Samples/2_Concepts_and_Techniques/<executable_name>/",  // up 3
+                                                                        // in
+                                                                        // tree
+      "../../Samples/2_Concepts_and_Techniques/<executable_name>/",  // up 2 in
+                                                                     // tree
 
       "../../../../Samples/3_CUDA_Features/<executable_name>/",  // up 4 in tree
       "../../../Samples/3_CUDA_Features/<executable_name>/",     // up 3 in tree
       "../../Samples/3_CUDA_Features/<executable_name>/",        // up 2 in tree
 
-      "../../../../Samples/4_CUDA_Libraries/<executable_name>/",  // up 4 in tree
-      "../../../Samples/4_CUDA_Libraries/<executable_name>/",     // up 3 in tree
-      "../../Samples/4_CUDA_Libraries/<executable_name>/",        // up 2 in tree
+      "../../../../Samples/4_CUDA_Libraries/<executable_name>/",  // up 4 in
+                                                                  // tree
+      "../../../Samples/4_CUDA_Libraries/<executable_name>/",  // up 3 in tree
+      "../../Samples/4_CUDA_Libraries/<executable_name>/",     // up 2 in tree
 
-      "../../../../Samples/5_Domain_Specific/<executable_name>/",  // up 4 in tree
-      "../../../Samples/5_Domain_Specific/<executable_name>/",     // up 3 in tree
-      "../../Samples/5_Domain_Specific/<executable_name>/",        // up 2 in tree
+      "../../../../Samples/5_Domain_Specific/<executable_name>/",  // up 4 in
+                                                                   // tree
+      "../../../Samples/5_Domain_Specific/<executable_name>/",  // up 3 in tree
+      "../../Samples/5_Domain_Specific/<executable_name>/",     // up 2 in tree
 
       "../../../../Samples/6_Performance/<executable_name>/",  // up 4 in tree
       "../../../Samples/6_Performance/<executable_name>/",     // up 3 in tree
       "../../Samples/6_Performance/<executable_name>/",        // up 2 in tree
 
-      "../../../../Samples/0_Introduction/<executable_name>/data/",  // up 4 in tree
-      "../../../Samples/0_Introduction/<executable_name>/data/",     // up 3 in tree
-      "../../Samples/0_Introduction/<executable_name>/data/",        // up 2 in tree
+      "../../../../Samples/0_Introduction/<executable_name>/data/",  // up 4 in
+                                                                     // tree
+      "../../../Samples/0_Introduction/<executable_name>/data/",     // up 3 in
+                                                                     // tree
+      "../../Samples/0_Introduction/<executable_name>/data/",  // up 2 in tree
 
-      "../../../../Samples/1_Utilities/<executable_name>/data/",  // up 4 in tree
-      "../../../Samples/1_Utilities/<executable_name>/data/",     // up 3 in tree
-      "../../Samples/1_Utilities/<executable_name>/data/",        // up 2 in tree
+      "../../../../Samples/1_Utilities/<executable_name>/data/",  // up 4 in
+                                                                  // tree
+      "../../../Samples/1_Utilities/<executable_name>/data/",  // up 3 in tree
+      "../../Samples/1_Utilities/<executable_name>/data/",     // up 2 in tree
 
       "../../../../Samples/2_Concepts_and_Techniques/<executable_name>/data/",  // up 4 in tree
-      "../../../Samples/2_Concepts_and_Techniques/<executable_name>/data/",     // up 3 in tree
-      "../../Samples/2_Concepts_and_Techniques/<executable_name>/data/",        // up 2 in tree
+      "../../../Samples/2_Concepts_and_Techniques/<executable_name>/data/",  // up 3 in tree
+      "../../Samples/2_Concepts_and_Techniques/<executable_name>/data/",  // up
+                                                                          // 2
+                                                                          // in
+                                                                          // tree
 
-      "../../../../Samples/3_CUDA_Features/<executable_name>/data/",  // up 4 in tree
-      "../../../Samples/3_CUDA_Features/<executable_name>/data/",     // up 3 in tree
-      "../../Samples/3_CUDA_Features/<executable_name>/data/",        // up 2 in tree
+      "../../../../Samples/3_CUDA_Features/<executable_name>/data/",  // up 4 in
+                                                                      // tree
+      "../../../Samples/3_CUDA_Features/<executable_name>/data/",     // up 3 in
+                                                                      // tree
+      "../../Samples/3_CUDA_Features/<executable_name>/data/",  // up 2 in tree
 
-      "../../../../Samples/4_CUDA_Libraries/<executable_name>/data/",  // up 4 in tree
-      "../../../Samples/4_CUDA_Libraries/<executable_name>/data/",     // up 3 in tree
-      "../../Samples/4_CUDA_Libraries/<executable_name>/data/",        // up 2 in tree
+      "../../../../Samples/4_CUDA_Libraries/<executable_name>/data/",  // up 4
+                                                                       // in
+                                                                       // tree
+      "../../../Samples/4_CUDA_Libraries/<executable_name>/data/",  // up 3 in
+                                                                    // tree
+      "../../Samples/4_CUDA_Libraries/<executable_name>/data/",  // up 2 in tree
 
-      "../../../../Samples/5_Domain_Specific/<executable_name>/data/",  // up 4 in tree
-      "../../../Samples/5_Domain_Specific/<executable_name>/data/",     // up 3 in tree
-      "../../Samples/5_Domain_Specific/<executable_name>/data/",        // up 2 in tree
+      "../../../../Samples/5_Domain_Specific/<executable_name>/data/",  // up 4
+                                                                        // in
+                                                                        // tree
+      "../../../Samples/5_Domain_Specific/<executable_name>/data/",  // up 3 in
+                                                                     // tree
+      "../../Samples/5_Domain_Specific/<executable_name>/data/",     // up 2 in
+                                                                     // tree
 
-      "../../../../Samples/6_Performance/<executable_name>/data/",  // up 4 in tree
-      "../../../Samples/6_Performance/<executable_name>/data/",     // up 3 in tree
-      "../../Samples/6_Performance/<executable_name>/data/",        // up 2 in tree
+      "../../../../Samples/6_Performance/<executable_name>/data/",  // up 4 in
+                                                                    // tree
+      "../../../Samples/6_Performance/<executable_name>/data/",  // up 3 in tree
+      "../../Samples/6_Performance/<executable_name>/data/",     // up 2 in tree
 
-      "../../../../Common/data/",                     // up 4 in tree
-      "../../../Common/data/",                        // up 3 in tree
-      "../../Common/data/"                            // up 2 in tree
+      "../../../../Common/data/",  // up 4 in tree
+      "../../../Common/data/",     // up 3 in tree
+      "../../Common/data/"         // up 2 in tree
   };
 
   // Extract the executable name
@@ -381,7 +406,7 @@ inline char *sdkFindFilePath(const char *filename,
   }
 
   // Loop over all search paths and return the first hit
-  for (unsigned int i = 0; i < sizeof(searchPath) / sizeof(char *); ++i) {
+  for (unsigned int i = 0; i < sizeof(searchPath) / sizeof(char*); ++i) {
     std::string path(searchPath[i]);
     size_t executable_name_pos = path.find("<executable_name>");
 
@@ -403,14 +428,14 @@ inline char *sdkFindFilePath(const char *filename,
 
     // Test if the file exists
     path.append(filename);
-    FILE *fp;
+    FILE* fp;
     FOPEN(fp, path.c_str(), "rb");
 
     if (fp != NULL) {
       fclose(fp);
       // File found
       // returning an allocated array here for backwards compatibility reasons
-      char *file_path = reinterpret_cast<char *>(malloc(path.length() + 1));
+      char* file_path = reinterpret_cast<char*>(malloc(path.length() + 1));
       STRCPY(file_path, path.length() + 1, path.c_str());
       return file_path;
     }
