@@ -1,3 +1,6 @@
+# Include CTest module to enable testing support
+include(CTest)
+
 # Only add CUDA tests if CUDA is available
 if(ENABLE_CUDA_ACCELERATION)
     # Device Query Test (CUDA)

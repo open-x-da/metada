@@ -27,8 +27,7 @@ include(CUDA)
 # Add source directory
 add_subdirectory(src)
 
-# Enable testing before adding tests subdirectory
-include(CTest)
+# Add tests subdirectory for unit testing and integration tests
 add_subdirectory(tests)
 
 # Add documentation directory
