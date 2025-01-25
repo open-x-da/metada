@@ -9,7 +9,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Include project configuration module
 include(ProjectSetup)
-include(CodeFormat)
 
 # Configure project with additional settings
 metada_project_settings(metada

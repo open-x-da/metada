@@ -31,6 +31,9 @@ function(metada_project_settings name)
     # Include compiler flags configuration
     include(CompilerFlags)
 
+    # Include code formatting configuration
+    include(CodeFormat)
+
     # Set build type specific flags
     if(NOT CMAKE_BUILD_TYPE)
         set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
