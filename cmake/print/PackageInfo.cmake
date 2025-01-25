@@ -1,30 +1,29 @@
 # Print package information
-include(print/Headers)
 include(package/Path)
 
 function(print_package_info package)
     if(NOT ${package}_FOUND)
-        message(STATUS "  - ${package}: Not found")
+        print_item("${package}: Not found")
         return()
     endif()
 
     # Print basic info
     if(${package}_VERSION)
-        message(STATUS "  - ${package}: Found (${${package}_VERSION})")
+        print_item("${package}: Found (version ${${package}_VERSION})")
     else()
-        message(STATUS "  - ${package}: Found")
+        print_item("${package}: Found")
     endif()
 
     # Print path if available
     get_package_path(${package} path)
     if(path)
-        message(STATUS "    Path: ${path}")
+        print_subitem("Path: ${path}")
     endif()
 
     # Print components
     get_package_components(${package} components)
     if(components)
-        message(STATUS "    Components:")
+        print_subitem("Components:")
         foreach(component ${components})
             if(${package}_${component}_FOUND)
                 message(STATUS "      - ${component}: Found")
