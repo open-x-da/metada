@@ -17,9 +17,13 @@ if(BUILD_SPHINX)
             COMMENT "Generating documentation with Sphinx"
             VERBATIM
         )
-        if(TARGET lorenz95_python_test)
-            add_dependencies(sphinx lorenz95_python_test)
-        endif()
+        # Add dependencies on Python test targets that generate API documentation
+        # This ensures documentation is generated before Sphinx build
+        foreach(test_target ${PYTHON_TEST_TARGETS})
+            if(TARGET ${test_target})
+                add_dependencies(sphinx ${test_target})
+            endif()
+        endforeach()
         add_dependencies(docs sphinx)
     endif()
 endif() 
