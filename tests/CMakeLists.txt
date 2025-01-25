@@ -1,5 +1,5 @@
 # Only add CUDA tests if CUDA is available
-if(USE_CUDA)
+if(ENABLE_CUDA_ACCELERATION)
     # Device Query Test (CUDA)
     add_executable(device_query_test device_query_test.cpp)
     target_compile_features(device_query_test PRIVATE cuda_std_11)

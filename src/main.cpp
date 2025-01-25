@@ -1,4 +1,6 @@
+#ifndef NO_CUDA
 #include <cuda_runtime.h>
+#endif
 #include "helpers/helper_cuda.h"
 #include <iostream>
 

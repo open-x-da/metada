@@ -23,11 +23,33 @@ protected:
     void TearDown() override {
         // Clean up log files
         google::ShutdownGoogleLogging();
-        // std::filesystem::remove_all(log_dir);
+        std::filesystem::remove_all(log_dir);
     }
 
     std::filesystem::path log_dir;
 };
+
+// Helper function to find log file by severity
+bool find_log_file(const std::filesystem::path& dir, const std::string& severity) {
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        if (entry.path().string().find(severity) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Helper function to read log file content
+std::string read_log_file(const std::filesystem::path& dir, const std::string& severity) {
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        if (entry.path().string().find(severity) != std::string::npos) {
+            std::ifstream file(entry.path());
+            return std::string((std::istreambuf_iterator<char>(file)),
+                              std::istreambuf_iterator<char>());
+        }
+    }
+    return "";
+}
 
 // Test basic logging levels
 TEST_F(GLogTest, LogLevels) {
@@ -35,10 +57,16 @@ TEST_F(GLogTest, LogLevels) {
     LOG(WARNING) << "Warning message";
     LOG(ERROR) << "Error message";
     
-    // Verify log files exist
-    EXPECT_TRUE(std::filesystem::exists(log_dir/"INFO"));
-    EXPECT_TRUE(std::filesystem::exists(log_dir/"WARNING"));
-    EXPECT_TRUE(std::filesystem::exists(log_dir/"ERROR"));
+    // Flush all severity levels
+    google::FlushLogFiles(google::GLOG_INFO);
+    google::FlushLogFiles(google::GLOG_WARNING);
+    google::FlushLogFiles(google::GLOG_ERROR);
+    google::FlushLogFiles(google::GLOG_FATAL);
+
+    // Verify log files exist with correct pattern
+    EXPECT_TRUE(find_log_file(log_dir, "INFO"));
+    EXPECT_TRUE(find_log_file(log_dir, "WARNING"));
+    EXPECT_TRUE(find_log_file(log_dir, "ERROR"));
 }
 
 // Test conditional logging
@@ -49,9 +77,10 @@ TEST_F(GLogTest, ConditionalLogging) {
     LOG_IF(INFO, should_log) << "This should be logged";
     LOG_IF(INFO, should_not_log) << "This should not be logged";
     
-    std::ifstream log_file(log_dir/"INFO");
-    std::string content((std::istreambuf_iterator<char>(log_file)),
-                        std::istreambuf_iterator<char>());
+    // Flush the logs to ensure they're written
+    google::FlushLogFiles(google::GLOG_INFO);
+
+    std::string content = read_log_file(log_dir, "INFO");
     
     EXPECT_TRUE(content.find("This should be logged") != std::string::npos);
     EXPECT_TRUE(content.find("This should not be logged") == std::string::npos);
@@ -77,9 +106,10 @@ TEST_F(GLogTest, VerboseLogging) {
     VLOG(1) << "VLOG 1 message";  // Should appear
     VLOG(2) << "VLOG 2 message";  // Should not appear
     
-    std::ifstream log_file(log_dir/"INFO");
-    std::string content((std::istreambuf_iterator<char>(log_file)),
-                        std::istreambuf_iterator<char>());
+    // Flush the logs to ensure they're written
+    google::FlushLogFiles(google::GLOG_INFO);
+    
+    std::string content = read_log_file(log_dir, "INFO");
     
     EXPECT_TRUE(content.find("VLOG 0 message") != std::string::npos);
     EXPECT_TRUE(content.find("VLOG 1 message") != std::string::npos);
