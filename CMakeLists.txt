@@ -35,4 +35,4 @@ add_subdirectory(tests)
 add_subdirectory(docs)
 
 # Print configuration summary
-include(PrintConfig)
+metada_project_summary()

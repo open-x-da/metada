@@ -38,4 +38,7 @@ function(metada_project_settings name)
 
     # Include package configuration module
     include(package/Config)
+    
+    # Include printing utilities for configuration summary
+    include(print/Config)
 endfunction()

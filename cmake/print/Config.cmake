@@ -4,7 +4,7 @@ include(print/CompilerInfo)
 include(print/BuildInfo)
 include(print/SystemInfo)
 
-function(print_configuration_summary)
+function(metada_project_summary)
     print_header("METADA Configuration Summary")
     
     # System information
@@ -33,5 +33,3 @@ function(print_configuration_summary)
     
     message(STATUS "\n") # Add final newline
 endfunction()
-
-print_configuration_summary()
