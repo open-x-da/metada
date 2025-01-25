@@ -37,5 +37,5 @@ function(metada_project_settings name)
     endif()
 
     # Include package configuration module
-    include(PackageConfig)
+    include(package/Config)
 endfunction()
