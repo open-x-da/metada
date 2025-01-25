@@ -18,12 +18,16 @@ if(SPHINX_EXECUTABLE)
         string(REGEX REPLACE "^sphinx-build ([0-9]+\\.[0-9]+\\.[0-9]+).*" "\\1"
             SPHINX_VERSION "${SPHINX_VERSION_OUTPUT}")
     endif()
+
+    # Set build component as found if sphinx-build exists
+    set(Sphinx_build_FOUND TRUE)
 endif()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Sphinx
     REQUIRED_VARS SPHINX_EXECUTABLE
     VERSION_VAR SPHINX_VERSION
+    HANDLE_COMPONENTS
 )
 
 mark_as_advanced(SPHINX_EXECUTABLE SPHINX_VERSION) 

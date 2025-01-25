@@ -38,6 +38,11 @@ function(metada_find_package package)
     # Find package with its components
     find_package(${find_args})
 
+    # Store components for later reporting
+    if(ARG_COMPONENTS)
+        set_property(GLOBAL APPEND PROPERTY ${package}_COMPONENTS ${ARG_COMPONENTS})
+    endif()
+
     # Convert package name to uppercase for compatibility with some CMake variables
     string(TOUPPER ${package} PACKAGE_UPPER)
     
