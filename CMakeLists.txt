@@ -17,7 +17,6 @@ metada_project_settings(metada
 )
 
 # Find required packages
-metada_find_package(GTest)
 metada_find_package(Python3 COMPONENTS Development NumPy)
 metada_find_package(glog)
 
@@ -30,7 +29,7 @@ add_subdirectory(src)
 # Add format target
 add_format_target()
 
-# Enable testing
+# Add test suite directory
 include(CTest)
 add_subdirectory(tests)
 

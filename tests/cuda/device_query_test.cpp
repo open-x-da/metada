@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 #include <gtest/gtest.h>
 
-#include "../src/helpers/helper_cuda.h"
+#include "helpers/helper_cuda.h"
 
 /**
  * @brief Test fixture for CUDA device query tests
