@@ -8,7 +8,7 @@ project(metada)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Include project configuration module
-include(metada_building)
+include(ProjectSetup)
 
 # Configure project with additional settings
 metada_project_settings(metada
@@ -27,8 +27,7 @@ include(CUDA)
 # Add source directory
 add_subdirectory(src)
 
-# Enable testing before adding subdirectory
-enable_testing()
+# Enable testing before adding tests subdirectory
 include(CTest)
 add_subdirectory(tests)
 
