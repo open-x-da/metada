@@ -32,8 +32,8 @@ enable_testing()
 include(CTest)
 add_subdirectory(tests)
 
-# Configure documentation
-include(Documentation)
+# Add documentation directory
+add_subdirectory(docs)
 
 # Print configuration summary
 include(PrintConfig)
