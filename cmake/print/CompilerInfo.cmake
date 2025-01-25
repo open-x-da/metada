@@ -13,7 +13,22 @@ function(print_compiler_info)
     endif()
     
     if(CMAKE_Fortran_COMPILER)
-        message(STATUS "  - Fortran compiler: ${CMAKE_Fortran_COMPILER_ID} ${CMAKE_Fortran_COMPILER_VERSION}")
+        # Get Fortran compiler version if not available through CMake variables
+        if(NOT CMAKE_Fortran_COMPILER_VERSION)
+            execute_process(
+                COMMAND ${CMAKE_Fortran_COMPILER} --version
+                OUTPUT_VARIABLE FORTRAN_VERSION_OUTPUT
+                ERROR_VARIABLE FORTRAN_VERSION_ERROR
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            if(FORTRAN_VERSION_OUTPUT)
+                string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" FORTRAN_VERSION "${FORTRAN_VERSION_OUTPUT}")
+            endif()
+        else()
+            set(FORTRAN_VERSION ${CMAKE_Fortran_COMPILER_VERSION})
+        endif()
+
+        message(STATUS "  - Fortran compiler: ${CMAKE_Fortran_COMPILER_ID} ${FORTRAN_VERSION}")
         message(STATUS "    Path: ${CMAKE_Fortran_COMPILER}")
     endif()
 
