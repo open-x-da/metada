@@ -18,10 +18,11 @@ metada_project_settings(metada
 
 # Find required packages
 metada_find_package(Python3 COMPONENTS Development NumPy)
-metada_find_package(glog)
+metada_find_package(Glog)
 metada_find_package(GTest)
 metada_find_package(Git)
 metada_find_package(ClangFormat)
+metada_find_package(Lcov)
 
 # Configure CUDA support
 include(CUDA)

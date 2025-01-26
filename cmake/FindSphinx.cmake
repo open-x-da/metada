@@ -13,7 +13,9 @@ if(SPHINX_EXECUTABLE)
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
-    if(SPHINX_VERSION_RESULT EQUAL 0)
+    if(NOT SPHINX_VERSION_RESULT EQUAL 0)
+        message(WARNING "Failed to get sphinx-build version: ${SPHINX_VERSION_ERROR}")
+    else()
         # Extract version from output (format: "sphinx-build X.Y.Z")
         string(REGEX REPLACE "^sphinx-build ([0-9]+\\.[0-9]+\\.[0-9]+).*" "\\1"
             SPHINX_VERSION "${SPHINX_VERSION_OUTPUT}")

@@ -50,7 +50,9 @@ if(ClangFormat_EXECUTABLE)
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
-    if(ClangFormat_VERSION_RESULT EQUAL 0)
+    if(NOT ClangFormat_VERSION_RESULT EQUAL 0)
+        message(WARNING "Failed to get clang-format version: ${ClangFormat_VERSION_ERROR}")
+    else()
         # Extract version from output (format: "clang-format version X.Y.Z")
         if(ClangFormat_VERSION_OUTPUT MATCHES "version ([0-9]+\\.[0-9]+\\.[0-9]+)")
             set(ClangFormat_VERSION "${CMAKE_MATCH_1}")
