@@ -6,6 +6,7 @@ function(get_package_path package out_var)
         set(path "${${package}_DIR}")
     elseif(DEFINED ${package}_ROOT)
         set(path "${${package}_ROOT}")
+    # Special case for CUDA toolkit binary directory
     elseif(DEFINED ${package}_BIN_DIR)
         set(path "${${package}_BIN_DIR}")
     elseif(DEFINED ${PACKAGE_UPPER}_EXECUTABLE)

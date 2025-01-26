@@ -7,3 +7,6 @@ target_link_libraries(glog_test
         GTest::gtest_main
 )
 gtest_discover_tests(glog_test) 
+
+# Add format target
+add_format_target(glog_test ${CMAKE_CURRENT_SOURCE_DIR})

@@ -18,6 +18,9 @@ if(ENABLE_CUDA_ACCELERATION)
     )
     gtest_discover_tests(device_query_test)
 
+    # Add format target
+    add_format_target(device_query_test ${CMAKE_CURRENT_SOURCE_DIR})
+
     # CUDA Test Suite
     add_executable(cuda_test cuda_test.cpp)
     target_link_libraries(cuda_test
@@ -28,4 +31,7 @@ if(ENABLE_CUDA_ACCELERATION)
             GTest::gtest_main
     )
     gtest_discover_tests(cuda_test)
+
+    # Add format target
+    add_format_target(cuda_test ${CMAKE_CURRENT_SOURCE_DIR})
 endif() 

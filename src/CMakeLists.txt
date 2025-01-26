@@ -27,6 +27,9 @@ set_target_properties(metada PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 
+# Add format target
+add_format_target(metada ${CMAKE_CURRENT_SOURCE_DIR})
+
 # Install rules
 install(TARGETS metada
     RUNTIME DESTINATION bin

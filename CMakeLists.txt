@@ -19,15 +19,14 @@ metada_project_settings(metada
 # Find required packages
 metada_find_package(Python3 COMPONENTS Development NumPy)
 metada_find_package(glog)
+metada_find_package(GTest)
+metada_find_package(Git)
 
 # Configure CUDA support
 include(CUDA)
 
 # Add source directory
 add_subdirectory(src)
-
-# Add format target
-add_format_target()
 
 # Add test suite directory
 include(CTest)

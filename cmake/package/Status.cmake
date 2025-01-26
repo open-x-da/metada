@@ -14,6 +14,9 @@ function(set_package_status package)
     # Handle version
     if(DEFINED ${PACKAGE_UPPER}_VERSION)
         set(${package}_VERSION "${${PACKAGE_UPPER}_VERSION}" CACHE INTERNAL "" FORCE)
+    # Git uses VERSION_STRING instead of VERSION
+    elseif(DEFINED ${PACKAGE_UPPER}_VERSION_STRING)
+        set(${package}_VERSION "${${PACKAGE_UPPER}_VERSION_STRING}" CACHE INTERNAL "" FORCE)
     elseif(DEFINED ${package}_VERSION)
         set(${package}_VERSION "${${package}_VERSION}" CACHE INTERNAL "" FORCE)
     endif()
