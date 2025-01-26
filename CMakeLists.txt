@@ -21,6 +21,7 @@ metada_find_package(Python3 COMPONENTS Development NumPy)
 metada_find_package(glog)
 metada_find_package(GTest)
 metada_find_package(Git)
+metada_find_package(ClangFormat)
 
 # Configure CUDA support
 include(CUDA)
