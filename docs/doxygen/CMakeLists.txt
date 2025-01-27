@@ -42,6 +42,5 @@ if(BUILD_DOXYGEN)
             ${PROJECT_SOURCE_DIR}/tests
             COMMENT "Generating documentation with Doxygen"
         )
-        add_dependencies(docs doxygen)
     endif()
 endif() 
