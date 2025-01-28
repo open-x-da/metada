@@ -60,7 +60,7 @@ Installing Visual Studio Code
       code --install-extension twxs.cmake
 
 Configuring VS Code
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 
 1. Create or modify ``.vscode/settings.json``:
 
@@ -76,7 +76,7 @@ Configuring VS Code
       }
 
 Building the Project
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 1. Open VS Code in the project root directory
 2. Press ``Ctrl+Shift+P`` and run "CMake: Configure"
