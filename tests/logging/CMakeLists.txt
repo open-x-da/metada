@@ -13,12 +13,12 @@ set_target_properties(glog_test PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 
-# Link filesystem library if needed
-if(APPLE)
+# Only link filesystem library on older Apple systems
+if(APPLE AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
     target_link_libraries(glog_test PRIVATE c++fs)
 endif()
 
-gtest_discover_tests(glog_test) 
+gtest_discover_tests(glog_test)
 
 # Add format target
 add_format_target(glog_test ${CMAKE_CURRENT_SOURCE_DIR})
