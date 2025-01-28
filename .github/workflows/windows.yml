@@ -43,22 +43,19 @@ jobs:
           mingw-w64-x86_64-python
           mingw-w64-x86_64-python-pip
           mingw-w64-x86_64-python-numpy
-          mingw-w64-x86_64-python-devel
           mingw-w64-x86_64-gtest
           mingw-w64-x86_64-glog
           mingw-w64-x86_64-clang-tools-extra
           mingw-w64-x86_64-lcov
 
-    - name: Install Python Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install numpy
-
     - name: Configure CMake
       run: |
         mkdir build
         cd build
-        cmake -G Ninja ..
+        cmake -G Ninja \
+          -DPython3_ROOT_DIR=/mingw64 \
+          -DPython3_EXECUTABLE=/mingw64/bin/python3 \
+          ..
 
     - name: Build
       run: |
