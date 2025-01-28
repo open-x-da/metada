@@ -12,6 +12,10 @@ spack:
   - py-numpy
   - py-scipy
   - py-matplotlib
+  - googletest@1.11.0: +gmock
+  - glog@0.6.0:
+  - lcov@1.16:
+  - clang@15.0.0:
 
   # Package configuration
   packages:
@@ -24,6 +28,10 @@ spack:
     python:
       variants: +shared
       version: [3.8.0:]
+
+    googletest:
+      variants: +gmock
+      version: [1.11.0:]
 
     all:
       compiler: [gcc@11.0.0:]
