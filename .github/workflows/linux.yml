@@ -3,8 +3,21 @@ name: Linux
 on:
   push:
     branches: [ master ]
+    paths:
+      - '.github/workflows/linux.yml'
+      - 'cmake/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
+
   pull_request:
     branches: [ master ]
+    paths:
+      - '.github/workflows/linux.yml'
+      - 'cmake/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
 
 jobs:
   build:
@@ -35,6 +48,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_C_COMPILER=gcc \
           -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_Fortran_COMPILER=gfortran \
           ..
 
     - name: Build
