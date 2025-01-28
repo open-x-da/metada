@@ -6,7 +6,7 @@
 ### Continuous Integration:
 | Platform      | Status |
 | ------------- | ------ |
-| Linux         | ![Linux Build](https://github.com/your-org/metada/workflows/Linux/badge.svg) |
+| Linux         | ![Linux Build](https://github.com/open-x-da/metada/workflows/Linux/badge.svg) |
 | macOS         | ![macOS Build](https://github.com/your-org/metada/workflows/macOS/badge.svg) |
 | Windows       | ![Windows Build](https://github.com/open-x-da/metada/workflows/Windows/badge.svg) |
 | Code Coverage | [![codecov](https://codecov.io/gh/your-org/metada/branch/main/graph/badge.svg)](https://codecov.io/gh/your-org/metada) |

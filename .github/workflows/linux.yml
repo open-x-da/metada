@@ -1,0 +1,63 @@
+name: Linux
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          python3-dev \
+          python3-numpy \
+          libgtest-dev \
+          libgoogle-glog-dev \
+          clang-format \
+          lcov
+
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_COMPILER=g++ \
+          ..
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build .
+
+    - name: Test
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    # Coverage upload temporarily disabled until coverage generation is properly configured
+    # - name: Generate coverage report
+    #   run: |
+    #     cd build
+    #     lcov --capture --directory . --output-file coverage.info
+    #     lcov --remove coverage.info '/usr/*' --output-file coverage.info
+    
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     files: ./build/coverage.info
+    #     flags: linux
+    #     name: linux-coverage
+    #     fail_ci_if_error: true 
