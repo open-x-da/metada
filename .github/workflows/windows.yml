@@ -9,7 +9,6 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'CMakeLists.txt'
-      - 'vcpkg.json'
   pull_request:
     branches: [ master ]
     paths:
@@ -18,7 +17,6 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'CMakeLists.txt'
-      - 'vcpkg.json'
 
 jobs:
   build:

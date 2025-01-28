@@ -40,7 +40,6 @@ WORKDIR /opt/metada
 # Copy CMake configuration
 COPY CMakeLists.txt .
 COPY cmake ./cmake
-COPY vcpkg.json .
 
 # Copy source code
 COPY src ./src

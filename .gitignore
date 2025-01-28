@@ -64,9 +64,6 @@ Testing/
 *.cubin
 *.fatbin
 
-# vcpkg
-vcpkg_installed/
-
 # OS specific
 .DS_Store
 Thumbs.db
