@@ -6,13 +6,13 @@ macOS Installation Guide
    or alternative GPU computing solutions.
 
 Prerequisites
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 1. **Homebrew** package manager
 2. **Development tools** and libraries
 
 Installing Dependencies
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 1. Install GFortran and core dependencies:
 
@@ -34,7 +34,7 @@ Installing Dependencies
         lcov
 
 Building METADA
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 1. Configure the project:
 
@@ -58,7 +58,7 @@ Building METADA
       cmake --build .
 
 Running Tests
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 Execute the test suite:
 
