@@ -1,92 +1,102 @@
 Windows Installation Guide
 ==========================
 
-Setting up Development Environment for METADA
+Setting up Development Environment with MSYS2
 ---------------------------------------------
 
 Prerequisites
 ~~~~~~~~~~~~~
 
-Before starting, ensure you have the following installed:
+1. **NVIDIA GPU** with CUDA support (optional, for GPU acceleration)
+2. **MSYS2** (required)
+   - Download from `MSYS2 website <https://www.msys2.org/>`_
+   - Run the installer and follow the installation wizard
 
-1. **NVIDIA GPU** with CUDA support (for GPU acceleration)
-2. **CUDA Toolkit** (latest version recommended)
-   - Download from `NVIDIA CUDA Toolkit <https://developer.nvidia.com/cuda-downloads>`_
-   - Choose the Windows installer that matches your system
-3. **Visual Studio Build Tools** (required for compilation)
-   - Download from `Visual Studio Downloads <https://visualstudio.microsoft.com/downloads/>`_
-   - Select "Desktop development with C++" workload during installation
+Installing Required Packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Open "MSYS2 MinGW64" terminal and update the system:
+
+   .. code-block:: bash
+
+      pacman -Syu
+
+2. Install required development packages:
+
+   .. code-block:: bash
+
+      pacman -S mingw-w64-x86_64-gcc
+      pacman -S mingw-w64-x86_64-cmake
+      pacman -S mingw-w64-x86_64-ninja
+      pacman -S mingw-w64-x86_64-python
+      pacman -S mingw-w64-x86_64-python-numpy
+      pacman -S mingw-w64-x86_64-gtest
+      pacman -S mingw-w64-x86_64-glog
+      pacman -S mingw-w64-x86_64-clang-tools-extra
+      pacman -S mingw-w64-x86_64-lcov
+
+3. Install optional packages:
+
+   .. code-block:: bash
+
+      # For CUDA support (optional)
+      pacman -S mingw-w64-x86_64-cuda
+
+      # For documentation generation (optional)
+      pacman -S mingw-w64-x86_64-doxygen
+      pacman -S mingw-w64-x86_64-python-sphinx
+      pacman -S mingw-w64-x86_64-graphviz
 
 Installing Visual Studio Code
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Download Visual Studio Code from the `official website <https://code.visualstudio.com/>`_
-2. Run the installer and follow the installation wizard
-3. Launch VS Code after installation
-
-Required Extensions
-~~~~~~~~~~~~~~~~~~~
-
-Install the following VS Code extensions:
-
-1. **C/C++** (Microsoft)
-   - Provides C++ language support
-   - Install from VS Code marketplace or using command:
-     
-     ``code --install-extension ms-vscode.cpptools``
-
-2. **CMake Tools** (Microsoft)
-   - Provides CMake integration
-   - Install from VS Code marketplace or using command:
-     
-     ``code --install-extension ms-vscode.cmake-tools``
-
-Configuring the Build Environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-1. **Set up CMake configuration**:
+1. Download VS Code from the `official website <https://code.visualstudio.com/>`_
+2. Install these VS Code extensions:
    
-   Create or modify ``.vscode/settings.json``:
+   .. code-block:: bash
+
+      code --install-extension ms-vscode.cpptools
+      code --install-extension ms-vscode.cmake-tools
+      code --install-extension twxs.cmake
+
+Configuring VS Code
+~~~~~~~~~~~~~~~~~~
+
+1. Create or modify ``.vscode/settings.json``:
 
    .. code-block:: json
 
       {
+          "cmake.generator": "Ninja",
           "cmake.configureSettings": {
-              "CMAKE_CUDA_ARCHITECTURES": "75",
-              "CMAKE_CUDA_COMPILER": "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.1/bin/nvcc.exe"
+              "CMAKE_BUILD_TYPE": "Debug"
           },
-          "cmake.generator": "Visual Studio 17 2022",
-          "cmake.buildDirectory": "${workspaceFolder}/build"
+          "cmake.buildDirectory": "${workspaceFolder}/build",
+          "cmake.cmakePath": "C:/msys64/mingw64/bin/cmake.exe"
       }
 
-2. **Configure IntelliSense**:
-   
-   Create or modify ``.vscode/c_cpp_properties.json``:
+Building the Project
+~~~~~~~~~~~~~~~~~~~
 
-   .. literalinclude:: ../../../.vscode/c_cpp_properties.json
-      :language: json
-      :caption: .vscode/c_cpp_properties.json
-
-Building METADA
-~~~~~~~~~~~~~~~
-
-1. Open VS Code in the METADA root directory
-2. Press ``Ctrl+Shift+P`` and type "CMake: Configure"
-3. Select your compiler (Visual Studio 2022)
-4. Press ``Ctrl+Shift+P`` and type "CMake: Build"
+1. Open VS Code in the project root directory
+2. Press ``Ctrl+Shift+P`` and run "CMake: Configure"
+3. Press ``Ctrl+Shift+P`` and run "CMake: Build"
 
 Running Tests
 ~~~~~~~~~~~~~
 
-1. Build the project as described above
-2. Navigate to the build directory
-3. Run ``ctest`` or use VS Code's test explorer
+In VS Code terminal:
+
+.. code-block:: bash
+
+   cd build
+   ctest --output-on-failure
 
 Troubleshooting
 ~~~~~~~~~~~~~~~
 
 Common issues and solutions:
 
-- **CMake configuration fails**: Verify CUDA path in settings.json
-- **Build errors**: Ensure Visual Studio Build Tools are properly installed
-- **GPU not detected**: Check NVIDIA driver installation and GPU compatibility 
+- **CMake not found**: Ensure MSYS2's MinGW64 bin directory (C:/msys64/mingw64/bin) is in your system PATH
+- **Build errors**: Run ``pacman -Syu`` to ensure all packages are up to date
+- **CUDA errors**: Install CUDA Toolkit from NVIDIA's website if GPU support is needed 
