@@ -6,5 +6,6 @@ Design Philosophy
    :caption: Design Details:
 
    philosophy
+   existing_systems
    architecture
    components 
