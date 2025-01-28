@@ -17,6 +17,20 @@ build:
       # Install dependencies for building docs
       - pip install sphinx sphinx-rtd-theme breathe sphinx-copybutton
 
+# Only build docs when relevant files change
+build_trigger:
+  paths:
+    - docs/**/*
+    - .readthedocs.yaml
+    - CMakeLists.txt
+    - cmake/**/*
+    - src/**/*.h
+    - src/**/*.hpp
+    - src/**/*.cpp
+    - tests/**/*.h
+    - tests/**/*.hpp
+    - tests/**/*.cpp
+
 # Build documentation in the docs/sphinx directory with Sphinx
 sphinx:
   configuration: docs/sphinx/conf.py

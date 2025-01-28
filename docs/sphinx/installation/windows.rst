@@ -25,64 +25,66 @@ Installing Required Packages
 
    .. code-block:: bash
 
+      # Core development tools
       pacman -S mingw-w64-x86_64-gcc
+      pacman -S mingw-w64-x86_64-gcc-fortran
       pacman -S mingw-w64-x86_64-cmake
       pacman -S mingw-w64-x86_64-ninja
+
+      # Python and dependencies
       pacman -S mingw-w64-x86_64-python
+      pacman -S mingw-w64-x86_64-python-pip
       pacman -S mingw-w64-x86_64-python-numpy
+
+      # Testing and development tools
       pacman -S mingw-w64-x86_64-gtest
       pacman -S mingw-w64-x86_64-glog
       pacman -S mingw-w64-x86_64-clang-tools-extra
       pacman -S mingw-w64-x86_64-lcov
 
-3. Install optional packages:
+IDE Setup
+~~~~~~~~~
 
-   .. code-block:: bash
+1. Install VS Code from the `official website <https://code.visualstudio.com/>`_
+2. Install required extensions:
 
-      # For CUDA support (optional)
-      pacman -S mingw-w64-x86_64-cuda
-
-      # For documentation generation (optional)
-      pacman -S mingw-w64-x86_64-doxygen
-      pacman -S mingw-w64-x86_64-python-sphinx
-      pacman -S mingw-w64-x86_64-graphviz
-
-Installing Visual Studio Code
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-1. Download VS Code from the `official website <https://code.visualstudio.com/>`_
-2. Install these VS Code extensions:
-   
    .. code-block:: bash
 
       code --install-extension ms-vscode.cpptools
       code --install-extension ms-vscode.cmake-tools
       code --install-extension twxs.cmake
 
-Configuring VS Code
-~~~~~~~~~~~~~~~~~~~
+Building METADA
+~~~~~~~~~~~~~~~
 
-1. Create or modify ``.vscode/settings.json``:
+1. Configure the project:
 
-   .. literalinclude:: ../../../.vscode/settings.json
-      :language: json
+   .. code-block:: bash
 
-Building the Project
-~~~~~~~~~~~~~~~~~~~~
+      mkdir build
+      cd build
+      cmake -G Ninja \
+        -DPython3_ROOT_DIR=/mingw64 \
+        -DPython3_EXECUTABLE=/mingw64/bin/python3 \
+        ..
 
-1. Open VS Code in the project root directory
-2. Press ``Ctrl+Shift+P`` and run "CMake: Configure"
-3. Press ``Ctrl+Shift+P`` and run "CMake: Build"
+2. Build the project:
+
+   .. code-block:: bash
+
+      cmake --build .
 
 Running Tests
 ~~~~~~~~~~~~~
 
-In VS Code terminal:
+Execute the test suite:
 
 .. code-block:: bash
 
    cd build
    ctest --output-on-failure
+
+Note: Python tests are disabled on Windows with MSYS2.
 
 Troubleshooting
 ~~~~~~~~~~~~~~~

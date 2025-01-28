@@ -5,6 +5,68 @@ macOS Installation Guide
    While GPU acceleration via CUDA is not supported on macOS, METADA can still be used with CPU computations 
    or alternative GPU computing solutions.
 
+Prerequisites
+~~~~~~~~~~~~
+
+1. **Homebrew** package manager
+2. **Development tools** and libraries
+
+Installing Dependencies
+~~~~~~~~~~~~~~~~~~~~~
+
+1. Install GFortran and core dependencies:
+
+   .. code-block:: bash
+
+      brew update
+      # Install gfortran from gcc
+      brew install gcc@13
+      
+      # Install other dependencies
+      brew install \
+        cmake \
+        ninja \
+        python \
+        numpy \
+        googletest \
+        glog \
+        llvm \
+        lcov
+
+Building METADA
+~~~~~~~~~~~~~~
+
+1. Configure the project:
+
+   .. code-block:: bash
+
+      mkdir build
+      cd build
+      GFORTRAN_PATH=$(brew --prefix gcc@13)/bin/gfortran-13
+      cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_C_COMPILER=clang \
+        -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DCMAKE_Fortran_COMPILER=${GFORTRAN_PATH} \
+        ..
+
+2. Build the project:
+
+   .. code-block:: bash
+
+      cmake --build .
+
+Running Tests
+~~~~~~~~~~~~
+
+Execute the test suite:
+
+.. code-block:: bash
+
+   cd build
+   ctest --output-on-failure
+
 Alternative 1: Using Remote Development
 ---------------------------------------
 
