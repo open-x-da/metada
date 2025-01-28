@@ -6,6 +6,18 @@ target_link_libraries(glog_test
         GTest::gtest
         GTest::gtest_main
 )
+
+# Set C++17 standard for filesystem support
+set_target_properties(glog_test PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Link filesystem library if needed
+if(APPLE)
+    target_link_libraries(glog_test PRIVATE c++fs)
+endif()
+
 gtest_discover_tests(glog_test) 
 
 # Add format target
