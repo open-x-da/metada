@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
     paths:
-      - '.github/workflows/linux.yml'
+      - '.github/workflows/linux.yaml'
       - 'cmake/**'
       - 'src/**'
       - 'tests/**'
@@ -13,7 +13,7 @@ on:
   pull_request:
     branches: [ master ]
     paths:
-      - '.github/workflows/linux.yml'
+      - '.github/workflows/linux.yaml'
       - 'cmake/**'
       - 'src/**'
       - 'tests/**'

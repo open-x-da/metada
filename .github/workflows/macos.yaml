@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master ]
     paths:
-      - '.github/workflows/macos.yml'
+      - '.github/workflows/macos.yaml'
       - 'cmake/**'
       - 'src/**'
       - 'tests/**'
@@ -12,7 +12,7 @@ on:
   pull_request:
     branches: [ master ]
     paths:
-      - '.github/workflows/macos.yml'
+      - '.github/workflows/macos.yaml'
       - 'cmake/**'
       - 'src/**'
       - 'tests/**'
