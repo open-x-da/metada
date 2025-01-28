@@ -7,11 +7,6 @@ function(configure_compiler_flags)
             CACHE STRING "C++ compiler flags" FORCE)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wall" 
             CACHE STRING "Fortran compiler flags" FORCE)
-    elseif(MSVC)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4" 
-            CACHE STRING "C compiler flags" FORCE)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4" 
-            CACHE STRING "C++ compiler flags" FORCE)
     endif()
 endfunction()
 
