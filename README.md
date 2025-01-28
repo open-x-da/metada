@@ -7,9 +7,9 @@
 | Platform      | Status |
 | ------------- | ------ |
 | Linux         | ![Linux Build](https://github.com/open-x-da/metada/workflows/Linux/badge.svg) |
-| macOS         | ![macOS Build](https://github.com/your-org/metada/workflows/macOS/badge.svg) |
+| macOS         | ![macOS Build](https://github.com/open-x-da/metada/workflows/macOS/badge.svg) |
 | Windows       | ![Windows Build](https://github.com/open-x-da/metada/workflows/Windows/badge.svg) |
-| Code Coverage | [![codecov](https://codecov.io/gh/your-org/metada/branch/main/graph/badge.svg)](https://codecov.io/gh/your-org/metada) |
+| Code Coverage | [![codecov](https://codecov.io/gh/open-x-da/metada/branch/master/graph/badge.svg)](https://codecov.io/gh/open-x-da/metada) |
 
 ### License:
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
