@@ -9,7 +9,6 @@ if(ENABLE_CUDA_ACCELERATION)
     target_link_libraries(device_query_test 
         PRIVATE 
             cuda_settings
-            GTest::gtest 
             GTest::gtest_main
     )
     target_include_directories(device_query_test
@@ -27,7 +26,6 @@ if(ENABLE_CUDA_ACCELERATION)
         PRIVATE
             cuda_settings
             glog::glog
-            GTest::gtest
             GTest::gtest_main
     )
     gtest_discover_tests(cuda_test)

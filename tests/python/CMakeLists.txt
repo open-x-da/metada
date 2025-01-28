@@ -18,7 +18,6 @@ target_link_libraries(lorenz95_python_test
     PRIVATE
         Python3::Python
         Python3::NumPy
-        GTest::gtest
         GTest::gtest_main
 )
 gtest_discover_tests(lorenz95_python_test)
