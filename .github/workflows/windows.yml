@@ -1,0 +1,58 @@
+name: Windows
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-python
+          mingw-w64-x86_64-python-numpy
+          mingw-w64-x86_64-gtest
+          mingw-w64-x86_64-glog
+          mingw-w64-x86_64-clang-tools-extra
+          mingw-w64-x86_64-lcov
+
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake -G Ninja ..
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build .
+
+    - name: Test
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    # Coverage upload temporarily disabled until coverage generation is properly configured
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     files: ./build/coverage.info
+    #     flags: windows
+    #     name: windows-coverage
+    #     fail_ci_if_error: true 
