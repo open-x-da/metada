@@ -30,8 +30,9 @@ jobs:
         brew update
         # Install gfortran from gcc
         brew install gcc@13
-        # Create gfortran symlink
-        sudo ln -sf /usr/local/bin/gfortran-13 /usr/local/bin/gfortran
+        # Find gfortran location
+        GFORTRAN_PATH=$(brew --prefix gcc@13)/bin/gfortran-13
+        echo "Found gfortran at: ${GFORTRAN_PATH}"
         # Install other dependencies
         brew install \
           cmake \
@@ -47,12 +48,12 @@ jobs:
       run: |
         mkdir build
         cd build
-        # Use specific gfortran version
+        GFORTRAN_PATH=$(brew --prefix gcc@13)/bin/gfortran-13
         cmake -G Ninja \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_C_COMPILER=clang \
           -DCMAKE_CXX_COMPILER=clang++ \
-          -DCMAKE_Fortran_COMPILER=/usr/local/bin/gfortran-13 \
+          -DCMAKE_Fortran_COMPILER=${GFORTRAN_PATH} \
           ..
 
     - name: Build
