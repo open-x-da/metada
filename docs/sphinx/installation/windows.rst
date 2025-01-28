@@ -64,16 +64,8 @@ Configuring VS Code
 
 1. Create or modify ``.vscode/settings.json``:
 
-   .. code-block:: json
-
-      {
-          "cmake.generator": "Ninja",
-          "cmake.configureSettings": {
-              "CMAKE_BUILD_TYPE": "Debug"
-          },
-          "cmake.buildDirectory": "${workspaceFolder}/build",
-          "cmake.cmakePath": "C:/msys64/mingw64/bin/cmake.exe"
-      }
+   .. literalinclude:: ../../../.vscode/settings.json
+      :language: json
 
 Building the Project
 ~~~~~~~~~~~~~~~~~~~~
