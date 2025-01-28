@@ -28,6 +28,11 @@ jobs:
     - name: Install dependencies
       run: |
         brew update
+        # Install gfortran from gcc
+        brew install gcc@13
+        # Create gfortran symlink
+        sudo ln -sf /usr/local/bin/gfortran-13 /usr/local/bin/gfortran
+        # Install other dependencies
         brew install \
           cmake \
           ninja \
@@ -42,6 +47,7 @@ jobs:
       run: |
         mkdir build
         cd build
+        # Use specific gfortran version
         cmake -G Ninja \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_C_COMPILER=clang \
