@@ -10,6 +10,17 @@ function(metada_project_initialize)
         set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
     endif()
 
+    # Configure C++17 as the project standard
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+
+    # On older Apple systems (Clang < 9.0), the filesystem library needs to be explicitly linked
+    # This is because std::filesystem was experimental before C++17 and required separate linking
+    if(APPLE AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
+        link_libraries(c++fs)
+    endif()
+
     # Include compiler flags configuration
     include(CompilerFlags)
 
