@@ -1,5 +1,5 @@
-#ifndef METADA_GOOGLE_LOGGER_H
-#define METADA_GOOGLE_LOGGER_H
+#ifndef METADA_BACKENDS_LOGGING_GOOGLE_LOGGER_H
+#define METADA_BACKENDS_LOGGING_GOOGLE_LOGGER_H
 
 #include <glog/logging.h>
 
@@ -35,4 +35,4 @@ class GoogleLogger {
 }  // namespace logging
 }  // namespace metada
 
-#endif  // METADA_GOOGLE_LOGGER_H
+#endif  // METADA_BACKENDS_LOGGING_GOOGLE_LOGGER_H

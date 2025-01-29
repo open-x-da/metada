@@ -1,5 +1,5 @@
 #include <cuda_runtime.h>
-#include <glog/logging.h>
+#include "backends/logging/google/GoogleLogger.h"
 #include <gtest/gtest.h>
 
 class CUDATest : public ::testing::Test {

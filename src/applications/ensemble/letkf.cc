@@ -1,4 +1,4 @@
-#include "backends/logging/GoogleLogger.h"
+#include "backends/logging/google/GoogleLogger.h"
 #include "core/logging/Logger.h"
 
 using Logger = metada::logging::Logger<metada::logging::GoogleLogger>;

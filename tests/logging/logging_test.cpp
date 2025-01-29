@@ -1,15 +1,22 @@
 #include <gtest/gtest.h>
 
-#include "backends/logging/GoogleLogger.h"
 #include "core/logging/Logger.h"
 
-using Logger = metada::logging::Logger<metada::logging::GoogleLogger>;
+#ifdef USE_GLOG
+#include "backends/logging/google/GoogleLogger.h"
+using LoggerBackend = metada::logging::GoogleLogger;
+#else
+#include "backends/logging/default/DefaultLogger.h"
+using LoggerBackend = metada::logging::DefaultLogger;
+#endif
+
+using Logger = metada::logging::Logger<LoggerBackend>;
 
 class LoggingTest : public ::testing::Test {
  protected:
-  void SetUp() override { metada::logging::GoogleLogger::Init("logging_test"); }
+  void SetUp() override { LoggerBackend::Init("logging_test"); }
 
-  void TearDown() override { metada::logging::GoogleLogger::Shutdown(); }
+  void TearDown() override { LoggerBackend::Shutdown(); }
 
   Logger logger;
 };

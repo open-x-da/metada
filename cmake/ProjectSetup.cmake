@@ -35,4 +35,7 @@ function(metada_project_initialize)
     
     # Include printing utilities for configuration summary
     include(print/Config)
+
+    # Add at the beginning of metada_project_initialize() function
+    option(USE_GLOG "Enable Google logging backend" ON)
 endfunction()
