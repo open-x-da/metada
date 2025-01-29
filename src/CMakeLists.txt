@@ -1,45 +1,24 @@
-# Add main executable
-add_executable(metada main.cpp)
+# Add subdirectories
+add_subdirectory(core)
+add_subdirectory(backends)
+add_subdirectory(applications)
 
-# Link required libraries
-target_link_libraries(metada
-    PRIVATE
-        glog::glog
+# Create the main library
+add_library(metada_core INTERFACE)
+target_link_libraries(metada_core
+    INTERFACE
+        metada_core_logging
+        metada_backends_logging
 )
 
-# CUDA configuration
-if(USE_CUDA)
-    target_link_libraries(metada
-        PRIVATE
-            cuda_settings
-    )
-    target_include_directories(metada
-        PRIVATE
-            ${CUDAToolkit_INCLUDE_DIRS}
-    )
-else()
-    target_compile_definitions(metada
-        PRIVATE
-            NO_CUDA
-    )
-endif()
-
-# Set C++ standard
-set_target_properties(metada
-    PROPERTIES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED ON
+# Set include directories
+target_include_directories(metada_core
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# Clean coverage data before build
-CleanCoverage(metada)
-
-# Add format target
-add_format_target(metada ${CMAKE_CURRENT_SOURCE_DIR})
-
-# Install rules
-install(TARGETS metada
-    RUNTIME DESTINATION bin
+# Install rules for libraries only
+install(TARGETS metada_core
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 ) 

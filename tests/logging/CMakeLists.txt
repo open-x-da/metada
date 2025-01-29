@@ -10,3 +10,16 @@ AddTests(glog_test)
 
 # Add format target
 add_format_target(glog_test ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Create logging test executable
+add_executable(logging_test logging_test.cpp)
+
+target_link_libraries(logging_test
+    PRIVATE
+        metada_core
+        GTest::gtest
+        GTest::gtest_main
+)
+
+# Register test
+gtest_discover_tests(logging_test)
