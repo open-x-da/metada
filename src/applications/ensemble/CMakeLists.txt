@@ -7,7 +7,7 @@ target_link_libraries(letkf
         metada_core
 )
 
-# Add format target
+# Add format target to ensure consistent code style across the project
 add_format_target(letkf ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Install rules
