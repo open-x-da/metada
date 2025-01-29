@@ -129,11 +129,33 @@ VS Code Integration
    - Remote Development
    - Docker (for Docker workflow)
 
-2. Configure VS Code for container development:
+2. Configure container development:
 
-   .. literalinclude:: ../../../.devcontainer/devcontainer.json
-      :language: json
-      :caption: .devcontainer/devcontainer.json
+   For Docker:
+   
+   .. code-block:: bash
+
+      # Create a .devcontainer directory
+      mkdir -p .devcontainer
+      
+      # Create a basic devcontainer configuration
+      cat > .devcontainer/devcontainer.json << 'EOF'
+      {
+          "name": "METADA Development",
+          "image": "ghcr.io/metada/metada:latest",
+          "runArgs": ["--gpus", "all"],
+          "customizations": {
+              "vscode": {
+                  "extensions": [
+                      "ms-vscode.cpptools",
+                      "ms-vscode.cmake-tools",
+                      "twxs.cmake"
+                  ]
+              }
+          },
+          "remoteUser": "vscode"
+      }
+      EOF
 
 3. Mount source code and build:
 
