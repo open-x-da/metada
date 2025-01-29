@@ -1,5 +1,7 @@
+include(Coverage)
+
 macro(AddTests target)
-  #AddCoverage(${target})
+  AddCoverage(${target})
 
   # Set C++17 standard for filesystem support
   # This is required because:
