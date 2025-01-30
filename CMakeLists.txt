@@ -1,14 +1,17 @@
 # Minimum CMake version
 cmake_minimum_required(VERSION 3.10)
 
+# Add custom CMake modules paths
+list(APPEND CMAKE_MODULE_PATH
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts"
+)
+
 # Initial project declaration with version and languages
 project(metada 
     VERSION 0.1.0
     LANGUAGES C CXX Fortran
 )
-
-# Add custom CMake modules path
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Include project configuration module
 include(ProjectSetup)

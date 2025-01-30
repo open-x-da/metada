@@ -10,10 +10,6 @@ function(metada_project_initialize)
         set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type" FORCE)
     endif()
 
-    # Add scripts directory to CMake module path
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/scripts")
-    set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" CACHE PATH "Path to CMake modules" FORCE)
-
     # Configure C++17 as the project standard
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
