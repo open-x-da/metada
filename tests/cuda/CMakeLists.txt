@@ -31,7 +31,7 @@ if(ENABLE_CUDA_ACCELERATION)
     AddTests(device_query_test)
 
     # Add format target
-    add_format_target(device_query_test ${CMAKE_CURRENT_SOURCE_DIR})
+    AddFormatTarget(device_query_test ${CMAKE_CURRENT_SOURCE_DIR})
 
     # CUDA Test Suite
     add_executable(cuda_test cuda_test.cpp)
@@ -44,5 +44,5 @@ if(ENABLE_CUDA_ACCELERATION)
     AddTests(cuda_test)
 
     # Add format target
-    add_format_target(cuda_test ${CMAKE_CURRENT_SOURCE_DIR})
+    AddFormatTarget(cuda_test ${CMAKE_CURRENT_SOURCE_DIR})
 endif() 

@@ -10,7 +10,7 @@ if(Glog_FOUND AND USE_GLOG)
     AddTests(glog_test)
 
     # Add format target
-    add_format_target(glog_test ${CMAKE_CURRENT_SOURCE_DIR})
+    AddFormatTarget(glog_test ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
 # Create logging test executable
@@ -27,4 +27,4 @@ target_link_libraries(logging_test
 gtest_discover_tests(logging_test)
 
 # Add format target
-add_format_target(logging_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(logging_test ${CMAKE_CURRENT_SOURCE_DIR})
