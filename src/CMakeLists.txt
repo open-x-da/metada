@@ -9,7 +9,7 @@ add_library(metada::core ALIAS metada_core)
 
 target_link_libraries(metada_core
     INTERFACE
-        metada::logging
+        metada::core::tools::logging
         metada::backends_logging
 )
 

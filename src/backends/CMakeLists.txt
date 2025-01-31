@@ -11,12 +11,12 @@ if(Glog_FOUND AND USE_GLOG)
     target_link_libraries(metada_backends_logging
         INTERFACE
             glog::glog
-            metada::logging
+            metada::core::tools::logging
     )
 else()
     target_link_libraries(metada_backends_logging
         INTERFACE
-            metada::logging
+            metada::core::tools::logging
     )
 endif()
 
