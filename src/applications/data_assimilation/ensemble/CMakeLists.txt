@@ -4,7 +4,7 @@ add_executable(letkf letkf.cc)
 # Link required libraries
 target_link_libraries(letkf
     PRIVATE
-        metada_core
+        metada::core
 )
 
 # Add format target to ensure consistent code style across the project

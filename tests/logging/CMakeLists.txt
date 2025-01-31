@@ -18,7 +18,7 @@ add_executable(logging_test logging_test.cpp)
 
 target_link_libraries(logging_test
     PRIVATE
-        metada_core
+        metada::core
         GTest::gtest
         GTest::gtest_main
 )

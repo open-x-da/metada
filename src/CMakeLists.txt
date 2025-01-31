@@ -5,10 +5,12 @@ add_subdirectory(applications)
 
 # Create the main library
 add_library(metada_core INTERFACE)
+add_library(metada::core ALIAS metada_core)
+
 target_link_libraries(metada_core
     INTERFACE
-        metada_core_logging
-        metada_backends_logging
+        metada::logging
+        metada::backends_logging
 )
 
 # Set include directories
@@ -16,9 +18,3 @@ target_include_directories(metada_core
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
-
-# Install rules for libraries only
-install(TARGETS metada_core
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-) 

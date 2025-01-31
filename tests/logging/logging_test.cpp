@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "core/logging/Logger.h"
+#include "core/tools/logging/Logger.h"
 
 #ifdef USE_GLOG
 #include "backends/logging/google/GoogleLogger.h"

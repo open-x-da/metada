@@ -1,5 +1,6 @@
 # Create backend logging library
 add_library(metada_backends_logging INTERFACE)
+add_library(metada::backends_logging ALIAS metada_backends_logging)
 
 if(Glog_FOUND AND USE_GLOG)
     target_compile_definitions(metada_backends_logging
@@ -10,12 +11,12 @@ if(Glog_FOUND AND USE_GLOG)
     target_link_libraries(metada_backends_logging
         INTERFACE
             glog::glog
-            metada_core_logging
+            metada::logging
     )
 else()
     target_link_libraries(metada_backends_logging
         INTERFACE
-            metada_core_logging
+            metada::logging
     )
 endif()
 
