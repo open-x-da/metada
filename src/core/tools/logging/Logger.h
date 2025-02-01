@@ -1,5 +1,5 @@
-#ifndef METADA_CORE_LOGGING_LOGGER_H
-#define METADA_CORE_LOGGING_LOGGER_H
+#ifndef METADA_CORE_TOOLS_LOGGING_LOGGER_H_
+#define METADA_CORE_TOOLS_LOGGING_LOGGER_H_
 
 #include <string>
 
@@ -24,4 +24,4 @@ class Logger {
 }  // namespace logging
 }  // namespace metada
 
-#endif  // METADA_CORE_LOGGING_LOGGER_H
+#endif  // METADA_CORE_TOOLS_LOGGING_LOGGER_H_

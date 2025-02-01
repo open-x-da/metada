@@ -3,10 +3,10 @@
 #include "core/tools/logging/Logger.h"
 
 #ifdef USE_GLOG
-#include "backends/logging/google/GoogleLogger.h"
+#include "backends/tools/logging/google/GoogleLogger.h"
 using LoggerBackend = metada::logging::GoogleLogger;
 #else
-#include "backends/logging/default/DefaultLogger.h"
+#include "backends/tools/logging/default/DefaultLogger.h"
 using LoggerBackend = metada::logging::DefaultLogger;
 #endif
 
