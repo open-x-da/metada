@@ -5,7 +5,10 @@
 #include <string>
 
 namespace metada {
+namespace backends {
+namespace tools {
 namespace logger {
+namespace default_logger {
 
 class DefaultLogger {
  public:
@@ -29,7 +32,10 @@ class DefaultLogger {
   }
 };
 
+}  // namespace default_logger
 }  // namespace logger
+}  // namespace tools
+}  // namespace backends
 }  // namespace metada
 
 #endif  // METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_

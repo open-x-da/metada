@@ -6,7 +6,10 @@
 #include <string>
 
 namespace metada {
+namespace backends {
+namespace tools {
 namespace logger {
+namespace google_logger {
 
 class GoogleLogger {
  public:
@@ -32,7 +35,10 @@ class GoogleLogger {
   }
 };
 
+}  // namespace google_logger
 }  // namespace logger
+}  // namespace tools
+}  // namespace backends
 }  // namespace metada
 
 #endif  // METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_

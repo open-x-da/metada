@@ -4,6 +4,8 @@
 #include <string>
 
 namespace metada {
+namespace core {
+namespace tools {
 namespace logger {
 
 template <typename Backend>
@@ -22,6 +24,8 @@ class Logger {
 };
 
 }  // namespace logger
+}  // namespace tools
+}  // namespace core
 }  // namespace metada
 
 #endif  // METADA_CORE_TOOLS_LOGGER_LOGGER_H_
