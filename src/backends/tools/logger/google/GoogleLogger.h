@@ -1,12 +1,12 @@
-#ifndef METADA_BACKENDS_TOOLS_LOGGING_GOOGLE_GOOGLELOGGER_H_
-#define METADA_BACKENDS_TOOLS_LOGGING_GOOGLE_GOOGLELOGGER_H_
+#ifndef METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_
+#define METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_
 
 #include <glog/logging.h>
 
 #include <string>
 
 namespace metada {
-namespace logging {
+namespace logger {
 
 class GoogleLogger {
  public:
@@ -32,7 +32,7 @@ class GoogleLogger {
   }
 };
 
-}  // namespace logging
+}  // namespace logger
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_LOGGING_GOOGLE_GOOGLELOGGER_H_
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_

@@ -1,11 +1,11 @@
-#ifndef METADA_BACKENDS_TOOLS_LOGGING_DEFAULT_DEFAULTLOGGER_H_
-#define METADA_BACKENDS_TOOLS_LOGGING_DEFAULT_DEFAULTLOGGER_H_
+#ifndef METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_
+#define METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_
 
 #include <iostream>
 #include <string>
 
 namespace metada {
-namespace logging {
+namespace logger {
 
 class DefaultLogger {
  public:
@@ -29,7 +29,7 @@ class DefaultLogger {
   }
 };
 
-}  // namespace logging
+}  // namespace logger
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_LOGGING_DEFAULT_DEFAULTLOGGER_H_
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_

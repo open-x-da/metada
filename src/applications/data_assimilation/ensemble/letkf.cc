@@ -1,16 +1,16 @@
-#include "backends/tools/logging/google/GoogleLogger.h"
-#include "core/tools/logging/Logger.h"
+#include "backends/tools/logger/google/GoogleLogger.h"
+#include "core/tools/logger/Logger.h"
 
-using Logger = metada::logging::Logger<metada::logging::GoogleLogger>;
+using Logger = metada::logger::Logger<metada::logger::GoogleLogger>;
 
 int main() {
   Logger logger;
-  metada::logging::GoogleLogger::Init("my_app");
+  metada::logger::GoogleLogger::Init("my_app");
 
   logger.Info("Application started");
   // ... your code ...
   logger.Info("Application finished");
 
-  metada::logging::GoogleLogger::Shutdown();
+  metada::logger::GoogleLogger::Shutdown();
   return 0;
 }

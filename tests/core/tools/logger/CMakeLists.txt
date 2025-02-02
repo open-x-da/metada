@@ -3,8 +3,8 @@ add_executable(LoggerTest LoggerTest.cpp)
 
 target_link_libraries(LoggerTest
     PRIVATE
-        metada::core::tools::logging
-        metada::backends::tools::logging
+        metada::core::tools::logger
+        metada::backends::tools::logger
         GTest::gtest
         GTest::gtest_main
 )
@@ -13,4 +13,4 @@ target_link_libraries(LoggerTest
 gtest_discover_tests(LoggerTest)
 
 # Add format target
-AddFormatTarget(LoggerTest ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(LoggerTest ${CMAKE_CURRENT_SOURCE_DIR}) 

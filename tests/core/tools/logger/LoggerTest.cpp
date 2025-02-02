@@ -4,17 +4,17 @@
 
 #ifdef USE_GLOG
 #include "google/GoogleLogger.h"
-using LoggerBackend = metada::logging::GoogleLogger;
+using LoggerBackend = metada::logger::GoogleLogger;
 #else
 #include "default/DefaultLogger.h"
-using LoggerBackend = metada::logging::DefaultLogger;
+using LoggerBackend = metada::logger::DefaultLogger;
 #endif
 
 namespace metada {
-namespace logging {
+namespace logger {
 namespace test {
 
-using Logger = metada::logging::Logger<LoggerBackend>;
+using Logger = metada::logger::Logger<LoggerBackend>;
 
 class LoggerTest : public ::testing::Test {
  protected:
@@ -33,5 +33,5 @@ TEST_F(LoggerTest, BasicLogging) {
 }
 
 }  // namespace test
-}  // namespace logging
+}  // namespace logger
 }  // namespace metada

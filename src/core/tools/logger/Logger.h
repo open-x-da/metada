@@ -1,10 +1,10 @@
-#ifndef METADA_CORE_TOOLS_LOGGING_LOGGER_H_
-#define METADA_CORE_TOOLS_LOGGING_LOGGER_H_
+#ifndef METADA_CORE_TOOLS_LOGGER_LOGGER_H_
+#define METADA_CORE_TOOLS_LOGGER_LOGGER_H_
 
 #include <string>
 
 namespace metada {
-namespace logging {
+namespace logger {
 
 template <typename Backend>
 class Logger {
@@ -21,7 +21,7 @@ class Logger {
   void Debug(const std::string& message) { Backend::LogDebug(message); }
 };
 
-}  // namespace logging
+}  // namespace logger
 }  // namespace metada
 
-#endif  // METADA_CORE_TOOLS_LOGGING_LOGGER_H_
+#endif  // METADA_CORE_TOOLS_LOGGER_LOGGER_H_
