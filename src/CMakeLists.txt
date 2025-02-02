@@ -1,7 +1,6 @@
 # Add subdirectories
 add_subdirectory(core)
 add_subdirectory(backends)
-add_subdirectory(applications)
 
 # Create the main library
 add_library(metada_core INTERFACE)

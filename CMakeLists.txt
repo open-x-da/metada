@@ -38,6 +38,9 @@ add_subdirectory(src)
 include(CTest)
 add_subdirectory(tests)
 
+# Add applications directory
+add_subdirectory(applications)
+
 # Add documentation directory
 add_subdirectory(docs)
 
