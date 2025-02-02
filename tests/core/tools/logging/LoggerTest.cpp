@@ -1,29 +1,37 @@
 #include <gtest/gtest.h>
 
-#include "core/tools/logging/Logger.h"
+#include "Logger.h"
 
 #ifdef USE_GLOG
-#include "backends/tools/logging/google/GoogleLogger.h"
+#include "google/GoogleLogger.h"
 using LoggerBackend = metada::logging::GoogleLogger;
 #else
-#include "backends/tools/logging/default/DefaultLogger.h"
+#include "default/DefaultLogger.h"
 using LoggerBackend = metada::logging::DefaultLogger;
 #endif
 
+namespace metada {
+namespace logging {
+namespace test {
+
 using Logger = metada::logging::Logger<LoggerBackend>;
 
-class LoggingTest : public ::testing::Test {
+class LoggerTest : public ::testing::Test {
  protected:
-  void SetUp() override { LoggerBackend::Init("logging_test"); }
+  void SetUp() override { LoggerBackend::Init("LoggerTest"); }
 
   void TearDown() override { LoggerBackend::Shutdown(); }
 
   Logger logger;
 };
 
-TEST_F(LoggingTest, BasicLogging) {
+TEST_F(LoggerTest, BasicLogging) {
   EXPECT_NO_THROW(logger.Info("Info message"));
   EXPECT_NO_THROW(logger.Warning("Warning message"));
   EXPECT_NO_THROW(logger.Error("Error message"));
   EXPECT_NO_THROW(logger.Debug("Debug message"));
 }
+
+}  // namespace test
+}  // namespace logging
+}  // namespace metada
