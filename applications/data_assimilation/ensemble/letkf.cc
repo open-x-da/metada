@@ -1,7 +1,7 @@
 #include "backends/tools/logger/google/GoogleLogger.h"
-#include "core/tools/logger/Logger.h"
+#include "framework/tools/logger/Logger.h"
 
-using Logger = metada::core::tools::logger::Logger<
+using Logger = metada::framework::tools::logger::Logger<
     metada::backends::tools::logger::google_logger::GoogleLogger>;
 
 int main() {

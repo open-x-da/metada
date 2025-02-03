@@ -1,10 +1,10 @@
-#ifndef METADA_CORE_TOOLS_LOGGER_LOGGER_H_
-#define METADA_CORE_TOOLS_LOGGER_LOGGER_H_
+#ifndef METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
+#define METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
 
 #include <string>
 
 namespace metada {
-namespace core {
+namespace framework {
 namespace tools {
 namespace logger {
 
@@ -25,7 +25,7 @@ class Logger {
 
 }  // namespace logger
 }  // namespace tools
-}  // namespace core
+}  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_CORE_TOOLS_LOGGER_LOGGER_H_
+#endif  // METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_

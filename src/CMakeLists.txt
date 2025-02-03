@@ -1,5 +1,5 @@
 # Add subdirectories
-add_subdirectory(core)
+add_subdirectory(framework)
 add_subdirectory(backends)
 
 # Create the main library
@@ -8,7 +8,7 @@ add_library(metada::core ALIAS metada_core)
 
 target_link_libraries(metada_core
     INTERFACE
-        metada::core::tools::logger
+        metada::framework::tools::logger
         metada::backends::tools::logger
 )
 

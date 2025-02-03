@@ -13,10 +13,12 @@ using LoggerBackend =
 #endif
 
 namespace metada {
+namespace framework {
+namespace tools {
 namespace logger {
 namespace test {
 
-using Logger = metada::core::tools::logger::Logger<LoggerBackend>;
+using Logger = metada::framework::tools::logger::Logger<LoggerBackend>;
 
 class LoggerTest : public ::testing::Test {
  protected:
@@ -36,4 +38,6 @@ TEST_F(LoggerTest, BasicLogging) {
 
 }  // namespace test
 }  // namespace logger
+}  // namespace tools
+}  // namespace framework
 }  // namespace metada
