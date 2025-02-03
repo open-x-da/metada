@@ -1,5 +1,5 @@
 #include "Logger.h"
-#include "LoggerConfig.h"
+#include "LoggerTraits.h"
 
 namespace {
 namespace mlogger = metada::framework::tools::logger;
