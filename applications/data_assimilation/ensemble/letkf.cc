@@ -1,20 +1,16 @@
 #include "Logger.h"
-#include "google/GoogleLogger.h"
+#include "LoggerConfig.h"
 
 namespace {
-// Logger type alias for cleaner code
-namespace glog = metada::backends::tools::logger::google_logger;
-namespace mlog = metada::framework::tools::logger;
+namespace mlogger = metada::framework::tools::logger;
+using Logger = mlogger::Logger<metada::logger::LoggerBackend>;
 
-using Logger = mlog::Logger<glog::GoogleLogger>;
-
-// RAII wrapper for logger initialization
 class LoggerInitializer {
  public:
   explicit LoggerInitializer(const std::string& app_name) {
-    glog::GoogleLogger::Init(app_name);
+    metada::logger::LoggerBackend::Init(app_name);
   }
-  ~LoggerInitializer() { glog::GoogleLogger::Shutdown(); }
+  ~LoggerInitializer() { metada::logger::LoggerBackend::Shutdown(); }
 };
 }  // namespace
 
