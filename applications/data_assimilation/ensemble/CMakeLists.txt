@@ -1,9 +1,10 @@
 # Add LETKF executable
 add_executable(letkf letkf.cc)
 
-# Link required libraries
+# Link only with framework logger
 target_link_libraries(letkf
     PRIVATE
+        metada::framework::tools::logger
         metada::backends::tools::logger
 )
 

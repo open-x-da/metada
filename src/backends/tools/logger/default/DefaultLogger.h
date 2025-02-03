@@ -31,10 +31,13 @@ class DefaultLogger : public metada::framework::tools::logger::ILogger {
 
   static void Init(const std::string& app_name) {
     // Simple initialization for default logger
+    std::cout << "[INFO] " << "Default logger initialized for " << app_name
+              << std::endl;
   }
 
   static void Shutdown() {
     // Simple cleanup for default logger
+    std::cout << "[INFO] " << "Default logger shutdown" << std::endl;
   }
 };
 
@@ -43,3 +46,5 @@ class DefaultLogger : public metada::framework::tools::logger::ILogger {
 }  // namespace tools
 }  // namespace backends
 }  // namespace metada
+
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_

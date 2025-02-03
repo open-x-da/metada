@@ -1,16 +1,18 @@
 #include "Logger.h"
-#include "LoggerConfig.h"
+#include "default/DefaultLogger.h"
 
 namespace {
 namespace mlogger = metada::framework::tools::logger;
-using Logger = mlogger::Logger<metada::logger::LoggerBackend>;
+using LoggerBackend =
+    metada::backends::tools::logger::default_logger::DefaultLogger;
+using Logger = mlogger::Logger<LoggerBackend>;
 
 class LoggerInitializer {
  public:
   explicit LoggerInitializer(const std::string& app_name) {
-    metada::logger::LoggerBackend::Init(app_name);
+    LoggerBackend::Init(app_name);
   }
-  ~LoggerInitializer() { metada::logger::LoggerBackend::Shutdown(); }
+  ~LoggerInitializer() { LoggerBackend::Shutdown(); }
 };
 }  // namespace
 
