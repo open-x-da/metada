@@ -1,3 +1,8 @@
+/**
+ * @file LoggerTest.cpp
+ * @brief Unit tests for Logger class
+ */
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -8,7 +13,9 @@ namespace mlogger = metada::framework::tools::logger;
 
 namespace mtest {
 
-// Mock logger implementing ILogger interface
+/**
+ * @brief Mock logger class for testing Logger implementation
+ */
 class MockLogger : public mlogger::ILogger {
  public:
   MOCK_METHOD(void, Info, (const std::string& message), (override));
@@ -20,26 +27,41 @@ class MockLogger : public mlogger::ILogger {
   static void Shutdown() {}
 };
 
+/**
+ * @brief Test fixture for Logger tests
+ */
 class LoggerTest : public ::testing::Test {
  protected:
   mlogger::LoggerTestInterface<MockLogger> logger;
 };
 
+/**
+ * @brief Test that Info() calls underlying implementation
+ */
 TEST_F(LoggerTest, InfoCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Info("test message")).Times(1);
   logger.Info("test message");
 }
 
+/**
+ * @brief Test that Warning() calls underlying implementation
+ */
 TEST_F(LoggerTest, WarningCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Warning("test message")).Times(1);
   logger.Warning("test message");
 }
 
+/**
+ * @brief Test that Error() calls underlying implementation
+ */
 TEST_F(LoggerTest, ErrorCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Error("test message")).Times(1);
   logger.Error("test message");
 }
 
+/**
+ * @brief Test that Debug() calls underlying implementation
+ */
 TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Debug("test message")).Times(1);
   logger.Debug("test message");

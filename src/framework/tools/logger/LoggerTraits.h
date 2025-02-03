@@ -12,6 +12,13 @@ namespace framework {
 namespace tools {
 namespace logger {
 
+/**
+ * @brief Defines the concrete logger backend implementation to use
+ *
+ * Uses GoogleLogger when USE_GLOG is defined, otherwise falls back to
+ * DefaultLogger. This type alias is used by the Logger template class to
+ * determine its backend.
+ */
 #ifdef USE_GLOG
 using LoggerBackend = backends::tools::logger::google_logger::GoogleLogger;
 #else
