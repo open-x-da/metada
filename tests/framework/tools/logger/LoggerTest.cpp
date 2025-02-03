@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "ILogger.h"
-#include "Logger.h"
+#include "LoggerTestInterface.h"
 
 namespace mlogger = metada::framework::tools::logger;
 
@@ -22,7 +22,7 @@ class MockLogger : public mlogger::ILogger {
 
 class LoggerTest : public ::testing::Test {
  protected:
-  mlogger::Logger<MockLogger> logger;
+  mlogger::LoggerTestInterface<MockLogger> logger;
 };
 
 TEST_F(LoggerTest, InfoCallsUnderlyingImplementation) {

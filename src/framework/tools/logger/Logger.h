@@ -1,8 +1,6 @@
 #ifndef METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
 #define METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
 
-#include <string>
-
 #include "ILogger.h"
 
 namespace metada {
@@ -24,10 +22,7 @@ class Logger {
 
   void Debug(const std::string& message) { backend_.Debug(message); }
 
-  // Expose backend for testing
-  Backend& backend() { return backend_; }
-
- private:
+ protected:
   Backend backend_;
 };
 
