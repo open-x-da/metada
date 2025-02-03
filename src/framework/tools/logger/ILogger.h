@@ -17,9 +17,11 @@ class ILogger {
   virtual void Error(const std::string& message) = 0;
   virtual void Debug(const std::string& message) = 0;
 
-  // Static methods for initialization/shutdown should be implemented by
-  // concrete loggers static void Init(const std::string& app_name) = 0; static
-  // void Shutdown() = 0;
+  // Note: Concrete implementations must provide the following static methods:
+  //   static void Init(const std::string& app_name);
+  //   static void Shutdown();
+  // These methods manage process-wide logging setup and cleanup,
+  // which should be done once per application rather than per logger instance.
 };
 
 }  // namespace logger
