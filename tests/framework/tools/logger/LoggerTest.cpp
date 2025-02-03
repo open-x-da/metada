@@ -1,34 +1,48 @@
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "ILogger.h"
 #include "Logger.h"
 
-#ifdef USE_GLOG
-#include "google/GoogleLogger.h"
-namespace mlogger = metada::backends::tools::logger::google_logger;
-#else
-#include "default/DefaultLogger.h"
-namespace mlogger = metada::backends::tools::logger::default_logger;
-#endif
+namespace mlogger = metada::framework::tools::logger;
 
 namespace mtest {
-using namespace metada::framework::tools::logger;
-using Backend = mlogger::GoogleLogger;
-using Logger = Logger<Backend>;
+
+// Mock logger implementing ILogger interface
+class MockLogger : public mlogger::ILogger {
+ public:
+  MOCK_METHOD(void, Info, (const std::string& message), (override));
+  MOCK_METHOD(void, Warning, (const std::string& message), (override));
+  MOCK_METHOD(void, Error, (const std::string& message), (override));
+  MOCK_METHOD(void, Debug, (const std::string& message), (override));
+
+  static void Init(const std::string&) {}
+  static void Shutdown() {}
+};
 
 class LoggerTest : public ::testing::Test {
  protected:
-  void SetUp() override { Backend::Init("LoggerTest"); }
-
-  void TearDown() override { Backend::Shutdown(); }
-
-  Logger logger;
+  mlogger::Logger<MockLogger> logger;
 };
 
-TEST_F(LoggerTest, BasicLogging) {
-  EXPECT_NO_THROW(logger.Info("Info message"));
-  EXPECT_NO_THROW(logger.Warning("Warning message"));
-  EXPECT_NO_THROW(logger.Error("Error message"));
-  EXPECT_NO_THROW(logger.Debug("Debug message"));
+TEST_F(LoggerTest, InfoCallsUnderlyingImplementation) {
+  EXPECT_CALL(logger.backend(), Info("test message")).Times(1);
+  logger.Info("test message");
+}
+
+TEST_F(LoggerTest, WarningCallsUnderlyingImplementation) {
+  EXPECT_CALL(logger.backend(), Warning("test message")).Times(1);
+  logger.Warning("test message");
+}
+
+TEST_F(LoggerTest, ErrorCallsUnderlyingImplementation) {
+  EXPECT_CALL(logger.backend(), Error("test message")).Times(1);
+  logger.Error("test message");
+}
+
+TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
+  EXPECT_CALL(logger.backend(), Debug("test message")).Times(1);
+  logger.Debug("test message");
 }
 
 }  // namespace mtest

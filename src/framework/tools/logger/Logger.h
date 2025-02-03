@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include "ILogger.h"
+
 namespace metada {
 namespace framework {
 namespace tools {
@@ -11,7 +13,7 @@ namespace logger {
 template <typename Backend>
 class Logger {
  public:
-  Logger() : backend_() {}
+  Logger() = default;
   ~Logger() = default;
 
   void Info(const std::string& message) { backend_.Info(message); }
@@ -21,6 +23,9 @@ class Logger {
   void Error(const std::string& message) { backend_.Error(message); }
 
   void Debug(const std::string& message) { backend_.Debug(message); }
+
+  // Expose backend for testing
+  Backend& backend() { return backend_; }
 
  private:
   Backend backend_;

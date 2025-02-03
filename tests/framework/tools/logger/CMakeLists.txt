@@ -4,9 +4,8 @@ add_executable(LoggerTest LoggerTest.cpp)
 target_link_libraries(LoggerTest
     PRIVATE
         metada::framework::tools::logger
-        metada::backends::tools::logger
-        GTest::gtest
         GTest::gtest_main
+        GTest::gmock
 )
 
 # Register test
