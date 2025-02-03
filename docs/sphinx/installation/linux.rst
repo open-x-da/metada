@@ -63,7 +63,7 @@ Setting up METADA Environment
 
 3. Configure environment:
 
-   .. literalinclude:: ../../../tools/spack/spack.yaml
+   .. literalinclude:: ../../../environments/spack/spack.yaml
       :language: yaml
       :caption: spack.yaml
 

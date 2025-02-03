@@ -57,7 +57,7 @@ Building Custom Container
 
 1. Create a definition file ``metada.def``:
 
-   .. literalinclude:: ../../../tools/container/singularity/metada.def
+   .. literalinclude:: ../../../environments/container/singularity/metada.def
       :language: singularity
       :caption: metada.def
 
@@ -108,9 +108,10 @@ Building Custom Container
 
 1. Create a Dockerfile:
 
-   .. literalinclude:: ../../../tools/container/docker/Dockerfile
+   .. literalinclude:: ../../../environments/container/docker/Dockerfile
       :language: dockerfile
       :caption: Dockerfile
+
 
 2. Build the container:
 
