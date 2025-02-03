@@ -11,16 +11,19 @@ namespace logger {
 template <typename Backend>
 class Logger {
  public:
-  Logger() = default;
+  Logger() : backend_() {}
   ~Logger() = default;
 
-  void Info(const std::string& message) { Backend::LogInfo(message); }
+  void Info(const std::string& message) { backend_.Info(message); }
 
-  void Warning(const std::string& message) { Backend::LogWarning(message); }
+  void Warning(const std::string& message) { backend_.Warning(message); }
 
-  void Error(const std::string& message) { Backend::LogError(message); }
+  void Error(const std::string& message) { backend_.Error(message); }
 
-  void Debug(const std::string& message) { Backend::LogDebug(message); }
+  void Debug(const std::string& message) { backend_.Debug(message); }
+
+ private:
+  Backend backend_;
 };
 
 }  // namespace logger

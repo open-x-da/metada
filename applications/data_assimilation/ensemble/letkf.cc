@@ -1,17 +1,43 @@
-#include "backends/tools/logger/google/GoogleLogger.h"
-#include "framework/tools/logger/Logger.h"
+#include "Logger.h"
+#include "google/GoogleLogger.h"
 
-using Logger = metada::framework::tools::logger::Logger<
-    metada::backends::tools::logger::google_logger::GoogleLogger>;
+namespace {
+// Logger type alias for cleaner code
+namespace glog = metada::backends::tools::logger::google_logger;
+namespace mlog = metada::framework::tools::logger;
+
+using Logger = mlog::Logger<glog::GoogleLogger>;
+
+// RAII wrapper for logger initialization
+class LoggerInitializer {
+ public:
+  explicit LoggerInitializer(const std::string& app_name) {
+    glog::GoogleLogger::Init(app_name);
+  }
+  ~LoggerInitializer() { glog::GoogleLogger::Shutdown(); }
+};
+}  // namespace
 
 int main() {
+  // Initialize logger with RAII
+  LoggerInitializer log_init("letkf_app");
   Logger logger;
-  metada::backends::tools::logger::google_logger::GoogleLogger::Init("my_app");
 
-  logger.Info("Application started");
-  // ... your code ...
-  logger.Info("Application finished");
+  logger.Info("LETKF application starting...");
 
-  metada::backends::tools::logger::google_logger::GoogleLogger::Shutdown();
-  return 0;
+  try {
+    // Add your LETKF implementation here
+    logger.Debug("Initializing LETKF parameters");
+
+    // Example logging points you might add:
+    logger.Info("Loading ensemble members");
+    logger.Info("Processing observations");
+    logger.Info("Computing analysis");
+
+    logger.Info("LETKF application completed successfully");
+    return 0;
+  } catch (const std::exception& e) {
+    logger.Error("LETKF application failed: " + std::string(e.what()));
+    return 1;
+  }
 }

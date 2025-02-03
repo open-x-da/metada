@@ -4,27 +4,22 @@
 
 #ifdef USE_GLOG
 #include "google/GoogleLogger.h"
-using LoggerBackend =
-    metada::backends::tools::logger::google_logger::GoogleLogger;
+namespace mlogger = metada::backends::tools::logger::google_logger;
 #else
 #include "default/DefaultLogger.h"
-using LoggerBackend =
-    metada::backends::tools::logger::default_logger::DefaultLogger;
+namespace mlogger = metada::backends::tools::logger::default_logger;
 #endif
 
-namespace metada {
-namespace framework {
-namespace tools {
-namespace logger {
-namespace test {
-
-using Logger = metada::framework::tools::logger::Logger<LoggerBackend>;
+namespace mtest {
+using namespace metada::framework::tools::logger;
+using Backend = mlogger::GoogleLogger;
+using Logger = Logger<Backend>;
 
 class LoggerTest : public ::testing::Test {
  protected:
-  void SetUp() override { LoggerBackend::Init("LoggerTest"); }
+  void SetUp() override { Backend::Init("LoggerTest"); }
 
-  void TearDown() override { LoggerBackend::Shutdown(); }
+  void TearDown() override { Backend::Shutdown(); }
 
   Logger logger;
 };
@@ -36,8 +31,4 @@ TEST_F(LoggerTest, BasicLogging) {
   EXPECT_NO_THROW(logger.Debug("Debug message"));
 }
 
-}  // namespace test
-}  // namespace logger
-}  // namespace tools
-}  // namespace framework
-}  // namespace metada
+}  // namespace mtest
