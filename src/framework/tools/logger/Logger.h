@@ -39,7 +39,9 @@ class Logger {
    */
   void Debug(const std::string& message) { backend_.Debug(message); }
 
- protected:
+  Backend& backend() { return backend_; }
+
+ private:
   Backend backend_;  ///< The underlying logger backend instance
 };
 

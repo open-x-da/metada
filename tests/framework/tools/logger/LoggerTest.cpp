@@ -7,14 +7,12 @@
 #include <gtest/gtest.h>
 
 #include "ILogger.h"
-#include "LoggerTestInterface.h"
-
-namespace metada {
+#include "Logger.h"
 
 /**
  * @brief Mock logger class for testing Logger implementation
  */
-class MockLogger : public ILogger {
+class MockLogger : public metada::ILogger {
  public:
   MOCK_METHOD(void, Info, (const std::string& message), (override));
   MOCK_METHOD(void, Warning, (const std::string& message), (override));
@@ -30,7 +28,7 @@ class MockLogger : public ILogger {
  */
 class LoggerTest : public ::testing::Test {
  protected:
-  LoggerTestInterface<MockLogger> logger;
+  metada::Logger<MockLogger> logger;
 };
 
 /**
@@ -64,5 +62,3 @@ TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Debug("test message")).Times(1);
   logger.Debug("test message");
 }
-
-}  // namespace metada
