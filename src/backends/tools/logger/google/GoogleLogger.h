@@ -3,10 +3,7 @@
 
 #include <glog/logging.h>
 
-#include <string>
-
 #include "ILogger.h"
-#include "LoggerTraits.h"
 
 namespace metada {
 
@@ -15,7 +12,7 @@ namespace metada {
  *
  * Provides logging functionality by delegating to Google's glog library.
  */
-class GoogleLogger : public ILogger {
+class GoogleLogger : public framework::tools::logger::ILogger {
  public:
   /**
    * @brief Log info message using glog
@@ -56,7 +53,7 @@ class GoogleLogger : public ILogger {
 };
 
 template <>
-struct LoggerTraits<void> {
+struct framework::tools::logger::LoggerTraits<void> {
   using LoggerBackend = GoogleLogger;
 };
 

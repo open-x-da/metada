@@ -12,7 +12,7 @@
 /**
  * @brief Mock logger class for testing Logger implementation
  */
-class MockLogger : public metada::ILogger {
+class MockLogger : public metada::framework::tools::logger::ILogger {
  public:
   MOCK_METHOD(void, Info, (const std::string& message), (override));
   MOCK_METHOD(void, Warning, (const std::string& message), (override));
@@ -28,7 +28,7 @@ class MockLogger : public metada::ILogger {
  */
 class LoggerTest : public ::testing::Test {
  protected:
-  metada::Logger<MockLogger> logger;
+  metada::framework::tools::logger::Logger<MockLogger> logger;
 };
 
 /**

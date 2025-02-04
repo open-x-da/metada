@@ -5,7 +5,7 @@
 
 #include "Logger.h"
 #include "LoggerTraits.h"
-#include "default/DefaultLogger.h"
+#include "console/ConsoleLogger.h"
 // #include "google/GoogleLogger.h"
 
 /**
@@ -18,13 +18,15 @@ class LoggerInitializer {
    * @param app_name Name of the application
    */
   explicit LoggerInitializer(const std::string& app_name) {
-    metada::LoggerTraits<void>::LoggerBackend::Init(app_name);
+    metada::framework::tools::logger::LoggerTraits<void>::LoggerBackend::Init(
+        app_name);
   }
   /**
    * @brief Shutdown logger on destruction
    */
   ~LoggerInitializer() {
-    metada::LoggerTraits<void>::LoggerBackend::Shutdown();
+    metada::framework::tools::logger::LoggerTraits<
+        void>::LoggerBackend::Shutdown();
   }
 };
 
@@ -36,7 +38,9 @@ int main() {
   // Initialize logger with RAII
   LoggerInitializer log_init("letkf_app");
 
-  metada::Logger<metada::LoggerTraits<void>::LoggerBackend> logger;
+  metada::framework::tools::logger::Logger<
+      metada::framework::tools::logger::LoggerTraits<void>::LoggerBackend>
+      logger;
 
   logger.Info("LETKF application starting...");
 

@@ -1,5 +1,5 @@
-#ifndef METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_
-#define METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_
+#ifndef METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_H_
+#define METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_H_
 
 #include <iostream>
 
@@ -13,7 +13,7 @@ namespace metada {
  * Provides basic logging functionality by writing messages to stdout/stderr
  * with severity level prefixes.
  */
-class DefaultLogger : public ILogger {
+class ConsoleLogger : public framework::tools::logger::ILogger {
  public:
   /**
    * @brief Log info message to stdout
@@ -53,7 +53,7 @@ class DefaultLogger : public ILogger {
    */
   static void Init(const std::string& app_name) {
     // Simple initialization for default logger
-    std::cout << "[INFO] " << "Default logger initialized for " << app_name
+    std::cout << "[INFO] " << "Console logger initialized for " << app_name
               << std::endl;
   }
 
@@ -62,15 +62,15 @@ class DefaultLogger : public ILogger {
    */
   static void Shutdown() {
     // Simple cleanup for default logger
-    std::cout << "[INFO] " << "Default logger shutdown" << std::endl;
+    std::cout << "[INFO] " << "Console logger shutdown" << std::endl;
   }
 };
 
 template <>
-struct LoggerTraits<void> {
-  using LoggerBackend = DefaultLogger;
+struct framework::tools::logger::LoggerTraits<void> {
+  using LoggerBackend = ConsoleLogger;
 };
 
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_H_
