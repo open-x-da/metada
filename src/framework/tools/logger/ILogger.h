@@ -4,9 +4,6 @@
 #include <string>
 
 namespace metada {
-namespace framework {
-namespace tools {
-namespace logger {
 
 /**
  * @brief Interface for logger implementations
@@ -49,9 +46,6 @@ class ILogger {
   // which should be done once per application rather than per logger instance.
 };
 
-}  // namespace logger
-}  // namespace tools
-}  // namespace framework
 }  // namespace metada
 
 #endif  // METADA_FRAMEWORK_TOOLS_LOGGER_ILOGGER_H_

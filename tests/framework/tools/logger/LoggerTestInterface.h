@@ -4,10 +4,6 @@
 #include "Logger.h"
 
 namespace metada {
-namespace framework {
-namespace tools {
-namespace logger {
-
 /**
  * @brief Test interface for Logger class to enable testing with mock backends
  *
@@ -35,9 +31,6 @@ class LoggerTestInterface : public Logger<Backend> {
   Backend& backend() { return this->backend_; }
 };
 
-}  // namespace logger
-}  // namespace tools
-}  // namespace framework
 }  // namespace metada
 
 #endif  // METADA_TESTS_FRAMEWORK_TOOLS_LOGGER_LOGGERTESTINTERFACE_H_

@@ -6,10 +6,6 @@
 #include "ILogger.h"
 
 namespace metada {
-namespace backends {
-namespace tools {
-namespace logger {
-namespace default_logger {
 
 /**
  * @brief Simple console-based logger implementation
@@ -17,7 +13,7 @@ namespace default_logger {
  * Provides basic logging functionality by writing messages to stdout/stderr
  * with severity level prefixes.
  */
-class DefaultLogger : public metada::framework::tools::logger::ILogger {
+class DefaultLogger : public ILogger {
  public:
   /**
    * @brief Log info message to stdout
@@ -70,10 +66,11 @@ class DefaultLogger : public metada::framework::tools::logger::ILogger {
   }
 };
 
-}  // namespace default_logger
-}  // namespace logger
-}  // namespace tools
-}  // namespace backends
+template <>
+struct LoggerTraits<void> {
+  using LoggerBackend = DefaultLogger;
+};
+
 }  // namespace metada
 
 #endif  // METADA_BACKENDS_TOOLS_LOGGER_DEFAULT_DEFAULTLOGGER_H_

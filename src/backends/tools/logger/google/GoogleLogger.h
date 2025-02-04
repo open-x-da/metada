@@ -6,19 +6,16 @@
 #include <string>
 
 #include "ILogger.h"
+#include "LoggerTraits.h"
 
 namespace metada {
-namespace backends {
-namespace tools {
-namespace logger {
-namespace google_logger {
 
 /**
  * @brief Google logging implementation of ILogger interface
  *
  * Provides logging functionality by delegating to Google's glog library.
  */
-class GoogleLogger : public metada::framework::tools::logger::ILogger {
+class GoogleLogger : public ILogger {
  public:
   /**
    * @brief Log info message using glog
@@ -58,10 +55,11 @@ class GoogleLogger : public metada::framework::tools::logger::ILogger {
   static void Shutdown() { google::ShutdownGoogleLogging(); }
 };
 
-}  // namespace google_logger
-}  // namespace logger
-}  // namespace tools
-}  // namespace backends
+template <>
+struct LoggerTraits<void> {
+  using LoggerBackend = GoogleLogger;
+};
+
 }  // namespace metada
 
 #endif  // METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_

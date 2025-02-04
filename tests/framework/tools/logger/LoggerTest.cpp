@@ -9,14 +9,12 @@
 #include "ILogger.h"
 #include "LoggerTestInterface.h"
 
-namespace mlogger = metada::framework::tools::logger;
-
-namespace mtest {
+namespace metada {
 
 /**
  * @brief Mock logger class for testing Logger implementation
  */
-class MockLogger : public mlogger::ILogger {
+class MockLogger : public ILogger {
  public:
   MOCK_METHOD(void, Info, (const std::string& message), (override));
   MOCK_METHOD(void, Warning, (const std::string& message), (override));
@@ -32,7 +30,7 @@ class MockLogger : public mlogger::ILogger {
  */
 class LoggerTest : public ::testing::Test {
  protected:
-  mlogger::LoggerTestInterface<MockLogger> logger;
+  LoggerTestInterface<MockLogger> logger;
 };
 
 /**
@@ -67,4 +65,4 @@ TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
   logger.Debug("test message");
 }
 
-}  // namespace mtest
+}  // namespace metada

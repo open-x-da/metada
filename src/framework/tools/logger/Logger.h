@@ -1,12 +1,9 @@
 #ifndef METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
 #define METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
 
-#include "ILogger.h"
+#include <string>
 
 namespace metada {
-namespace framework {
-namespace tools {
-namespace logger {
 
 /**
  * @brief Generic logger class that delegates to a backend implementation
@@ -46,9 +43,6 @@ class Logger {
   Backend backend_;  ///< The underlying logger backend instance
 };
 
-}  // namespace logger
-}  // namespace tools
-}  // namespace framework
 }  // namespace metada
 
 #endif  // METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
