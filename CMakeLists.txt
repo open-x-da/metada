@@ -8,7 +8,7 @@ list(APPEND CMAKE_MODULE_PATH
 )
 
 # Initial project declaration with version and languages
-project(metada 
+project(metada
     VERSION 0.1.0
     LANGUAGES C CXX Fortran
 )
@@ -26,22 +26,19 @@ metada_find_package(Git)
 metada_find_package(ClangFormat)
 metada_find_package(Lcov)
 
+# Find optional packages
+metada_find_package(yaml-cpp OPTIONAL)
+metada_find_package(nlohmann_json OPTIONAL)
 metada_find_package(Glog OPTIONAL)
 
 # Configure CUDA support
 include(CUDA)
 
-# Add source directory
+# Add subdirectories
 add_subdirectory(src)
-
-# Add test suite directory
 include(CTest)
 add_subdirectory(tests)
-
-# Add applications directory
 add_subdirectory(applications)
-
-# Add documentation directory
 add_subdirectory(docs)
 
 # Print configuration summary

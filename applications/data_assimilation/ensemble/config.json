@@ -1,0 +1,38 @@
+{
+  "letkf": {
+    "ensemble_size": 64,
+    "inflation_factor": 1.15,
+    "localization_radius": 500.0,
+
+    "state_variables": [
+      "temperature",
+      "pressure",
+      "humidity",
+      "wind_u",
+      "wind_v"
+    ],
+
+    "observations": {
+      "max_distance": 1000.0,
+      "error_threshold": 3.0,
+      "types": [
+        "satellite",
+        "radiosonde",
+        "surface"
+      ]
+    },
+
+    "compute": {
+      "num_threads": 8,
+      "batch_size": 1000,
+      "use_gpu": true
+    },
+
+    "output": {
+      "format": "netcdf4",
+      "compression_level": 4,
+      "save_ensemble": true,
+      "save_analysis_error": true
+    }
+  }
+} 

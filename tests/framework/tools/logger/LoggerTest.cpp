@@ -8,7 +8,8 @@
  * backend.
  *
  * The tests ensure that:
- * - Each logging method (Info, Warning, Error, Debug) properly delegates to the backend
+ * - Each logging method (Info, Warning, Error, Debug) properly delegates to the
+ * backend
  * - Messages are passed through unmodified
  * - Methods are called exactly once per invocation
  */

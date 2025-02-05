@@ -1,0 +1,35 @@
+letkf:
+  # Ensemble parameters
+  ensemble_size: 64
+  inflation_factor: 1.15
+  localization_radius: 500.0  # km
+
+  # State variables to analyze
+  state_variables:
+    - temperature
+    - pressure
+    - humidity
+    - wind_u
+    - wind_v
+
+  # Observation settings
+  observations:
+    max_distance: 1000.0  # km
+    error_threshold: 3.0  # standard deviations
+    types:
+      - satellite
+      - radiosonde
+      - surface
+
+  # Computational settings
+  compute:
+    num_threads: 8
+    batch_size: 1000
+    use_gpu: true
+
+  # Output settings
+  output:
+    format: netcdf4
+    compression_level: 4
+    save_ensemble: true
+    save_analysis_error: true 
