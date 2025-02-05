@@ -4,9 +4,8 @@
  */
 
 #include "Logger.h"
-#include "LoggerTraits.h"
-#include "console/ConsoleLogger.h"
-// #include "google/GoogleLogger.h"
+#include "console/ConsoleLoggerTraits.h"
+// #include "google/GoogleLoggerTraits.h"
 
 /**
  * @brief RAII wrapper for logger initialization and shutdown

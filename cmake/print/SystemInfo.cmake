@@ -1,6 +1,6 @@
 # Print system information
 function(print_system_info)
-    message(STATUS "System Information:")
+    print_subheader("Platform Information")
     message(STATUS "  - OS: ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_VERSION}")
     message(STATUS "  - Architecture: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
     
@@ -30,7 +30,4 @@ function(print_system_info)
     endif()
     message(STATUS "  - Hostname: ${HOST_NAME}")
     message(STATUS "  - Username: ${USER_NAME}")
-    
-    message(STATUS "  - CMake Version: ${CMAKE_VERSION}")
-    message(STATUS "  - CMake Path: ${CMAKE_COMMAND}")
 endfunction() 

@@ -5,6 +5,8 @@ function(print_build_info)
     message(STATUS "    - Type: ${CMAKE_BUILD_TYPE}")
     message(STATUS "    - Directory: ${CMAKE_BINARY_DIR}")
     message(STATUS "    - Install prefix: ${CMAKE_INSTALL_PREFIX}")
+    message(STATUS "    - CMake Version: ${CMAKE_VERSION}")
+    message(STATUS "    - CMake Path: ${CMAKE_COMMAND}")
     
     message(STATUS "  Compiler Options:")
     print_compiler_flags()

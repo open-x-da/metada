@@ -10,14 +10,30 @@ namespace metada {
 /**
  * @brief Simple console-based logger implementation
  *
- * Provides basic logging functionality by writing messages to stdout/stderr
- * with severity level prefixes.
+ * This class provides basic logging functionality by writing messages to
+ * stdout/stderr with severity level prefixes. It implements the ILogger
+ * interface to provide a console-based logging backend.
+ *
+ * Messages are formatted with severity level prefixes:
+ * - [INFO] for informational messages (stdout)
+ * - [WARNING] for warning messages (stdout)
+ * - [ERROR] for error messages (stderr)
+ * - [DEBUG] for debug messages (stdout)
+ *
+ * This logger is suitable for simple applications and development/debugging
+ * purposes where console output is sufficient for logging needs.
+ *
+ * @see ILogger Base interface class
  */
 class ConsoleLogger : public framework::tools::logger::ILogger {
  public:
   /**
    * @brief Log info message to stdout
-   * @param message Message to log
+   *
+   * Writes an informational message to standard output with [INFO] prefix.
+   * Info messages are used for general operational information.
+   *
+   * @param message The message to log at INFO level
    */
   void Info(const std::string& message) override {
     std::cout << "[INFO] " << message << std::endl;
@@ -25,7 +41,11 @@ class ConsoleLogger : public framework::tools::logger::ILogger {
 
   /**
    * @brief Log warning message to stdout
-   * @param message Message to log
+   *
+   * Writes a warning message to standard output with [WARNING] prefix.
+   * Warning messages indicate potential issues that may require attention.
+   *
+   * @param message The message to log at WARNING level
    */
   void Warning(const std::string& message) override {
     std::cout << "[WARNING] " << message << std::endl;
@@ -33,7 +53,11 @@ class ConsoleLogger : public framework::tools::logger::ILogger {
 
   /**
    * @brief Log error message to stderr
-   * @param message Message to log
+   *
+   * Writes an error message to standard error with [ERROR] prefix.
+   * Error messages indicate serious problems requiring immediate attention.
+   *
+   * @param message The message to log at ERROR level
    */
   void Error(const std::string& message) override {
     std::cerr << "[ERROR] " << message << std::endl;
@@ -41,7 +65,11 @@ class ConsoleLogger : public framework::tools::logger::ILogger {
 
   /**
    * @brief Log debug message to stdout
-   * @param message Message to log
+   *
+   * Writes a debug message to standard output with [DEBUG] prefix.
+   * Debug messages provide detailed information for troubleshooting.
+   *
+   * @param message The message to log at DEBUG level
    */
   void Debug(const std::string& message) override {
     std::cout << "[DEBUG] " << message << std::endl;
@@ -49,7 +77,13 @@ class ConsoleLogger : public framework::tools::logger::ILogger {
 
   /**
    * @brief Initialize logger for application
-   * @param app_name Name of application using logger
+   *
+   * Performs basic initialization of the console logger. Outputs an
+   * initialization message to stdout with the application name.
+   *
+   * @param app_name Name of application using the logger
+   * @note This is a static method that should be called once at application
+   * startup
    */
   static void Init(const std::string& app_name) {
     // Simple initialization for default logger
@@ -59,16 +93,18 @@ class ConsoleLogger : public framework::tools::logger::ILogger {
 
   /**
    * @brief Cleanup logger resources
+   *
+   * Performs cleanup of the console logger. Outputs a shutdown message to
+   * stdout. For this simple implementation, no actual cleanup is needed since
+   * we only use standard streams.
+   *
+   * @note This is a static method that should be called once at application
+   * shutdown
    */
   static void Shutdown() {
     // Simple cleanup for default logger
     std::cout << "[INFO] " << "Console logger shutdown" << std::endl;
   }
-};
-
-template <>
-struct framework::tools::logger::LoggerTraits<void> {
-  using LoggerBackend = ConsoleLogger;
 };
 
 }  // namespace metada
