@@ -8,7 +8,8 @@ target_link_libraries(config_test
         metada::framework::tools::config)
 
 # Use the AddTests macro to handle GTest/GMock setup and coverage
-AddTests(config_test)
+metada_add_test_with_coverage(config_test)
+
 
 # Add format target for test files
 AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR}) 

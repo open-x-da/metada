@@ -1,6 +1,6 @@
 include(Coverage)
 
-macro(AddTests target)
+macro(metada_add_test_with_coverage target)
   AddCoverage(${target})
 
   target_link_libraries(${target}

@@ -8,7 +8,7 @@ target_link_libraries(logger_test
         metada::framework::tools::logger)
 
 # Use the AddTests macro to handle GTest/GMock setup
-AddTests(logger_test)
+metada_add_test_with_coverage(logger_test)
 
 # Add format target for test files
 AddFormatTarget(logger_test ${CMAKE_CURRENT_SOURCE_DIR}) 
