@@ -1,15 +1,14 @@
 # Create logging test executable
-add_executable(LoggerTest LoggerTest.cpp)
+add_executable(logger_test
+    LoggerTest.cpp)
 
-target_link_libraries(LoggerTest
+# Link logger library and setup testing
+target_link_libraries(logger_test
     PRIVATE
-        metada::framework::tools::logger
-        GTest::gtest_main
-        GTest::gmock
-)
+        metada::framework::tools::logger)
 
-# Register test
-gtest_discover_tests(LoggerTest)
+# Use the AddTests macro to handle GTest/GMock setup
+AddTests(logger_test)
 
-# Add format target
-AddFormatTarget(LoggerTest ${CMAKE_CURRENT_SOURCE_DIR}) 
+# Add format target for test files
+AddFormatTarget(logger_test ${CMAKE_CURRENT_SOURCE_DIR}) 

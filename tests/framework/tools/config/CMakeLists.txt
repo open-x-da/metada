@@ -2,16 +2,13 @@
 add_executable(config_test
     ConfigTest.cc)
 
-# Link test dependencies for config_test
+# Link config library and setup testing
 target_link_libraries(config_test
     PRIVATE
-        metada::framework::tools::config
-        GTest::GTest
-        GTest::Main
-        gmock)
+        metada::framework::tools::config)
 
-# Register test
-gtest_discover_tests(config_test)
+# Use the AddTests macro to handle GTest/GMock setup
+AddTests(config_test)
 
 # Add format target for test files
 AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR}) 
