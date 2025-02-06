@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-#include "framework/tools/config/IConfig.h"
+#include "IConfig.h"
 
 namespace metada {
 namespace backends {

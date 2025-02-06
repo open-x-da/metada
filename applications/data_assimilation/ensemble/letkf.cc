@@ -4,14 +4,14 @@
  */
 
 #include "Config.h"
-#include "JsonConfigTraits.h"
+#include "ConfigBackendSelector.h"
 #include "Logger.h"
 #include "console/ConsoleLoggerTraits.h"
 
 using namespace metada::framework::tools::config;
 
 // Use Config with appropriate backend traits
-using JsonConfigType = Config<ConfigTraits<void>::ConfigBackend>;
+using ConfigType = Config<ConfigTraits<void>::ConfigBackend>;
 
 /**
  * @brief RAII wrapper for logger initialization and shutdown
@@ -44,7 +44,7 @@ class LoggerInitializer {
 template <typename Logger>
 bool LoadConfiguration(Logger& logger, const std::string& config_file) {
   try {
-    JsonConfigType config;
+    ConfigType config;
     if (!config.LoadFromFile(config_file)) {
       logger.Error("Failed to load configuration from: " + config_file);
       return false;
@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
     double inflation_factor;
     std::vector<std::string> state_variables;
 
-    JsonConfigType config;
+    ConfigType config;
     if (!config.LoadFromFile(config_file)) {
       logger.Error("Failed to load configuration file: " + config_file);
       return 1;

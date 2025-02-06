@@ -57,23 +57,33 @@ framework::tools::config::ConfigValue YamlConfig::Get(
   return NodeToConfigValue(node);
 }
 
-/**
- * @brief Set a value in the configuration
- * @param key Dot-separated path where to store the value (e.g. "database.port")
- * @param value ConfigValue to store
- * @throws std::runtime_error if the key path is invalid or value type is not
- * supported
- */
+// Helper function to split string by delimiter
+std::vector<std::string> SplitString(const std::string& str, char delim) {
+  std::vector<std::string> tokens;
+  std::stringstream ss(str);
+  std::string token;
+  while (std::getline(ss, token, delim)) {
+    tokens.push_back(token);
+  }
+  return tokens;
+}
+
 void YamlConfig::Set(const std::string& key,
                      const framework::tools::config::ConfigValue& value) {
-  auto keys = YAML::Split(key, '.');
-  YAML::Node* current = &root_;
+  auto keys = SplitString(key, '.');
+  YAML::Node current = root_;
 
+  // Build the path, creating nodes as needed
   for (size_t i = 0; i < keys.size() - 1; ++i) {
-    current = &(*current)[keys[i]];
+    if (!current[keys[i]]) {
+      current[keys[i]] = YAML::Node(YAML::NodeType::Map);
+    }
+    current = current[keys[i]];
   }
 
-  (*current)[keys.back()] = ConfigValueToNode(value);
+  // Set the final value
+  current[keys.back()] = ConfigValueToNode(value);
+  root_ = current;
 }
 
 /**
@@ -109,10 +119,9 @@ bool YamlConfig::SaveToFile(const std::string& filename) const {
  */
 std::string YamlConfig::ToString() const {
   std::stringstream ss;
-  ss << root_;
+  ss << YAML::Dump(root_);
   return ss.str();
 }
-
 /**
  * @brief Clear all configuration data
  * Resets the configuration to an empty state
@@ -129,7 +138,7 @@ void YamlConfig::Clear() {
  * exist
  */
 YAML::Node YamlConfig::GetNode(const YAML::Node& node, const std::string& key) {
-  auto keys = YAML::Split(key, '.');
+  auto keys = SplitString(key, '.');
   YAML::Node current = node;
 
   for (const auto& k : keys) {
