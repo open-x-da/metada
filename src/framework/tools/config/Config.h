@@ -87,6 +87,14 @@ class Config {
   }
 
   /**
+   * @brief Get a value from the configuration without catching exceptions
+   * @param key Dot-separated path to the configuration value (e.g.
+   * "database.host")
+   * @return ConfigValue containing the requested value
+   */
+  ConfigValue GetUnsafe(const std::string& key) { return backend_.Get(key); }
+
+  /**
    * @brief Set a value in the configuration
    * @param key Dot-separated path where to store the value (e.g.
    * "database.port")
