@@ -23,6 +23,12 @@ RUN apt-get update && apt-get install -y \
     doxygen \
     graphviz \
     wget \
+    libgtest-dev \
+    libgoogle-glog-dev \
+    clang-format \
+    lcov \
+    libyaml-cpp-dev \
+    nlohmann-json3-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

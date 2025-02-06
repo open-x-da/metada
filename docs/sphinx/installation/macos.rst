@@ -31,7 +31,9 @@ Installing Dependencies
         googletest \
         glog \
         llvm \
-        lcov
+        lcov \
+        yaml-cpp \
+        nlohmann-json
 
 Building METADA
 ~~~~~~~~~~~~~~~

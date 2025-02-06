@@ -23,7 +23,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
 
     - name: Install dependencies
       run: |
@@ -42,7 +42,9 @@ jobs:
           googletest \
           glog \
           llvm \
-          lcov
+          lcov \
+          yaml-cpp \
+          nlohmann-json
 
     - name: Configure CMake
       run: |

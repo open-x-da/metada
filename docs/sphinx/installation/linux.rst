@@ -60,6 +60,8 @@ Setting up METADA Environment
       spack add cuda@12.1.0
       # Scientific computing packages
       spack add eigen boost
+      # Configuration packages
+      spack add yaml-cpp nlohmann-json
 
 3. Configure environment:
 

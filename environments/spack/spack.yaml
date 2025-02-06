@@ -16,6 +16,8 @@ spack:
   - glog@0.6.0:
   - lcov@1.16:
   - clang@15.0.0:
+  - yaml-cpp
+  - nlohmann-json
 
   # Package configuration
   packages:

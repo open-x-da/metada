@@ -42,6 +42,10 @@ Installing Required Packages
       pacman -S mingw-w64-x86_64-clang-tools-extra
       pacman -S mingw-w64-x86_64-lcov
 
+      # Configuration backends
+      pacman -S mingw-w64-x86_64-yaml-cpp
+      pacman -S mingw-w64-x86_64-nlohmann-json
+
 IDE Setup
 ~~~~~~~~~
 
