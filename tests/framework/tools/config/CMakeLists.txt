@@ -7,7 +7,7 @@ target_link_libraries(config_test
     PRIVATE
         metada::framework::tools::config)
 
-# Use the AddTests macro to handle GTest/GMock setup
+# Use the AddTests macro to handle GTest/GMock setup and coverage
 AddTests(config_test)
 
 # Add format target for test files

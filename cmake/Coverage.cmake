@@ -32,20 +32,58 @@ endfunction()
 function(AddCoverage target)
   find_program(LCOV_PATH lcov REQUIRED)
   find_program(GENHTML_PATH genhtml REQUIRED)
+  find_program(PERL_EXECUTABLE perl)
+
+  if(WIN32 AND PERL_EXECUTABLE)
+    set(LCOV_COMMAND ${CMAKE_COMMAND} -E env "LC_ALL=C" "${PERL_EXECUTABLE}" "${LCOV_PATH}")
+    set(GENHTML_COMMAND ${CMAKE_COMMAND} -E env "LC_ALL=C" "${PERL_EXECUTABLE}" "${GENHTML_PATH}")
+  else()
+    set(LCOV_COMMAND "${LCOV_PATH}")
+    set(GENHTML_COMMAND "${GENHTML_PATH}")
+  endif()
+
+  # Enable coverage for the target
+  enable_coverage(${target})
+
+  # Get the binary directory for this target
+  get_target_property(target_binary_dir ${target} BINARY_DIR)
+  if(NOT target_binary_dir)
+    set(target_binary_dir ${CMAKE_CURRENT_BINARY_DIR})
+  endif()
+
   add_custom_target(
     coverage-${target}
-    COMMAND ${LCOV_PATH} -d . --zerocounters
+    # Clean existing coverage data
+    COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/*.gcda
+    COMMAND ${LCOV_COMMAND} --directory ${CMAKE_BINARY_DIR} --zerocounters
+    # Run the tests
     COMMAND $<TARGET_FILE:${target}>
-    COMMAND ${LCOV_PATH} -d . --capture -o coverage.info
-    COMMAND ${LCOV_PATH} 
-            -r coverage.info 
+    # Capture coverage data
+    COMMAND ${LCOV_COMMAND} 
+            --directory ${CMAKE_BINARY_DIR}
+            --capture 
+            --output-file ${target_binary_dir}/coverage.info
+            --base-directory ${CMAKE_SOURCE_DIR}
+            --no-external
+    COMMAND ${LCOV_COMMAND} 
+            -r ${target_binary_dir}/coverage.info 
             '/usr/include/*'
-            -o filtered.info
-    COMMAND ${GENHTML_PATH} 
-            -o coverage-${target}
-            filtered.info 
+            '/mingw64/include/*'
+            '${CMAKE_BINARY_DIR}/_deps/*'
+            -o ${target_binary_dir}/filtered.info
+    COMMAND ${GENHTML_COMMAND} 
+            -o ${target_binary_dir}/coverage-${target}
+            ${target_binary_dir}/filtered.info 
             --legend
-    COMMAND rm -rf coverage.info filtered.info
+            --base-directory ${CMAKE_SOURCE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E remove ${target_binary_dir}/coverage.info ${target_binary_dir}/filtered.info
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Generating coverage report for ${target}"
   )
+
+  # Add a global coverage target if it doesn't exist
+  if(NOT TARGET coverage)
+    add_custom_target(coverage)
+  endif()
+  add_dependencies(coverage coverage-${target})
 endfunction()
