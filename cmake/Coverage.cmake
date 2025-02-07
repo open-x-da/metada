@@ -84,6 +84,8 @@ function(AddCoverage target)
     COMMAND ${GENHTML_COMMAND} 
             --output-directory ${CMAKE_BINARY_DIR}/coverage/${target}
             --prefix ${CMAKE_SOURCE_DIR}
+            --rc geninfo_unexecuted_blocks=1 
+            --ignore-errors mismatch
             filtered.info
             --legend
     # Clean up
