@@ -60,10 +60,6 @@ function(AddCoverage target)
 
   add_custom_target(
     coverage-${target}
-    # Clean existing coverage data
-    COMMAND ${LCOV_COMMAND} --directory . --zerocounters
-    # Run the tests
-    COMMAND $<TARGET_FILE:${target}>
     # Capture coverage data
     COMMAND ${LCOV_COMMAND} 
             --directory .
