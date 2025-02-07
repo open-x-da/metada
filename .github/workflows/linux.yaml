@@ -64,17 +64,15 @@ jobs:
         cd build
         ctest --output-on-failure
 
-    # Coverage upload temporarily disabled until coverage generation is properly configured
-    # - name: Generate coverage report
-    #   run: |
-    #     cd build
-    #     lcov --capture --directory . --output-file coverage.info
-    #     lcov --remove coverage.info '/usr/*' --output-file coverage.info
-    
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v3
-    #   with:
-    #     files: ./build/coverage.info
-    #     flags: linux
-    #     name: linux-coverage
-    #     fail_ci_if_error: true 
+    - name: Generate coverage report
+      run: |
+        cd build
+        cmake --build . --target coverage
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./build/coverage
+        flags: linux
+        name: linux-coverage
+        fail_ci_if_error: true 
