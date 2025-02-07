@@ -70,19 +70,31 @@ function(AddCoverage target)
             --capture 
             --output-file coverage.info
             --base-directory ${CMAKE_SOURCE_DIR}
+    # Filter out system headers
     COMMAND ${LCOV_COMMAND} 
             -r coverage.info 
-            '*/mingw64/include*'
-            '${CMAKE_BINARY_DIR}/_deps/*'
+            "C:/msys64/mingw64/*"
+            "*/mingw64/*"
+            "*/include/c++/*"
+            "*/bits/*"
+            "*/gtest/*"
+            "*/gmock/*"
+            "*/usr/include/*" 
+            "*/usr/lib/*" 
+            "*/opt/*" 
+            "${CMAKE_BINARY_DIR}/_deps/*"
             -o filtered.info
+    # Generate HTML report
     COMMAND ${GENHTML_COMMAND} 
-            --output-directory coverage-${target}
+            --output-directory ${CMAKE_BINARY_DIR}/coverage/${target}
+            --prefix ${CMAKE_SOURCE_DIR}
             filtered.info
             --legend
-            --prefix ${CMAKE_SOURCE_DIR}
+    # Clean up
     COMMAND ${CMAKE_COMMAND} -E remove coverage.info filtered.info
     WORKING_DIRECTORY ${target_binary_dir}
     COMMENT "Generating coverage report for ${target}"
+
   )
 
   # Add a global coverage target if it doesn't exist

@@ -26,8 +26,8 @@ target_link_libraries(lorenz95_python_test
         Python3::NumPy
 )
 
-# Add Google Test dependencies and configure test discovery
-AddTests(lorenz95_python_test)
+# Add test setup and coverage
+metada_add_test_with_coverage(lorenz95_python_test)
 
 # Add format target
 AddFormatTarget(lorenz95_python_test ${CMAKE_CURRENT_SOURCE_DIR}) 
