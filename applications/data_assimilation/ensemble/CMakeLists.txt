@@ -1,7 +1,7 @@
 # Add LETKF executable
 add_executable(letkf letkf.cpp)
 
-# Link only with backends logger
+# Link with required backend libraries for logging and configuration
 target_link_libraries(letkf
     PRIVATE
         metada::backends::tools::logger

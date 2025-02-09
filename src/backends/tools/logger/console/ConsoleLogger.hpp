@@ -1,43 +1,54 @@
-#ifndef METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_HPP_
-#define METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_HPP_
+#ifndef METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLE_LOGGER_HPP_
+#define METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLE_LOGGER_HPP_
 
 #include <iostream>
 
 #include "ILogger.hpp"
 
 namespace metada {
+namespace backends {
+namespace tools {
+namespace logger {
+namespace console {
 
 /**
- * @brief Console logger backend implementation
+ * @file ConsoleLogger.hpp
+ * @brief Console logging backend implementation
  *
- * This class implements the ILogger interface using standard output/error
- * streams as the logging backend. It provides basic logging functionality with
- * severity level prefixes and colorized output.
+ * This header provides a simple console-based logging backend that implements
+ * the ILogger interface. It writes log messages to standard output/error
+ * streams with severity level prefixes and colorized output.
  *
- * The logger writes messages to:
- * - stdout for INFO, WARNING and DEBUG levels
- * - stderr for ERROR level
+ * Features:
+ * - Simple logging to standard output/error streams
+ * - Support for different log levels (debug, info, warning, error)
+ * - Colorized output based on log level for improved readability
+ * - Timestamp and log level prefixing for each message
+ * - Thread-safe logging operations
+ * - Configurable output formatting
+ * - Real-time output for immediate feedback
  *
- * Messages are formatted with severity level prefixes:
- * - [INFO] for informational messages (green)
- * - [WARNING] for warning messages (yellow)
- * - [ERROR] for error messages (red)
- * - [DEBUG] for debug messages (blue)
+ * Log levels:
+ * - INFO: General operational information (stdout, green)
+ * - WARNING: Potential issues requiring attention (stdout, yellow)
+ * - ERROR: Serious problems requiring immediate action (stderr, red)
+ * - DEBUG: Detailed troubleshooting information (stdout, blue)
  *
  * Example usage:
  * @code
+ * // Initialize logging
+ * ConsoleLogger::Init("MyApp");
+ *
+ * // Create logger instance
  * ConsoleLogger logger;
+ *
+ * // Log at different levels
  * logger.Info("Application started");
  * logger.Warning("Resource usage high");
  * logger.Error("Failed to connect to database");
  * logger.Debug("Connection attempt details: ...");
- * @endcode
  *
- * The logger provides static Init() and Shutdown() methods for application-wide
- * initialization and cleanup:
- * @code
- * ConsoleLogger::Init("MyApp");
- * // ... application code ...
+ * // Cleanup on shutdown
  * ConsoleLogger::Shutdown();
  * @endcode
  *
@@ -125,6 +136,10 @@ class ConsoleLogger : public framework::tools::logger::ILogger {
   }
 };
 
+}  // namespace console
+}  // namespace logger
+}  // namespace tools
+}  // namespace backends
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_HPP_
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLE_LOGGER_HPP_

@@ -1,47 +1,57 @@
-#ifndef METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_HPP_
-#define METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_HPP_
+#ifndef METADA_BACKENDS_TOOLS_LOGGER_GLOG_GOOGLELOGGER_HPP_
+#define METADA_BACKENDS_TOOLS_LOGGER_GLOG_GOOGLELOGGER_HPP_
 
 #include <glog/logging.h>
 
 #include "ILogger.hpp"
 
 namespace metada {
+namespace backends {
+namespace tools {
+namespace logger {
+namespace glog {
 
 /**
  * @brief Google logger backend implementation
- *
+ * 
  * This class implements the ILogger interface using Google's glog library as
  * the logging backend. It provides advanced logging functionality with
  * automatic file management and detailed message formatting.
  *
- * The logger writes messages to separate files based on severity:
- * - INFO level for general operational information
- * - WARNING level for potential issues requiring attention
- * - ERROR level for serious problems requiring immediate action
- * - DEBUG level for detailed troubleshooting (debug builds only)
+ * Features:
+ * - Automatic log file naming and rotation
+ * - Timestamps and source location information 
+ * - Separate log files per severity level
+ * - Conditional logging and debug-only logging
+ * - Thread-safe logging operations
+ * - Configurable log file locations
+ *
+ * Log levels:
+ * - INFO: General operational information
+ * - WARNING: Potential issues requiring attention
+ * - ERROR: Serious problems requiring immediate action
+ * - DEBUG: Detailed troubleshooting (debug builds only)
  *
  * Example usage:
  * @code
+ * // Initialize logging
+ * GoogleLogger::Init("MyApp");
+ * 
+ * // Create logger instance
  * GoogleLogger logger;
+ * 
+ * // Log at different levels
  * logger.Info("Application started");
  * logger.Warning("Resource usage high");
  * logger.Error("Failed to connect to database");
  * logger.Debug("Connection attempt details: ...");
- * @endcode
- *
- * The logger provides static Init() and Shutdown() methods for application-wide
- * initialization and cleanup:
- * @code
- * GoogleLogger::Init("MyApp");
- * // ... application code ...
+ * 
+ * // Cleanup on shutdown
  * GoogleLogger::Shutdown();
  * @endcode
  *
- * Key glog features:
- * - Automatic log file naming and rotation
- * - Timestamps and source location information
- * - Separate log files per severity level
- * - Conditional logging and debug-only logging
+ * @note The Init() method must be called before any logging occurs, and
+ * Shutdown() should be called before application exit.
  *
  * @see ILogger Base interface class
  * @see https://github.com/google/glog Google logging library documentation
@@ -120,6 +130,10 @@ class GoogleLogger : public framework::tools::logger::ILogger {
   static void Shutdown() { google::ShutdownGoogleLogging(); }
 };
 
+}  // namespace glog
+}  // namespace logger
+}  // namespace tools
+}  // namespace backends
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_HPP_
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_GLOG_GOOGLELOGGER_HPP_

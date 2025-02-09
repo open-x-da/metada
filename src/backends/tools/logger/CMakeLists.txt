@@ -1,25 +1,44 @@
+# Define available logger backends and set default
+if(glog_FOUND)
+    set(LOGGER_BACKEND "GLOG" CACHE STRING "Select logger backend")
+else()
+    set(LOGGER_BACKEND "CONSOLE" CACHE STRING "Select logger backend") 
+endif()
+
+# Set available options based on found packages
+set(LOGGER_BACKENDS "")
+if(glog_FOUND)
+    list(APPEND LOGGER_BACKENDS "GLOG")
+endif()
+list(APPEND LOGGER_BACKENDS "CONSOLE")
+
+# Set the allowed values for LOGGER_BACKEND
+set_property(CACHE LOGGER_BACKEND PROPERTY STRINGS ${LOGGER_BACKENDS})
+
+# Add selected backend subdirectory
+if(LOGGER_BACKEND IN_LIST LOGGER_BACKENDS)
+    string(TOLOWER ${LOGGER_BACKEND} LOGGER_BACKEND_LOWER)
+    add_subdirectory(${LOGGER_BACKEND_LOWER})
+else()
+    message(FATAL_ERROR "Invalid LOGGER_BACKEND value: ${LOGGER_BACKEND}. Must be one of: ${LOGGER_BACKENDS}")
+endif()
+
 # Create backend logger library
-add_library(metada_backends_tools_logger INTERFACE)
-add_library(metada::backends::tools::logger ALIAS metada_backends_tools_logger)
+add_library(logger_backends INTERFACE)
+add_library(metada::backends::tools::logger ALIAS logger_backends)
 
-# Always link with the framework logger
-target_link_libraries(metada_backends_tools_logger
-    INTERFACE
-        metada::framework::tools::logger
-)
-
-target_include_directories(metada_backends_tools_logger
+target_include_directories(logger_backends
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# Add glog if available and enabled
-if(Glog_FOUND AND USE_GLOG)   
-    target_link_libraries(metada_backends_tools_logger
-        INTERFACE
-            glog::glog
-    )
-endif()
+# Configure compile definitions and link libraries based on selected backend
+target_compile_definitions(logger_backends
+    INTERFACE
+        USE_${LOGGER_BACKEND}_LOGGER
+)
 
-# Add format target to ensure consistent code style across the project
-AddFormatTarget(metada_backends_tools_logger ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(logger_backends
+    INTERFACE
+        metada::backends::tools::logger::${LOGGER_BACKEND_LOWER}
+)

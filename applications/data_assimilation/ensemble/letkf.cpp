@@ -5,54 +5,71 @@
  * This application implements the Local Ensemble Transform Kalman Filter
  * algorithm for data assimilation. It reads configuration from a YAML/JSON file
  * and performs ensemble-based state estimation.
+ *
+ * The LETKF algorithm is a variant of the Ensemble Kalman Filter that performs
+ * the analysis step locally in space, making it computationally efficient and
+ * suitable for high-dimensional systems. Key features:
+ *
+ * - Reads configuration from YAML/JSON files
+ * - Supports multiple state variables (temperature, pressure, humidity, etc.)
+ * - Configurable ensemble size and inflation parameters
+ * - Local analysis for improved computational efficiency
+ * - Robust error handling and logging
+ *
+ * @see Hunt et al. (2007) "Efficient Data Assimilation for Spatiotemporal
+ * Chaos: A Local Ensemble Transform Kalman Filter"
  */
 
 #include "Config.hpp"
 #include "ConfigBackendSelector.hpp"
 #include "Logger.hpp"
-#include "console/ConsoleLoggerTraits.hpp"
+#include "LoggerBackendSelector.hpp"
 
 using namespace metada::framework::tools::config;
+using namespace metada::framework::tools::logger;
 
 // Use Config with appropriate backend traits
 using ConfigType = Config<ConfigTraits<void>::ConfigBackend>;
+using LoggerType = Logger<LoggerTraits<void>::LoggerBackend>;
 
 /**
  * @brief RAII wrapper for logger initialization and shutdown
  *
  * Provides automatic initialization and cleanup of the logger system
- * using RAII principles.
+ * using RAII principles. This ensures proper resource management and
+ * exception safety.
  */
 class LoggerInitializer {
  public:
   /**
    * @brief Initialize logger with application name
    * @param app_name Name of the application for logging identification
+   * @throws std::runtime_error If logger initialization fails
    */
   explicit LoggerInitializer(const std::string& app_name) {
-    metada::framework::tools::logger::LoggerTraits<void>::LoggerBackend::Init(
-        app_name);
+    LoggerTraits<void>::LoggerBackend::Init(app_name);
   }
   /**
    * @brief Shutdown logger on destruction
    *
-   * Ensures proper cleanup of logger resources when object goes out of scope
+   * Ensures proper cleanup of logger resources when object goes out of scope.
+   * This destructor is noexcept to prevent throwing during stack unwinding.
    */
-  ~LoggerInitializer() {
-    metada::framework::tools::logger::LoggerTraits<
-        void>::LoggerBackend::Shutdown();
-  }
+  ~LoggerInitializer() { LoggerTraits<void>::LoggerBackend::Shutdown(); }
 };
 
 /**
  * @brief Load LETKF configuration from file
  *
  * Attempts to load and parse configuration settings from the specified file.
- * Handles both YAML and JSON formats.
+ * Handles both YAML and JSON formats. The configuration file should contain
+ * LETKF-specific parameters such as ensemble size, inflation factor, and
+ * state variables.
  *
  * @param logger Logger instance for status and error reporting
  * @param config_file Path to configuration file
  * @return true if configuration loaded successfully, false otherwise
+ * @throws std::runtime_error If file cannot be opened or parsed
  */
 template <typename Logger>
 bool LoadConfiguration(Logger& logger, const std::string& config_file) {
@@ -73,6 +90,9 @@ bool LoadConfiguration(Logger& logger, const std::string& config_file) {
 /**
  * @brief Check if a filename has a YAML extension
  *
+ * Validates if the given filename ends with a YAML extension (.yaml or .yml).
+ * This helps determine the appropriate parser to use for configuration files.
+ *
  * @param filename Name of file to check
  * @return true if file has .yaml or .yml extension, false otherwise
  */
@@ -87,14 +107,21 @@ bool isYamlFile(const std::string& filename) {
  * @brief Main entry point for LETKF application
  *
  * Initializes the application, loads configuration, sets up LETKF parameters
- * and executes the data assimilation algorithm.
+ * and executes the data assimilation algorithm. The application follows these
+ * steps:
+ * 1. Initialize logging system
+ * 2. Parse command line arguments
+ * 3. Load and validate configuration
+ * 4. Set up LETKF parameters
+ * 5. Execute data assimilation
+ * 6. Clean up resources
  *
  * Expected configuration format:
  * ```yaml
  * letkf:
- *   ensemble_size: 32
- *   inflation_factor: 1.1
- *   state_variables:
+ *   ensemble_size: 32        # Number of ensemble members
+ *   inflation_factor: 1.1    # Covariance inflation parameter
+ *   state_variables:         # List of variables to assimilate
  *     - temperature
  *     - pressure
  *     - humidity
@@ -104,14 +131,13 @@ bool isYamlFile(const std::string& filename) {
  * @param argv Command line arguments, expects config file path as first
  * argument
  * @return 0 on successful execution, 1 on error
+ * @throws std::runtime_error For critical errors during execution
  */
 int main(int argc, char* argv[]) {
   // Initialize logger with RAII
   LoggerInitializer log_init("letkf_app");
 
-  metada::framework::tools::logger::Logger<
-      metada::framework::tools::logger::LoggerTraits<void>::LoggerBackend>
-      logger;
+  LoggerType logger;
 
   logger.Info("LETKF application starting...");
 
