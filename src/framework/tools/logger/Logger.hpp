@@ -1,5 +1,5 @@
-#ifndef METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
-#define METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
+#ifndef METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_HPP_
+#define METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_HPP_
 
 #include <string>
 
@@ -20,8 +20,16 @@ namespace logger {
  * This allows switching between different logging backends (e.g. console, file,
  * third-party logging libraries) without changing the logging code.
  *
+ * Example usage:
+ * @code
+ * ConsoleLogger backend;
+ * Logger<ConsoleLogger> logger;
+ * logger.Info("Application started");
+ * logger.Error("An error occurred");
+ * @endcode
+ *
  * @tparam Backend The concrete logger backend type that implements the ILogger
- * interface
+ *                 interface
  *
  * @see ILogger
  * @see LoggerTraits
@@ -101,4 +109,4 @@ class Logger {
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_H_
+#endif  // METADA_FRAMEWORK_TOOLS_LOGGER_LOGGER_HPP_

@@ -1,5 +1,5 @@
-#ifndef METADA_FRAMEWORK_TOOLS_LOGGER_ILOGGER_H_
-#define METADA_FRAMEWORK_TOOLS_LOGGER_ILOGGER_H_
+#ifndef METADA_FRAMEWORK_TOOLS_LOGGER_ILOGGER_HPP_
+#define METADA_FRAMEWORK_TOOLS_LOGGER_ILOGGER_HPP_
 
 #include <string>
 
@@ -9,25 +9,36 @@ namespace tools {
 namespace logger {
 
 /**
- * @brief Interface for logger implementations
+ * @brief Abstract interface for logger backend implementations
  *
- * This abstract class defines the core logging interface that concrete logger
- * backends must implement. It provides pure virtual methods for different
- * logging levels (Info, Warning, Error, Debug) that derived classes need to
- * implement.
+ * This interface defines the contract that all logger backends must implement.
+ * It provides a unified API for logging messages at different severity levels
+ * in a backend-agnostic way.
  *
- * Additionally, concrete implementations must provide static Init() and
- * Shutdown() methods for process-wide logging setup and cleanup. These static
- * methods are not part of the interface since they need to be called directly
- * on the concrete implementation class.
+ * Key features:
+ * - Multiple severity levels (Info, Warning, Error, Debug)
+ * - Process-wide initialization and cleanup
+ * - Backend-agnostic interface
  *
- * @note This interface is designed to be backend-agnostic, allowing different
- * logging implementations (console, file, third-party libraries) to be used
- * interchangeably.
+ * Example usage:
+ * @code
+ * class ConsoleLogger : public ILogger {
+ *   void Info(const std::string& message) override;
+ *   void Warning(const std::string& message) override;
+ *   void Error(const std::string& message) override;
+ *   void Debug(const std::string& message) override;
+ *   // ... static Init() and Shutdown() methods
+ * };
+ * @endcode
  *
- * @see Logger
- * @see LoggerTraits
- * @see ConsoleLogger
+ * Concrete implementations must provide:
+ * - Logging methods for each severity level
+ * - Static Init() and Shutdown() methods for process-wide setup
+ * - Thread-safe logging operations
+ * - Proper message formatting and output
+ *
+ * @see Logger Main logger class template using this interface
+ * @see LoggerTraits Compile-time backend selection
  */
 class ILogger {
  public:
@@ -99,4 +110,4 @@ class ILogger {
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_FRAMEWORK_TOOLS_LOGGER_ILOGGER_H_
+#endif  // METADA_FRAMEWORK_TOOLS_LOGGER_ILOGGER_HPP_

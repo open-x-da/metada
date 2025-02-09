@@ -1,6 +1,6 @@
 # Add config test executable
 add_executable(config_test
-    ConfigTest.cc)
+    ConfigTest.cpp)
 
 # Link config library and setup testing
 target_link_libraries(config_test

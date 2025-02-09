@@ -1,5 +1,5 @@
 # Add LETKF executable
-add_executable(letkf letkf.cc)
+add_executable(letkf letkf.cpp)
 
 # Link only with backends logger
 target_link_libraries(letkf

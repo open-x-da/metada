@@ -1,11 +1,11 @@
-#ifndef METADA_BACKENDS_TOOLS_CONFIG_JSON_JSON_CONFIG_H_
-#define METADA_BACKENDS_TOOLS_CONFIG_JSON_JSON_CONFIG_H_
+#ifndef METADA_BACKENDS_TOOLS_CONFIG_JSON_JSONCONFIG_HPP_
+#define METADA_BACKENDS_TOOLS_CONFIG_JSON_JSONCONFIG_HPP_
 
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 
-#include "IConfig.h"
+#include "IConfig.hpp"
 
 namespace metada {
 namespace backends {
@@ -24,7 +24,23 @@ namespace json {
  * dot notation to access nested values. For example, "database.host" would
  * access the "host" field within the "database" object.
  *
- * Supported value types include:
+ * Example usage:
+ * @code
+ * JsonConfig config;
+ * config.LoadFromFile("config.json");
+ *
+ * // Get values
+ * auto host = config.Get("database.host").AsString();
+ * auto port = config.Get("database.port").AsInt();
+ *
+ * // Set values
+ * config.Set("database.user", ConfigValue("admin"));
+ * config.Set("database.timeout", ConfigValue(30));
+ *
+ * config.SaveToFile("updated_config.json");
+ * @endcode
+ *
+ * Supported value types:
  * - Boolean
  * - Integer
  * - Double
@@ -157,4 +173,4 @@ class JsonConfig : public framework::tools::config::IConfig {
 }  // namespace backends
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_CONFIG_JSON_JSON_CONFIG_H_
+#endif  // METADA_BACKENDS_TOOLS_CONFIG_JSON_JSONCONFIG_HPP_

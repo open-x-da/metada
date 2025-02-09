@@ -1,33 +1,50 @@
-#ifndef METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_
-#define METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_
+#ifndef METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_HPP_
+#define METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_HPP_
 
 #include <glog/logging.h>
 
-#include "ILogger.h"
+#include "ILogger.hpp"
 
 namespace metada {
 
 /**
- * @brief Google logging implementation of ILogger interface
+ * @brief Google logger backend implementation
  *
- * This class provides logging functionality by delegating to Google's glog
- * library. It implements the ILogger interface to provide a glog-based logging
- * backend.
+ * This class implements the ILogger interface using Google's glog library as
+ * the logging backend. It provides advanced logging functionality with
+ * automatic file management and detailed message formatting.
  *
- * Messages are logged using glog's severity levels:
- * - INFO for informational messages
- * - WARNING for warning messages
- * - ERROR for error messages
- * - DLOG(INFO) for debug messages (only in debug builds)
+ * The logger writes messages to separate files based on severity:
+ * - INFO level for general operational information
+ * - WARNING level for potential issues requiring attention
+ * - ERROR level for serious problems requiring immediate action
+ * - DEBUG level for detailed troubleshooting (debug builds only)
  *
- * Glog provides additional features like:
- * - Automatic file naming and rotation
- * - Line numbers and timestamps
- * - Different log files per severity level
- * - Conditional logging
+ * Example usage:
+ * @code
+ * GoogleLogger logger;
+ * logger.Info("Application started");
+ * logger.Warning("Resource usage high");
+ * logger.Error("Failed to connect to database");
+ * logger.Debug("Connection attempt details: ...");
+ * @endcode
+ *
+ * The logger provides static Init() and Shutdown() methods for application-wide
+ * initialization and cleanup:
+ * @code
+ * GoogleLogger::Init("MyApp");
+ * // ... application code ...
+ * GoogleLogger::Shutdown();
+ * @endcode
+ *
+ * Key glog features:
+ * - Automatic log file naming and rotation
+ * - Timestamps and source location information
+ * - Separate log files per severity level
+ * - Conditional logging and debug-only logging
  *
  * @see ILogger Base interface class
- * @see https://github.com/google/glog Documentation for Google logging library
+ * @see https://github.com/google/glog Google logging library documentation
  */
 class GoogleLogger : public framework::tools::logger::ILogger {
  public:
@@ -105,4 +122,4 @@ class GoogleLogger : public framework::tools::logger::ILogger {
 
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_H_
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_GOOGLE_GOOGLELOGGER_HPP_

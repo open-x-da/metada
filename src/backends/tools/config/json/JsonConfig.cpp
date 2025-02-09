@@ -1,4 +1,4 @@
-#include "JsonConfig.h"
+#include "JsonConfig.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -12,8 +12,13 @@ namespace json {
 
 /**
  * @brief Load configuration from a JSON file
+ *
+ * Attempts to load and parse a JSON configuration file. The file must contain
+ * valid JSON syntax.
+ *
  * @param filename Path to the JSON configuration file
- * @return true if loading was successful, false otherwise
+ * @return true if loading was successful, false if file cannot be opened or
+ * contains invalid JSON
  */
 bool JsonConfig::LoadFromFile(const std::string& filename) {
   try {
@@ -28,8 +33,12 @@ bool JsonConfig::LoadFromFile(const std::string& filename) {
 
 /**
  * @brief Load configuration from a JSON string
- * @param content String containing the JSON configuration data
- * @return true if loading was successful, false otherwise
+ *
+ * Attempts to parse a string containing JSON configuration data.
+ *
+ * @param content String containing JSON configuration data
+ * @return true if parsing was successful, false if content contains invalid
+ * JSON
  */
 bool JsonConfig::LoadFromString(const std::string& content) {
   try {
@@ -42,8 +51,20 @@ bool JsonConfig::LoadFromString(const std::string& content) {
 
 /**
  * @brief Get a value from the configuration
+ *
+ * Retrieves a value from the configuration using a dot-separated path key.
+ * The value is returned as a ConfigValue variant that can contain:
+ * - bool
+ * - int
+ * - double
+ * - string
+ * - vector<bool>
+ * - vector<int>
+ * - vector<double>
+ * - vector<string>
+ *
  * @param key Dot-separated path to the configuration value (e.g.
- * "parent.child.value")
+ * "database.host")
  * @return ConfigValue containing the requested value
  * @throw std::runtime_error if the key doesn't exist or value type is not
  * supported
@@ -60,10 +81,22 @@ framework::tools::config::ConfigValue JsonConfig::Get(
 
 /**
  * @brief Set a value in the configuration
- * @param key Dot-separated path where to store the value (e.g.
- * "parent.child.value")
+ *
+ * Stores a value in the configuration at the specified dot-separated path key.
+ * Creates intermediate objects as needed. Supported value types are:
+ * - bool
+ * - int
+ * - double
+ * - string
+ * - vector<bool>
+ * - vector<int>
+ * - vector<double>
+ * - vector<string>
+ *
+ * @param key Dot-separated path where to store the value (e.g. "database.host")
  * @param value ConfigValue containing the value to store
- * @throw std::runtime_error if the key path is invalid
+ * @throw std::runtime_error if the key path is invalid or contains invalid
+ * characters
  */
 void JsonConfig::Set(const std::string& key,
                      const framework::tools::config::ConfigValue& value) {
@@ -73,8 +106,11 @@ void JsonConfig::Set(const std::string& key,
 
 /**
  * @brief Check if a key exists in the configuration
- * @param key Dot-separated path to check (e.g. "parent.child.value")
- * @return true if the key exists, false otherwise
+ *
+ * Tests whether a value exists at the specified dot-separated path key.
+ *
+ * @param key Dot-separated path to check (e.g. "database.host")
+ * @return true if the key exists and contains a value, false otherwise
  */
 bool JsonConfig::HasKey(const std::string& key) const {
   try {
@@ -87,8 +123,12 @@ bool JsonConfig::HasKey(const std::string& key) const {
 
 /**
  * @brief Save configuration to a JSON file
+ *
+ * Writes the current configuration state to a JSON file. The output is
+ * pretty-printed with 2-space indentation for readability.
+ *
  * @param filename Path where to save the configuration file
- * @return true if saving was successful, false otherwise
+ * @return true if saving was successful, false if file cannot be written
  */
 bool JsonConfig::SaveToFile(const std::string& filename) const {
   try {
@@ -103,6 +143,10 @@ bool JsonConfig::SaveToFile(const std::string& filename) const {
 
 /**
  * @brief Convert configuration to a JSON string
+ *
+ * Returns a string representation of the current configuration state.
+ * The output is pretty-printed with 2-space indentation for readability.
+ *
  * @return Pretty-printed JSON string representation of the configuration
  */
 std::string JsonConfig::ToString() const {
@@ -111,6 +155,9 @@ std::string JsonConfig::ToString() const {
 
 /**
  * @brief Clear all configuration data
+ *
+ * Removes all key-value pairs from the configuration, resetting it to
+ * an empty state.
  */
 void JsonConfig::Clear() {
   root_.clear();
@@ -119,15 +166,15 @@ void JsonConfig::Clear() {
 /**
  * @brief Get a reference to a JSON value at the specified path
  *
- * This helper function traverses the JSON object using a dot-separated path
- * and returns a reference to the JSON value at that path.
+ * Helper function that traverses the JSON object using a dot-separated path
+ * and returns a reference to the JSON value at that location. Creates
+ * intermediate objects as needed when used with Set().
  *
  * @param j The JSON object to traverse
- * @param key Dot-separated path to the desired value (e.g.
- * "parent.child.value")
+ * @param key Dot-separated path to the desired value (e.g. "database.host")
  * @return Reference to the JSON value at the specified path
- * @throw nlohmann::json::exception if the path is invalid or value doesn't
- * exist
+ * @throw nlohmann::json::exception if the path is invalid or contains invalid
+ * characters
  */
 nlohmann::json& JsonConfig::GetJsonRef(nlohmann::json& j,
                                        const std::string& key) {
@@ -144,11 +191,11 @@ nlohmann::json& JsonConfig::GetJsonRef(nlohmann::json& j,
 /**
  * @brief Get a const reference to a JSON value at the specified path
  *
- * Const version of GetJsonRef that returns a const reference.
+ * Const version of GetJsonRef() that returns a const reference. Used internally
+ * by Get() and HasKey() to safely access values without modification.
  *
  * @param j The JSON object to traverse
- * @param key Dot-separated path to the desired value (e.g.
- * "parent.child.value")
+ * @param key Dot-separated path to the desired value (e.g. "database.host")
  * @return Const reference to the JSON value at the specified path
  * @throw nlohmann::json::exception if the path is invalid or value doesn't
  * exist
@@ -168,16 +215,16 @@ const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
 /**
  * @brief Convert a JSON value to a ConfigValue
  *
- * This helper function converts nlohmann::json values to the appropriate
- * ConfigValue type. Supports conversion of:
- * - Boolean values
- * - Integer numbers
- * - Floating point numbers
- * - Strings
- * - Arrays of the above types
+ * Helper function that converts nlohmann::json values to the appropriate
+ * ConfigValue variant type. Supports conversion of:
+ * - Boolean values to bool
+ * - Integer numbers to int
+ * - Floating point numbers to double
+ * - Strings to string
+ * - Arrays of the above types to corresponding vector types
  *
- * For arrays, the type is determined by the first element. Empty arrays default
- * to string arrays.
+ * For arrays, the element type is determined by the first element. Empty arrays
+ * are converted to vector<string> by default.
  *
  * @param j The JSON value to convert
  * @return ConfigValue containing the converted value
@@ -217,17 +264,13 @@ framework::tools::config::ConfigValue JsonConfig::JsonToConfigValue(
 /**
  * @brief Convert a ConfigValue to a JSON value
  *
- * This helper function converts ConfigValue variants to nlohmann::json values.
- * Uses std::visit to handle all possible types stored in the ConfigValue
- * variant:
- * - bool
- * - int
- * - double
- * - string
- * - vector<bool>
- * - vector<int>
- * - vector<double>
- * - vector<string>
+ * Helper function that converts ConfigValue variants to nlohmann::json values.
+ * Uses std::visit to handle all possible types stored in the ConfigValue:
+ * - bool -> JSON boolean
+ * - int -> JSON integer
+ * - double -> JSON number
+ * - string -> JSON string
+ * - vector<T> -> JSON array of corresponding type
  *
  * @param value The ConfigValue to convert
  * @return nlohmann::json containing the converted value

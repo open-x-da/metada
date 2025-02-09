@@ -1,12 +1,16 @@
 /**
- * @file letkf.cc
+ * @file letkf.cpp
  * @brief Local Ensemble Transform Kalman Filter (LETKF) application
+ *
+ * This application implements the Local Ensemble Transform Kalman Filter
+ * algorithm for data assimilation. It reads configuration from a YAML/JSON file
+ * and performs ensemble-based state estimation.
  */
 
-#include "Config.h"
-#include "ConfigBackendSelector.h"
-#include "Logger.h"
-#include "console/ConsoleLoggerTraits.h"
+#include "Config.hpp"
+#include "ConfigBackendSelector.hpp"
+#include "Logger.hpp"
+#include "console/ConsoleLoggerTraits.hpp"
 
 using namespace metada::framework::tools::config;
 
@@ -15,12 +19,15 @@ using ConfigType = Config<ConfigTraits<void>::ConfigBackend>;
 
 /**
  * @brief RAII wrapper for logger initialization and shutdown
+ *
+ * Provides automatic initialization and cleanup of the logger system
+ * using RAII principles.
  */
 class LoggerInitializer {
  public:
   /**
    * @brief Initialize logger with application name
-   * @param app_name Name of the application
+   * @param app_name Name of the application for logging identification
    */
   explicit LoggerInitializer(const std::string& app_name) {
     metada::framework::tools::logger::LoggerTraits<void>::LoggerBackend::Init(
@@ -28,6 +35,8 @@ class LoggerInitializer {
   }
   /**
    * @brief Shutdown logger on destruction
+   *
+   * Ensures proper cleanup of logger resources when object goes out of scope
    */
   ~LoggerInitializer() {
     metada::framework::tools::logger::LoggerTraits<
@@ -37,9 +46,13 @@ class LoggerInitializer {
 
 /**
  * @brief Load LETKF configuration from file
- * @param logger Logger instance for output
+ *
+ * Attempts to load and parse configuration settings from the specified file.
+ * Handles both YAML and JSON formats.
+ *
+ * @param logger Logger instance for status and error reporting
  * @param config_file Path to configuration file
- * @return true if configuration loaded successfully
+ * @return true if configuration loaded successfully, false otherwise
  */
 template <typename Logger>
 bool LoadConfiguration(Logger& logger, const std::string& config_file) {
@@ -57,6 +70,12 @@ bool LoadConfiguration(Logger& logger, const std::string& config_file) {
   }
 }
 
+/**
+ * @brief Check if a filename has a YAML extension
+ *
+ * @param filename Name of file to check
+ * @return true if file has .yaml or .yml extension, false otherwise
+ */
 bool isYamlFile(const std::string& filename) {
   size_t pos = filename.find_last_of('.');
   if (pos == std::string::npos) return false;
@@ -66,9 +85,25 @@ bool isYamlFile(const std::string& filename) {
 
 /**
  * @brief Main entry point for LETKF application
+ *
+ * Initializes the application, loads configuration, sets up LETKF parameters
+ * and executes the data assimilation algorithm.
+ *
+ * Expected configuration format:
+ * ```yaml
+ * letkf:
+ *   ensemble_size: 32
+ *   inflation_factor: 1.1
+ *   state_variables:
+ *     - temperature
+ *     - pressure
+ *     - humidity
+ * ```
+ *
  * @param argc Number of command line arguments
- * @param argv Command line arguments
- * @return 0 on success, 1 on failure
+ * @param argv Command line arguments, expects config file path as first
+ * argument
+ * @return 0 on successful execution, 1 on error
  */
 int main(int argc, char* argv[]) {
   // Initialize logger with RAII

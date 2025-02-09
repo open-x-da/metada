@@ -1,6 +1,6 @@
 # Create YAML config backend library
 add_library(config_yaml
-    YamlConfig.cc)
+    YamlConfig.cpp)
 add_library(metada::backends::tools::config::yaml
     ALIAS config_yaml)
 

@@ -1,27 +1,45 @@
-#ifndef METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_H_
-#define METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_H_
+#ifndef METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_HPP_
+#define METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_HPP_
 
 #include <iostream>
 
-#include "ILogger.h"
+#include "ILogger.hpp"
 
 namespace metada {
 
 /**
- * @brief Simple console-based logger implementation
+ * @brief Console logger backend implementation
  *
- * This class provides basic logging functionality by writing messages to
- * stdout/stderr with severity level prefixes. It implements the ILogger
- * interface to provide a console-based logging backend.
+ * This class implements the ILogger interface using standard output/error
+ * streams as the logging backend. It provides basic logging functionality with
+ * severity level prefixes and colorized output.
+ *
+ * The logger writes messages to:
+ * - stdout for INFO, WARNING and DEBUG levels
+ * - stderr for ERROR level
  *
  * Messages are formatted with severity level prefixes:
- * - [INFO] for informational messages (stdout)
- * - [WARNING] for warning messages (stdout)
- * - [ERROR] for error messages (stderr)
- * - [DEBUG] for debug messages (stdout)
+ * - [INFO] for informational messages (green)
+ * - [WARNING] for warning messages (yellow)
+ * - [ERROR] for error messages (red)
+ * - [DEBUG] for debug messages (blue)
  *
- * This logger is suitable for simple applications and development/debugging
- * purposes where console output is sufficient for logging needs.
+ * Example usage:
+ * @code
+ * ConsoleLogger logger;
+ * logger.Info("Application started");
+ * logger.Warning("Resource usage high");
+ * logger.Error("Failed to connect to database");
+ * logger.Debug("Connection attempt details: ...");
+ * @endcode
+ *
+ * The logger provides static Init() and Shutdown() methods for application-wide
+ * initialization and cleanup:
+ * @code
+ * ConsoleLogger::Init("MyApp");
+ * // ... application code ...
+ * ConsoleLogger::Shutdown();
+ * @endcode
  *
  * @see ILogger Base interface class
  */
@@ -109,4 +127,4 @@ class ConsoleLogger : public framework::tools::logger::ILogger {
 
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_H_
+#endif  // METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGER_HPP_

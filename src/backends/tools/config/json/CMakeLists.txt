@@ -1,6 +1,6 @@
 # Create JSON config backend library
 add_library(config_json
-    JsonConfig.cc)
+    JsonConfig.cpp)
 add_library(metada::backends::tools::config::json
     ALIAS config_json)
 

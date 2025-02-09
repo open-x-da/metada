@@ -1,48 +1,40 @@
 /**
  * @file LoggerTest.cpp
- * @brief Unit tests for the Logger class template implementation
+ * @brief Unit tests for the Logger class template
  *
- * This test suite verifies that the Logger class template correctly forwards
- * logging calls to the underlying logger backend implementation. It uses a mock
- * logger backend to verify the interaction between the Logger class and its
+ * This test suite verifies the Logger class template correctly delegates
+ * logging operations to its backend implementation. It uses Google Mock to
+ * create a mock logger backend and validate the interactions between Logger and
  * backend.
  *
- * The tests ensure that:
- * - Each logging method (Info, Warning, Error, Debug) properly delegates to the
- * backend
- * - Messages are passed through unmodified
- * - Methods are called exactly once per invocation
+ * Key test areas:
+ * - Proper delegation of logging methods (Info, Warning, Error, Debug)
+ * - Message passing integrity
+ * - Call frequency verification
  */
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "ILogger.h"
-#include "Logger.h"
+#include "ILogger.hpp"
+#include "Logger.hpp"
 
 /**
- * @brief Mock logger class for testing Logger implementation
+ * @brief Mock logger backend for testing
  *
- * This mock class implements the ILogger interface using Google Mock to provide
- * mock implementations of the logging methods for testing purposes.
+ * Implements ILogger interface using Google Mock to provide mock logging
+ * methods. Used to verify Logger's interaction with its backend implementation.
  */
 class MockLogger : public metada::framework::tools::logger::ILogger {
  public:
-  /** @copydoc ILogger::Info */
   MOCK_METHOD(void, Info, (const std::string& message), (override));
-
-  /** @copydoc ILogger::Warning */
   MOCK_METHOD(void, Warning, (const std::string& message), (override));
-
-  /** @copydoc ILogger::Error */
   MOCK_METHOD(void, Error, (const std::string& message), (override));
-
-  /** @copydoc ILogger::Debug */
   MOCK_METHOD(void, Debug, (const std::string& message), (override));
 
   /**
    * @brief Mock initialization method
-   * @param app_name Unused application name parameter
+   * @param app_name Application name (unused in mock)
    */
   static void Init([[maybe_unused]] const std::string& app_name) {}
 
@@ -53,27 +45,23 @@ class MockLogger : public metada::framework::tools::logger::ILogger {
 };
 
 /**
- * @brief Test fixture for Logger tests
+ * @brief Test fixture for Logger class tests
  *
- * This fixture class provides a common setup for testing the Logger template
- * with a mock logging backend.
+ * Provides a test environment with a Logger instance using MockLogger backend.
+ * Enables consistent testing of Logger's delegation behavior.
  */
 class LoggerTest : public ::testing::Test {
  protected:
-  /** @brief Logger instance using MockLogger as backend for testing */
+  /** @brief Logger instance with mock backend */
   metada::framework::tools::logger::Logger<MockLogger> logger;
 };
 
 /**
- * @brief Test that Info() calls underlying implementation
+ * @brief Verify Info() method delegation
  *
- * Verifies that calling Info() on the Logger forwards the message
- * to the backend's Info() method exactly once with the correct message.
- *
- * Test Steps:
- * 1. Set expectation for Info() call with specific message
- * 2. Call logger.Info() with test message
- * 3. Verify expectation is met on test completion
+ * Tests that Logger::Info() properly delegates to backend's Info() method:
+ * - Correct message forwarding
+ * - Single invocation per call
  */
 TEST_F(LoggerTest, InfoCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Info("test message")).Times(1);
@@ -81,15 +69,12 @@ TEST_F(LoggerTest, InfoCallsUnderlyingImplementation) {
 }
 
 /**
- * @brief Test that Warning() calls underlying implementation
+ * @brief Verify Warning() method delegation
  *
- * Verifies that calling Warning() on the Logger forwards the message
- * to the backend's Warning() method exactly once with the correct message.
- *
- * Test Steps:
- * 1. Set expectation for Warning() call with specific message
- * 2. Call logger.Warning() with test message
- * 3. Verify expectation is met on test completion
+ * Tests that Logger::Warning() properly delegates to backend's Warning()
+ * method:
+ * - Correct message forwarding
+ * - Single invocation per call
  */
 TEST_F(LoggerTest, WarningCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Warning("test message")).Times(1);
@@ -97,15 +82,11 @@ TEST_F(LoggerTest, WarningCallsUnderlyingImplementation) {
 }
 
 /**
- * @brief Test that Error() calls underlying implementation
+ * @brief Verify Error() method delegation
  *
- * Verifies that calling Error() on the Logger forwards the message
- * to the backend's Error() method exactly once with the correct message.
- *
- * Test Steps:
- * 1. Set expectation for Error() call with specific message
- * 2. Call logger.Error() with test message
- * 3. Verify expectation is met on test completion
+ * Tests that Logger::Error() properly delegates to backend's Error() method:
+ * - Correct message forwarding
+ * - Single invocation per call
  */
 TEST_F(LoggerTest, ErrorCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Error("test message")).Times(1);
@@ -113,15 +94,11 @@ TEST_F(LoggerTest, ErrorCallsUnderlyingImplementation) {
 }
 
 /**
- * @brief Test that Debug() calls underlying implementation
+ * @brief Verify Debug() method delegation
  *
- * Verifies that calling Debug() on the Logger forwards the message
- * to the backend's Debug() method exactly once with the correct message.
- *
- * Test Steps:
- * 1. Set expectation for Debug() call with specific message
- * 2. Call logger.Debug() with test message
- * 3. Verify expectation is met on test completion
+ * Tests that Logger::Debug() properly delegates to backend's Debug() method:
+ * - Correct message forwarding
+ * - Single invocation per call
  */
 TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Debug("test message")).Times(1);

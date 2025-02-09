@@ -1,5 +1,5 @@
-#ifndef METADA_FRAMEWORK_TOOLS_CONFIG_ICONFIG_H_
-#define METADA_FRAMEWORK_TOOLS_CONFIG_ICONFIG_H_
+#ifndef METADA_FRAMEWORK_TOOLS_CONFIG_ICONFIG_HPP_
+#define METADA_FRAMEWORK_TOOLS_CONFIG_ICONFIG_HPP_
 
 #include <string>
 #include <variant>
@@ -11,9 +11,13 @@ namespace tools {
 namespace config {
 
 /**
- * @brief Configuration value type that can hold different types of data
+ * @brief Configuration value type supporting multiple data types
  *
- * This variant type supports the following value types:
+ * This variant type provides a flexible container that can hold different types
+ * of configuration values. It enables type-safe storage and access of
+ * configuration data while maintaining a consistent interface.
+ *
+ * Supported value types:
  * - bool: Boolean values (true/false)
  * - int: Integer numbers
  * - double: Floating point numbers
@@ -29,19 +33,31 @@ using ConfigValue =
                  std::vector<std::string> >;
 
 /**
- * @brief Interface class for configuration backends
+ * @brief Abstract interface for configuration backend implementations
  *
- * This abstract class defines the interface that all configuration backend
- * implementations must follow. It provides methods for loading, accessing,
- * modifying and saving configuration data in a backend-agnostic way.
+ * This interface defines the contract that all configuration backends must
+ * implement. It provides a unified API for loading, accessing, modifying and
+ * persisting configuration data in a backend-agnostic way.
  *
- * The configuration data is stored in a hierarchical structure where keys use
- * dot notation to access nested values. For example, "database.host" would
- * access the "host" field within the "database" object.
+ * Key features:
+ * - Hierarchical configuration using dot notation (e.g. "database.host")
+ * - Type-safe value storage and retrieval via ConfigValue
+ * - File and string-based loading/saving
+ * - Key existence checking
+ * - Full configuration clearing
  *
- * Configuration backends implementing this interface must support all value
- * types defined in ConfigValue and handle the hierarchical key structure
- * appropriately.
+ * Example usage:
+ * @code
+ * class YamlConfig : public IConfig {
+ *   bool LoadFromFile(const std::string& filename) override;
+ *   ConfigValue Get(const std::string& key) const override;
+ *   void Set(const std::string& key, const ConfigValue& value) override;
+ *   // ... implement other methods
+ * };
+ * @endcode
+ *
+ * @see ConfigValue Type-safe variant for configuration values
+ * @see Config Main configuration class template using this interface
  */
 class IConfig {
  public:
@@ -125,4 +141,4 @@ class IConfig {
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_FRAMEWORK_TOOLS_CONFIG_ICONFIG_H_
+#endif  // METADA_FRAMEWORK_TOOLS_CONFIG_ICONFIG_HPP_

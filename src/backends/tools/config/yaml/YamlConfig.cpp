@@ -1,4 +1,4 @@
-#include "YamlConfig.h"
+#include "YamlConfig.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -12,9 +12,12 @@ namespace yaml {
 
 /**
  * @brief Load configuration from a YAML file
+ * 
+ * Attempts to load and parse a YAML configuration file. The file must contain
+ * valid YAML syntax.
+ *
  * @param filename Path to the YAML configuration file
- * @return true if loading was successful, false otherwise
- * @throws std::runtime_error if file cannot be opened or contains invalid YAML
+ * @return true if loading was successful, false if file cannot be opened or contains invalid YAML
  */
 bool YamlConfig::LoadFromFile(const std::string& filename) {
   try {
@@ -27,9 +30,11 @@ bool YamlConfig::LoadFromFile(const std::string& filename) {
 
 /**
  * @brief Load configuration from a YAML string
+ * 
+ * Attempts to parse a string containing YAML configuration data.
+ *
  * @param content String containing YAML configuration data
- * @return true if loading was successful, false otherwise
- * @throws std::runtime_error if content contains invalid YAML
+ * @return true if parsing was successful, false if content contains invalid YAML
  */
 bool YamlConfig::LoadFromString(const std::string& content) {
   try {
@@ -42,11 +47,21 @@ bool YamlConfig::LoadFromString(const std::string& content) {
 
 /**
  * @brief Get a value from the configuration
- * @param key Dot-separated path to the configuration value (e.g.
- * "database.host")
+ * 
+ * Retrieves a value from the configuration using a dot-separated path key.
+ * The value is returned as a ConfigValue variant that can contain:
+ * - bool
+ * - int
+ * - double 
+ * - string
+ * - vector<bool>
+ * - vector<int>
+ * - vector<double>
+ * - vector<string>
+ *
+ * @param key Dot-separated path to the configuration value (e.g. "database.host")
  * @return ConfigValue containing the requested value
- * @throws std::runtime_error if the key doesn't exist or value type is not
- * supported
+ * @throws std::runtime_error if the key doesn't exist or value type is not supported
  */
 framework::tools::config::ConfigValue YamlConfig::Get(
     const std::string& key) const {
@@ -68,6 +83,24 @@ std::vector<std::string> SplitString(const std::string& str, char delim) {
   return tokens;
 }
 
+/**
+ * @brief Set a value in the configuration
+ * 
+ * Sets a value in the configuration using a dot-separated path key.
+ * Creates intermediate nodes in the path if they don't exist.
+ * Accepts ConfigValue variants containing:
+ * - bool
+ * - int
+ * - double
+ * - string
+ * - vector<bool>
+ * - vector<int>
+ * - vector<double>
+ * - vector<string>
+ *
+ * @param key Dot-separated path where to set the value (e.g. "database.host")
+ * @param value ConfigValue containing the value to set
+ */
 void YamlConfig::Set(const std::string& key,
                      const framework::tools::config::ConfigValue& value) {
   auto keys = SplitString(key, '.');
@@ -88,8 +121,11 @@ void YamlConfig::Set(const std::string& key,
 
 /**
  * @brief Check if a key exists in the configuration
+ * 
+ * Verifies if a value exists at the specified dot-separated path key.
+ *
  * @param key Dot-separated path to check (e.g. "database.password")
- * @return true if the key exists, false otherwise
+ * @return true if the key exists and has a value, false otherwise
  */
 bool YamlConfig::HasKey(const std::string& key) const {
   return GetNode(root_, key).IsDefined();
@@ -97,9 +133,12 @@ bool YamlConfig::HasKey(const std::string& key) const {
 
 /**
  * @brief Save configuration to a YAML file
- * @param filename Path where to save the configuration
- * @return true if saving was successful, false otherwise
- * @throws std::runtime_error if file cannot be created or written to
+ * 
+ * Writes the current configuration state to a YAML file.
+ * Creates the file if it doesn't exist, overwrites if it does.
+ *
+ * @param filename Path where to save the configuration file
+ * @return true if saving was successful, false if file cannot be created or written
  */
 bool YamlConfig::SaveToFile(const std::string& filename) const {
   try {
@@ -114,17 +153,21 @@ bool YamlConfig::SaveToFile(const std::string& filename) const {
 
 /**
  * @brief Get configuration as a YAML string
+ * 
+ * Serializes the current configuration state to a YAML-formatted string.
+ *
  * @return String containing the YAML representation of the configuration
- * @throws std::runtime_error if serialization fails
  */
 std::string YamlConfig::ToString() const {
   std::stringstream ss;
   ss << YAML::Dump(root_);
   return ss.str();
 }
+
 /**
  * @brief Clear all configuration data
- * Resets the configuration to an empty state
+ * 
+ * Resets the configuration to an empty state by creating a new empty YAML node.
  */
 void YamlConfig::Clear() {
   root_ = YAML::Node();
@@ -132,10 +175,13 @@ void YamlConfig::Clear() {
 
 /**
  * @brief Helper function to get a YAML node at the specified path
+ * 
+ * Traverses the YAML node tree following a dot-separated path key.
+ * Returns an undefined node if any part of the path doesn't exist.
+ *
  * @param node Root YAML node to search in
  * @param key Dot-separated path to the node (e.g. "database.host")
- * @return YAML::Node at the specified path, or undefined node if path doesn't
- * exist
+ * @return YAML::Node at the specified path, or undefined node if path doesn't exist
  */
 YAML::Node YamlConfig::GetNode(const YAML::Node& node, const std::string& key) {
   auto keys = SplitString(key, '.');
@@ -153,11 +199,23 @@ YAML::Node YamlConfig::GetNode(const YAML::Node& node, const std::string& key) {
 
 /**
  * @brief Convert a YAML node to a ConfigValue
+ * 
+ * Converts YAML nodes to ConfigValue variants by attempting to parse the node
+ * as different supported types in order of precedence.
  *
- * This helper function converts YAML nodes to ConfigValue variants.
- * Supports the following YAML types:
- * - Scalar: null, boolean, integer, double, string
- * - Sequence: vector of boolean, integer, double, or string
+ * Supported scalar types (in order of precedence):
+ * - null (converted to empty string)
+ * - boolean
+ * - integer
+ * - double
+ * - string
+ *
+ * Supported sequence types (in order of precedence):
+ * - empty sequence (converted to empty string vector)
+ * - vector<bool>
+ * - vector<int>
+ * - vector<double>
+ * - vector<string>
  *
  * @param node The YAML node to convert
  * @return ConfigValue containing the converted value
@@ -204,18 +262,19 @@ framework::tools::config::ConfigValue YamlConfig::NodeToConfigValue(
 
 /**
  * @brief Convert a ConfigValue to a YAML node
+ * 
+ * Converts ConfigValue variants to YAML nodes using std::visit to handle
+ * all possible stored types.
  *
- * This helper function converts ConfigValue variants to YAML nodes.
- * Uses std::visit to handle all possible types stored in the ConfigValue
- * variant:
- * - bool
- * - int
- * - double
- * - string
- * - vector<bool>
- * - vector<int>
- * - vector<double>
- * - vector<string>
+ * Supported ConfigValue types:
+ * - bool -> YAML boolean
+ * - int -> YAML integer
+ * - double -> YAML float
+ * - string -> YAML string
+ * - vector<bool> -> YAML sequence of booleans
+ * - vector<int> -> YAML sequence of integers
+ * - vector<double> -> YAML sequence of floats
+ * - vector<string> -> YAML sequence of strings
  *
  * @param value The ConfigValue to convert
  * @return YAML::Node containing the converted value

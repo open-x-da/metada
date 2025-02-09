@@ -8,6 +8,11 @@
 
 /**
  * @brief Initialize NumPy array API
+ * 
+ * This function initializes the NumPy array API which is required for
+ * interfacing with NumPy arrays from C++. It must be called before any
+ * NumPy array operations are performed.
+ *
  * @return true if initialization successful, false otherwise
  */
 static bool init_numpy() {
@@ -19,11 +24,28 @@ static bool init_numpy() {
  * @brief Test fixture for Lorenz95 Python integration tests
  *
  * This fixture handles Python interpreter initialization/finalization and
- * provides access to the Lorenz95 Python module.
+ * provides access to the Lorenz95 Python module. It ensures proper setup
+ * and cleanup of Python resources for each test case.
+ *
+ * Key responsibilities:
+ * - Initialize Python interpreter
+ * - Set up NumPy array API
+ * - Import Lorenz95 Python module
+ * - Clean up Python resources after tests
  */
 class Lorenz95Test : public ::testing::Test {
  protected:
-  /** @brief Initialize Python interpreter and import Lorenz95 module */
+  /** 
+   * @brief Initialize Python interpreter and import Lorenz95 module
+   * 
+   * Sets up the Python environment by:
+   * - Initializing the Python interpreter
+   * - Setting up NumPy array support
+   * - Adding current directory to Python path
+   * - Importing the Lorenz95 module
+   *
+   * @throws std::runtime_error if initialization fails
+   */
   void SetUp() override {
     Py_Initialize();
     if (!init_numpy()) {
@@ -40,7 +62,13 @@ class Lorenz95Test : public ::testing::Test {
     }
   }
 
-  /** @brief Clean up Python resources */
+  /**
+   * @brief Clean up Python resources
+   * 
+   * Performs cleanup by:
+   * - Releasing the module reference
+   * - Finalizing the Python interpreter
+   */
   void TearDown() override {
     Py_XDECREF(pModule);
     Py_Finalize();
@@ -50,6 +78,18 @@ class Lorenz95Test : public ::testing::Test {
   PyObject* pModule;
 };
 
+/**
+ * @brief Integration test for Lorenz95 Python module
+ * 
+ * Tests the integration between C++ and Python by:
+ * - Creating initial conditions for the Lorenz95 system
+ * - Converting data between C++ and Python/NumPy formats
+ * - Calling the Python integration function
+ * - Verifying basic properties of the results
+ *
+ * The test uses a 40-element state vector with a small perturbation
+ * and integrates the system for 100 steps with dt=0.05.
+ */
 TEST_F(Lorenz95Test, TestLorenz95Integration) {
   // Get the integrate function
   PyObject* pFunc = PyObject_GetAttrString(pModule, "integrate");

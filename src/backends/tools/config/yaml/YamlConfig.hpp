@@ -1,12 +1,12 @@
-#ifndef METADA_BACKENDS_TOOLS_CONFIG_YAML_YAML_CONFIG_H_
-#define METADA_BACKENDS_TOOLS_CONFIG_YAML_YAML_CONFIG_H_
+#ifndef METADA_BACKENDS_TOOLS_CONFIG_YAML_YAMLCONFIG_HPP_
+#define METADA_BACKENDS_TOOLS_CONFIG_YAML_YAMLCONFIG_HPP_
 
 #include <yaml-cpp/yaml.h>
 
 #include <memory>
 #include <string>
 
-#include "IConfig.h"
+#include "IConfig.hpp"
 
 namespace metada {
 namespace backends {
@@ -16,18 +16,34 @@ namespace yaml {
 
 /**
  * @brief YAML configuration backend implementation
- *
- * This class implements the IConfig interface using yaml-cpp as the underlying
- * storage format. It provides functionality to load, access, modify and save
- * configuration data in YAML format.
+ * 
+ * This class implements the IConfig interface using yaml-cpp as the
+ * underlying storage format. It provides functionality to load, access, modify
+ * and save configuration data in YAML format.
  *
  * The configuration data is stored in a hierarchical structure where keys use
  * dot notation to access nested values. For example, "database.host" would
  * access the "host" field within the "database" object.
  *
- * Supported value types include:
+ * Example usage:
+ * @code
+ * YamlConfig config;
+ * config.LoadFromFile("config.yaml");
+ * 
+ * // Get values
+ * auto host = config.Get("database.host").AsString();
+ * auto port = config.Get("database.port").AsInt();
+ * 
+ * // Set values
+ * config.Set("database.user", ConfigValue("admin"));
+ * config.Set("database.timeout", ConfigValue(30));
+ * 
+ * config.SaveToFile("updated_config.yaml");
+ * @endcode
+ *
+ * Supported value types:
  * - Boolean
- * - Integer
+ * - Integer 
  * - Double
  * - String
  * - Arrays of the above types
@@ -148,4 +164,4 @@ class YamlConfig : public framework::tools::config::IConfig {
 }  // namespace backends
 }  // namespace metada
 
-#endif  // METADA_BACKENDS_TOOLS_CONFIG_YAML_YAML_CONFIG_H_
+#endif  // METADA_BACKENDS_TOOLS_CONFIG_YAML_YAMLCONFIG_HPP_

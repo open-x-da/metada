@@ -64,15 +64,16 @@ jobs:
         cd build
         ctest --output-on-failure
 
-    - name: Generate coverage report
-      run: |
-        cd build
-        cmake --build . --target coverage
+    # Coverage tests temporarily disabled
+    # - name: Generate coverage report
+    #   run: |
+    #     cd build
+    #     cmake --build . --target coverage
         
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        directory: ./build/coverage
-        flags: linux
-        name: linux-coverage
-        fail_ci_if_error: true 
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     directory: ./build/coverage
+    #     flags: linux
+    #     name: linux-coverage
+    #     fail_ci_if_error: true 

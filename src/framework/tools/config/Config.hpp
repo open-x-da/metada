@@ -1,7 +1,7 @@
-#ifndef METADA_FRAMEWORK_TOOLS_CONFIG_CONFIG_H_
-#define METADA_FRAMEWORK_TOOLS_CONFIG_CONFIG_H_
+#ifndef METADA_FRAMEWORK_TOOLS_CONFIG_CONFIG_HPP_
+#define METADA_FRAMEWORK_TOOLS_CONFIG_CONFIG_HPP_
 
-#include "IConfig.h"
+#include "IConfig.hpp"
 
 namespace metada {
 namespace framework {
@@ -21,7 +21,24 @@ namespace config {
  * dot notation to access nested values. For example, "database.host" would
  * access the "host" field within the "database" object.
  *
- * Supported value types include:
+ * Example usage:
+ * @code
+ * Config<YamlConfig> config;
+ * config.LoadFromFile("config.yaml");
+ * auto host = config.Get("database.host", "localhost");
+ * auto port = config.Get("database.port", 5432);
+ * config.Set("database.username", "admin");
+ * config.SaveToFile("config.yaml");
+ * @endcode
+ *
+ * Key features:
+ * - Hierarchical configuration structure using dot notation
+ * - Type-safe value access with default fallbacks
+ * - File and string-based loading/saving
+ * - Backend-agnostic interface
+ * - Exception safety through Get() vs GetUnsafe()
+ *
+ * Supported value types:
  * - Boolean
  * - Integer
  * - Double
@@ -29,6 +46,7 @@ namespace config {
  * - Arrays of the above types
  *
  * @tparam ConfigBackend The configuration backend type that implements IConfig
+ * @see IConfig Base interface class for configuration backends
  */
 template <typename ConfigBackend>
 class Config {
@@ -135,4 +153,4 @@ class Config {
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_FRAMEWORK_TOOLS_CONFIG_CONFIG_H_
+#endif  // METADA_FRAMEWORK_TOOLS_CONFIG_CONFIG_HPP_
