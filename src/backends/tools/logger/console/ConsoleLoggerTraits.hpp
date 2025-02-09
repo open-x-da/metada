@@ -4,10 +4,17 @@
 #include "ConsoleLogger.hpp"
 #include "LoggerTraits.hpp"
 
+namespace metada {
+namespace framework {
+namespace tools {
+namespace logger {
+
 /**
  * @file ConsoleLoggerTraits.hpp
  * @brief Traits specialization for console logging backend
+ * @ingroup logging
  *
+ * @details
  * This header provides a specialization of the LoggerTraits template for the
  * console logging backend. It maps the generic logging interface to the
  * console-specific implementation provided by ConsoleLogger.
@@ -21,13 +28,31 @@
  * - Configurable output formatting
  * - Real-time output for immediate feedback
  *
+ * Example usage:
+ * @code{.cpp}
+ * using Logger = LoggerTraits<void>::LoggerBackend;
+ * Logger logger;
+ * logger.Info("Application started");
+ * @endcode
+ *
  * @see ConsoleLogger Console logging backend implementation
  * @see LoggerTraits Generic logger traits template
+ * @since 0.1.0
  */
 template <>
-struct metada::framework::tools::logger::LoggerTraits<void> {
-  /** @brief Selected logger backend type (Console implementation) */
-  using LoggerBackend = metada::backends::tools::logger::console::ConsoleLogger;
+struct LoggerTraits<void> {
+  /**
+   * @brief Selected logger backend type (Console implementation)
+   * @details Defines the concrete logger implementation to be used when the
+   * void specialization is selected. In this case, it maps to the
+   * ConsoleLogger.
+   */
+  using LoggerBackend = backends::tools::logger::console::ConsoleLogger;
 };
+
+}  // namespace logger
+}  // namespace tools
+}  // namespace framework
+}  // namespace metada
 
 #endif  // METADA_BACKENDS_TOOLS_LOGGER_CONSOLE_CONSOLELOGGERTRAITS_HPP_
