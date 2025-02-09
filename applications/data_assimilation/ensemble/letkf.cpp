@@ -20,43 +20,19 @@
  * Chaos: A Local Ensemble Transform Kalman Filter"
  */
 
+#include "ApplicationContext.hpp"
 #include "Config.hpp"
 #include "ConfigBackendSelector.hpp"
 #include "Logger.hpp"
 #include "LoggerBackendSelector.hpp"
 
+using namespace metada::framework::core;
 using namespace metada::framework::tools::config;
 using namespace metada::framework::tools::logger;
 
 // Use Config with appropriate backend traits
 using ConfigType = Config<ConfigTraits<void>::ConfigBackend>;
 using LoggerType = Logger<LoggerTraits<void>::LoggerBackend>;
-
-/**
- * @brief RAII wrapper for logger initialization and shutdown
- *
- * Provides automatic initialization and cleanup of the logger system
- * using RAII principles. This ensures proper resource management and
- * exception safety.
- */
-class LoggerInitializer {
- public:
-  /**
-   * @brief Initialize logger with application name
-   * @param app_name Name of the application for logging identification
-   * @throws std::runtime_error If logger initialization fails
-   */
-  explicit LoggerInitializer(const std::string& app_name) {
-    LoggerTraits<void>::LoggerBackend::Init(app_name);
-  }
-  /**
-   * @brief Shutdown logger on destruction
-   *
-   * Ensures proper cleanup of logger resources when object goes out of scope.
-   * This destructor is noexcept to prevent throwing during stack unwinding.
-   */
-  ~LoggerInitializer() { LoggerTraits<void>::LoggerBackend::Shutdown(); }
-};
 
 /**
  * @brief Load LETKF configuration from file
@@ -134,10 +110,9 @@ bool isYamlFile(const std::string& filename) {
  * @throws std::runtime_error For critical errors during execution
  */
 int main(int argc, char* argv[]) {
-  // Initialize logger with RAII
-  LoggerInitializer log_init("letkf_app");
-
-  LoggerType logger;
+  auto context = ApplicationContext("letkf_app", argv[1]);
+  auto logger = context.getLogger();
+  // auto config = context.getConfig();
 
   logger.Info("LETKF application starting...");
 

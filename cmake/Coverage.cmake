@@ -15,15 +15,15 @@ function(enable_coverage target)
     )
     target_link_options(${target} PUBLIC --coverage)
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    # Intel compiler uses different flags for code coverage
+    # Updated Intel oneAPI coverage flags
     target_compile_options(${target} PRIVATE
-      -prof-gen=srcpos
-      -prof-dir=${CMAKE_BINARY_DIR}/coverage
-      -no-inline-factor
+      -fprofile-instr-generate
+      -fcoverage-mapping
+      -fno-inline
     )
     target_link_options(${target} PUBLIC
-      -prof-gen=srcpos
-      -prof-dir=${CMAKE_BINARY_DIR}/coverage
+      -fprofile-instr-generate
+      -fcoverage-mapping
     )
   else()
     message(WARNING "Code coverage not supported for compiler: ${CMAKE_CXX_COMPILER_ID}")

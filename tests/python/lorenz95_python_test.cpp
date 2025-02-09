@@ -16,7 +16,14 @@
  * @return true if initialization successful, false otherwise
  */
 static bool init_numpy() {
-  import_array();
+  // Wrap import_array in a try-catch since it can throw
+  try {
+    import_array();  // This macro might return NULL and throw
+  } catch (...) {
+    PyErr_Print();
+    PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
+    return false;
+  }
   return true;
 }
 
@@ -120,7 +127,7 @@ TEST_F(Lorenz95Test, TestLorenz95Integration) {
 
   // Basic checks
   EXPECT_NE(result_data[0], initial_state[0]);  // State should have changed
-  EXPECT_FALSE(std::isnan(result_data[0]));     // Result should not be NaN
+  EXPECT_TRUE(std::isfinite(result_data[0]));  // Result should be finite
 
   // Cleanup
   Py_DECREF(pFunc);
