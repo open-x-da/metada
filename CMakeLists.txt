@@ -1,5 +1,5 @@
-# Require CMake 3.10 or higher
-cmake_minimum_required(VERSION 3.10)
+# Require CMake 3.30 or higher
+cmake_minimum_required(VERSION 3.30)
 
 # Add project-specific CMake modules
 list(APPEND CMAKE_MODULE_PATH
