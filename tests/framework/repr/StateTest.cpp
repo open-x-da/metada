@@ -1,3 +1,8 @@
+/**
+ * @file StateTest.cpp
+ * @brief Unit tests for the State class template
+ */
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -13,8 +18,14 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
+/**
+ * @brief Test fixture for State class tests
+ */
 class StateTest : public ::testing::Test {
  protected:
+  /**
+   * @brief Set up test data before each test
+   */
   void SetUp() override {
     // Setup common test data
     variable_names_ = {"temperature", "pressure"};
@@ -23,13 +34,19 @@ class StateTest : public ::testing::Test {
     for (int i = 0; i < 10; i++) test_data_[i] = i;
   }
 
+  /**
+   * @brief Clean up test data after each test
+   */
   void TearDown() override { delete[] test_data_; }
 
-  std::vector<std::string> variable_names_;
-  std::vector<size_t> dimensions_;
-  double* test_data_;
+  std::vector<std::string> variable_names_;  ///< Test variable names
+  std::vector<size_t> dimensions_;           ///< Test dimensions
+  double* test_data_;                        ///< Test data array
 };
 
+/**
+ * @brief Test that initialize() delegates to backend
+ */
 TEST_F(StateTest, InitializeDelegatestoBackend) {
   MockState mock_backend;
   State<MockState> state;
@@ -39,6 +56,9 @@ TEST_F(StateTest, InitializeDelegatestoBackend) {
   state.initialize();
 }
 
+/**
+ * @brief Test that reset() delegates to backend
+ */
 TEST_F(StateTest, ResetDelegatestoBackend) {
   MockState mock_backend;
   State<MockState> state;
@@ -48,6 +68,9 @@ TEST_F(StateTest, ResetDelegatestoBackend) {
   state.reset();
 }
 
+/**
+ * @brief Test that validate() delegates to backend
+ */
 TEST_F(StateTest, ValidateDelegatestoBackend) {
   MockState mock_backend;
   State<MockState> state;
@@ -57,6 +80,9 @@ TEST_F(StateTest, ValidateDelegatestoBackend) {
   state.validate();
 }
 
+/**
+ * @brief Test that getData() returns correctly typed pointer
+ */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
   MockState mock_backend;
   State<MockState> state;
@@ -67,6 +93,9 @@ TEST_F(StateTest, GetDataReturnsTypedPointer) {
   EXPECT_EQ(data, test_data_);
 }
 
+/**
+ * @brief Test metadata get/set operations
+ */
 TEST_F(StateTest, MetadataOperations) {
   MockState mock_backend;
   State<MockState> state;
@@ -78,6 +107,9 @@ TEST_F(StateTest, MetadataOperations) {
   EXPECT_EQ(state.getMetadata("key1"), "value1");
 }
 
+/**
+ * @brief Test state information accessors
+ */
 TEST_F(StateTest, StateInformation) {
   MockState mock_backend;
   State<MockState> state;
@@ -91,6 +123,9 @@ TEST_F(StateTest, StateInformation) {
   EXPECT_EQ(state.getDimensions(), dimensions_);
 }
 
+/**
+ * @brief Test backend accessor methods
+ */
 TEST_F(StateTest, BackendAccessors) {
   State<MockState> state;
 
