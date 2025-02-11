@@ -74,7 +74,8 @@ TEST_F(IncrementTest, LinearAlgebraOperations) {
 TEST_F(IncrementTest, StateOperations) {
   MockIncrement mock_backend;
   Increment<MockIncrement> increment;
-  State<MockState> state1, state2;
+  MockState state1_backend, state2_backend;
+  State<MockState> state1(state1_backend), state2(state2_backend);
 
   EXPECT_CALL(increment.backend(), addToState(_)).Times(1);
   EXPECT_CALL(increment.backend(), differenceFromStates(_, _)).Times(1);

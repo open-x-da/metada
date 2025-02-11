@@ -71,14 +71,14 @@ public:
      *
      * @param state New state to be used by the model
      */
-    virtual void setState(std::shared_ptr<IState> state) = 0;
+    virtual void setState(const IState& state) = 0;
 
     /**
      * @brief Get the current model state
      *
      * @return Current state of the model
      */
-    virtual std::shared_ptr<IState> getState() const = 0;
+    virtual const IState& getState() const = 0;
 
     // Model configuration
     /**

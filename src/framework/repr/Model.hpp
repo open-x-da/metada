@@ -47,12 +47,15 @@ public:
     void finalize() { backend_.finalize(); }
 
     // State management
-    void setState(std::shared_ptr<State<StateType>> state) {
-        backend_.setState(state->backend());
+    void setState(const State<StateType>& state) {
+        const StateType& typedState = state.backend();
+        backend_.setState(typedState);
     }
 
-    std::shared_ptr<State<StateType>> getState() const {
-        return std::make_shared<State<StateType>>(backend_.getState());
+    State<StateType> getState() const {
+        const IState& backendState = backend_.getState();
+        const StateType& typedState = dynamic_cast<const StateType&>(backendState);
+        return State<StateType>(typedState);
     }
 
     // Model configuration

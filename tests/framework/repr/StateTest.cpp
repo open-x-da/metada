@@ -49,9 +49,9 @@ class StateTest : public ::testing::Test {
  */
 TEST_F(StateTest, InitializeDelegatestoBackend) {
   MockState mock_backend;
-  State<MockState> state;
+  State<MockState> state(mock_backend);
 
-  EXPECT_CALL(state.backend(), initialize()).Times(1);
+  EXPECT_CALL(mock_backend, initialize()).Times(1);
 
   state.initialize();
 }
@@ -61,9 +61,9 @@ TEST_F(StateTest, InitializeDelegatestoBackend) {
  */
 TEST_F(StateTest, ResetDelegatestoBackend) {
   MockState mock_backend;
-  State<MockState> state;
+  State<MockState> state(mock_backend);
 
-  EXPECT_CALL(state.backend(), reset()).Times(1);
+  EXPECT_CALL(mock_backend, reset()).Times(1);
 
   state.reset();
 }
@@ -73,9 +73,9 @@ TEST_F(StateTest, ResetDelegatestoBackend) {
  */
 TEST_F(StateTest, ValidateDelegatestoBackend) {
   MockState mock_backend;
-  State<MockState> state;
+  State<MockState> state(mock_backend);
 
-  EXPECT_CALL(state.backend(), validate()).Times(1);
+  EXPECT_CALL(mock_backend, validate()).Times(1);
 
   state.validate();
 }
@@ -85,9 +85,9 @@ TEST_F(StateTest, ValidateDelegatestoBackend) {
  */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
   MockState mock_backend;
-  State<MockState> state;
+  State<MockState> state(mock_backend);
 
-  EXPECT_CALL(state.backend(), getData()).WillOnce(Return(test_data_));
+  EXPECT_CALL(mock_backend, getData()).WillOnce(Return(test_data_));
 
   double* data = &state.getData<double>();
   EXPECT_EQ(data, test_data_);
@@ -98,10 +98,10 @@ TEST_F(StateTest, GetDataReturnsTypedPointer) {
  */
 TEST_F(StateTest, MetadataOperations) {
   MockState mock_backend;
-  State<MockState> state;
+  State<MockState> state(mock_backend);
 
-  EXPECT_CALL(state.backend(), setMetadata("key1", "value1")).Times(1);
-  EXPECT_CALL(state.backend(), getMetadata("key1")).WillOnce(Return("value1"));
+  EXPECT_CALL(mock_backend, setMetadata("key1", "value1")).Times(1);
+  EXPECT_CALL(mock_backend, getMetadata("key1")).WillOnce(Return("value1"));
 
   state.setMetadata("key1", "value1");
   EXPECT_EQ(state.getMetadata("key1"), "value1");
@@ -112,12 +112,11 @@ TEST_F(StateTest, MetadataOperations) {
  */
 TEST_F(StateTest, StateInformation) {
   MockState mock_backend;
-  State<MockState> state;
+  State<MockState> state(mock_backend);
 
-  EXPECT_CALL(state.backend(), getVariableNames())
+  EXPECT_CALL(mock_backend, getVariableNames())
       .WillOnce(ReturnRef(variable_names_));
-  EXPECT_CALL(state.backend(), getDimensions())
-      .WillOnce(ReturnRef(dimensions_));
+  EXPECT_CALL(mock_backend, getDimensions()).WillOnce(ReturnRef(dimensions_));
 
   EXPECT_EQ(state.getVariableNames(), variable_names_);
   EXPECT_EQ(state.getDimensions(), dimensions_);
@@ -127,7 +126,8 @@ TEST_F(StateTest, StateInformation) {
  * @brief Test backend accessor methods
  */
 TEST_F(StateTest, BackendAccessors) {
-  State<MockState> state;
+  MockState mock_backend;
+  State<MockState> state(mock_backend);
 
   // Test that we can get non-const access to backend
   MockState& backend = state.backend();

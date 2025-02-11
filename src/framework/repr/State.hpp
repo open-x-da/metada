@@ -17,11 +17,11 @@ namespace repr {
 template<typename StateBackend>
 class State {
 private:
-    StateBackend backend_;  ///< Instance of the state backend
+    StateBackend& backend_;  ///< Instance of the state backend
 
 public:
-    /** @brief Default constructor */
-    State() = default;
+    /** @brief Constructor that takes a backend reference */
+    explicit State(StateBackend& backend) : backend_(backend) {}
 
     /** @brief Get direct access to the backend instance */
     StateBackend& backend() { return backend_; }
