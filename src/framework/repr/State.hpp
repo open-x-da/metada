@@ -1,6 +1,7 @@
 #ifndef METADA_FRAMEWORK_REPR_STATE_HPP_
 #define METADA_FRAMEWORK_REPR_STATE_HPP_
 
+#include "IState.hpp"
 #include <vector>
 #include <string>
 
@@ -9,36 +10,54 @@ namespace framework {
 namespace repr {
 
 /**
- * @brief Base class for representing model state variables
+ * @brief Main state class template providing a generic interface to state implementations
  * 
- * Provides a generic interface for handling state variables in scientific models.
- * This includes support for:
- * - Multiple variable types (scalar, vector, matrix)
- * - Named dimensions
- * - Metadata handling
- * - Basic mathematical operations
+ * @tparam StateBackend The state backend type that implements IState
  */
-template<typename T>
+template<typename StateBackend>
 class State {
+private:
+    StateBackend backend_;  ///< Instance of the state backend
+
 public:
-    virtual ~State() = default;
+    /** @brief Default constructor */
+    State() = default;
+
+    /** @brief Get direct access to the backend instance */
+    StateBackend& backend() { return backend_; }
+
+    /** @brief Get const access to the backend instance */
+    const StateBackend& backend() const { return backend_; }
 
     // Core state operations
-    virtual void initialize() = 0;
-    virtual void reset() = 0;
-    virtual void validate() const = 0;
+    void initialize() { backend_.initialize(); }
+    void reset() { backend_.reset(); }
+    void validate() const { backend_.validate(); }
 
     // Data access
-    virtual T& getData() = 0;
-    virtual const T& getData() const = 0;
+    template<typename T>
+    T& getData() { return *static_cast<T*>(backend_.getData()); }
+    
+    template<typename T>
+    const T& getData() const { return *static_cast<const T*>(backend_.getData()); }
 
-    // Metadata
-    virtual void setMetadata(const std::string& key, const std::string& value) = 0;
-    virtual std::string getMetadata(const std::string& key) const = 0;
+    // Metadata operations
+    void setMetadata(const std::string& key, const std::string& value) {
+        backend_.setMetadata(key, value);
+    }
 
-protected:
-    std::vector<std::string> variable_names_;
-    std::vector<size_t> dimensions_;
+    std::string getMetadata(const std::string& key) const {
+        return backend_.getMetadata(key);
+    }
+
+    // State information
+    const std::vector<std::string>& getVariableNames() const {
+        return backend_.getVariableNames();
+    }
+
+    const std::vector<size_t>& getDimensions() const {
+        return backend_.getDimensions();
+    }
 };
 
 }}} // namespace metada::framework::repr

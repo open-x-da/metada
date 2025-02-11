@@ -1,6 +1,7 @@
 #ifndef METADA_FRAMEWORK_REPR_OBSOPERATOR_HPP_
 #define METADA_FRAMEWORK_REPR_OBSOPERATOR_HPP_
 
+#include "IObsOperator.hpp"
 #include "State.hpp"
 #include "Observation.hpp"
 #include "Increment.hpp"
@@ -12,51 +13,81 @@ namespace framework {
 namespace repr {
 
 /**
- * @brief Base class for observation operators
- * 
- * Provides a generic interface for mapping between model space and observation space.
- * Supports:
- * - Forward operator (model -> observation)
- * - Tangent linear operator
- * - Adjoint operator
- * - Observation error handling
- * 
- * @tparam StateType Type of model state
- * @tparam ObsType Type of observation
+ * @brief Main observation operator class template providing a generic interface
+ *
+ * This class template provides a static interface for observation operators using
+ * a backend specified by the ObsOperatorBackend template parameter. The backend
+ * must implement the IObsOperator interface.
+ *
+ * @tparam ObsOperatorBackend The observation operator backend type
+ * @tparam StateType The state type used by this operator
+ * @tparam ObsType The observation type used by this operator
  */
-template<typename StateType, typename ObsType>
+template<typename ObsOperatorBackend, typename StateType, typename ObsType>
 class ObsOperator {
+private:
+    ObsOperatorBackend backend_;  ///< Instance of the observation operator backend
+
 public:
-    virtual ~ObsOperator() = default;
+    /** @brief Default constructor */
+    ObsOperator() = default;
+
+    /** @brief Get direct access to the backend instance */
+    ObsOperatorBackend& backend() { return backend_; }
+
+    /** @brief Get const access to the backend instance */
+    const ObsOperatorBackend& backend() const { return backend_; }
 
     // Core operations
-    virtual void initialize() = 0;
-    virtual void finalize() = 0;
+    void initialize() { backend_.initialize(); }
+    void finalize() { backend_.finalize(); }
 
     // Forward operator: model state -> observation space
-    virtual void apply(const State<StateType>& state, 
-                      Observation<ObsType>& observation) const = 0;
+    void apply(const State<StateType>& state, 
+              Observation<ObsType>& observation) const {
+        backend_.apply(state.backend(), observation.backend());
+    }
 
     // Tangent linear operator: increment -> observation space
-    virtual void applyTangentLinear(const Increment<StateType>& increment,
-                                  Observation<ObsType>& observation) const = 0;
+    void applyTangentLinear(const Increment<StateType>& increment,
+                          Observation<ObsType>& observation) const {
+        backend_.applyTangentLinear(increment.backend(), observation.backend());
+    }
 
     // Adjoint operator: observation -> increment space
-    virtual void applyAdjoint(const Observation<ObsType>& observation,
-                            Increment<StateType>& increment) const = 0;
+    void applyAdjoint(const Observation<ObsType>& observation,
+                    Increment<StateType>& increment) const {
+        backend_.applyAdjoint(observation.backend(), increment.backend());
+    }
 
     // Error handling
-    virtual void setObservationError(const Observation<ObsType>& obs) = 0;
-    virtual double getObservationError(const Observation<ObsType>& obs) const = 0;
+    void setObservationError(const Observation<ObsType>& obs) {
+        backend_.setObservationError(obs.backend());
+    }
+
+    double getObservationError(const Observation<ObsType>& obs) const {
+        return backend_.getObservationError(obs.backend());
+    }
 
     // Configuration
-    virtual void setParameter(const std::string& name, double value) = 0;
-    virtual double getParameter(const std::string& name) const = 0;
+    void setParameter(const std::string& name, double value) {
+        backend_.setParameter(name, value);
+    }
 
-protected:
-    bool initialized_{false};
-    std::vector<std::string> required_state_variables_;
-    std::vector<std::string> required_obs_variables_;
+    double getParameter(const std::string& name) const {
+        return backend_.getParameter(name);
+    }
+
+    // Required variables
+    const std::vector<std::string>& getRequiredStateVariables() const {
+        return backend_.getRequiredStateVariables();
+    }
+
+    const std::vector<std::string>& getRequiredObsVariables() const {
+        return backend_.getRequiredObsVariables();
+    }
+
+    bool isInitialized() const { return backend_.isInitialized(); }
 };
 
 }}} // namespace metada::framework::repr

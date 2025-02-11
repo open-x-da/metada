@@ -1,9 +1,14 @@
 # Define the scientific representation library
 add_library(repr INTERFACE
+    IState.hpp
     State.hpp
+    IModel.hpp
     Model.hpp
+    IObservation.hpp
     Observation.hpp
+    IIncrement.hpp
     Increment.hpp
+    IObsOperator.hpp
     ObsOperator.hpp
 )
 
@@ -20,10 +25,15 @@ add_library(metada::framework::repr ALIAS repr)
 # Install headers
 install(
     FILES
+        IState.hpp
         State.hpp
+        IModel.hpp
         Model.hpp
+        IObservation.hpp
         Observation.hpp
+        IIncrement.hpp
         Increment.hpp
+        IObsOperator.hpp
         ObsOperator.hpp
     DESTINATION
         include/metada/framework/repr

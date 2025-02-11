@@ -1,6 +1,7 @@
 #ifndef METADA_FRAMEWORK_REPR_OBSERVATION_HPP_
 #define METADA_FRAMEWORK_REPR_OBSERVATION_HPP_
 
+#include "IObservation.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -11,48 +12,68 @@ namespace framework {
 namespace repr {
 
 /**
- * @brief Base class for observation representations
- * 
- * Provides a generic interface for handling observational data, supporting:
- * - Multiple observation types and sources
- * - Observation errors/uncertainties
- * - Quality control flags
- * - Spatial and temporal metadata
- * 
- * @tparam T Type of observation values (typically double)
+ * @brief Main observation class template providing a generic interface to observation implementations
+ *
+ * This class template provides a static interface for handling observational data using a backend
+ * specified by the ObservationBackend template parameter. The backend must implement the
+ * IObservation interface.
+ *
+ * @tparam ObservationBackend The observation backend type that implements IObservation
  */
-template<typename T>
+template<typename ObservationBackend>
 class Observation {
+private:
+    ObservationBackend backend_;  ///< Instance of the observation backend
+
 public:
-    virtual ~Observation() = default;
+    /** @brief Default constructor */
+    Observation() = default;
+
+    /** @brief Get direct access to the backend instance */
+    ObservationBackend& backend() { return backend_; }
+
+    /** @brief Get const access to the backend instance */
+    const ObservationBackend& backend() const { return backend_; }
 
     // Core observation operations
-    virtual void initialize() = 0;
-    virtual void validate() const = 0;
-    virtual bool isValid() const = 0;
+    void initialize() { backend_.initialize(); }
+    void validate() const { backend_.validate(); }
+    bool isValid() const { return backend_.isValid(); }
 
     // Data access
-    virtual T& getValue() = 0;
-    virtual const T& getValue() const = 0;
-    virtual T& getError() = 0;
-    virtual const T& getError() const = 0;
+    template<typename T>
+    T& getValue() { return *static_cast<T*>(backend_.getValue()); }
+    
+    template<typename T>
+    const T& getValue() const { return *static_cast<const T*>(backend_.getValue()); }
+    
+    template<typename T>
+    T& getError() { return *static_cast<T*>(backend_.getError()); }
+    
+    template<typename T>
+    const T& getError() const { return *static_cast<const T*>(backend_.getError()); }
 
     // Metadata management
-    virtual void setLocation(double lat, double lon, double height) = 0;
-    virtual void setTime(double timestamp) = 0;
-    virtual void setQualityFlag(int flag) = 0;
+    void setLocation(double lat, double lon, double height) {
+        backend_.setLocation(lat, lon, height);
+    }
+
+    void setTime(double timestamp) { backend_.setTime(timestamp); }
+    void setQualityFlag(int flag) { backend_.setQualityFlag(flag); }
     
     // Observation attributes
-    virtual void setAttribute(const std::string& key, const std::string& value) = 0;
-    virtual std::string getAttribute(const std::string& key) const = 0;
+    void setAttribute(const std::string& key, const std::string& value) {
+        backend_.setAttribute(key, value);
+    }
 
-protected:
-    T value_;                    // Observation value
-    T error_;                    // Observation error/uncertainty
-    std::vector<double> location_;  // Spatial coordinates
-    double timestamp_{0.0};      // Observation time
-    int quality_flag_{0};        // Quality control flag
-    std::map<std::string, std::string> attributes_;  // Additional metadata
+    std::string getAttribute(const std::string& key) const {
+        return backend_.getAttribute(key);
+    }
+
+    // Location access
+    const std::vector<double>& getLocation() const { return backend_.getLocation(); }
+    double getTimestamp() const { return backend_.getTimestamp(); }
+    int getQualityFlag() const { return backend_.getQualityFlag(); }
 };
 
 }}} // namespace metada::framework::repr

@@ -1,6 +1,7 @@
 #ifndef METADA_FRAMEWORK_REPR_MODEL_HPP_
 #define METADA_FRAMEWORK_REPR_MODEL_HPP_
 
+#include "IModel.hpp"
 #include "State.hpp"
 #include <memory>
 #include <string>
@@ -10,42 +11,66 @@ namespace framework {
 namespace repr {
 
 /**
- * @brief Base class for scientific model representations
- * 
- * Provides a generic interface for scientific models, supporting:
- * - Model state initialization and management
- * - Time integration/stepping
- * - Model parameters and configuration
- * - Input/Output operations
- * 
- * @tparam StateType Type of state used by the model
+ * @brief Main model class template providing a generic interface to model implementations
+ *
+ * This class template provides a static interface for model operations using a backend
+ * specified by the ModelBackend template parameter. The backend must implement the
+ * IModel interface.
+ *
+ * Key features:
+ * - Model lifecycle management
+ * - State handling with type safety
+ * - Parameter configuration
+ * - Model metadata access
+ *
+ * @tparam ModelBackend The model backend type that implements IModel
+ * @tparam StateType The state type used by this model
  */
-template<typename StateType>
+template<typename ModelBackend, typename StateType>
 class Model {
+private:
+    ModelBackend backend_;  ///< Instance of the model backend
+
 public:
-    virtual ~Model() = default;
+    /** @brief Default constructor */
+    Model() = default;
+
+    /** @brief Get direct access to the backend instance */
+    ModelBackend& backend() { return backend_; }
+
+    /** @brief Get const access to the backend instance */
+    const ModelBackend& backend() const { return backend_; }
 
     // Core model operations
-    virtual void initialize() = 0;
-    virtual void step(double dt) = 0;
-    virtual void finalize() = 0;
+    void initialize() { backend_.initialize(); }
+    void step(double dt) { backend_.step(dt); }
+    void finalize() { backend_.finalize(); }
 
     // State management
-    virtual void setState(std::shared_ptr<StateType> state) = 0;
-    virtual std::shared_ptr<StateType> getState() const = 0;
+    void setState(std::shared_ptr<State<StateType>> state) {
+        backend_.setState(state->backend());
+    }
+
+    std::shared_ptr<State<StateType>> getState() const {
+        return std::make_shared<State<StateType>>(backend_.getState());
+    }
 
     // Model configuration
-    virtual void setParameter(const std::string& name, double value) = 0;
-    virtual double getParameter(const std::string& name) const = 0;
+    void setParameter(const std::string& name, double value) {
+        backend_.setParameter(name, value);
+    }
+
+    double getParameter(const std::string& name) const {
+        return backend_.getParameter(name);
+    }
 
     // Model metadata
-    virtual std::string getName() const = 0;
-    virtual std::string getVersion() const = 0;
+    std::string getName() const { return backend_.getName(); }
+    std::string getVersion() const { return backend_.getVersion(); }
 
-protected:
-    std::shared_ptr<StateType> state_;
-    double current_time_{0.0};
-    bool initialized_{false};
+    // Model state
+    double getCurrentTime() const { return backend_.getCurrentTime(); }
+    bool isInitialized() const { return backend_.isInitialized(); }
 };
 
 }}} // namespace metada::framework::repr
