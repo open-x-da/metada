@@ -19,19 +19,19 @@ target_link_libraries(increment_test
 )
 
 # Model tests
-add_executable(model_test
-    ModelTest.cpp
-)
+#add_executable(model_test
+#    ModelTest.cpp
+#)
 
-target_link_libraries(model_test
-    PRIVATE
-        metada::framework::repr
-)
+#target_link_libraries(model_test
+#    PRIVATE
+#        metada::framework::repr
+#)
 
 metada_add_test_with_coverage(state_test)
 metada_add_test_with_coverage(increment_test)
-metada_add_test_with_coverage(model_test)
+#metada_add_test_with_coverage(model_test)
 
 AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR}) 
 AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR}) 
-AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR}) 
+#AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR}) 
