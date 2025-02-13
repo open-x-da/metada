@@ -19,7 +19,7 @@ namespace repr {
  *
  * @tparam StateBackend The state backend type that implements IState
  */
-template <typename StateBackend, typename ConfigBackend>
+template <typename StateBackend>
 class State {
  private:
   StateBackend& backend_;  ///< Instance of the state backend
@@ -32,15 +32,14 @@ class State {
   explicit State(StateBackend& backend) : backend_(backend) {}
 
   /** @brief Constructor from configuration */
+  template <typename ConfigBackend>
   explicit State(const Config<ConfigBackend>& config) {
     // Initialize backend with configuration
     backend_.initialize(config.backend());
   }
 
   /** @brief Copy constructor */
-  explicit State(const State& other) : backend_(other.backend_) {
-    backend_.copyFrom(other.backend_);
-  }
+  explicit State(const State& other) : backend_(other.backend_) {}
 
   /** @brief Move constructor */
   State(State&& other) noexcept : backend_(other.backend_) {
