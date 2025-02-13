@@ -2,6 +2,7 @@
 #define METADA_TESTS_FRAMEWORK_TOOLS_CONFIG_MOCK_CONFIG_HPP_
 
 #include <gmock/gmock.h>
+
 #include "IConfig.hpp"
 
 namespace metada {
@@ -34,4 +35,4 @@ class MockConfig : public IConfig {
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_TESTS_FRAMEWORK_TOOLS_CONFIG_MOCK_CONFIG_HPP_ 
+#endif  // METADA_TESTS_FRAMEWORK_TOOLS_CONFIG_MOCK_CONFIG_HPP_

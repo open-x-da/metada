@@ -6,8 +6,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "Config.hpp"
+#include "MockConfig.hpp"
 #include "MockState.hpp"
 #include "State.hpp"
+
+using metada::framework::tools::config::Config;
+using metada::framework::tools::config::tests::MockConfig;
 
 namespace metada {
 namespace framework {
@@ -49,7 +54,7 @@ class StateTest : public ::testing::Test {
  */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
   MockState mock_backend;
-  State<MockState> state(mock_backend);
+  State<MockState, MockConfig> state(mock_backend);
 
   EXPECT_CALL(mock_backend, getData()).WillOnce(Return(test_data_));
 
@@ -62,7 +67,7 @@ TEST_F(StateTest, GetDataReturnsTypedPointer) {
  */
 TEST_F(StateTest, MetadataOperations) {
   MockState mock_backend;
-  State<MockState> state(mock_backend);
+  State<MockState, MockConfig> state(mock_backend);
 
   EXPECT_CALL(mock_backend, setMetadata("key1", "value1")).Times(1);
   EXPECT_CALL(mock_backend, getMetadata("key1")).WillOnce(Return("value1"));
@@ -76,7 +81,7 @@ TEST_F(StateTest, MetadataOperations) {
  */
 TEST_F(StateTest, StateInformation) {
   MockState mock_backend;
-  State<MockState> state(mock_backend);
+  State<MockState, MockConfig> state(mock_backend);
 
   EXPECT_CALL(mock_backend, getVariableNames())
       .WillOnce(ReturnRef(variable_names_));
@@ -91,8 +96,8 @@ TEST_F(StateTest, StateInformation) {
  */
 TEST_F(StateTest, CopyOperations) {
   MockState mock_backend1, mock_backend2;
-  State<MockState> state1(mock_backend1);
-  State<MockState> state2(mock_backend2);
+  State<MockState, MockConfig> state1(mock_backend1);
+  State<MockState, MockConfig> state2(mock_backend2);
 
   // Test copy assignment
   EXPECT_CALL(mock_backend2, copyFrom(testing::Ref(mock_backend1))).Times(1);
@@ -105,6 +110,23 @@ TEST_F(StateTest, CopyOperations) {
 
   EXPECT_TRUE(state1 == state2);
   EXPECT_FALSE(state1 == state2);
+}
+
+/**
+ * @brief Test move operations
+ */
+TEST_F(StateTest, MoveOperations) {
+  MockState mock_backend1, mock_backend2;
+  State<MockState, MockConfig> state1(mock_backend1);
+  State<MockState, MockConfig> state2(mock_backend2);
+
+  // Test move constructor
+  State<MockState, MockConfig> state3(std::move(state1));
+  EXPECT_EQ(&state3.backend(), &mock_backend1);
+
+  // Test move assignment
+  EXPECT_CALL(mock_backend2, moveFrom(testing::An<IState&&>())).Times(1);
+  state2 = std::move(state3);
 }
 
 }  // namespace tests

@@ -5,8 +5,10 @@
 #include <string>
 #include <vector>
 
+#include "Config.hpp"
 #include "IState.hpp"
 
+using metada::framework::tools::config::Config;
 namespace metada {
 namespace framework {
 namespace repr {
@@ -17,7 +19,7 @@ namespace repr {
  *
  * @tparam StateBackend The state backend type that implements IState
  */
-template <typename StateBackend>
+template <typename StateBackend, typename ConfigBackend>
 class State {
  private:
   StateBackend& backend_;  ///< Instance of the state backend
@@ -30,21 +32,19 @@ class State {
   explicit State(StateBackend& backend) : backend_(backend) {}
 
   /** @brief Constructor from configuration */
-  explicit State(const std::string& config) {
+  explicit State(const Config<ConfigBackend>& config) {
     // Initialize backend with configuration
-    backend_.initialize(config);
+    backend_.initialize(config.backend());
   }
 
   /** @brief Copy constructor */
-  State(const State& other) : backend_(other.backend_) {
-    // Deep copy of backend data
+  explicit State(const State& other) : backend_(other.backend_) {
     backend_.copyFrom(other.backend_);
   }
 
   /** @brief Move constructor */
   State(State&& other) noexcept : backend_(other.backend_) {
-    // Transfer ownership of backend data
-    backend_.moveFrom(std::move(other.backend_));
+    // No need for moveFrom since we're just taking the reference
   }
 
   /** @brief Copy assignment operator */

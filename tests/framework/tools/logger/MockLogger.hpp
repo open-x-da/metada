@@ -2,6 +2,7 @@
 #define METADA_TESTS_FRAMEWORK_TOOLS_LOGGER_MOCK_LOGGER_HPP_
 
 #include <gmock/gmock.h>
+
 #include "ILogger.hpp"
 
 namespace metada {
@@ -41,4 +42,4 @@ class MockLogger : public ILogger {
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_TESTS_FRAMEWORK_TOOLS_LOGGER_MOCK_LOGGER_HPP_ 
+#endif  // METADA_TESTS_FRAMEWORK_TOOLS_LOGGER_MOCK_LOGGER_HPP_

@@ -8,6 +8,12 @@ target_link_libraries(state_test
         metada::framework::repr
 )
 
+target_include_directories(state_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/tests/framework/tools/config
+        ${CMAKE_SOURCE_DIR}/tests/framework/tools/logger
+)
+
 # Increment tests
 #add_executable(increment_test
 #       IncrementTest.cpp
