@@ -60,6 +60,8 @@ function(AddCoverage target)
 
   add_custom_target(
     coverage-${target}
+    # Clean up the old gcda
+    COMMAND ${CMAKE_COMMAND} -E remove ${target_binary_dir}/*.gcda
     # Capture coverage data
     COMMAND ${LCOV_COMMAND} 
             --directory .
