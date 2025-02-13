@@ -19,44 +19,25 @@
 #include <gtest/gtest.h>
 
 #include "Config.hpp"
-#include "IConfig.hpp"
-
-using ::testing::_;
-using ::testing::Return;
+#include "MockConfig.hpp"
 
 namespace metada {
 namespace framework {
 namespace tools {
 namespace config {
+namespace tests {
 
-/**
- * @brief Mock configuration backend for testing
- *
- * Implements IConfig interface using Google Mock to provide mock configuration
- * methods. Used to verify Config's interaction with its backend implementation.
- */
-class MockConfigBackend : public IConfig {
- public:
-  MOCK_METHOD(bool, LoadFromFile, (const std::string&), (override));
-  MOCK_METHOD(bool, LoadFromString, (const std::string&), (override));
-  MOCK_METHOD(ConfigValue, Get, (const std::string&), (const, override));
-  MOCK_METHOD(void, Set, (const std::string&, const ConfigValue&), (override));
-  MOCK_METHOD(bool, HasKey, (const std::string&), (const, override));
-  MOCK_METHOD(bool, SaveToFile, (const std::string&), (const, override));
-  MOCK_METHOD(std::string, ToString, (), (const, override));
-  MOCK_METHOD(void, Clear, (), (override));
-};
+using ::testing::_;
+using ::testing::Return;
+using ::testing::Throw;
 
 /**
  * @brief Test fixture for Config class tests
- *
- * Provides a test environment with a Config instance using MockConfigBackend.
- * Enables consistent testing of Config's delegation behavior.
  */
 class ConfigTest : public ::testing::Test {
  protected:
   /** @brief Config instance with mock backend */
-  Config<MockConfigBackend> config;
+  Config<MockConfig> config;
 };
 
 /**
@@ -325,6 +306,7 @@ TEST_F(ConfigTest, GetSafeReturnsDefaultOnError) {
             ConfigValue());  // Should return default-constructed ConfigValue
 }
 
+}  // namespace tests
 }  // namespace config
 }  // namespace tools
 }  // namespace framework
