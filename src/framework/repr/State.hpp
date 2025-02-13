@@ -23,16 +23,32 @@ public:
     /** @brief Constructor that takes a backend reference */
     explicit State(StateBackend& backend) : backend_(backend) {}
 
+    /** @brief Copy constructor */
+    explicit State(const State& other) : backend_(other.backend_) {}
+
+    /** @brief Copy assignment operator */
+    State& operator=(const State& other) {
+        if (this != &other) {
+            backend_.copyFrom(other.backend_);
+        }
+        return *this;
+    }
+
+    /** @brief Equality operator */
+    bool operator==(const State& other) const {
+        return backend_.equals(other.backend_);
+    }
+
+    /** @brief Inequality operator */
+    bool operator!=(const State& other) const {
+        return !(*this == other);
+    }
+
     /** @brief Get direct access to the backend instance */
     StateBackend& backend() { return backend_; }
 
     /** @brief Get const access to the backend instance */
     const StateBackend& backend() const { return backend_; }
-
-    // Core state operations
-    void initialize() { backend_.initialize(); }
-    void reset() { backend_.reset(); }
-    void validate() const { backend_.validate(); }
 
     // Data access
     template<typename T>

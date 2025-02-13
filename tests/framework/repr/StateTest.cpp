@@ -45,42 +45,6 @@ class StateTest : public ::testing::Test {
 };
 
 /**
- * @brief Test that initialize() delegates to backend
- */
-TEST_F(StateTest, InitializeDelegatestoBackend) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
-
-  EXPECT_CALL(mock_backend, initialize()).Times(1);
-
-  state.initialize();
-}
-
-/**
- * @brief Test that reset() delegates to backend
- */
-TEST_F(StateTest, ResetDelegatestoBackend) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
-
-  EXPECT_CALL(mock_backend, reset()).Times(1);
-
-  state.reset();
-}
-
-/**
- * @brief Test that validate() delegates to backend
- */
-TEST_F(StateTest, ValidateDelegatestoBackend) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
-
-  EXPECT_CALL(mock_backend, validate()).Times(1);
-
-  state.validate();
-}
-
-/**
  * @brief Test that getData() returns correctly typed pointer
  */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
@@ -123,22 +87,24 @@ TEST_F(StateTest, StateInformation) {
 }
 
 /**
- * @brief Test backend accessor methods
+ * @brief Test copy operations
  */
-TEST_F(StateTest, BackendAccessors) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
+TEST_F(StateTest, CopyOperations) {
+  MockState mock_backend1, mock_backend2;
+  State<MockState> state1(mock_backend1);
+  State<MockState> state2(mock_backend2);
 
-  // Test that we can get non-const access to backend
-  MockState& backend = state.backend();
-  EXPECT_CALL(backend, initialize()).Times(1);
-  backend.initialize();
+  // Test copy assignment
+  EXPECT_CALL(mock_backend2, copyFrom(testing::Ref(mock_backend1))).Times(1);
+  state2 = state1;
 
-  // Test that we can get const access to backend
-  const State<MockState>& const_state = state;
-  const MockState& const_backend = const_state.backend();
-  EXPECT_CALL(const_backend, validate()).Times(1);
-  const_backend.validate();
+  // Test equality comparison
+  EXPECT_CALL(mock_backend1, equals(testing::Ref(mock_backend2)))
+      .WillOnce(Return(true))
+      .WillOnce(Return(false));
+
+  EXPECT_TRUE(state1 == state2);
+  EXPECT_FALSE(state1 == state2);
 }
 
 }  // namespace tests

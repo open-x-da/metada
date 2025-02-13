@@ -12,10 +12,6 @@ namespace tests {
 
 class MockState : public IState {
  public:
-  MOCK_METHOD(void, initialize, (), (override));
-  MOCK_METHOD(void, reset, (), (override));
-  MOCK_METHOD(void, validate, (), (const, override));
-
   MOCK_METHOD(void*, getData, (), (override));
   MOCK_METHOD(const void*, getData, (), (const, override));
 
@@ -27,6 +23,11 @@ class MockState : public IState {
   MOCK_METHOD(const std::vector<std::string>&, getVariableNames, (),
               (const, override));
   MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
+
+  // Copy operations
+  MOCK_METHOD(void, copyFrom, (const IState& other), (override));
+  MOCK_METHOD(void, moveFrom, (IState && other), (override));
+  MOCK_METHOD(bool, equals, (const IState& other), (const, override));
 };
 
 }  // namespace tests

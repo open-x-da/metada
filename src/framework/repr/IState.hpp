@@ -18,10 +18,10 @@ class IState {
 public:
     virtual ~IState() = default;
 
-    // Core state operations
-    virtual void initialize() = 0;
-    virtual void reset() = 0;
-    virtual void validate() const = 0;
+    // Copy operations
+    virtual void copyFrom(const IState& other) = 0;
+    virtual void moveFrom(IState&& other) = 0;
+    virtual bool equals(const IState& other) const = 0;
 
     // Data access
     virtual void* getData() = 0;
