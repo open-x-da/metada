@@ -3,7 +3,10 @@
 
 #include <gmock/gmock.h>
 
+#include "IConfig.hpp"
 #include "IState.hpp"
+
+using metada::framework::tools::config::IConfig;
 
 namespace metada {
 namespace framework {
@@ -12,6 +15,12 @@ namespace tests {
 
 class MockState : public IState {
  public:
+  // Core state operations
+  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
+  MOCK_METHOD(void, reset, (), (override));
+  MOCK_METHOD(void, validate, (), (const, override));
+  MOCK_METHOD(bool, isInitialized, (), (const, override));
+
   MOCK_METHOD(void*, getData, (), (override));
   MOCK_METHOD(const void*, getData, (), (const, override));
 

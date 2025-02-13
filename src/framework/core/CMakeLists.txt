@@ -5,7 +5,7 @@ add_library(metada::framework::core ALIAS core_interface)
 # Set include directories
 target_include_directories(core_interface
     INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR}
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 # Link required dependencies

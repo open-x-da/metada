@@ -1,81 +1,114 @@
 #ifndef METADA_FRAMEWORK_REPR_STATE_HPP_
 #define METADA_FRAMEWORK_REPR_STATE_HPP_
 
-#include "IState.hpp"
-#include <vector>
+#include <memory>
 #include <string>
+#include <vector>
+
+#include "IState.hpp"
 
 namespace metada {
 namespace framework {
 namespace repr {
 
 /**
- * @brief Main state class template providing a generic interface to state implementations
- * 
+ * @brief Main state class template providing a generic interface to state
+ * implementations
+ *
  * @tparam StateBackend The state backend type that implements IState
  */
-template<typename StateBackend>
+template <typename StateBackend>
 class State {
-private:
-    StateBackend& backend_;  ///< Instance of the state backend
+ private:
+  StateBackend& backend_;  ///< Instance of the state backend
 
-public:
-    /** @brief Constructor that takes a backend reference */
-    explicit State(StateBackend& backend) : backend_(backend) {}
+ public:
+  // Constructors
+  State() = delete;  // Disable default constructor since we need a backend
 
-    /** @brief Copy constructor */
-    explicit State(const State& other) : backend_(other.backend_) {}
+  /** @brief Constructor that takes a backend reference */
+  explicit State(StateBackend& backend) : backend_(backend) {}
 
-    /** @brief Copy assignment operator */
-    State& operator=(const State& other) {
-        if (this != &other) {
-            backend_.copyFrom(other.backend_);
-        }
-        return *this;
+  /** @brief Constructor from configuration */
+  explicit State(const std::string& config) {
+    // Initialize backend with configuration
+    backend_.initialize(config);
+  }
+
+  /** @brief Copy constructor */
+  State(const State& other) : backend_(other.backend_) {
+    // Deep copy of backend data
+    backend_.copyFrom(other.backend_);
+  }
+
+  /** @brief Move constructor */
+  State(State&& other) noexcept : backend_(other.backend_) {
+    // Transfer ownership of backend data
+    backend_.moveFrom(std::move(other.backend_));
+  }
+
+  /** @brief Copy assignment operator */
+  State& operator=(const State& other) {
+    if (this != &other) {
+      backend_.copyFrom(other.backend_);
     }
+    return *this;
+  }
 
-    /** @brief Equality operator */
-    bool operator==(const State& other) const {
-        return backend_.equals(other.backend_);
+  /** @brief Move assignment operator */
+  State& operator=(State&& other) noexcept {
+    if (this != &other) {
+      backend_.moveFrom(std::move(other.backend_));
     }
+    return *this;
+  }
 
-    /** @brief Inequality operator */
-    bool operator!=(const State& other) const {
-        return !(*this == other);
-    }
+  /** @brief Equality operator */
+  bool operator==(const State& other) const {
+    return backend_.equals(other.backend_);
+  }
 
-    /** @brief Get direct access to the backend instance */
-    StateBackend& backend() { return backend_; }
+  /** @brief Inequality operator */
+  bool operator!=(const State& other) const { return !(*this == other); }
 
-    /** @brief Get const access to the backend instance */
-    const StateBackend& backend() const { return backend_; }
+  /** @brief Get direct access to the backend instance */
+  StateBackend& backend() { return backend_; }
 
-    // Data access
-    template<typename T>
-    T& getData() { return *static_cast<T*>(backend_.getData()); }
-    
-    template<typename T>
-    const T& getData() const { return *static_cast<const T*>(backend_.getData()); }
+  /** @brief Get const access to the backend instance */
+  const StateBackend& backend() const { return backend_; }
 
-    // Metadata operations
-    void setMetadata(const std::string& key, const std::string& value) {
-        backend_.setMetadata(key, value);
-    }
+  // Data access
+  template <typename T>
+  T& getData() {
+    return *static_cast<T*>(backend_.getData());
+  }
 
-    std::string getMetadata(const std::string& key) const {
-        return backend_.getMetadata(key);
-    }
+  template <typename T>
+  const T& getData() const {
+    return *static_cast<const T*>(backend_.getData());
+  }
 
-    // State information
-    const std::vector<std::string>& getVariableNames() const {
-        return backend_.getVariableNames();
-    }
+  // Metadata operations
+  void setMetadata(const std::string& key, const std::string& value) {
+    backend_.setMetadata(key, value);
+  }
 
-    const std::vector<size_t>& getDimensions() const {
-        return backend_.getDimensions();
-    }
+  std::string getMetadata(const std::string& key) const {
+    return backend_.getMetadata(key);
+  }
+
+  // State information
+  const std::vector<std::string>& getVariableNames() const {
+    return backend_.getVariableNames();
+  }
+
+  const std::vector<size_t>& getDimensions() const {
+    return backend_.getDimensions();
+  }
 };
 
-}}} // namespace metada::framework::repr
+}  // namespace repr
+}  // namespace framework
+}  // namespace metada
 
-#endif // METADA_FRAMEWORK_REPR_STATE_HPP_ 
+#endif  // METADA_FRAMEWORK_REPR_STATE_HPP_

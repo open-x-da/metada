@@ -1,92 +1,101 @@
 #ifndef METADA_FRAMEWORK_REPR_INCREMENT_HPP_
 #define METADA_FRAMEWORK_REPR_INCREMENT_HPP_
 
-#include "IIncrement.hpp"
-#include "State.hpp"
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "IIncrement.hpp"
+#include "State.hpp"
 
 namespace metada {
 namespace framework {
 namespace repr {
 
 /**
- * @brief Main increment class template providing a generic interface to increment implementations
+ * @brief Main increment class template providing a generic interface to
+ * increment implementations
  *
- * This class template provides a static interface for handling state increments/perturbations
- * using a backend specified by the IncrementBackend template parameter. The backend must
- * implement the IIncrement interface.
+ * This class template provides a static interface for handling state
+ * increments/perturbations using a backend specified by the IncrementBackend
+ * template parameter. The backend must implement the IIncrement interface.
  *
- * @tparam IncrementBackend The increment backend type that implements IIncrement
+ * @tparam IncrementBackend The increment backend type that implements
+ * IIncrement
  */
-template<typename IncrementBackend>
+template <typename IncrementBackend>
 class Increment {
-private:
-    IncrementBackend backend_;  ///< Instance of the increment backend
+ private:
+  IncrementBackend backend_;  ///< Instance of the increment backend
 
-public:
-    /** @brief Default constructor */
-    Increment() = default;
+ public:
+  /** @brief Default constructor */
+  Increment() = default;
 
-    /** @brief Get direct access to the backend instance */
-    IncrementBackend& backend() { return backend_; }
+  /** @brief Get direct access to the backend instance */
+  IncrementBackend& backend() { return backend_; }
 
-    /** @brief Get const access to the backend instance */
-    const IncrementBackend& backend() const { return backend_; }
+  /** @brief Get const access to the backend instance */
+  const IncrementBackend& backend() const { return backend_; }
 
-    // Core increment operations
-    void initialize() { backend_.initialize(); }
-    void zero() { backend_.zero(); }
-    void scale(double alpha) { backend_.scale(alpha); }
+  // Core increment operations
+  void initialize() { backend_.initialize(); }
+  void zero() { backend_.zero(); }
+  void scale(double alpha) { backend_.scale(alpha); }
 
-    // Linear algebra operations
-    void axpy(double alpha, const Increment& other) {
-        backend_.axpy(alpha, other.backend());
-    }
-    
-    double dot(const Increment& other) const {
-        return backend_.dot(other.backend());
-    }
-    
-    double norm() const { return backend_.norm(); }
+  // Linear algebra operations
+  void axpy(double alpha, const Increment& other) {
+    backend_.axpy(alpha, other.backend());
+  }
 
-    // State operations
-    template<typename StateType>
-    void addToState(State<StateType>& state) const {
-        backend_.addToState(state.backend());
-    }
+  double dot(const Increment& other) const {
+    return backend_.dot(other.backend());
+  }
 
-    template<typename StateType>
-    void differenceFromStates(const State<StateType>& state1,
+  double norm() const { return backend_.norm(); }
+
+  // State operations
+  template <typename StateType>
+  void addToState(State<StateType>& state) const {
+    backend_.addToState(state.backend());
+  }
+
+  template <typename StateType>
+  void differenceFromStates(const State<StateType>& state1,
                             const State<StateType>& state2) {
-        backend_.differenceFromStates(state1.backend(), state2.backend());
-    }
+    backend_.differenceFromStates(state1.backend(), state2.backend());
+  }
 
-    // Data access
-    template<typename T>
-    T& getData() { return *static_cast<T*>(backend_.getData()); }
-    
-    template<typename T>
-    const T& getData() const { return *static_cast<const T*>(backend_.getData()); }
+  // Data access
+  template <typename T>
+  T& getData() {
+    return *static_cast<T*>(backend_.getData());
+  }
 
-    // Metadata operations
-    void setMetadata(const std::string& key, const std::string& value) {
-        backend_.setMetadata(key, value);
-    }
+  template <typename T>
+  const T& getData() const {
+    return *static_cast<const T*>(backend_.getData());
+  }
 
-    std::string getMetadata(const std::string& key) const {
-        return backend_.getMetadata(key);
-    }
+  // Metadata operations
+  void setMetadata(const std::string& key, const std::string& value) {
+    backend_.setMetadata(key, value);
+  }
 
-    // Increment information
-    const std::vector<size_t>& getDimensions() const {
-        return backend_.getDimensions();
-    }
+  std::string getMetadata(const std::string& key) const {
+    return backend_.getMetadata(key);
+  }
 
-    bool isInitialized() const { return backend_.isInitialized(); }
+  // Increment information
+  const std::vector<size_t>& getDimensions() const {
+    return backend_.getDimensions();
+  }
+
+  bool isInitialized() const { return backend_.isInitialized(); }
 };
 
-}}} // namespace metada::framework::repr
+}  // namespace repr
+}  // namespace framework
+}  // namespace metada
 
-#endif // METADA_FRAMEWORK_REPR_INCREMENT_HPP_ 
+#endif  // METADA_FRAMEWORK_REPR_INCREMENT_HPP_

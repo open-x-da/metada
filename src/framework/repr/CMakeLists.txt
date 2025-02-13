@@ -1,6 +1,9 @@
 # Define the scientific representation library
 add_library(repr_interface INTERFACE)
 
+# Create alias target
+add_library(metada::framework::repr ALIAS repr_interface)
+
 # Set up include directories
 target_include_directories(repr_interface
     INTERFACE
@@ -8,8 +11,13 @@ target_include_directories(repr_interface
         $<INSTALL_INTERFACE:include>
 )
 
-# Create alias target
-add_library(metada::framework::repr ALIAS repr_interface)
+target_link_libraries(repr_interface
+    INTERFACE
+        metada::framework::tools::config
+        metada::framework::tools::logger
+)
+
+AddFormatTarget(repr_interface ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Install headers
 install(
