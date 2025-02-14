@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "Config.hpp"
-#include "IConfig.hpp"
 #include "IState.hpp"
 
 using metada::framework::tools::config::Config;
@@ -77,13 +76,22 @@ class State {
       : backend_(other.backend_), initialized_(other.initialized_) {}
 
   /**
-   * @brief Constructor with backend and configuration
-   * @param backend Reference to backend implementation
-   * @param config Configuration to initialize state with
+   * @brief Constructor that initializes state with backend and configuration
+   * 
+   * @details
+   * This constructor takes both a backend implementation and a configuration object.
+   * It initializes the backend with the provided configuration and sets the 
+   * initialized flag to true upon successful initialization.
+   *
+   * @tparam T The configuration backend type
+   * @param[in] backend Reference to the state backend implementation
+   * @param[in] config Configuration object containing initialization parameters
+   * @throws std::runtime_error If backend initialization fails
    */
-  explicit State(StateBackend& backend, const IConfig& config)
+  template <typename T>
+  explicit State(StateBackend& backend, const Config<T>& config)
       : backend_(backend), initialized_(false) {
-    backend_.initialize(config);
+    backend_.initialize(config.backend());
     initialized_ = true;
   }
 

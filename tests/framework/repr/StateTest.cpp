@@ -111,10 +111,11 @@ TEST_F(StateTest, ConstructorTests) {
 
   // Test configuration constructor
   MockState mock_backend;
-  MockConfig mock_config;
+  Config<MockConfig> config;
   // Expect the initialize call when using config constructor
-  EXPECT_CALL(mock_backend, initialize(testing::Ref(mock_config))).Times(1);
-  State<MockState> state(mock_backend, mock_config);
+  EXPECT_CALL(mock_backend, initialize(testing::Ref(config.backend())))
+      .Times(1);
+  State<MockState> state(mock_backend, config);
   EXPECT_TRUE(state.isInitialized());
 
   // Test copy constructor
