@@ -77,11 +77,11 @@ class State {
 
   /**
    * @brief Constructor that initializes state with backend and configuration
-   * 
+   *
    * @details
-   * This constructor takes both a backend implementation and a configuration object.
-   * It initializes the backend with the provided configuration and sets the 
-   * initialized flag to true upon successful initialization.
+   * This constructor takes both a backend implementation and a configuration
+   * object. It initializes the backend with the provided configuration and sets
+   * the initialized flag to true upon successful initialization.
    *
    * @tparam T The configuration backend type
    * @param[in] backend Reference to the state backend implementation

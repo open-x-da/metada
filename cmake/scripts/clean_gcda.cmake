@@ -1,13 +1,17 @@
-# 递归查找所有 .gcda 文件
+# Find all .gcda files in the build directory
 file(GLOB_RECURSE GCDA_FILES "${CMAKE_BINARY_DIR}/*.gcda")
 
-# 输出找到的文件数量
-message(STATUS "Found ${GCDA_FILES} .gcda files to delete.")
+# Print found files for debugging
+foreach(GCDA_FILE ${GCDA_FILES})
+    message(STATUS "Found .gcda file: ${GCDA_FILE}")
+endforeach()
 
-# 删除所有 .gcda 文件
-if(GCDA_FILES)
-    file(REMOVE ${GCDA_FILES})
-    message(STATUS "Deleted all .gcda files.")
-else()
-    message(STATUS "No .gcda files found.")
-endif()
+# Delete all .gcda files
+foreach(GCDA_FILE ${GCDA_FILES})
+    if(EXISTS "${GCDA_FILE}")
+        file(REMOVE "${GCDA_FILE}")
+        message(STATUS "Deleted: ${GCDA_FILE}")
+    endif()
+endforeach()
+
+message(STATUS "Cleaned ${CMAKE_BINARY_DIR} of .gcda files")
