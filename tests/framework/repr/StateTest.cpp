@@ -47,6 +47,7 @@ using ::testing::ReturnRef;
  */
 class StateTest : public ::testing::Test {
  protected:
+  Config<MockConfig> config_;
   /**
    * @brief Set up test data before each test
    *
@@ -76,26 +77,6 @@ class StateTest : public ::testing::Test {
 };
 
 /**
- * @brief Test core state operations
- *
- * Verifies:
- * - reset() functionality
- * - validate() functionality
- */
-TEST_F(StateTest, CoreStateOperations) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
-
-  // Test reset
-  EXPECT_CALL(mock_backend, reset()).Times(1);
-  state.reset();
-
-  // Test validate
-  EXPECT_CALL(mock_backend, validate()).Times(1);
-  state.validate();
-}
-
-/**
  * @brief Test all available constructors
  *
  * Verifies:
@@ -104,25 +85,98 @@ TEST_F(StateTest, CoreStateOperations) {
  * - Copy constructor
  */
 TEST_F(StateTest, ConstructorTests) {
-  // Test backend reference constructor
-  MockState mock_backend1;
-  State<MockState> state1(mock_backend1);
-  EXPECT_EQ(&state1.backend(), &mock_backend1);
-
   // Test configuration constructor
-  MockState mock_backend;
-  Config<MockConfig> config;
-  // Expect the initialize call when using config constructor
-  EXPECT_CALL(mock_backend, initialize(testing::Ref(config.backend())))
-      .Times(1);
-  State<MockState> state(mock_backend, config);
+  State<MockState> state(config_);
   EXPECT_TRUE(state.isInitialized());
 
   // Test copy constructor
-  MockState mock_backend3;
-  State<MockState> state3(mock_backend3);
-  State<MockState> state3_copy(state3);
-  EXPECT_EQ(&state3_copy.backend(), &mock_backend3);
+  State<MockState> state_copy(state);
+  EXPECT_CALL(state_copy.backend(), equals(_)).WillOnce(Return(true));
+  EXPECT_TRUE(state_copy == state);
+
+  // Test move constructor
+  State<MockState> state_moved(std::move(state_copy));
+  // Verify the moved-from state is no longer initialized
+  EXPECT_FALSE(state_copy.isInitialized());
+  EXPECT_TRUE(state_moved.isInitialized());
+}
+
+/**
+ * @brief Test core state operations
+ *
+ * Verifies:
+ * - reset() functionality
+ * - validate() functionality
+ */
+TEST_F(StateTest, CoreStateOperations) {
+  State<MockState> state(config_);
+
+  // Test reset
+  EXPECT_CALL(state.backend(), reset()).Times(1);
+  state.reset();
+
+  // Test validate
+  EXPECT_CALL(state.backend(), validate()).Times(1);
+  state.validate();
+}
+
+/**
+ * @brief Test copy assignment
+ *
+ * Verifies proper copy assignment between states
+ */
+TEST_F(StateTest, CopyAssignment) {
+  State<MockState> state1(config_);
+  State<MockState> state2(config_);
+
+  // Test copy assignment
+  EXPECT_CALL(state2.backend(), copyFrom(testing::Ref(state1.backend())))
+      .Times(1);
+  state2 = state1;
+}
+
+/**
+ * @brief Test move assignment
+ *
+ * Verifies proper move assignment between states
+ */
+TEST_F(StateTest, MoveAssignment) {
+  State<MockState> state1(config_);
+  State<MockState> state2(config_);
+
+  // Set up expectations for move assignment
+  EXPECT_CALL(state2.backend(), moveFrom(_)).Times(1);
+
+  // Test move assignment
+  state2 = std::move(state1);
+
+  // Verify states after move
+  EXPECT_FALSE(state1.isInitialized());
+  EXPECT_TRUE(state2.isInitialized());
+}
+
+/**
+ * @brief Test equality and inequality comparison
+ *
+ * Verifies:
+ * - Equality operator (==)
+ * - Inequality operator (!=)
+ */
+TEST_F(StateTest, EqualityComparison) {
+  State<MockState> state1(config_);
+  State<MockState> state2(config_);
+
+  EXPECT_CALL(state1.backend(), equals(testing::Ref(state2.backend())))
+      .WillOnce(Return(true))
+      .WillOnce(Return(false));
+  EXPECT_TRUE(state1 == state2);
+  EXPECT_FALSE(state1 == state2);
+
+  EXPECT_CALL(state1.backend(), equals(testing::Ref(state2.backend())))
+      .WillOnce(Return(true))
+      .WillOnce(Return(false));
+  EXPECT_FALSE(state1 != state2);
+  EXPECT_TRUE(state1 != state2);
 }
 
 /**
@@ -131,10 +185,9 @@ TEST_F(StateTest, ConstructorTests) {
  * Verifies type-safe data access through getData<T>()
  */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
+  State<MockState> state(config_);
 
-  EXPECT_CALL(mock_backend, getData()).WillOnce(Return(test_data_));
+  EXPECT_CALL(state.backend(), getData()).WillOnce(Return(test_data_));
 
   double* data = &state.getData<double>();
   EXPECT_EQ(data, test_data_);
@@ -148,11 +201,10 @@ TEST_F(StateTest, GetDataReturnsTypedPointer) {
  * - Retrieving metadata values by key
  */
 TEST_F(StateTest, MetadataOperations) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
+  State<MockState> state(config_);
 
-  EXPECT_CALL(mock_backend, setMetadata("key1", "value1")).Times(1);
-  EXPECT_CALL(mock_backend, getMetadata("key1")).WillOnce(Return("value1"));
+  EXPECT_CALL(state.backend(), setMetadata("key1", "value1")).Times(1);
+  EXPECT_CALL(state.backend(), getMetadata("key1")).WillOnce(Return("value1"));
 
   state.setMetadata("key1", "value1");
   EXPECT_EQ(state.getMetadata("key1"), "value1");
@@ -166,76 +218,15 @@ TEST_F(StateTest, MetadataOperations) {
  * - Getting state dimensions
  */
 TEST_F(StateTest, StateInformation) {
-  MockState mock_backend;
-  State<MockState> state(mock_backend);
+  State<MockState> state(config_);
 
-  EXPECT_CALL(mock_backend, getVariableNames())
+  EXPECT_CALL(state.backend(), getVariableNames())
       .WillOnce(ReturnRef(variable_names_));
-  EXPECT_CALL(mock_backend, getDimensions()).WillOnce(ReturnRef(dimensions_));
+  EXPECT_CALL(state.backend(), getDimensions())
+      .WillOnce(ReturnRef(dimensions_));
 
   EXPECT_EQ(state.getVariableNames(), variable_names_);
   EXPECT_EQ(state.getDimensions(), dimensions_);
-}
-
-/**
- * @brief Test copy operations
- *
- * Verifies proper copy assignment between states
- */
-TEST_F(StateTest, CopyOperations) {
-  MockState mock_backend1, mock_backend2;
-  State<MockState> state1(mock_backend1);
-  State<MockState> state2(mock_backend2);
-
-  // Test copy assignment
-  EXPECT_CALL(mock_backend2, copyFrom(testing::Ref(mock_backend1))).Times(1);
-  state2 = state1;
-}
-
-/**
- * @brief Test equality and inequality comparison
- *
- * Verifies:
- * - Equality operator (==)
- * - Inequality operator (!=)
- */
-TEST_F(StateTest, EqualityComparison) {
-  MockState mock_backend1, mock_backend2;
-  State<MockState> state1(mock_backend1);
-  State<MockState> state2(mock_backend2);
-
-  EXPECT_CALL(mock_backend1, equals(testing::Ref(mock_backend2)))
-      .WillOnce(Return(true))
-      .WillOnce(Return(false));
-  EXPECT_TRUE(state1 == state2);
-  EXPECT_FALSE(state1 == state2);
-
-  EXPECT_CALL(mock_backend1, equals(testing::Ref(mock_backend2)))
-      .WillOnce(Return(true))
-      .WillOnce(Return(false));
-  EXPECT_FALSE(state1 != state2);
-  EXPECT_TRUE(state1 != state2);
-}
-
-/**
- * @brief Test move operations
- *
- * Verifies:
- * - Move constructor
- * - Move assignment
- */
-TEST_F(StateTest, MoveOperations) {
-  MockState mock_backend1, mock_backend2;
-  State<MockState> state1(mock_backend1);
-  State<MockState> state2(mock_backend2);
-
-  // Test move constructor
-  State<MockState> state3(std::move(state1));
-  EXPECT_EQ(&state3.backend(), &mock_backend1);
-
-  // Test move assignment
-  EXPECT_CALL(mock_backend2, moveFrom(testing::An<IState&&>())).Times(1);
-  state2 = std::move(state3);
 }
 
 }  // namespace tests

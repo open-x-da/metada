@@ -54,7 +54,7 @@ namespace repr {
 template <typename StateBackend>
 class State {
  private:
-  StateBackend& backend_;    ///< Instance of the state backend
+  StateBackend backend_;     ///< Instance of the state backend
   bool initialized_{false};  ///< Initialization flag
 
  public:
@@ -62,36 +62,22 @@ class State {
   State() = delete;  // Disable default constructor since we need a backend
 
   /**
-   * @brief Basic constructor with backend only
-   * @param backend Reference to backend implementation
+   * @brief Constructor that initializes state with configuration
+   *
+   * @tparam T The configuration backend type
+   * @param[in] config Configuration object containing initialization parameters
+   * @throws std::runtime_error If backend initialization fails
    */
-  explicit State(StateBackend& backend)
-      : backend_(backend), initialized_(true) {}
+  template <typename T>
+  explicit State(const Config<T>& config)
+      : backend_(config), initialized_(true) {}
 
   /**
    * @brief Copy constructor
    * @param other State instance to copy from
    */
-  explicit State(const State& other)
-      : backend_(other.backend_), initialized_(other.initialized_) {}
-
-  /**
-   * @brief Constructor that initializes state with backend and configuration
-   *
-   * @details
-   * This constructor takes both a backend implementation and a configuration
-   * object. It initializes the backend with the provided configuration and sets
-   * the initialized flag to true upon successful initialization.
-   *
-   * @tparam T The configuration backend type
-   * @param[in] backend Reference to the state backend implementation
-   * @param[in] config Configuration object containing initialization parameters
-   * @throws std::runtime_error If backend initialization fails
-   */
-  template <typename T>
-  explicit State(StateBackend& backend, const Config<T>& config)
-      : backend_(backend), initialized_(false) {
-    backend_.initialize(config.backend());
+  explicit State(const State& other) : backend_(other.backend_.config()) {
+    backend_.copyFrom(other.backend_);
     initialized_ = true;
   }
 
@@ -104,9 +90,10 @@ class State {
    * @brief Move constructor
    * @param other State instance to move from
    */
-  State(State&& other) noexcept
-      : backend_(other.backend_), initialized_(other.initialized_) {
-    // No need for moveFrom since we're just taking the reference
+  State(State&& other) noexcept : backend_(other.backend_.config()) {
+    backend_.moveFrom(std::move(other.backend_));
+    initialized_ = other.initialized_;
+    other.initialized_ = false;  // Reset the moved-from object's state
   }
 
   /**
@@ -129,8 +116,14 @@ class State {
    */
   State& operator=(State&& other) noexcept {
     if (this != &other) {
+      // Move the backend state
       backend_.moveFrom(std::move(other.backend_));
+
+      // Transfer initialization state
       initialized_ = other.initialized_;
+
+      // Reset the moved-from object's state
+      other.initialized_ = false;
     }
     return *this;
   }
