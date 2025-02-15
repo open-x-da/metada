@@ -2,6 +2,7 @@
  * @file State.hpp
  * @brief Template class providing a generic interface to state implementations
  * @ingroup repr
+ * @author Metada Framework Team
  *
  * @details
  * This header provides a template class that wraps state backend
@@ -9,31 +10,36 @@
  * State class delegates operations to the backend while providing type
  * safety and a consistent API.
  *
- * Key features:
- * - Generic interface to different state backend implementations
- * - Support for initialization from configuration
- * - Core state operations (reset, validate, etc)
- * - Copy/move semantics
- * - Data access with type safety
- * - Metadata management
- * - State information queries
+ * The State class template is designed to:
+ * - Provide a generic interface to different state backend implementations
+ * - Support initialization from configuration objects
+ * - Enable core state operations (reset, validate, etc)
+ * - Implement proper copy/move semantics
+ * - Ensure type-safe data access
+ * - Support metadata management
+ * - Allow state information queries
+ *
+ * @see IState
+ * @see Config
  */
 
-#ifndef METADA_SRC_FRAMEWORK_REPR_STATE_HPP_
-#define METADA_SRC_FRAMEWORK_REPR_STATE_HPP_
+#ifndef METADA_FRAMEWORK_REPR_STATE_HPP_
+#define METADA_FRAMEWORK_REPR_STATE_HPP_
 
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "Config.hpp"
-#include "IState.hpp"
+namespace metada::framework::tools::config {
+template <typename T>
+class Config;
+}
 
-using metada::framework::tools::config::Config;
 namespace metada {
 namespace framework {
 namespace repr {
 
+namespace config = metada::framework::tools::config;
 /**
  * @brief Main state class template providing a generic interface to state
  * implementations
@@ -49,7 +55,17 @@ namespace repr {
  * The backend must implement the IState interface to provide the core
  * functionality, while this wrapper adds type safety and convenience.
  *
+ * Example usage:
+ * @code
+ * Config<MyConfig> config;
+ * State<MyStateBackend> state(config);
+ * state.reset();
+ * auto& data = state.getData<double>();
+ * @endcode
+ *
  * @tparam StateBackend The state backend type that implements IState interface
+ *
+ * @see IState
  */
 template <typename StateBackend>
 class State {
@@ -69,7 +85,7 @@ class State {
    * @throws std::runtime_error If backend initialization fails
    */
   template <typename T>
-  explicit State(const Config<T>& config)
+  explicit State(const config::Config<T>& config)
       : backend_(config), initialized_(true) {}
 
   /**
@@ -219,4 +235,4 @@ class State {
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_SRC_FRAMEWORK_REPR_STATE_HPP_
+#endif  // METADA_FRAMEWORK_REPR_STATE_HPP_

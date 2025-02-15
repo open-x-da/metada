@@ -2,73 +2,94 @@
  * @file MockState.hpp
  * @brief Mock implementation of IState interface for testing
  * @ingroup tests
+ * @author Metada Framework Team
  *
  * @details
  * This mock class provides a test double for the IState interface using Google
  * Mock. It allows testing code that depends on IState by providing mock
  * implementations of all interface methods that can be configured with
  * expectations and behaviors.
+ *
+ * The mock implementation supports:
+ * - Setting expectations on method calls
+ * - Configuring return values and behaviors
+ * - Verifying interaction patterns
+ * - Testing error conditions
+ *
+ * @see IState
+ * @see testing::Mock
  */
 
-#ifndef METADA_TESTS_FRAMEWORK_REPR_MOCK_STATE_HPP_
-#define METADA_TESTS_FRAMEWORK_REPR_MOCK_STATE_HPP_
+#ifndef METADA_FRAMEWORK_REPR_TESTS_MOCK_STATE_HPP_
+#define METADA_FRAMEWORK_REPR_TESTS_MOCK_STATE_HPP_
 
 #include <gmock/gmock.h>
 
-#include "Config.hpp"
-#include "IConfig.hpp"
 #include "IState.hpp"
-#include "MockConfig.hpp"
 
-using metada::framework::tools::config::Config;
-using metada::framework::tools::config::tests::MockConfig;
+// Forward declarations with namespace forwarding
+namespace metada::framework::tools::config {
+class IConfig;
+template <typename T>
+class Config;
+}  // namespace metada::framework::tools::config
 
-namespace metada {
-namespace framework {
-namespace repr {
-namespace tests {
+namespace metada::framework::tools::config::tests {
+class MockConfig;
+}  // namespace metada::framework::tools::config::tests
+
+namespace metada::framework::repr::tests {
+
+// Use namespace aliases for shorter references
+namespace config = metada::framework::tools::config;
 
 using ::testing::_;
 using ::testing::Return;
+
 /**
  * @brief Mock implementation of IState for testing
  *
  * @details
- * Provides mock methods for all IState interface operations:
+ * Provides mock methods for all IState interface operations, organized into
+ * the following categories:
  *
- * Core operations:
+ * @par Core Operations
  * - initialize() - Initialize state from configuration
  * - reset() - Reset state to initial values
  * - validate() - Validate state consistency
  * - isInitialized() - Check initialization status
  *
- * Copy/Move operations:
+ * @par Copy/Move Operations
  * - copyFrom() - Copy state from another instance
  * - moveFrom() - Move state from another instance
  * - equals() - Compare equality with another state
  *
- * Data access:
+ * @par Data Access
  * - getData() - Get raw pointer to data
  * - getData() const - Get const raw pointer to data
  *
- * Metadata operations:
+ * @par Metadata Operations
  * - setMetadata() - Set metadata key-value pair
  * - getMetadata() - Get metadata value by key
  *
- * State information:
+ * @par State Information
  * - getVariableNames() - Get names of state variables
  * - getDimensions() - Get dimensions of state space
+ *
+ * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
+ * setting expectations and verifying calls.
  */
-class MockState : public IState {
+class MockState : public repr::IState {
  private:
-  const Config<MockConfig>& config_;
+  const config::Config<config::tests::MockConfig>& config_;
 
  public:
   // Disable default constructor
   MockState() = delete;
 
   // Constructor that initializes state from config
-  MockState(const Config<MockConfig>& config) : config_(config) {
+  MockState(const config::Config<config::tests::MockConfig>& config)
+      : config_(config) {
     // Set default behavior for initialize
     ON_CALL(*this, initialize(_)).WillByDefault(Return());
     initialize(config.backend());
@@ -81,7 +102,7 @@ class MockState : public IState {
   MockState& operator=(MockState&& other) noexcept = delete;
 
   // Core state operations
-  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
+  MOCK_METHOD(void, initialize, (const config::IConfig& config), (override));
   MOCK_METHOD(void, reset, (), (override));
   MOCK_METHOD(void, validate, (), (const, override));
 
@@ -106,12 +127,11 @@ class MockState : public IState {
   MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
 
   // Get the config
-  const Config<MockConfig>& config() const { return config_; }
+  const config::Config<config::tests::MockConfig>& config() const {
+    return config_;
+  }
 };
 
-}  // namespace tests
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::repr::tests
 
-#endif  // METADA_TESTS_FRAMEWORK_REPR_MOCK_STATE_HPP_
+#endif  // METADA_FRAMEWORK_REPR_TESTS_MOCK_STATE_HPP_

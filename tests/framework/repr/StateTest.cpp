@@ -2,17 +2,33 @@
  * @file StateTest.cpp
  * @brief Unit tests for the State class template
  * @ingroup tests
+ * @author Metada Framework Team
  *
  * @details
- * This file contains unit tests for the State class template, verifying:
- * - Core state operations (initialize, reset, validate)
- * - Constructor behavior and initialization
+ * This test suite verifies the functionality of the State class template,
+ * which provides a generic interface for state implementations. The tests
+ * cover:
+ *
+ * Core functionality:
+ * - Initialization and construction
+ * - State operations (reset, validate)
  * - Data access and type safety
- * - Metadata operations
+ *
+ * Advanced features:
+ * - Metadata management
  * - State information queries
  * - Copy/move semantics
  * - Equality comparison
+ *
+ * The test suite uses Google Test/Mock framework for mocking and assertions.
+ *
+ * @see State
+ * @see IState
+ * @see MockState
  */
+
+#ifndef METADA_TESTS_FRAMEWORK_REPR_STATE_TEST_HPP_
+#define METADA_TESTS_FRAMEWORK_REPR_STATE_TEST_HPP_
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -24,9 +40,6 @@
 #include "MockState.hpp"
 #include "State.hpp"
 
-using metada::framework::tools::config::Config;
-using metada::framework::tools::config::tests::MockConfig;
-
 namespace metada {
 namespace framework {
 namespace repr {
@@ -35,6 +48,9 @@ namespace tests {
 using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
+
+using metada::framework::tools::config::Config;
+using metada::framework::tools::config::tests::MockConfig;
 
 /**
  * @brief Test fixture for State class tests
@@ -79,10 +95,11 @@ class StateTest : public ::testing::Test {
 /**
  * @brief Test all available constructors
  *
- * Verifies:
- * - Backend reference constructor
- * - Configuration constructor with initialization
- * - Copy constructor
+ * @details
+ * Verifies proper initialization and state transfer for:
+ * - Configuration constructor
+ * - Copy constructor with state validation
+ * - Move constructor with proper state transfer
  */
 TEST_F(StateTest, ConstructorTests) {
   // Test configuration constructor
@@ -104,9 +121,10 @@ TEST_F(StateTest, ConstructorTests) {
 /**
  * @brief Test core state operations
  *
- * Verifies:
- * - reset() functionality
- * - validate() functionality
+ * @details
+ * Verifies basic state manipulation:
+ * - reset() properly resets state
+ * - validate() checks state consistency
  */
 TEST_F(StateTest, CoreStateOperations) {
   State<MockState> state(config_);
@@ -123,7 +141,10 @@ TEST_F(StateTest, CoreStateOperations) {
 /**
  * @brief Test copy assignment
  *
- * Verifies proper copy assignment between states
+ * @details
+ * Verifies proper state copying between instances:
+ * - Correct delegation to backend copyFrom()
+ * - Proper state transfer
  */
 TEST_F(StateTest, CopyAssignment) {
   State<MockState> state1(config_);
@@ -138,7 +159,11 @@ TEST_F(StateTest, CopyAssignment) {
 /**
  * @brief Test move assignment
  *
- * Verifies proper move assignment between states
+ * @details
+ * Verifies proper move semantics:
+ * - Correct state transfer
+ * - Source state invalidation
+ * - Destination state validation
  */
 TEST_F(StateTest, MoveAssignment) {
   State<MockState> state1(config_);
@@ -158,9 +183,11 @@ TEST_F(StateTest, MoveAssignment) {
 /**
  * @brief Test equality and inequality comparison
  *
- * Verifies:
- * - Equality operator (==)
- * - Inequality operator (!=)
+ * @details
+ * Verifies comparison operators:
+ * - Equality (==) with both true/false cases
+ * - Inequality (!=) with both true/false cases
+ * - Proper delegation to backend equals()
  */
 TEST_F(StateTest, EqualityComparison) {
   State<MockState> state1(config_);
@@ -182,7 +209,11 @@ TEST_F(StateTest, EqualityComparison) {
 /**
  * @brief Test that getData() returns correctly typed pointer
  *
- * Verifies type-safe data access through getData<T>()
+ * @details
+ * Verifies type-safe data access:
+ * - Proper type casting
+ * - Correct pointer return
+ * - Backend delegation
  */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
   State<MockState> state(config_);
@@ -196,9 +227,11 @@ TEST_F(StateTest, GetDataReturnsTypedPointer) {
 /**
  * @brief Test metadata get/set operations
  *
- * Verifies:
- * - Setting metadata key-value pairs
- * - Retrieving metadata values by key
+ * @details
+ * Verifies metadata management:
+ * - Setting key-value pairs
+ * - Retrieving values by key
+ * - Backend delegation for storage
  */
 TEST_F(StateTest, MetadataOperations) {
   State<MockState> state(config_);
@@ -213,9 +246,11 @@ TEST_F(StateTest, MetadataOperations) {
 /**
  * @brief Test state information accessors
  *
- * Verifies:
- * - Getting variable names
- * - Getting state dimensions
+ * @details
+ * Verifies state query operations:
+ * - Variable name retrieval
+ * - Dimension information access
+ * - Backend delegation
  */
 TEST_F(StateTest, StateInformation) {
   State<MockState> state(config_);
@@ -233,3 +268,5 @@ TEST_F(StateTest, StateInformation) {
 }  // namespace repr
 }  // namespace framework
 }  // namespace metada
+
+#endif  // METADA_TESTS_FRAMEWORK_REPR_STATE_TEST_HPP_
