@@ -33,8 +33,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <optional>
-
 #include "Config.hpp"
 #include "MockConfig.hpp"
 #include "MockState.hpp"
@@ -49,6 +47,7 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
+using metada::backends::repr::MockState;
 using metada::framework::tools::config::Config;
 using metada::framework::tools::config::tests::MockConfig;
 

@@ -6,6 +6,7 @@ add_executable(state_test
 target_link_libraries(state_test
     PRIVATE
         metada::framework::repr
+        metada::backends::repr::mock
 )
 
 target_include_directories(state_test
