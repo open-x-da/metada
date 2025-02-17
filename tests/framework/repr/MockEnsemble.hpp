@@ -1,13 +1,10 @@
-#ifndef METADA_TESTS_FRAMEWORK_REPR_MOCK_ENSEMBLE_HPP_
-#define METADA_TESTS_FRAMEWORK_REPR_MOCK_ENSEMBLE_HPP_
-
+#pragma once
 #include <gmock/gmock.h>
 
 #include "IEnsemble.hpp"
 
 namespace metada {
 namespace framework {
-namespace repr {
 namespace tests {
 
 class MockEnsemble : public IEnsemble {
@@ -43,8 +40,5 @@ class MockEnsemble : public IEnsemble {
 };
 
 }  // namespace tests
-}  // namespace repr
 }  // namespace framework
 }  // namespace metada
-
-#endif  // METADA_TESTS_FRAMEWORK_REPR_MOCK_ENSEMBLE_HPP_

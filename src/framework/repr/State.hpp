@@ -23,8 +23,7 @@
  * @see Config
  */
 
-#ifndef METADA_FRAMEWORK_REPR_STATE_HPP_
-#define METADA_FRAMEWORK_REPR_STATE_HPP_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -37,7 +36,6 @@ class Config;
 
 namespace metada {
 namespace framework {
-namespace repr {
 
 namespace config = metada::framework::tools::config;
 /**
@@ -231,8 +229,5 @@ class State {
   const StateBackend& backend() const { return backend_; }
 };
 
-}  // namespace repr
 }  // namespace framework
 }  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_STATE_HPP_

@@ -9,7 +9,6 @@
 
 namespace metada {
 namespace framework {
-namespace repr {
 namespace tests {
 
 using ::testing::_;
@@ -33,13 +32,13 @@ class EnsembleTest : public ::testing::Test {
 
 // Test ensemble initialization
 TEST_F(EnsembleTest, InitializationCreatesCorrectNumberOfMembers) {
-  Ensemble<metada::backends::repr::MockState> ensemble(config_, ensemble_size_);
+  Ensemble<metada::backends::MockState> ensemble(config_, ensemble_size_);
   EXPECT_EQ(ensemble.getSize(), ensemble_size_);
 }
 
 // Test member access
 TEST_F(EnsembleTest, MemberAccessIsValid) {
-  Ensemble<metada::backends::repr::MockState> ensemble(config_, ensemble_size_);
+  Ensemble<metada::backends::MockState> ensemble(config_, ensemble_size_);
 
   // Test access to all members
   for (size_t i = 0; i < ensemble_size_; ++i) {
@@ -53,7 +52,7 @@ TEST_F(EnsembleTest, MemberAccessIsValid) {
 
 // Test mean computation
 TEST_F(EnsembleTest, ComputeMeanUpdatesEnsembleMean) {
-  Ensemble<metada::backends::repr::MockState> ensemble(config_, ensemble_size_);
+  Ensemble<metada::backends::MockState> ensemble(config_, ensemble_size_);
   EXPECT_NO_THROW(ensemble.computeMean());
   EXPECT_NO_THROW(ensemble.getMean());
 }
@@ -100,6 +99,5 @@ TEST_F(EnsembleTest, ComputeMeanUpdatesEnsembleMean) {
 // }
 
 }  // namespace tests
-}  // namespace repr
 }  // namespace framework
 }  // namespace metada

@@ -19,8 +19,7 @@
  * exception handling for all operations.
  */
 
-#ifndef METADA_SRC_FRAMEWORK_REPR_ISTATE_HPP_
-#define METADA_SRC_FRAMEWORK_REPR_ISTATE_HPP_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -31,7 +30,6 @@ class IConfig;  // Forward declaration
 
 namespace metada {
 namespace framework {
-namespace repr {
 
 // Use alias for shorter reference
 namespace config = metada::framework::tools::config;
@@ -164,8 +162,5 @@ class IState {
   virtual const std::vector<size_t>& getDimensions() const = 0;
 };
 
-}  // namespace repr
 }  // namespace framework
 }  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_ISTATE_HPP_

@@ -7,8 +7,6 @@
 
 namespace metada {
 namespace framework {
-namespace repr {
-
 /**
  * @brief Interface for ensemble representations
  *
@@ -48,6 +46,5 @@ class IEnsemble {
   virtual bool isValid() const = 0;
 };
 
-}  // namespace repr
 }  // namespace framework
 }  // namespace metada

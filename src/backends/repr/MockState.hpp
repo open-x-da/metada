@@ -20,8 +20,7 @@
  * @see testing::Mock
  */
 
-#ifndef METADA_FRAMEWORK_REPR_TESTS_MOCK_STATE_HPP_
-#define METADA_FRAMEWORK_REPR_TESTS_MOCK_STATE_HPP_
+#pragma once
 
 #include <gmock/gmock.h>
 
@@ -38,7 +37,7 @@ namespace metada::framework::tools::config::tests {
 class MockConfig;
 }  // namespace metada::framework::tools::config::tests
 
-namespace metada::backends::repr {
+namespace metada::backends {
 
 // Use namespace aliases for shorter references
 namespace config = metada::framework::tools::config;
@@ -79,7 +78,7 @@ using ::testing::Return;
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
-class MockState : public framework::repr::IState {
+class MockState : public framework::IState {
  private:
   const config::Config<config::tests::MockConfig>& config_;
 
@@ -107,10 +106,9 @@ class MockState : public framework::repr::IState {
   MOCK_METHOD(void, validate, (), (const, override));
 
   // Copy operations
-  MOCK_METHOD(void, copyFrom, (const framework::repr::IState& other),
-              (override));
-  MOCK_METHOD(void, moveFrom, (framework::repr::IState && other), (override));
-  MOCK_METHOD(bool, equals, (const framework::repr::IState& other),
+  MOCK_METHOD(void, copyFrom, (const framework::IState& other), (override));
+  MOCK_METHOD(void, moveFrom, (framework::IState && other), (override));
+  MOCK_METHOD(bool, equals, (const framework::IState& other),
               (const, override));
 
   // Data access
@@ -134,6 +132,4 @@ class MockState : public framework::repr::IState {
   }
 };
 
-}  // namespace metada::backends::repr
-
-#endif  // METADA_FRAMEWORK_REPR_TESTS_MOCK_STATE_HPP_
+}  // namespace metada::backends

@@ -27,9 +27,6 @@
  * @see MockState
  */
 
-#ifndef METADA_TESTS_FRAMEWORK_REPR_STATE_TEST_HPP_
-#define METADA_TESTS_FRAMEWORK_REPR_STATE_TEST_HPP_
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -40,14 +37,13 @@
 
 namespace metada {
 namespace framework {
-namespace repr {
 namespace tests {
 
 using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
-using metada::backends::repr::MockState;
+using metada::backends::MockState;
 using metada::framework::tools::config::Config;
 using metada::framework::tools::config::tests::MockConfig;
 
@@ -264,8 +260,5 @@ TEST_F(StateTest, StateInformation) {
 }
 
 }  // namespace tests
-}  // namespace repr
 }  // namespace framework
 }  // namespace metada
-
-#endif  // METADA_TESTS_FRAMEWORK_REPR_STATE_TEST_HPP_

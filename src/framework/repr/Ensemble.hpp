@@ -8,7 +8,6 @@
 
 namespace metada {
 namespace framework {
-namespace repr {
 
 /**
  * @brief Template class for ensemble representation
@@ -260,6 +259,5 @@ class Ensemble {
   }
 };
 
-}  // namespace repr
 }  // namespace framework
 }  // namespace metada
