@@ -3,10 +3,14 @@
 #include <memory>
 #include <vector>
 
-#include "IState.hpp"
+namespace metada::framework {
 
-namespace metada {
-namespace framework {
+class IState;
+
+namespace tools::config {
+class IConfig;
+}  // namespace tools::config
+using tools::config::IConfig;
 /**
  * @brief Interface for ensemble representations
  *
@@ -20,7 +24,7 @@ class IEnsemble {
   virtual ~IEnsemble() = default;
 
   // Ensemble management
-  virtual void initialize(const tools::config::IConfig& config) = 0;
+  virtual void initialize(const IConfig& config) = 0;
   virtual size_t getSize() const = 0;
   virtual void resize(size_t new_size) = 0;
 
@@ -46,5 +50,4 @@ class IEnsemble {
   virtual bool isValid() const = 0;
 };
 
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework

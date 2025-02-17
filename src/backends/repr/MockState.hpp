@@ -29,18 +29,20 @@
 // Forward declarations with namespace forwarding
 namespace metada::framework::tools::config {
 class IConfig;
+
 template <typename T>
 class Config;
-}  // namespace metada::framework::tools::config
 
-namespace metada::framework::tools::config::tests {
+namespace tests {
 class MockConfig;
-}  // namespace metada::framework::tools::config::tests
+}  // namespace tests
+}  // namespace metada::framework::tools::config
 
 namespace metada::backends {
 
-// Use namespace aliases for shorter references
-namespace config = metada::framework::tools::config;
+using framework::tools::config::Config;
+using framework::tools::config::IConfig;
+using framework::tools::config::tests::MockConfig;
 
 using ::testing::_;
 using ::testing::Return;
@@ -80,15 +82,14 @@ using ::testing::Return;
  */
 class MockState : public framework::IState {
  private:
-  const config::Config<config::tests::MockConfig>& config_;
+  const Config<MockConfig>& config_;
 
  public:
   // Disable default constructor
   MockState() = delete;
 
   // Constructor that initializes state from config
-  MockState(const config::Config<config::tests::MockConfig>& config)
-      : config_(config) {
+  MockState(const Config<MockConfig>& config) : config_(config) {
     // Set default behavior for initialize
     ON_CALL(*this, initialize(_)).WillByDefault(Return());
     initialize(config.backend());
@@ -101,7 +102,7 @@ class MockState : public framework::IState {
   MockState& operator=(MockState&& other) noexcept = delete;
 
   // Core state operations
-  MOCK_METHOD(void, initialize, (const config::IConfig& config), (override));
+  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
   MOCK_METHOD(void, reset, (), (override));
   MOCK_METHOD(void, validate, (), (const, override));
 
@@ -127,9 +128,7 @@ class MockState : public framework::IState {
   MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
 
   // Get the config
-  const config::Config<config::tests::MockConfig>& config() const {
-    return config_;
-  }
+  const Config<MockConfig>& config() const { return config_; }
 };
 
 }  // namespace metada::backends

@@ -29,15 +29,13 @@
 #include <string>
 #include <vector>
 
-namespace metada::framework::tools::config {
+namespace metada::framework {
+
+namespace tools::config {
 template <typename T>
 class Config;
-}
-
-namespace metada {
-namespace framework {
-
-namespace config = metada::framework::tools::config;
+}  // namespace tools::config
+using tools::config::Config;
 /**
  * @brief Main state class template providing a generic interface to state
  * implementations
@@ -83,7 +81,7 @@ class State {
    * @throws std::runtime_error If backend initialization fails
    */
   template <typename T>
-  explicit State(const config::Config<T>& config)
+  explicit State(const Config<T>& config)
       : backend_(config), initialized_(true) {}
 
   /**
@@ -229,5 +227,4 @@ class State {
   const StateBackend& backend() const { return backend_; }
 };
 
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework

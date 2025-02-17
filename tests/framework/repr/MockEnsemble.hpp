@@ -3,15 +3,12 @@
 
 #include "IEnsemble.hpp"
 
-namespace metada {
-namespace framework {
-namespace tests {
+namespace metada::framework::tests {
 
 class MockEnsemble : public IEnsemble {
  public:
   // Ensemble management
-  MOCK_METHOD(void, initialize, (const tools::config::IConfig& config),
-              (override));
+  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
   MOCK_METHOD(size_t, getSize, (), (const, override));
   MOCK_METHOD(void, resize, (size_t new_size), (override));
 
@@ -39,6 +36,4 @@ class MockEnsemble : public IEnsemble {
   MOCK_METHOD(bool, isValid, (), (const, override));
 };
 
-}  // namespace tests
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::tests

@@ -1,15 +1,10 @@
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
 #include "Config.hpp"
 #include "Ensemble.hpp"
 #include "MockConfig.hpp"
 #include "MockEnsemble.hpp"
 #include "MockState.hpp"
 
-namespace metada {
-namespace framework {
-namespace tests {
+namespace metada::framework::tests {
 
 using ::testing::_;
 using ::testing::Return;
@@ -98,6 +93,4 @@ TEST_F(EnsembleTest, ComputeMeanUpdatesEnsembleMean) {
 //   std::out_of_range);
 // }
 
-}  // namespace tests
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::tests

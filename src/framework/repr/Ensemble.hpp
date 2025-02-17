@@ -1,13 +1,12 @@
 #pragma once
 
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 
-#include "IEnsemble.hpp"
 #include "State.hpp"
 
-namespace metada {
-namespace framework {
+namespace metada::framework {
 
 /**
  * @brief Template class for ensemble representation
@@ -259,5 +258,4 @@ class Ensemble {
   }
 };
 
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework

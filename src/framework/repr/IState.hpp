@@ -24,15 +24,13 @@
 #include <string>
 #include <vector>
 
-namespace metada::framework::tools::config {
+namespace metada::framework {
+
+namespace tools::config {
 class IConfig;  // Forward declaration
 }
-
-namespace metada {
-namespace framework {
-
 // Use alias for shorter reference
-namespace config = metada::framework::tools::config;
+using tools::config::IConfig;
 
 /**
  * @brief Abstract interface for state implementations
@@ -72,7 +70,7 @@ class IState {
    * @details Implementations should validate configuration parameters and
    * initialize internal state accordingly
    */
-  virtual void initialize(const config::IConfig& config) = 0;
+  virtual void initialize(const IConfig& config) = 0;
 
   /**
    * @brief Reset the state to initial values
@@ -162,5 +160,4 @@ class IState {
   virtual const std::vector<size_t>& getDimensions() const = 0;
 };
 
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework

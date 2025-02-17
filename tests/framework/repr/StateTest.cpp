@@ -35,9 +35,7 @@
 #include "MockState.hpp"
 #include "State.hpp"
 
-namespace metada {
-namespace framework {
-namespace tests {
+namespace metada::framework::tests {
 
 using ::testing::_;
 using ::testing::Return;
@@ -259,6 +257,4 @@ TEST_F(StateTest, StateInformation) {
   EXPECT_EQ(state.getDimensions(), dimensions_);
 }
 
-}  // namespace tests
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::tests
