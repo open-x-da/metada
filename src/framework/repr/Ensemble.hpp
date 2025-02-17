@@ -1,5 +1,4 @@
-#ifndef METADA_FRAMEWORK_REPR_ENSEMBLE_HPP_
-#define METADA_FRAMEWORK_REPR_ENSEMBLE_HPP_
+#pragma once
 
 #include <stdexcept>
 #include <vector>
@@ -17,33 +16,49 @@ namespace repr {
  * Provides implementation for ensemble operations using a specific State type.
  * Designed for use in ensemble-based data assimilation methods like LETKF.
  *
- * @tparam StateType The type of State used in the ensemble
+ * @tparam StateBackend The type of State used in the ensemble
  */
-template <typename StateType>
+template <typename StateBackend>
 class Ensemble {
+ private:
+  std::vector<State<StateBackend>> members_;
+  State<StateBackend> mean_;
+  size_t ensemble_size_;
+  std::vector<State<StateBackend>> perturbations_;
+
+  // Helper method for matrix inversion (needs implementation)
+  std::vector<std::vector<double>> invertMatrix(
+      const std::vector<std::vector<double>>& matrix) {
+    // Implement matrix inversion (e.g., using LU decomposition)
+    // Return inverted matrix
+    return std::vector<std::vector<double>>();
+  }
+
  public:
   // Constructor with config
   template <typename T>
   explicit Ensemble(const tools::config::Config<T>& config,
                     size_t ensemble_size)
-      : ensemble_size_(ensemble_size) {
+      : members_(),
+        mean_(config),
+        ensemble_size_(ensemble_size),
+        perturbations_() {
     // Initialize members
     members_.reserve(ensemble_size);
     for (size_t i = 0; i < ensemble_size; ++i) {
       members_.emplace_back(config);
     }
-    mean_ = State<StateType>(config);
   }
 
   // Member access
-  State<StateType>& getMember(size_t index) {
+  State<StateBackend>& getMember(size_t index) {
     if (index >= ensemble_size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
     return members_[index];
   }
 
-  const State<StateType>& getMember(size_t index) const {
+  const State<StateBackend>& getMember(size_t index) const {
     if (index >= ensemble_size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
@@ -56,23 +71,24 @@ class Ensemble {
   void computeMean() {
     // Reset mean state
     mean_.reset();
-    auto& mean_data = mean_.template getData<double>();
+    double* mean_data = &mean_.template getData<double>();
+    const auto dim = mean_.getDimensions()[0];
 
     // Sum all members
     for (const auto& member : members_) {
-      const auto& member_data = member.template getData<double>();
-      for (size_t i = 0; i < mean_.getDimensions()[0]; ++i) {
+      const double* member_data = &member.template getData<double>();
+      for (size_t i = 0; i < dim; ++i) {
         mean_data[i] += member_data[i];
       }
     }
 
     // Divide by ensemble size
-    for (size_t i = 0; i < mean_.getDimensions()[0]; ++i) {
+    for (size_t i = 0; i < dim; ++i) {
       mean_data[i] /= static_cast<double>(ensemble_size_);
     }
   }
 
-  const State<StateType>& getMean() const { return mean_; }
+  const State<StateBackend>& getMean() const { return mean_; }
 
   void computePerturbations() {
     // Ensure mean is computed
@@ -80,6 +96,7 @@ class Ensemble {
 
     // Resize perturbations if needed
     perturbations_.resize(ensemble_size_, mean_);
+    const auto dim = mean_.getDimensions()[0];
 
     // Compute perturbations for each member
     for (size_t i = 0; i < ensemble_size_; ++i) {
@@ -87,13 +104,13 @@ class Ensemble {
       const auto& member_data = members_[i].template getData<double>();
       const auto& mean_data = mean_.template getData<double>();
 
-      for (size_t j = 0; j < mean_.getDimensions()[0]; ++j) {
+      for (size_t j = 0; j < dim; ++j) {
         pert_data[j] = member_data[j] - mean_data[j];
       }
     }
   }
 
-  const State<StateType>& getPerturbation(size_t index) const {
+  const State<StateBackend>& getPerturbation(size_t index) const {
     if (index >= ensemble_size_) {
       throw std::out_of_range("Perturbation index out of range");
     }
@@ -129,7 +146,7 @@ class Ensemble {
     }
 
     // Create temporary storage for transformed members
-    std::vector<State<StateType>> transformed_members = members_;
+    std::vector<State<StateBackend>> transformed_members = members_;
 
     // Apply transformation
     for (size_t i = 0; i < ensemble_size_; ++i) {
@@ -223,7 +240,7 @@ class Ensemble {
     }
 
     // Apply weights to update ensemble members
-    std::vector<State<StateType>> updated_members = members_;
+    std::vector<State<StateBackend>> updated_members = members_;
     for (size_t i = 0; i < ensemble_size_; ++i) {
       auto& new_member = updated_members[i];
       new_member.reset();
@@ -241,24 +258,8 @@ class Ensemble {
 
     members_ = std::move(updated_members);
   }
-
- private:
-  std::vector<State<StateType>> members_;
-  State<StateType> mean_;
-  size_t ensemble_size_;
-  std::vector<State<StateType>> perturbations_;
-
-  // Helper method for matrix inversion (needs implementation)
-  std::vector<std::vector<double>> invertMatrix(
-      const std::vector<std::vector<double>>& matrix) {
-    // Implement matrix inversion (e.g., using LU decomposition)
-    // Return inverted matrix
-    return std::vector<std::vector<double>>();
-  }
 };
 
 }  // namespace repr
 }  // namespace framework
 }  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_ENSEMBLE_HPP_

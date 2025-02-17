@@ -1,5 +1,4 @@
-#ifndef METADA_FRAMEWORK_REPR_IENSEMBLE_HPP_
-#define METADA_FRAMEWORK_REPR_IENSEMBLE_HPP_
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -52,5 +51,3 @@ class IEnsemble {
 }  // namespace repr
 }  // namespace framework
 }  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_IENSEMBLE_HPP_
