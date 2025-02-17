@@ -32,6 +32,8 @@ install(
         Increment.hpp
         IObsOperator.hpp
         ObsOperator.hpp
+        IEnsemble.hpp
+        Ensemble.hpp
     DESTINATION
         include/metada/framework/repr
 )

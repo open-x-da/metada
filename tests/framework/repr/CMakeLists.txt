@@ -1,6 +1,7 @@
 # State tests
 add_executable(state_test
     StateTest.cpp
+    EnsembleTest.cpp
 )
 
 target_link_libraries(state_test
