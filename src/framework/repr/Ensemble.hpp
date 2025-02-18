@@ -16,13 +16,13 @@ namespace metada::framework {
  *
  * @tparam StateBackend The type of State used in the ensemble
  */
-template <typename StateBackend>
+template <typename T>
 class Ensemble {
  private:
-  std::vector<State<StateBackend>> members_;
-  State<StateBackend> mean_;
-  size_t ensemble_size_;
-  std::vector<State<StateBackend>> perturbations_;
+  std::vector<State<T>> members_;
+  State<T> mean_;
+  size_t size_;
+  std::vector<State<T>> perturbations_;
 
   // Helper method for matrix inversion (needs implementation)
   std::vector<std::vector<double>> invertMatrix(
@@ -34,36 +34,32 @@ class Ensemble {
 
  public:
   // Constructor with config
-  template <typename T>
-  explicit Ensemble(const tools::config::Config<T>& config,
-                    size_t ensemble_size)
-      : members_(),
-        mean_(config),
-        ensemble_size_(ensemble_size),
-        perturbations_() {
+  template <typename U>
+  explicit Ensemble(const tools::config::Config<U>& config, size_t size)
+      : members_(), mean_(config), size_(size), perturbations_() {
     // Initialize members
-    members_.reserve(ensemble_size);
-    for (size_t i = 0; i < ensemble_size; ++i) {
+    members_.reserve(size);
+    for (size_t i = 0; i < size; ++i) {
       members_.emplace_back(config);
     }
   }
 
   // Member access
-  State<StateBackend>& getMember(size_t index) {
-    if (index >= ensemble_size_) {
+  State<T>& getMember(size_t index) {
+    if (index >= size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
     return members_[index];
   }
 
-  const State<StateBackend>& getMember(size_t index) const {
-    if (index >= ensemble_size_) {
+  const State<T>& getMember(size_t index) const {
+    if (index >= size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
     return members_[index];
   }
 
-  size_t getSize() const { return ensemble_size_; }
+  size_t getSize() const { return size_; }
 
   // Statistical operations
   void computeMean() {
@@ -82,22 +78,22 @@ class Ensemble {
 
     // Divide by ensemble size
     for (size_t i = 0; i < dim; ++i) {
-      mean_data[i] /= static_cast<double>(ensemble_size_);
+      mean_data[i] /= static_cast<double>(size_);
     }
   }
 
-  const State<StateBackend>& getMean() const { return mean_; }
+  const State<T>& getMean() const { return mean_; }
 
   void computePerturbations() {
     // Ensure mean is computed
     computeMean();
 
     // Resize perturbations if needed
-    perturbations_.resize(ensemble_size_, mean_);
+    perturbations_.resize(size_, mean_);
     const auto dim = mean_.getDimensions()[0];
 
     // Compute perturbations for each member
-    for (size_t i = 0; i < ensemble_size_; ++i) {
+    for (size_t i = 0; i < size_; ++i) {
       auto& pert_data = perturbations_[i].template getData<double>();
       const auto& member_data = members_[i].template getData<double>();
       const auto& mean_data = mean_.template getData<double>();
@@ -108,8 +104,8 @@ class Ensemble {
     }
   }
 
-  const State<StateBackend>& getPerturbation(size_t index) const {
-    if (index >= ensemble_size_) {
+  const State<T>& getPerturbation(size_t index) const {
+    if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
     }
     return perturbations_[index];
@@ -126,7 +122,7 @@ class Ensemble {
     computePerturbations();
 
     // Apply inflation to perturbations and update members
-    for (size_t i = 0; i < ensemble_size_; ++i) {
+    for (size_t i = 0; i < size_; ++i) {
       auto& member_data = members_[i].template getData<double>();
       const auto& pert_data = perturbations_[i].template getData<double>();
       const auto& mean_data = mean_.template getData<double>();
@@ -138,21 +134,21 @@ class Ensemble {
   }
 
   void transform(const std::vector<std::vector<double>>& transform_matrix) {
-    if (transform_matrix.size() != ensemble_size_ ||
-        transform_matrix[0].size() != ensemble_size_) {
+    if (transform_matrix.size() != size_ ||
+        transform_matrix[0].size() != size_) {
       throw std::invalid_argument("Invalid transform matrix dimensions");
     }
 
     // Create temporary storage for transformed members
-    std::vector<State<StateBackend>> transformed_members = members_;
+    std::vector<State<T>> transformed_members = members_;
 
     // Apply transformation
-    for (size_t i = 0; i < ensemble_size_; ++i) {
+    for (size_t i = 0; i < size_; ++i) {
       auto& new_member_data = transformed_members[i].template getData<double>();
       std::fill(new_member_data, new_member_data + mean_.getDimensions()[0],
                 0.0);
 
-      for (size_t j = 0; j < ensemble_size_; ++j) {
+      for (size_t j = 0; j < size_; ++j) {
         const auto& member_data = members_[j].template getData<double>();
         for (size_t k = 0; k < mean_.getDimensions()[0]; ++k) {
           new_member_data[k] += transform_matrix[i][j] * member_data[k];
@@ -179,7 +175,7 @@ class Ensemble {
     }
 
     // Update members using localized perturbations
-    for (size_t i = 0; i < ensemble_size_; ++i) {
+    for (size_t i = 0; i < size_; ++i) {
       auto& member_data = members_[i].template getData<double>();
       const auto& pert_data = perturbations_[i].template getData<double>();
       const auto& mean_data = mean_.template getData<double>();
@@ -193,18 +189,16 @@ class Ensemble {
   // Compute ensemble covariance matrix in observation space
   std::vector<std::vector<double>> computeObservationCovariance(
       const std::vector<double>& obs_perturbations) const {
-    if (obs_perturbations.size() != ensemble_size_) {
+    if (obs_perturbations.size() != size_) {
       throw std::invalid_argument("Invalid observation perturbation size");
     }
 
-    std::vector<std::vector<double>> cov(ensemble_size_,
-                                         std::vector<double>(ensemble_size_));
+    std::vector<std::vector<double>> cov(size_, std::vector<double>(size_));
 
     // Compute (HX')^T(HX')
-    for (size_t i = 0; i < ensemble_size_; ++i) {
-      for (size_t j = 0; j < ensemble_size_; ++j) {
-        cov[i][j] = obs_perturbations[i] * obs_perturbations[j] /
-                    (ensemble_size_ - 1.0);
+    for (size_t i = 0; i < size_; ++i) {
+      for (size_t j = 0; j < size_; ++j) {
+        cov[i][j] = obs_perturbations[i] * obs_perturbations[j] / (size_ - 1.0);
       }
     }
     return cov;
@@ -214,15 +208,14 @@ class Ensemble {
   std::vector<std::vector<double>> computeAnalysisWeights(
       const std::vector<double>& innovations,
       const std::vector<double>& obs_errors) {
-    if (innovations.size() != ensemble_size_ ||
-        obs_errors.size() != ensemble_size_) {
+    if (innovations.size() != size_ || obs_errors.size() != size_) {
       throw std::invalid_argument(
           "Invalid innovation or observation error size");
     }
 
     // Compute (HPbH^T + R)^(-1)
     auto cov = computeObservationCovariance(innovations);
-    for (size_t i = 0; i < ensemble_size_; ++i) {
+    for (size_t i = 0; i < size_; ++i) {
       cov[i][i] += obs_errors[i];
     }
 
@@ -232,18 +225,17 @@ class Ensemble {
 
   // Update ensemble using LETKF weights
   void updateWithWeights(const std::vector<std::vector<double>>& weights) {
-    if (weights.size() != ensemble_size_ ||
-        weights[0].size() != ensemble_size_) {
+    if (weights.size() != size_ || weights[0].size() != size_) {
       throw std::invalid_argument("Invalid weights matrix dimensions");
     }
 
     // Apply weights to update ensemble members
-    std::vector<State<StateBackend>> updated_members = members_;
-    for (size_t i = 0; i < ensemble_size_; ++i) {
+    std::vector<State<T>> updated_members = members_;
+    for (size_t i = 0; i < size_; ++i) {
       auto& new_member = updated_members[i];
       new_member.reset();
 
-      for (size_t j = 0; j < ensemble_size_; ++j) {
+      for (size_t j = 0; j < size_; ++j) {
         const auto& member = members_[j];
         const auto& member_data = member.template getData<double>();
         auto& new_data = new_member.template getData<double>();
