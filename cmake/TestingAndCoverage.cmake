@@ -8,7 +8,7 @@ macro(metada_add_test_with_coverage target)
       GTest::gtest_main
       GTest::gmock)
 
-  gtest_discover_tests(${target} -D TEST_DISCOVERY_TIMEOUT=20)
+  gtest_discover_tests(${target} -D TEST_DISCOVERY_TIMEOUT=60)
 
   #AddMemcheck(${target})
 endmacro()

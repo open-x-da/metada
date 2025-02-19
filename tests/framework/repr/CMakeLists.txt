@@ -1,7 +1,6 @@
 # State tests
 add_executable(state_test
     StateTest.cpp
-    EnsembleTest.cpp
 )
 
 target_link_libraries(state_test
@@ -11,6 +10,23 @@ target_link_libraries(state_test
 )
 
 target_include_directories(state_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/tests/framework/tools/config
+        ${CMAKE_SOURCE_DIR}/tests/framework/tools/logger
+)
+
+# Ensemble tests
+add_executable(ensemble_test
+    EnsembleTest.cpp
+)
+
+target_link_libraries(ensemble_test
+    PRIVATE
+        metada::framework::repr
+        metada::backends::repr::mock
+)
+
+target_include_directories(ensemble_test
     PRIVATE
         ${CMAKE_SOURCE_DIR}/tests/framework/tools/config
         ${CMAKE_SOURCE_DIR}/tests/framework/tools/logger
@@ -37,9 +53,11 @@ target_include_directories(state_test
 #)
 
 metada_add_test_with_coverage(state_test)
+metada_add_test_with_coverage(ensemble_test)
 #metada_add_test_with_coverage(increment_test)
 #metada_add_test_with_coverage(model_test)
 
-AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR}) 
+AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 #AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR}) 
 #AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR}) 

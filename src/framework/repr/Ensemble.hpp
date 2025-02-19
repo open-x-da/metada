@@ -4,10 +4,13 @@
 #include <stdexcept>
 #include <vector>
 
-#include "State.hpp"
-
 namespace metada::framework {
 
+namespace tools::config {
+template <typename U>
+class Config;
+}
+using tools::config::Config;
 /**
  * @brief Template class for ensemble representation
  *
@@ -19,15 +22,15 @@ namespace metada::framework {
 template <typename T>
 class Ensemble {
  private:
-  std::vector<State<T>> members_;
-  State<T> mean_;
+  std::vector<T> members_;
+  T mean_;
   size_t size_;
-  std::vector<State<T>> perturbations_;
+  std::vector<T> perturbations_;
 
  public:
   // Constructor with config
   template <typename U>
-  explicit Ensemble(const tools::config::Config<U>& config, size_t size)
+  explicit Ensemble(const Config<U>& config, size_t size)
       : members_(), mean_(config), size_(size), perturbations_() {
     // Initialize members
     members_.reserve(size);
@@ -37,14 +40,14 @@ class Ensemble {
   }
 
   // Member access
-  State<T>& getMember(size_t index) {
+  T& getMember(size_t index) {
     if (index >= size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
     return members_[index];
   }
 
-  const State<T>& getMember(size_t index) const {
+  const T& getMember(size_t index) const {
     if (index >= size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
@@ -74,7 +77,7 @@ class Ensemble {
     }
   }
 
-  const State<T>& getMean() const { return mean_; }
+  const T& getMean() const { return mean_; }
 
   void computePerturbations() {
     // Ensure mean is computed
@@ -96,7 +99,7 @@ class Ensemble {
     }
   }
 
-  const State<T>& getPerturbation(size_t index) const {
+  const T& getPerturbation(size_t index) const {
     if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
     }
