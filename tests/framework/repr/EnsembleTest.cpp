@@ -1,7 +1,6 @@
 #include "Config.hpp"
 #include "Ensemble.hpp"
 #include "MockConfig.hpp"
-#include "MockEnsemble.hpp"
 #include "MockState.hpp"
 
 namespace metada::framework::tests {
