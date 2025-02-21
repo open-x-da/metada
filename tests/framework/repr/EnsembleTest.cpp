@@ -11,6 +11,7 @@ namespace metada::framework::tests {
 using StateType = State<backends::MockState>;
 using ConfigType = tools::config::Config<tools::config::tests::MockConfig>;
 
+using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -20,9 +21,10 @@ class EnsembleTest : public ::testing::Test {
   void SetUp() override {
     // Setup test data
     size_ = 3;
-    dimensions_ = {10};
-    test_data_ = new double[10];  // Example data
-    for (int i = 0; i < 10; i++) test_data_[i] = i;
+    dimensions_ = {10, 20};
+    test_data_ = std::vector<double>(dimensions_[0] * dimensions_[1]);
+    for (size_t i = 0; i < dimensions_[0] * dimensions_[1]; i++)
+      test_data_[i] = i;
   }
 
   /**
@@ -30,11 +32,11 @@ class EnsembleTest : public ::testing::Test {
    *
    * Frees allocated test data array
    */
-  void TearDown() override { delete[] test_data_; }
+  void TearDown() override { test_data_.clear(); }
 
   ConfigType config_;
   std::vector<size_t> dimensions_;
-  double* test_data_;
+  std::vector<double> test_data_;
   size_t size_;
 };
 
@@ -65,22 +67,25 @@ TEST_F(EnsembleTest, ComputeMean) {
   Ensemble<StateType> ensemble(config_, size_);
 
   // Set up expectations for mean state
-  EXPECT_CALL(ensemble.getMean().backend(), reset()).Times(1);
+  EXPECT_CALL(ensemble.getMean().backend(), reset())
+      .Times(1)
+      .WillOnce(Invoke(
+          [this]() { std::fill(test_data_.begin(), test_data_.end(), 0.0); }));
   EXPECT_CALL(ensemble.getMean().backend(), getData())
-      .WillOnce(Return(new double[10]));
+      .WillOnce(Return(test_data_.data()));
   EXPECT_CALL(ensemble.getMean().backend(), getDimensions())
       .WillOnce(ReturnRef(dimensions_));
 
   for (size_t i = 0; i < size_; ++i) {
     EXPECT_CALL(ensemble.getMember(i).backend(), getData())
-        .WillOnce(Return(test_data_));
+        .WillOnce(Return(test_data_.data()));
   }
 
-  EXPECT_NO_THROW(ensemble.computeMean());
+  ensemble.computeMean();
 
   // Verify mean computation
   const auto& mean = ensemble.getMean();
-  EXPECT_CALL(mean.backend(), getData()).WillOnce(Return(test_data_));
+  EXPECT_CALL(mean.backend(), getData()).WillOnce(Return(test_data_.data()));
   const double* mean_data = &mean.getData<double>();
   EXPECT_DOUBLE_EQ(mean_data[5],
                    static_cast<double>(size_ * test_data_[5] / size_));
