@@ -61,21 +61,29 @@ class Ensemble {
     // Reset mean state
     mean_.reset();
     double* mean_data = &mean_.template getData<double>();
-    const auto dim = mean_.getDimensions()[0];
+    const auto& dims = mean_.getDimensions();
+
+    // Calculate total size across all dimensions
+    size_t total_size = 1;
+    for (const auto& dim : dims) {
+      total_size *= dim;
+    }
 
     // Sum all members
-    for (const auto& member : members_) {
-      const double* member_data = &member.template getData<double>();
-      for (size_t i = 0; i < dim; ++i) {
-        mean_data[i] += member_data[i];
+    for (size_t i = 0; i < size_; ++i) {
+      const double* member_data = &members_[i].template getData<double>();
+      for (size_t j = 0; j < total_size; ++j) {
+        mean_data[j] += member_data[j];
       }
     }
 
     // Divide by ensemble size
-    for (size_t i = 0; i < dim; ++i) {
+    for (size_t i = 0; i < total_size; ++i) {
       mean_data[i] /= static_cast<double>(size_);
     }
   }
+
+  T& getMean() { return mean_; }
 
   const T& getMean() const { return mean_; }
 
@@ -85,7 +93,13 @@ class Ensemble {
 
     // Resize perturbations if needed
     perturbations_.resize(size_, mean_);
-    const auto dim = mean_.getDimensions()[0];
+    const auto& dims = mean_.getDimensions();
+
+    // Calculate total size across all dimensions
+    size_t total_size = 1;
+    for (const auto& dim : dims) {
+      total_size *= dim;
+    }
 
     // Compute perturbations for each member
     for (size_t i = 0; i < size_; ++i) {
@@ -93,7 +107,7 @@ class Ensemble {
       const auto& member_data = members_[i].template getData<double>();
       const auto& mean_data = mean_.template getData<double>();
 
-      for (size_t j = 0; j < dim; ++j) {
+      for (size_t j = 0; j < total_size; ++j) {
         pert_data[j] = member_data[j] - mean_data[j];
       }
     }

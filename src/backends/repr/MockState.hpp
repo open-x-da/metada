@@ -90,8 +90,6 @@ class MockState : public framework::IState {
 
   // Constructor that initializes state from config
   MockState(const Config<MockConfig>& config) : config_(config) {
-    // Set default behavior for initialize
-    ON_CALL(*this, initialize(_)).WillByDefault(Return());
     initialize(config.backend());
   }
 
