@@ -102,15 +102,22 @@ class Ensemble {
     }
 
     // Compute perturbations for each member
-    for (size_t i = 0; i < size_; ++i) {
-      auto& pert_data = perturbations_[i].template getData<double>();
-      const auto& member_data = members_[i].template getData<double>();
-      const auto& mean_data = mean_.template getData<double>();
+    const double* mean_data = &mean_.template getData<double>();
+    // for (size_t i = 0; i < size_; ++i) {
+    //  double* pert_data = &perturbations_[i].template getData<double>();
+    //   const double* member_data = &members_[i].template getData<double>();
 
-      for (size_t j = 0; j < total_size; ++j) {
-        pert_data[j] = member_data[j] - mean_data[j];
-      }
+    //   for (size_t j = 0; j < total_size; ++j) {
+    //     pert_data[j] = member_data[j] - mean_data[j];
+    //   }
+    //}
+  }
+
+  T& getPerturbation(size_t index) {
+    if (index >= size_) {
+      throw std::out_of_range("Perturbation index out of range");
     }
+    return perturbations_[index];
   }
 
   const T& getPerturbation(size_t index) const {

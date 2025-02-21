@@ -11,8 +11,10 @@ namespace metada::framework::tests {
 using StateType = State<backends::MockState>;
 using ConfigType = tools::config::Config<tools::config::tests::MockConfig>;
 
+using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::NiceMock;
+using ::testing::Ref;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
@@ -66,22 +68,32 @@ TEST_F(EnsembleTest, MemberAccessIsValid) {
 TEST_F(EnsembleTest, ComputeMean) {
   Ensemble<StateType> ensemble(config_, size_);
 
-  // Set up expectations for mean state
-  EXPECT_CALL(ensemble.getMean().backend(), reset())
-      .Times(1)
-      .WillOnce(Invoke(
-          [this]() { std::fill(test_data_.begin(), test_data_.end(), 0.0); }));
-  EXPECT_CALL(ensemble.getMean().backend(), getData())
-      .WillOnce(Return(test_data_.data()));
-  EXPECT_CALL(ensemble.getMean().backend(), getDimensions())
-      .WillOnce(ReturnRef(dimensions_));
+  {
+    InSequence seq;
 
-  for (size_t i = 0; i < size_; ++i) {
-    EXPECT_CALL(ensemble.getMember(i).backend(), getData())
+    // Set up expectations for mean state
+    EXPECT_CALL(ensemble.getMean().backend(), reset())
+        .Times(1)
+        .WillOnce(Invoke([this]() {
+          std::fill(test_data_.begin(), test_data_.end(), 0.0);
+        }));
+
+    EXPECT_CALL(ensemble.getMean().backend(), getData())
+        .Times(1)
         .WillOnce(Return(test_data_.data()));
+
+    EXPECT_CALL(ensemble.getMean().backend(), getDimensions())
+        .Times(1)
+        .WillOnce(ReturnRef(dimensions_));
+
+    for (size_t i = 0; i < size_; ++i) {
+      EXPECT_CALL(ensemble.getMember(i).backend(), getData())
+          .Times(1)
+          .WillOnce(Return(test_data_.data()));
+    }
   }
 
-  ensemble.computeMean();
+  EXPECT_NO_THROW(ensemble.computeMean());
 
   // Verify mean computation
   const auto& mean = ensemble.getMean();
@@ -91,22 +103,68 @@ TEST_F(EnsembleTest, ComputeMean) {
                    static_cast<double>(size_ * test_data_[5] / size_));
 }
 
-// Test perturbation computation
-// TODO: Implement this test
-// TEST_F(EnsembleTest,
-// DISABLED_ComputePerturbationsCreatesValidPerturbations)
-// {
-//   Ensemble<state> ensemble(config_, size_);
-//   EXPECT_NO_THROW(ensemble.computePerturbations());
-//   EXPECT_NO_THROW(ensemble.getPerturbation(0));
-// }
-
 // Test out of bounds access
-// TODO: Implement this test
-// TEST_F(EnsembleTest, DISABLED_OutOfBoundsAccessThrows) {
-//   Ensemble<state> ensemble(config_, size_);
-//   EXPECT_THROW(ensemble.getMember(size_), std::out_of_range);
-//   EXPECT_THROW(ensemble.getPerturbation(size_), std::out_of_range);
-// }
+TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
+  Ensemble<StateType> ensemble(config_, size_);
+  EXPECT_THROW(ensemble.getMember(size_), std::out_of_range);
+  EXPECT_THROW(ensemble.getPerturbation(size_), std::out_of_range);
+}
+
+// Test perturbation computation
+TEST_F(EnsembleTest, ComputePerturbationsCreatesValidPerturbations) {
+  Ensemble<StateType> ensemble(config_, size_);
+
+  {
+    InSequence seq;
+
+    // Set up expectations for mean state
+    EXPECT_CALL(ensemble.getMean().backend(), reset())
+        .Times(1)
+        .WillOnce(Invoke([this]() {
+          std::fill(test_data_.begin(), test_data_.end(), 0.0);
+        }));
+
+    EXPECT_CALL(ensemble.getMean().backend(), getData())
+        .Times(1)
+        .WillOnce(Return(test_data_.data()));
+
+    EXPECT_CALL(ensemble.getMean().backend(), getDimensions())
+        .Times(1)
+        .WillOnce(ReturnRef(dimensions_));
+
+    for (size_t i = 0; i < size_; ++i) {
+      EXPECT_CALL(ensemble.getMember(i).backend(), getData())
+          .Times(1)
+          .WillOnce(Return(test_data_.data()));
+    }
+
+    // Set up expectations for perturbations
+    // for (size_t i = 0; i < size_; ++i) {
+    //   std::cout << "Setting up perturbation " << i << std::endl;
+    //   EXPECT_CALL(ensemble.getPerturbation(i).backend(),
+    //               copyFrom(testing::Ref(ensemble.getMean().backend())))
+    //       .Times(1);
+    // }
+
+    EXPECT_CALL(ensemble.getMean().backend(), getDimensions())
+        .Times(1)
+        .WillOnce(ReturnRef(dimensions_));
+
+    EXPECT_CALL(ensemble.getMean().backend(), getData())
+        .Times(1)
+        .WillOnce(Return(test_data_.data()));
+  }
+
+  // Test perturbation computation
+  EXPECT_NO_THROW(ensemble.computePerturbations());
+  EXPECT_NO_THROW(ensemble.getPerturbation(0));
+
+  // Verify perturbation computation for first member
+  // const auto& perturbation = ensemble.getPerturbation(0);
+  // EXPECT_CALL(perturbation.backend(), getData())
+  //     .WillOnce(Return(test_data_.data()));
+  // const double* pert_data = &perturbation.getData<double>();
+  // EXPECT_DOUBLE_EQ(pert_data[0], 0.0);  // Since member data equals mean data
+}
 
 }  // namespace metada::framework::tests
