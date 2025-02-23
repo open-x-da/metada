@@ -125,6 +125,10 @@ class MockState : public framework::IState {
               (const, override));
   MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
 
+  // Arithmetic operations
+  MOCK_METHOD(void, add, (const framework::IState& other), (override));
+  MOCK_METHOD(void, subtract, (const framework::IState& other), (override));
+
   // Get the config
   const Config<MockConfig>& config() const { return config_; }
 };

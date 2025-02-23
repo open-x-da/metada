@@ -225,6 +225,48 @@ class State {
    * @return Const reference to backend implementation
    */
   const StateBackend& backend() const { return backend_; }
+
+  /**
+   * @brief Addition operator
+   * @param other State to add
+   * @return New state containing the sum
+   */
+  State operator+(const State& other) const {
+    State result(*this);  // Create copy of this state
+    result.backend_.add(other.backend_);
+    return std::move(result);  // Explicitly mark for move
+  }
+
+  /**
+   * @brief Subtraction operator
+   * @param other State to subtract
+   * @return New state containing the difference
+   */
+  State operator-(const State& other) const {
+    State result(*this);  // Create copy of this state
+    result.backend_.subtract(other.backend_);
+    return std::move(result);  // Explicitly mark for move
+  }
+
+  /**
+   * @brief Addition assignment operator
+   * @param other State to add
+   * @return Reference to this state
+   */
+  State& operator+=(const State& other) {
+    backend_.add(other.backend_);
+    return *this;
+  }
+
+  /**
+   * @brief Subtraction assignment operator
+   * @param other State to subtract
+   * @return Reference to this state
+   */
+  State& operator-=(const State& other) {
+    backend_.subtract(other.backend_);
+    return *this;
+  }
 };
 
 }  // namespace metada::framework

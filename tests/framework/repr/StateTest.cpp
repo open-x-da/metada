@@ -257,4 +257,62 @@ TEST_F(StateTest, StateInformation) {
   EXPECT_EQ(state.getDimensions(), dimensions_);
 }
 
+/**
+ * @brief Test arithmetic operators
+ *
+ * @details
+ * Verifies state arithmetic operations:
+ * - Addition operator (+)
+ * - Subtraction operator (-)
+ * - Addition assignment (+=)
+ * - Subtraction assignment (-=)
+ */
+TEST_F(StateTest, ArithmeticOperations) {
+  State<MockState> state1(config_);
+  State<MockState> state2(config_);
+
+  // Construct result from state1 for testing purposes
+  State<MockState> result(config_);
+
+  EXPECT_NO_THROW(result = state1 + state2);
+
+  EXPECT_NO_THROW(State<MockState> result1 = state1 + state2);
+
+  EXPECT_NO_THROW(result = state1 - state2);
+
+  EXPECT_NO_THROW(State<MockState> result2 = state1 - state2);
+
+  // Test addition assignment
+  EXPECT_CALL(state1.backend(), add(testing::Ref(state2.backend()))).Times(1);
+  state1 += state2;
+
+  // Test subtraction assignment
+  EXPECT_CALL(state1.backend(), subtract(testing::Ref(state2.backend())))
+      .Times(1);
+  state1 -= state2;
+}
+
+/**
+ * @brief Test arithmetic error conditions
+ *
+ * @details
+ * Verifies proper error handling:
+ * - Incompatible state dimensions
+ * - Invalid state data
+ */
+TEST_F(StateTest, ArithmeticErrors) {
+  State<MockState> state1(config_);
+  State<MockState> state2(config_);
+
+  // Test addition with incompatible states
+  EXPECT_CALL(state1.backend(), add(testing::Ref(state2.backend())))
+      .WillOnce(testing::Throw(std::runtime_error("Incompatible states")));
+  EXPECT_THROW(state1 += state2, std::runtime_error);
+
+  // Test subtraction with incompatible states
+  EXPECT_CALL(state1.backend(), subtract(testing::Ref(state2.backend())))
+      .WillOnce(testing::Throw(std::runtime_error("Incompatible states")));
+  EXPECT_THROW(state1 -= state2, std::runtime_error);
+}
+
 }  // namespace metada::framework::tests

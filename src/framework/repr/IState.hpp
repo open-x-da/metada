@@ -158,6 +158,20 @@ class IState {
    * @details Returns ordered list of dimension sizes for state space
    */
   virtual const std::vector<size_t>& getDimensions() const = 0;
+
+  /**
+   * @brief Add another state to this one
+   * @param other State to add
+   * @throws std::runtime_error If states are incompatible
+   */
+  virtual void add(const IState& other) = 0;
+
+  /**
+   * @brief Subtract another state from this one
+   * @param other State to subtract
+   * @throws std::runtime_error If states are incompatible
+   */
+  virtual void subtract(const IState& other) = 0;
 };
 
 }  // namespace metada::framework
