@@ -60,27 +60,14 @@ class Ensemble {
   void computeMean() {
     // Reset mean state
     mean_.reset();
-    double* mean_data = &mean_.template getData<double>();
-    const auto& dims = mean_.getDimensions();
 
-    // Calculate total size across all dimensions
-    size_t total_size = 1;
-    for (const auto& dim : dims) {
-      total_size *= dim;
-    }
-
-    // Sum all members
+    // Sum all members using State's += operator
     for (size_t i = 0; i < size_; ++i) {
-      const double* member_data = &members_[i].template getData<double>();
-      for (size_t j = 0; j < total_size; ++j) {
-        mean_data[j] += member_data[j];
-      }
+      mean_ += members_[i];
     }
 
     // Divide by ensemble size
-    for (size_t i = 0; i < total_size; ++i) {
-      mean_data[i] /= static_cast<double>(size_);
-    }
+    mean_ *= (1.0 / static_cast<double>(size_));
   }
 
   T& getMean() { return mean_; }
@@ -91,26 +78,15 @@ class Ensemble {
     // Ensure mean is computed
     computeMean();
 
-    // Resize perturbations if needed
+    // Resize perturbations if needed - this copies mean_ to each slot
     perturbations_.resize(size_, mean_);
-    const auto& dims = mean_.getDimensions();
 
-    // Calculate total size across all dimensions
-    size_t total_size = 1;
-    for (const auto& dim : dims) {
-      total_size *= dim;
+    // Compute perturbations for each member in-place
+    for (size_t i = 0; i < size_; ++i) {
+      // Perturbation = -(Mean - Member) = Member - Mean
+      perturbations_[i] -= members_[i];  // Now contains (Mean - Member)
+      perturbations_[i] *= -1.0;         // Convert to (Member - Mean)
     }
-
-    // Compute perturbations for each member
-    const double* mean_data = &mean_.template getData<double>();
-    // for (size_t i = 0; i < size_; ++i) {
-    //  double* pert_data = &perturbations_[i].template getData<double>();
-    //   const double* member_data = &members_[i].template getData<double>();
-
-    //   for (size_t j = 0; j < total_size; ++j) {
-    //     pert_data[j] = member_data[j] - mean_data[j];
-    //   }
-    //}
   }
 
   T& getPerturbation(size_t index) {
