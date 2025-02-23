@@ -172,6 +172,13 @@ class IState {
    * @throws std::runtime_error If states are incompatible
    */
   virtual void subtract(const IState& other) = 0;
+
+  /**
+   * @brief Multiply this state by a scalar
+   * @param scalar Value to multiply by
+   * @throws std::runtime_error If multiplication fails
+   */
+  virtual void multiply(double scalar) = 0;
 };
 
 }  // namespace metada::framework

@@ -128,6 +128,7 @@ class MockState : public framework::IState {
   // Arithmetic operations
   MOCK_METHOD(void, add, (const framework::IState& other), (override));
   MOCK_METHOD(void, subtract, (const framework::IState& other), (override));
+  MOCK_METHOD(void, multiply, (double scalar), (override));
 
   // Get the config
   const Config<MockConfig>& config() const { return config_; }

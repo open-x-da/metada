@@ -290,6 +290,14 @@ TEST_F(StateTest, ArithmeticOperations) {
   EXPECT_CALL(state1.backend(), subtract(testing::Ref(state2.backend())))
       .Times(1);
   state1 -= state2;
+
+  // Test multiplication
+  EXPECT_NO_THROW(result = state1 * 2.0);
+  EXPECT_NO_THROW(result = 2.0 * state1);
+
+  // Test multiplication assignment
+  EXPECT_CALL(state1.backend(), multiply(2.0)).Times(1);
+  state1 *= 2.0;
 }
 
 /**

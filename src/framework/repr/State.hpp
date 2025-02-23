@@ -267,6 +267,37 @@ class State {
     backend_.subtract(other.backend_);
     return *this;
   }
+
+  /**
+   * @brief Multiplication operator
+   * @param scalar Value to multiply by
+   * @return New state containing the product
+   */
+  State operator*(double scalar) const {
+    State result(*this);  // Create copy of this state
+    result.backend_.multiply(scalar);
+    return std::move(result);  // Explicitly mark for move
+  }
+
+  /**
+   * @brief Multiplication operator (scalar on left)
+   * @param scalar Value to multiply by
+   * @param state State to multiply
+   * @return New state containing the product
+   */
+  friend State operator*(double scalar, const State& state) {
+    return state * scalar;  // Reuse the other operator
+  }
+
+  /**
+   * @brief Multiplication assignment operator
+   * @param scalar Value to multiply by
+   * @return Reference to this state
+   */
+  State& operator*=(double scalar) {
+    backend_.multiply(scalar);
+    return *this;
+  }
 };
 
 }  // namespace metada::framework
