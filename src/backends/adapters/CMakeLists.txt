@@ -1,19 +1,19 @@
 # Create Mock State backend library
-add_library(repr_mock INTERFACE)
-add_library(metada::backends::repr::mock
-    ALIAS repr_mock)
+add_library(adapters_backend INTERFACE)
+add_library(metada::backends::adapters_backend
+    ALIAS adapters_backend)
 
 # Set include directories
-target_include_directories(repr_mock
+target_include_directories(adapters_backend
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Link dependencies
-target_link_libraries(repr_mock
+target_link_libraries(adapters_backend
     INTERFACE
         metada::framework::adapters
         metada::framework::tools::config)
 
 # Add format target
-AddFormatTarget(repr_mock
+AddFormatTarget(adapters_backend
     ${CMAKE_CURRENT_SOURCE_DIR})

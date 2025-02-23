@@ -7,7 +7,7 @@ target_link_libraries(state_test
     PRIVATE
         metada::framework::interfaces
         metada::framework::adapters
-        metada::backends::repr::mock
+        metada::framework::interfaces::test
 )
 
 target_include_directories(state_test
@@ -25,7 +25,7 @@ target_link_libraries(ensemble_test
     PRIVATE
         metada::framework::interfaces
         metada::framework::adapters
-        metada::backends::repr::mock
+        metada::framework::interfaces::test
 )
 
 target_include_directories(ensemble_test
