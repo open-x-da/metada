@@ -11,7 +11,7 @@ target_include_directories(repr_mock
 # Link dependencies
 target_link_libraries(repr_mock
     INTERFACE
-        metada::framework::repr
+        metada::framework::adapters
         metada::framework::tools::config)
 
 # Add format target

@@ -1,0 +1,20 @@
+# Define the scientific representation library
+add_library(interfaces INTERFACE)
+
+# Create alias target
+add_library(metada::framework::interfaces ALIAS interfaces)
+
+# Set up include directories
+target_include_directories(interfaces
+    INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(interfaces
+    INTERFACE
+        metada::framework::tools::config
+        metada::framework::tools::logger
+)
+
+AddFormatTarget(interfaces ${CMAKE_CURRENT_SOURCE_DIR})

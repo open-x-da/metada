@@ -5,7 +5,8 @@ add_executable(state_test
 
 target_link_libraries(state_test
     PRIVATE
-        metada::framework::repr
+        metada::framework::interfaces
+        metada::framework::adapters
         metada::backends::repr::mock
 )
 
@@ -22,7 +23,8 @@ add_executable(ensemble_test
 
 target_link_libraries(ensemble_test
     PRIVATE
-        metada::framework::repr
+        metada::framework::interfaces
+        metada::framework::adapters
         metada::backends::repr::mock
 )
 
