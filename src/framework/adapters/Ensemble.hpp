@@ -6,11 +6,11 @@
 
 namespace metada::framework {
 
-namespace tools::config {
+namespace common::utils::config {
 template <typename U>
 class Config;
 }
-using tools::config::Config;
+using common::utils::config::Config;
 /**
  * @brief Template class for ensemble representation
  *

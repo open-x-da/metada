@@ -1,5 +1,5 @@
-#ifndef METADA_TESTS_FRAMEWORK_REPR_MOCK_MODEL_HPP_
-#define METADA_TESTS_FRAMEWORK_REPR_MOCK_MODEL_HPP_
+#ifndef METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_MODEL_HPP_
+#define METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_MODEL_HPP_
 
 #include <gmock/gmock.h>
 
@@ -11,7 +11,7 @@
 
 namespace metada {
 namespace framework {
-namespace repr {
+namespace interfaces {
 namespace tests {
 
 class MockModel : public IModel {
@@ -35,8 +35,8 @@ class MockModel : public IModel {
 };
 
 }  // namespace tests
-}  // namespace repr
+}  // namespace interfaces
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_TESTS_FRAMEWORK_REPR_MOCK_MODEL_HPP_
+#endif  // METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_MODEL_HPP_

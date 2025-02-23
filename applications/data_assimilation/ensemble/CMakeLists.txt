@@ -5,8 +5,8 @@ add_executable(letkf letkf.cpp)
 target_link_libraries(letkf
     PRIVATE
         metada::framework::core
-        metada::backends::tools::logger
-        metada::backends::tools::config
+        metada::backends::common::utils::logger
+        metada::backends::common::utils::config
 )
 
 # Add format target to ensure consistent code style across the project

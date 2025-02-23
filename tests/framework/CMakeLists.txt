@@ -1,3 +1,3 @@
-add_subdirectory(tools) 
+add_subdirectory(adapters) 
+add_subdirectory(common) 
 add_subdirectory(interfaces)
-add_subdirectory(adapters)

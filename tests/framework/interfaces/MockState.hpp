@@ -25,9 +25,10 @@
 #include <gmock/gmock.h>
 
 #include "IState.hpp"
+#include "utils/config/Config.hpp"
 
 // Forward declarations with namespace forwarding
-namespace metada::framework::tools::config {
+namespace metada::framework::common::utils::config {
 class IConfig;
 
 template <typename T>
@@ -36,13 +37,13 @@ class Config;
 namespace tests {
 class MockConfig;
 }  // namespace tests
-}  // namespace metada::framework::tools::config
+}  // namespace metada::framework::common::utils::config
 
 namespace metada::backends {
 
-using framework::tools::config::Config;
-using framework::tools::config::IConfig;
-using framework::tools::config::tests::MockConfig;
+using framework::common::utils::config::Config;
+using framework::common::utils::config::IConfig;
+using framework::common::utils::config::tests::MockConfig;
 
 using ::testing::_;
 using ::testing::Return;

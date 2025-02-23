@@ -21,14 +21,14 @@
  */
 
 #include "ApplicationContext.hpp"
-#include "Config.hpp"
 #include "ConfigBackendSelector.hpp"
-#include "Logger.hpp"
 #include "LoggerBackendSelector.hpp"
+#include "utils/config/Config.hpp"
+#include "utils/logger/Logger.hpp"
 
 using namespace metada::framework::core;
-using namespace metada::framework::tools::config;
-using namespace metada::framework::tools::logger;
+using namespace metada::framework::common::utils::config;
+using namespace metada::framework::common::utils::logger;
 
 // Use Config with appropriate backend traits
 using ConfigType = Config<ConfigTraits<void>::ConfigBackend>;

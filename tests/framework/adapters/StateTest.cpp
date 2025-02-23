@@ -30,10 +30,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "Config.hpp"
 #include "MockConfig.hpp"
 #include "MockState.hpp"
 #include "State.hpp"
+#include "utils/config/Config.hpp"
 
 namespace metada::framework::tests {
 
@@ -42,8 +42,8 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 
 using metada::backends::MockState;
-using metada::framework::tools::config::Config;
-using metada::framework::tools::config::tests::MockConfig;
+using metada::framework::common::utils::config::Config;
+using metada::framework::common::utils::config::tests::MockConfig;
 
 /**
  * @brief Test fixture for State class tests

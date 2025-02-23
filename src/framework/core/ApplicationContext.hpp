@@ -1,10 +1,10 @@
 #ifndef METADA_FRAMEWORK_CORE_APPLICATIONCONTEXT_HPP_
 #define METADA_FRAMEWORK_CORE_APPLICATIONCONTEXT_HPP_
 
-#include "Config.hpp"
 #include "ConfigBackendSelector.hpp"
-#include "Logger.hpp"
 #include "LoggerBackendSelector.hpp"
+#include "utils/config/Config.hpp"
+#include "utils/logger/Logger.hpp"
 // Add other service headers as needed
 
 namespace metada {
@@ -85,12 +85,14 @@ class ApplicationContext {
   ApplicationContext& operator=(ApplicationContext&&) = default;
 
   // Access to services
-  tools::logger::Logger<tools::logger::LoggerTraits<void>::LoggerBackend>&
+  common::utils::logger::Logger<
+      common::utils::logger::LoggerTraits<void>::LoggerBackend>&
   getLogger() {
     return logger_;
   }
 
-  tools::config::Config<tools::config::ConfigTraits<void>::ConfigBackend>&
+  common::utils::config::Config<
+      common::utils::config::ConfigTraits<void>::ConfigBackend>&
   getConfig() {
     return config_;
   }
@@ -99,10 +101,12 @@ class ApplicationContext {
   // Timer& getTimer() { return timer_; }
 
   // Make type aliases public
-  using LoggerType = metada::framework::tools::logger::Logger<
-      metada::framework::tools::logger::LoggerTraits<void>::LoggerBackend>;
-  using ConfigType = metada::framework::tools::config::Config<
-      metada::framework::tools::config::ConfigTraits<void>::ConfigBackend>;
+  using LoggerType = metada::framework::common::utils::logger::Logger<
+      metada::framework::common::utils::logger::LoggerTraits<
+          void>::LoggerBackend>;
+  using ConfigType = metada::framework::common::utils::config::Config<
+      metada::framework::common::utils::config::ConfigTraits<
+          void>::ConfigBackend>;
 
  private:
   LoggerType logger_;
@@ -110,11 +114,11 @@ class ApplicationContext {
   // Timer timer_;  // To be implemented
 
   void initLogger(const std::string& app_name) {
-    tools::logger::LoggerTraits<void>::LoggerBackend::Init(app_name);
+    common::utils::logger::LoggerTraits<void>::LoggerBackend::Init(app_name);
   }
 
   void shutdownLogger() {
-    tools::logger::LoggerTraits<void>::LoggerBackend::Shutdown();
+    common::utils::logger::LoggerTraits<void>::LoggerBackend::Shutdown();
   }
 
   void loadConfig(const std::string& config_file) {

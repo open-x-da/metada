@@ -13,8 +13,7 @@ target_include_directories(interfaces
 
 target_link_libraries(interfaces
     INTERFACE
-        metada::framework::tools::config
-        metada::framework::tools::logger
+        metada::framework::common
 )
 
 AddFormatTarget(interfaces ${CMAKE_CURRENT_SOURCE_DIR})

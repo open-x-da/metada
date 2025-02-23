@@ -12,8 +12,8 @@ target_link_libraries(state_test
 
 target_include_directories(state_test
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/tools/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/tools/logger
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
 )
 
 # Ensemble tests
@@ -30,8 +30,8 @@ target_link_libraries(ensemble_test
 
 target_include_directories(ensemble_test
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/tools/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/tools/logger
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
 )
 
 # Increment tests

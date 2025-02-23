@@ -12,8 +12,7 @@ target_include_directories(interfaces_test
 
 target_link_libraries(interfaces_test
     INTERFACE
-        metada::framework::tools::config
-        metada::framework::tools::logger
+        metada::framework::common
 )
 
 AddFormatTarget(interfaces_test

@@ -1,5 +1,5 @@
-#ifndef METADA_TESTS_FRAMEWORK_REPR_MOCK_INCREMENT_HPP_
-#define METADA_TESTS_FRAMEWORK_REPR_MOCK_INCREMENT_HPP_
+#ifndef METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_INCREMENT_HPP_
+#define METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_INCREMENT_HPP_
 
 #include <gmock/gmock.h>
 
@@ -7,7 +7,7 @@
 
 namespace metada {
 namespace framework {
-namespace repr {
+namespace interfaces {
 namespace tests {
 
 class MockIncrement : public IIncrement {
@@ -37,8 +37,8 @@ class MockIncrement : public IIncrement {
 };
 
 }  // namespace tests
-}  // namespace repr
+}  // namespace interfaces
 }  // namespace framework
 }  // namespace metada
 
-#endif  // METADA_TESTS_FRAMEWORK_REPR_MOCK_INCREMENT_HPP_
+#endif  // METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_INCREMENT_HPP_

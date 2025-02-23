@@ -11,8 +11,7 @@ target_include_directories(core_interface
 # Link required dependencies
 target_link_libraries(core_interface
     INTERFACE
-        metada::framework::tools::config
-        metada::framework::tools::logger
+        metada::framework::common
 )
 
 # Add format target

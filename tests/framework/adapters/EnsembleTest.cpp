@@ -1,15 +1,16 @@
 #include <gmock/gmock.h>
 
-#include "Config.hpp"
 #include "Ensemble.hpp"
 #include "MockConfig.hpp"
 #include "MockState.hpp"
 #include "State.hpp"
+#include "utils/config/Config.hpp"
 
 namespace metada::framework::tests {
 
 using StateType = State<backends::MockState>;
-using ConfigType = tools::config::Config<tools::config::tests::MockConfig>;
+using ConfigType =
+    common::utils::config::Config<common::utils::config::tests::MockConfig>;
 
 using ::testing::InSequence;
 using ::testing::Invoke;
