@@ -5,7 +5,7 @@
 #include "utils/logger/Logger.hpp"
 // Add other service headers as needed
 
-namespace metada::framework::core {
+namespace metada::framework::runs {
 
 /**
  * @file ApplicationContext.hpp
@@ -126,4 +126,4 @@ class ApplicationContext {
   }
 };
 
-}  // namespace metada::framework::core
+}  // namespace metada::framework::runs
