@@ -20,9 +20,10 @@
  * Chaos: A Local Ensemble Transform Kalman Filter"
  */
 
+#include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
-#include "ConfigBackendSelector.hpp"
-#include "LoggerBackendSelector.hpp"
+#include "ConsoleLogger.hpp"
+#include "JsonConfig.hpp"
 #include "utils/config/Config.hpp"
 #include "utils/logger/Logger.hpp"
 
@@ -30,9 +31,12 @@ using namespace metada::framework::runs;
 using namespace metada::framework::common::utils::config;
 using namespace metada::framework::common::utils::logger;
 
-// Use Config with appropriate backend traits
-using ConfigType = Config<ConfigTraits<void>::ConfigBackend>;
-using LoggerType = Logger<LoggerTraits<void>::LoggerBackend>;
+using ConfigType = metada::framework::common::utils::config::Config<
+    metada::backends::common::utils::config::json::JsonConfig>;
+using LoggerType = metada::framework::common::utils::logger::Logger<
+    metada::backends::common::utils::logger::console::ConsoleLogger>;
+
+using Traits = AppTraits<LoggerType, ConfigType>;
 
 /**
  * @brief Load LETKF configuration from file
@@ -110,7 +114,7 @@ bool isYamlFile(const std::string& filename) {
  * @throws std::runtime_error For critical errors during execution
  */
 int main(int argc, char* argv[]) {
-  auto context = ApplicationContext("letkf_app", argv[1]);
+  auto context = ApplicationContext<Traits>("letkf_app", argv[1]);
   auto logger = context.getLogger();
   // auto config = context.getConfig();
 

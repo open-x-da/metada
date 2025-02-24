@@ -1,4 +1,5 @@
-add_subdirectory(common)
 add_subdirectory(adapters)
+add_subdirectory(common)
 add_subdirectory(interfaces)
 add_subdirectory(runs)
+add_subdirectory(traits)

@@ -1,6 +1,6 @@
 #pragma once
-#include "ConfigBackendSelector.hpp"
-#include "LoggerBackendSelector.hpp"
+#include <stdexcept>
+
 #include "utils/config/Config.hpp"
 #include "utils/logger/Logger.hpp"
 // Add other service headers as needed
@@ -46,7 +46,11 @@ namespace metada::framework::runs {
  * @note The context should be instantiated once at application startup and
  * destroyed when the application exits.
  */
+template <typename Traits>
 class ApplicationContext {
+  using LoggerType = typename Traits::LoggerType;
+  using ConfigType = typename Traits::ConfigType;
+
  public:
   /**
    * @brief Initialize application context with required services
@@ -81,28 +85,12 @@ class ApplicationContext {
   ApplicationContext& operator=(ApplicationContext&&) = default;
 
   // Access to services
-  common::utils::logger::Logger<
-      common::utils::logger::LoggerTraits<void>::LoggerBackend>&
-  getLogger() {
-    return logger_;
-  }
+  LoggerType& getLogger() { return logger_; }
 
-  common::utils::config::Config<
-      common::utils::config::ConfigTraits<void>::ConfigBackend>&
-  getConfig() {
-    return config_;
-  }
+  ConfigType& getConfig() { return config_; }
 
   // Timer access will be added later
   // Timer& getTimer() { return timer_; }
-
-  // Make type aliases public
-  using LoggerType = metada::framework::common::utils::logger::Logger<
-      metada::framework::common::utils::logger::LoggerTraits<
-          void>::LoggerBackend>;
-  using ConfigType = metada::framework::common::utils::config::Config<
-      metada::framework::common::utils::config::ConfigTraits<
-          void>::ConfigBackend>;
 
  private:
   LoggerType logger_;
@@ -110,12 +98,10 @@ class ApplicationContext {
   // Timer timer_;  // To be implemented
 
   void initLogger(const std::string& app_name) {
-    common::utils::logger::LoggerTraits<void>::LoggerBackend::Init(app_name);
+    logger_.backend().Init(app_name);
   }
 
-  void shutdownLogger() {
-    common::utils::logger::LoggerTraits<void>::LoggerBackend::Shutdown();
-  }
+  void shutdownLogger() { logger_.backend().Shutdown(); }
 
   void loadConfig(const std::string& config_file) {
     if (!config_.LoadFromFile(config_file)) {

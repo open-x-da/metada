@@ -8,7 +8,6 @@ add_library(metada::framework::adapters ALIAS adapters)
 target_include_directories(adapters
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
 )
 
 target_link_libraries(adapters

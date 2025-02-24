@@ -1,18 +1,18 @@
 # Create core interface library
-add_library(core_interface INTERFACE)
-add_library(metada::framework::core ALIAS core_interface)
+add_library(runs INTERFACE)
+add_library(metada::framework::runs ALIAS runs)
 
 # Set include directories
-target_include_directories(core_interface
+target_include_directories(runs
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 # Link required dependencies
-target_link_libraries(core_interface
+target_link_libraries(runs
     INTERFACE
         metada::framework::common
 )
 
 # Add format target
-AddFormatTarget(core_interface ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(runs ${CMAKE_CURRENT_SOURCE_DIR})

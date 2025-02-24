@@ -8,7 +8,6 @@ add_library(metada::framework::interfaces ALIAS interfaces)
 target_include_directories(interfaces
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
 )
 
 target_link_libraries(interfaces
