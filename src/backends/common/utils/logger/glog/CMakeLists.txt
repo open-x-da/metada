@@ -8,7 +8,7 @@ add_library(metada::backends::common::utils::logger::glog
 # Set include directories
 target_include_directories(logger_glog
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR})
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 # Link dependencies
 target_link_libraries(logger_glog

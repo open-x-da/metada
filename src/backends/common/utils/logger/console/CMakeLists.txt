@@ -7,7 +7,7 @@ add_library(metada::backends::common::utils::logger::console
 # Set include directories
 target_include_directories(logger_console
     INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR})
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 # Link dependencies
 target_link_libraries(logger_console

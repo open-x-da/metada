@@ -29,13 +29,7 @@ add_library(metada::backends::common::utils::logger ALIAS logger_backends)
 
 target_include_directories(logger_backends
     INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# Configure compile definitions and link libraries based on selected backend
-target_compile_definitions(logger_backends
-    INTERFACE
-        USE_${LOGGER_BACKEND}_LOGGER
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 target_link_libraries(logger_backends

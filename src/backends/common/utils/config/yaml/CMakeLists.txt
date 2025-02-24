@@ -7,7 +7,7 @@ add_library(metada::backends::common::utils::config::yaml
 # Set include directories
 target_include_directories(config_yaml
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR})
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 # Link dependencies
 target_link_libraries(config_yaml
