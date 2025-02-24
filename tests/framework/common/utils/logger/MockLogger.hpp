@@ -1,16 +1,10 @@
-#ifndef METADA_TESTS_FRAMEWORK_COMMON_UTILS_LOGGER_MOCK_LOGGER_HPP_
-#define METADA_TESTS_FRAMEWORK_COMMON_UTILS_LOGGER_MOCK_LOGGER_HPP_
+#pragma once
 
 #include <gmock/gmock.h>
 
 #include "utils/logger/ILogger.hpp"
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace logger {
-namespace tests {
+namespace metada::framework::common::utils::logger::tests {
 
 /**
  * @brief Mock logger backend for testing
@@ -37,11 +31,4 @@ class MockLogger : public ILogger {
   static void Shutdown() {}
 };
 
-}  // namespace tests
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_TESTS_FRAMEWORK_COMMON_UTILS_LOGGER_MOCK_LOGGER_HPP_
+}  // namespace metada::framework::common::utils::logger::tests

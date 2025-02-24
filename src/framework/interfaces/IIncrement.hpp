@@ -1,14 +1,11 @@
-#ifndef METADA_FRAMEWORK_REPR_IINCREMENT_HPP_
-#define METADA_FRAMEWORK_REPR_IINCREMENT_HPP_
+#pragma once
 
 #include <string>
 #include <vector>
 
 #include "State.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
+namespace metada::framework::interfaces {
 
 /**
  * @brief Abstract interface for increment implementations
@@ -58,8 +55,4 @@ class IIncrement {
   virtual bool isInitialized() const = 0;
 };
 
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_IINCREMENT_HPP_
+}  // namespace metada::framework::interfaces

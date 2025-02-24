@@ -35,7 +35,7 @@
 #include "State.hpp"
 #include "utils/config/Config.hpp"
 
-namespace metada::framework::tests {
+namespace metada::framework::interfaces::tests {
 
 using ::testing::_;
 using ::testing::Return;
@@ -323,4 +323,4 @@ TEST_F(StateTest, ArithmeticErrors) {
   EXPECT_THROW(state1 -= state2, std::runtime_error);
 }
 
-}  // namespace metada::framework::tests
+}  // namespace metada::framework::interfaces::tests

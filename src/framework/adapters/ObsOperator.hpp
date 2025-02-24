@@ -1,5 +1,4 @@
-#ifndef METADA_FRAMEWORK_REPR_OBSOPERATOR_HPP_
-#define METADA_FRAMEWORK_REPR_OBSOPERATOR_HPP_
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -9,9 +8,7 @@
 #include "Observation.hpp"
 #include "State.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
+namespace metada::framework::repr {
 
 /**
  * @brief Main observation operator class template providing a generic interface
@@ -92,8 +89,4 @@ class ObsOperator {
   bool isInitialized() const { return backend_.isInitialized(); }
 };
 
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_OBSOPERATOR_HPP_
+}  // namespace metada::framework::repr

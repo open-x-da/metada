@@ -1,13 +1,8 @@
-#ifndef METADA_FRAMEWORK_COMMON_UTILS_LOGGER_LOGGER_HPP_
-#define METADA_FRAMEWORK_COMMON_UTILS_LOGGER_LOGGER_HPP_
+#pragma once
 
 #include <string>
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace logger {
+namespace metada::framework::common::utils::logger {
 
 /**
  * @brief Generic logger class that delegates to a backend implementation
@@ -105,10 +100,4 @@ class Logger {
                      ///< actual logging
 };
 
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_COMMON_UTILS_LOGGER_LOGGER_HPP_
+}  // namespace metada::framework::common::utils::logger

@@ -5,10 +5,7 @@
 #include "MockIncrement.hpp"
 #include "MockState.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
-namespace tests {
+namespace metada::framework::interfaces::tests {
 
 using ::testing::_;
 using ::testing::Return;
@@ -133,7 +130,4 @@ TEST_F(IncrementTest, BackendAccessors) {
   const_backend.isInitialized();
 }
 
-}  // namespace tests
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::interfaces::tests

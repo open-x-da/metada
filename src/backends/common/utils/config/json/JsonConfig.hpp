@@ -1,5 +1,4 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_CONFIG_JSON_JSONCONFIG_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_CONFIG_JSON_JSONCONFIG_HPP_
+#pragma once
 
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -7,12 +6,7 @@
 
 #include "utils/config/IConfig.hpp"
 
-namespace metada {
-namespace backends {
-namespace common {
-namespace utils {
-namespace config {
-namespace json {
+namespace metada::backends::common::utils::config::json {
 
 /**
  * @brief JSON configuration backend implementation
@@ -168,11 +162,4 @@ class JsonConfig : public framework::common::utils::config::IConfig {
       const framework::common::utils::config::ConfigValue& value);
 };
 
-}  // namespace json
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace backends
-}  // namespace metada
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_CONFIG_JSON_JSONCONFIG_HPP_
+}  // namespace metada::backends::common::utils::config::json

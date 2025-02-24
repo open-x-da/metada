@@ -21,12 +21,7 @@
 #include "MockConfig.hpp"
 #include "utils/config/Config.hpp"
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace config {
-namespace tests {
+namespace metada::framework::common::utils::config::tests {
 
 using ::testing::_;
 using ::testing::Return;
@@ -307,9 +302,4 @@ TEST_F(ConfigTest, GetSafeReturnsDefaultOnError) {
             ConfigValue());  // Should return default-constructed ConfigValue
 }
 
-}  // namespace tests
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::common::utils::config::tests

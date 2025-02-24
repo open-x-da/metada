@@ -1,5 +1,4 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_CONFIG_CONFIGBACKENDSELECTOR_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_CONFIG_CONFIGBACKENDSELECTOR_HPP_
+#pragma once
 
 /**
  * @file ConfigBackendSelector.hpp
@@ -16,5 +15,3 @@
 #elif defined(USE_JSON_CONFIG)
 #include "json/JsonConfigTraits.hpp"
 #endif
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_CONFIG_CONFIGBACKENDSELECTOR_HPP_

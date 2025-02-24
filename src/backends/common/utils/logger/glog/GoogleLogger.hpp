@@ -1,16 +1,10 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_LOGGER_GLOG_GOOGLELOGGER_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_LOGGER_GLOG_GOOGLELOGGER_HPP_
+#pragma once
 
 #include <glog/logging.h>
 
 #include "ILogger.hpp"
 
-namespace metada {
-namespace backends {
-namespace common {
-namespace utils {
-namespace logger {
-namespace glog {
+namespace metada::backends::common::utils::logger::glog {
 
 /**
  * @brief Google logger backend implementation
@@ -131,11 +125,4 @@ class GoogleLogger : public framework::common::utils::logger::ILogger {
   static void Shutdown() { google::ShutdownGoogleLogging(); }
 };
 
-}  // namespace glog
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace backends
-}  // namespace metada
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_LOGGER_GLOG_GOOGLELOGGER_HPP_
+}  // namespace metada::backends::common::utils::logger::glog

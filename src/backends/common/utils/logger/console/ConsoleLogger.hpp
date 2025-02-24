@@ -1,16 +1,10 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_LOGGER_CONSOLE_CONSOLE_LOGGER_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_LOGGER_CONSOLE_CONSOLE_LOGGER_HPP_
+#pragma once
 
 #include <iostream>
 
 #include "utils/logger/ILogger.hpp"
 
-namespace metada {
-namespace backends {
-namespace common {
-namespace utils {
-namespace logger {
-namespace console {
+namespace metada::backends::common::utils::logger::console {
 
 /**
  * @file ConsoleLogger.hpp
@@ -137,11 +131,4 @@ class ConsoleLogger : public framework::common::utils::logger::ILogger {
   }
 };
 
-}  // namespace console
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace backends
-}  // namespace metada
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_LOGGER_CONSOLE_CONSOLE_LOGGER_HPP_
+}  // namespace metada::backends::common::utils::logger::console

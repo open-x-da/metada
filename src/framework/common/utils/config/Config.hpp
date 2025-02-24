@@ -1,13 +1,8 @@
-#ifndef METADA_FRAMEWORK_COMMON_UTILS_CONFIG_CONFIG_HPP_
-#define METADA_FRAMEWORK_COMMON_UTILS_CONFIG_CONFIG_HPP_
+#pragma once
 
 #include "IConfig.hpp"
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace config {
+namespace metada::framework::common::utils::config {
 
 /**
  * @brief Main configuration class template providing a generic interface to
@@ -149,10 +144,4 @@ class Config {
   void Clear() { backend_.Clear(); }
 };
 
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_COMMON_UTILS_CONFIG_CONFIG_HPP_
+}  // namespace metada::framework::common::utils::config

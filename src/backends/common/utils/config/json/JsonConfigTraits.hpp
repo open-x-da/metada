@@ -1,5 +1,4 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_CONFIG_JSON_JSONCONFIGTRAITS_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_CONFIG_JSON_JSONCONFIGTRAITS_HPP_
+#pragma once
 
 #include "JsonConfig.hpp"
 #include "utils/config/ConfigTraits.hpp"  // Generic ConfigTraits from framework
@@ -17,5 +16,3 @@ struct metada::framework::common::utils::config::ConfigTraits<void> {
   using ConfigBackend =
       metada::backends::common::utils::config::json::JsonConfig;
 };
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_CONFIG_JSON_JSONCONFIGTRAITS_HPP_

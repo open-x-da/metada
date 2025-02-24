@@ -1,16 +1,10 @@
-#ifndef METADA_TESTS_FRAMEWORK_COMMON_UTILS_CONFIG_MOCK_CONFIG_HPP_
-#define METADA_TESTS_FRAMEWORK_COMMON_UTILS_CONFIG_MOCK_CONFIG_HPP_
+#pragma once
 
 #include <gmock/gmock.h>
 
 #include "utils/config/IConfig.hpp"
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace config {
-namespace tests {
+namespace metada::framework::common::utils::config::tests {
 
 /**
  * @brief Mock configuration backend for testing
@@ -30,11 +24,4 @@ class MockConfig : public IConfig {
   MOCK_METHOD(void, Clear, (), (override));
 };
 
-}  // namespace tests
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_TESTS_FRAMEWORK_COMMON_UTILS_CONFIG_MOCK_CONFIG_HPP_
+}  // namespace metada::framework::common::utils::config::tests

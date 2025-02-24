@@ -1,14 +1,11 @@
-#ifndef METADA_FRAMEWORK_REPR_IMODEL_HPP_
-#define METADA_FRAMEWORK_REPR_IMODEL_HPP_
+#pragma once
 
 #include <memory>
 #include <string>
 
 #include "IState.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
+namespace metada::framework::interfaces {
 
 /**
  * @brief Abstract interface for model implementations
@@ -130,8 +127,4 @@ class IModel {
   virtual bool isInitialized() const = 0;
 };
 
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_IMODEL_HPP_
+}  // namespace metada::framework::interfaces

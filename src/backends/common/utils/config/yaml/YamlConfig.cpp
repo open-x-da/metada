@@ -4,12 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace metada {
-namespace backends {
-namespace common {
-namespace utils {
-namespace config {
-namespace yaml {
+namespace metada::backends::common::utils::config::yaml {
 
 /**
  * @brief Load configuration from a YAML file
@@ -286,9 +281,4 @@ YAML::Node YamlConfig::ConfigValueToNode(
                     value);
 }
 
-}  // namespace yaml
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace backends
-}  // namespace metada
+}  // namespace metada::backends::common::utils::config::yaml

@@ -1,15 +1,10 @@
-#ifndef METADA_FRAMEWORK_COMMON_UTILS_CONFIG_ICONFIG_HPP_
-#define METADA_FRAMEWORK_COMMON_UTILS_CONFIG_ICONFIG_HPP_
+#pragma once
 
 #include <string>
 #include <variant>
 #include <vector>
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace config {
+namespace metada::framework::common::utils::config {
 
 /**
  * @brief Configuration value type supporting multiple data types
@@ -137,10 +132,4 @@ class IConfig {
   virtual void Clear() = 0;
 };
 
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_COMMON_UTILS_CONFIG_ICONFIG_HPP_
+}  // namespace metada::framework::common::utils::config

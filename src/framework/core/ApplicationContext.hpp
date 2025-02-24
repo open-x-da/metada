@@ -1,15 +1,11 @@
-#ifndef METADA_FRAMEWORK_CORE_APPLICATIONCONTEXT_HPP_
-#define METADA_FRAMEWORK_CORE_APPLICATIONCONTEXT_HPP_
-
+#pragma once
 #include "ConfigBackendSelector.hpp"
 #include "LoggerBackendSelector.hpp"
 #include "utils/config/Config.hpp"
 #include "utils/logger/Logger.hpp"
 // Add other service headers as needed
 
-namespace metada {
-namespace framework {
-namespace core {
+namespace metada::framework::core {
 
 /**
  * @file ApplicationContext.hpp
@@ -130,8 +126,4 @@ class ApplicationContext {
   }
 };
 
-}  // namespace core
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_CORE_APPLICATIONCONTEXT_HPP_
+}  // namespace metada::framework::core

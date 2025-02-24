@@ -1,5 +1,4 @@
-#ifndef METADA_FRAMEWORK_REPR_INCREMENT_HPP_
-#define METADA_FRAMEWORK_REPR_INCREMENT_HPP_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -8,9 +7,7 @@
 #include "IIncrement.hpp"
 #include "State.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
+namespace metada::framework::interfaces {
 
 /**
  * @brief Main increment class template providing a generic interface to
@@ -94,8 +91,4 @@ class Increment {
   bool isInitialized() const { return backend_.isInitialized(); }
 };
 
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_INCREMENT_HPP_
+}  // namespace metada::framework::interfaces

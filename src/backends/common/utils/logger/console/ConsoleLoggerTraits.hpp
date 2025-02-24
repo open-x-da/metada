@@ -1,14 +1,9 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_LOGGER_CONSOLE_CONSOLELOGGERTRAITS_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_LOGGER_CONSOLE_CONSOLELOGGERTRAITS_HPP_
+#pragma once
 
 #include "ConsoleLogger.hpp"
 #include "utils/logger/LoggerTraits.hpp"
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace logger {
+namespace metada::framework::common::utils::logger {
 
 /**
  * @file ConsoleLoggerTraits.hpp
@@ -51,10 +46,4 @@ struct LoggerTraits<void> {
   using LoggerBackend = backends::common::utils::logger::console::ConsoleLogger;
 };
 
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_LOGGER_CONSOLE_CONSOLELOGGERTRAITS_HPP_
+}  // namespace metada::framework::common::utils::logger

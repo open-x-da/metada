@@ -1,5 +1,4 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_CONFIG_YAML_YAMLCONFIG_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_CONFIG_YAML_YAMLCONFIG_HPP_
+#pragma once
 
 #include <yaml-cpp/yaml.h>
 
@@ -8,12 +7,7 @@
 
 #include "IConfig.hpp"
 
-namespace metada {
-namespace backends {
-namespace common {
-namespace utils {
-namespace config {
-namespace yaml {
+namespace metada::backends::common::utils::config::yaml {
 
 /**
  * @brief YAML configuration backend implementation
@@ -159,11 +153,4 @@ class YamlConfig : public framework::tools::config::IConfig {
       const framework::tools::config::ConfigValue& value);
 };
 
-}  // namespace yaml
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace backends
-}  // namespace metada
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_CONFIG_YAML_YAMLCONFIG_HPP_
+}  // namespace metada::backends::common::utils::config::yaml

@@ -1,13 +1,10 @@
-#ifndef METADA_FRAMEWORK_REPR_IOBSERVATION_HPP_
-#define METADA_FRAMEWORK_REPR_IOBSERVATION_HPP_
+#pragma once
 
 #include <map>
 #include <string>
 #include <vector>
 
-namespace metada {
-namespace framework {
-namespace repr {
+namespace metada::framework::interfaces {
 
 /**
  * @brief Abstract interface for observation implementations
@@ -52,8 +49,4 @@ class IObservation {
   virtual int getQualityFlag() const = 0;
 };
 
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_IOBSERVATION_HPP_
+}  // namespace metada::framework::interfaces

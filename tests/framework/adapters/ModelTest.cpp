@@ -6,10 +6,7 @@
 #include "MockState.hpp"
 #include "Model.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
-namespace tests {
+namespace metada::framework::interfaces::tests {
 
 using ::testing::_;
 using ::testing::Ref;
@@ -98,7 +95,4 @@ TEST_F(ModelTest, BackendAccessors) {
   const_backend.isInitialized();
 }
 
-}  // namespace tests
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::interfaces::tests

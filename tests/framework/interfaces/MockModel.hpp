@@ -1,5 +1,4 @@
-#ifndef METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_MODEL_HPP_
-#define METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_MODEL_HPP_
+#pragma once
 
 #include <gmock/gmock.h>
 
@@ -9,10 +8,7 @@
 #include "MockState.hpp"
 #include "State.hpp"
 
-namespace metada {
-namespace framework {
-namespace interfaces {
-namespace tests {
+namespace metada::framework::interfaces::tests {
 
 class MockModel : public IModel {
  public:
@@ -34,9 +30,4 @@ class MockModel : public IModel {
   MOCK_METHOD(bool, isInitialized, (), (const, override));
 };
 
-}  // namespace tests
-}  // namespace interfaces
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_MODEL_HPP_
+}  // namespace metada::framework::interfaces::tests

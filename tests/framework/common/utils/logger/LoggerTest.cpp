@@ -19,12 +19,7 @@
 #include "MockLogger.hpp"
 #include "utils/logger/Logger.hpp"
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace logger {
-namespace tests {
+namespace metada::framework::common::utils::logger::tests {
 
 using ::testing::Return;
 
@@ -89,9 +84,4 @@ TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
   logger.Debug("test message");
 }
 
-}  // namespace tests
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
+}  // namespace metada::framework::common::utils::logger::tests

@@ -1,14 +1,10 @@
-#ifndef METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_INCREMENT_HPP_
-#define METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_INCREMENT_HPP_
+#pragma once
 
 #include <gmock/gmock.h>
 
 #include "IIncrement.hpp"
 
-namespace metada {
-namespace framework {
-namespace interfaces {
-namespace tests {
+namespace metada::framework::interfaces::tests {
 
 class MockIncrement : public IIncrement {
  public:
@@ -36,9 +32,4 @@ class MockIncrement : public IIncrement {
   MOCK_METHOD(bool, isInitialized, (), (const, override));
 };
 
-}  // namespace tests
-}  // namespace interfaces
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_TESTS_FRAMEWORK_INTERFACES_MOCK_INCREMENT_HPP_
+}  // namespace metada::framework::interfaces::tests

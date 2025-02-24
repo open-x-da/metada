@@ -1,5 +1,4 @@
-#ifndef METADA_FRAMEWORK_REPR_OBSERVATION_HPP_
-#define METADA_FRAMEWORK_REPR_OBSERVATION_HPP_
+#pragma once
 
 #include <map>
 #include <memory>
@@ -8,9 +7,7 @@
 
 #include "IObservation.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
+namespace metada::framework::repr {
 
 /**
  * @brief Main observation class template providing a generic interface to
@@ -89,8 +86,4 @@ class Observation {
   int getQualityFlag() const { return backend_.getQualityFlag(); }
 };
 
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_OBSERVATION_HPP_
+}  // namespace metada::framework::repr

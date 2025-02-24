@@ -1,5 +1,4 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_LOGGER_LOGGERBACKENDSELECTOR_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_LOGGER_LOGGERBACKENDSELECTOR_HPP_
+#pragma once
 
 /**
  * @file LoggerBackendSelector.hpp
@@ -16,5 +15,3 @@
 #elif defined(USE_GLOG_LOGGER)
 #include "glog/GlogLoggerTraits.hpp"
 #endif
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_LOGGER_LOGGERBACKENDSELECTOR_HPP_

@@ -1,5 +1,4 @@
-#ifndef METADA_FRAMEWORK_REPR_IOBSOPERATOR_HPP_
-#define METADA_FRAMEWORK_REPR_IOBSOPERATOR_HPP_
+#pragma once
 
 #include <memory>
 #include <vector>
@@ -8,9 +7,7 @@
 #include "IObservation.hpp"
 #include "IState.hpp"
 
-namespace metada {
-namespace framework {
-namespace repr {
+namespace metada::framework::interfaces {
 
 /**
  * @brief Abstract interface for observation operator implementations
@@ -58,8 +55,4 @@ class IObsOperator {
   virtual bool isInitialized() const = 0;
 };
 
-}  // namespace repr
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_REPR_IOBSOPERATOR_HPP_
+}  // namespace metada::framework::interfaces

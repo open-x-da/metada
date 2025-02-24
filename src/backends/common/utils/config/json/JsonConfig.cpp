@@ -4,12 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace metada {
-namespace backends {
-namespace common {
-namespace utils {
-namespace config {
-namespace json {
+namespace metada::backends::common::utils::config::json {
 
 /**
  * @brief Load configuration from a JSON file
@@ -283,9 +278,4 @@ nlohmann::json JsonConfig::ConfigValueToJson(
       [](const auto& v) -> nlohmann::json { return nlohmann::json(v); }, value);
 }
 
-}  // namespace json
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace backends
-}  // namespace metada
+}  // namespace metada::backends::common::utils::config::json

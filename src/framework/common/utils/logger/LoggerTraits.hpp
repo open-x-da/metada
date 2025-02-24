@@ -1,11 +1,6 @@
-#ifndef METADA_FRAMEWORK_COMMON_UTILS_LOGGER_LOGGERTRAITS_HPP_
-#define METADA_FRAMEWORK_COMMON_UTILS_LOGGER_LOGGERTRAITS_HPP_
+#pragma once
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace logger {
+namespace metada::framework::common::utils::logger {
 
 /**
  * @brief Primary template for logger backend traits
@@ -44,10 +39,4 @@ struct LoggerTraits {
   using LoggerBackend = Backend;
 };
 
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_TOOLS_LOGGER_LOGGERTRAITS_HPP_
+}  // namespace metada::framework::common::utils::logger

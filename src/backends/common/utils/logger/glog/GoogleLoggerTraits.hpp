@@ -1,14 +1,9 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_LOGGER_GLOG_GOOGLELOGGERTRAITS_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_LOGGER_GLOG_GOOGLELOGGERTRAITS_HPP_
+#pragma once
 
 #include "GoogleLogger.hpp"
 #include "LoggerTraits.hpp"
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace logger {
+namespace metada::framework::common::utils::logger {
 
 /**
  * @file GoogleLoggerTraits.hpp
@@ -51,10 +46,4 @@ struct LoggerTraits<void> {
   using LoggerBackend = backends::common::utils::logger::glog::GoogleLogger;
 };
 
-}  // namespace logger
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_LOGGER_GLOG_GOOGLELOGGERTRAITS_HPP_
+}  // namespace metada::framework::common::utils::logger

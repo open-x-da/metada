@@ -1,11 +1,6 @@
-#ifndef METADA_FRAMEWORK_COMMON_UTILS_CONFIG_CONFIGTRAITS_HPP_
-#define METADA_FRAMEWORK_COMMON_UTILS_CONFIG_CONFIGTRAITS_HPP_
+#pragma once
 
-namespace metada {
-namespace framework {
-namespace common {
-namespace utils {
-namespace config {
+namespace metada::framework::common::utils::config {
 
 /**
  * @brief Primary template for configuration backend traits
@@ -36,10 +31,4 @@ struct ConfigTraits {
   using ConfigBackend = Backend;
 };
 
-}  // namespace config
-}  // namespace utils
-}  // namespace common
-}  // namespace framework
-}  // namespace metada
-
-#endif  // METADA_FRAMEWORK_COMMON_UTILS_CONFIG_CONFIGTRAITS_HPP_
+}  // namespace metada::framework::common::utils::config

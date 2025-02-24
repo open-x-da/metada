@@ -1,5 +1,4 @@
-#ifndef METADA_BACKENDS_COMMON_UTILS_CONFIG_YAML_YAMLCONFIGTRAITS_HPP_
-#define METADA_BACKENDS_COMMON_UTILS_CONFIG_YAML_YAMLCONFIGTRAITS_HPP_
+#pragma once
 
 #include "ConfigTraits.hpp"  // Generic ConfigTraits from framework
 #include "YamlConfig.hpp"
@@ -16,5 +15,3 @@ template <>
 struct metada::framework::common::utils::config::ConfigTraits<void> {
   using ConfigBackend = metada::backends::common::utils::config::yaml::YamlConfig;
 };
-
-#endif  // METADA_BACKENDS_COMMON_UTILS_CONFIG_YAML_YAMLCONFIGTRAITS_HPP_
