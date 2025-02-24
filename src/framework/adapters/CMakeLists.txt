@@ -10,9 +10,4 @@ target_include_directories(adapters
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
-target_link_libraries(adapters
-    INTERFACE
-        metada::framework::common
-)
-
 AddFormatTarget(adapters ${CMAKE_CURRENT_SOURCE_DIR})

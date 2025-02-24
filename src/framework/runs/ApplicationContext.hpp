@@ -1,14 +1,9 @@
 #pragma once
 #include <stdexcept>
 
-#include "utils/config/Config.hpp"
-#include "utils/logger/Logger.hpp"
-// Add other service headers as needed
-
 namespace metada::framework::runs {
 
 /**
- * @file ApplicationContext.hpp
  * @brief RAII wrapper managing application-wide runtime context and services
  *
  * @details
@@ -16,35 +11,51 @@ namespace metada::framework::runs {
  * cleanup of core application services. It follows RAII principles to ensure
  * proper initialization order and cleanup of all managed services.
  *
- * Key features:
- * - Single point of initialization and cleanup for application services
- * - RAII design ensures proper resource management
- * - Thread-safe access to core services
- * - Prevents copying to maintain single service instances
- * - Supports moving for RAII usage
+ * The context maintains singleton instances of critical application services
+ * and handles their lifecycle in a thread-safe manner. Services are initialized
+ * in a specific order during construction and cleaned up in reverse order
+ * during destruction.
  *
- * Managed services:
- * - Logging system - Application-wide logging and diagnostics
- * - Configuration - Reading and accessing application settings
- * - Performance monitoring - Tracking application metrics (planned)
- * - Resource management - Managing system resources (planned)
- * - Runtime environment - MPI and threading configuration (planned)
+ * @par Managed Services
+ * - Logging System: Application-wide logging and diagnostics
+ * - Configuration: Reading and accessing application settings
+ * - Performance Monitoring: Tracking application metrics (planned)
+ * - Resource Management: Managing system resources (planned)
+ * - Runtime Environment: MPI and threading configuration (planned)
  *
- * Usage:
- * @code
+ * @par Key Features
+ * - RAII design ensures proper resource initialization and cleanup
+ * - Thread-safe access to all managed services
+ * - Move semantics support for RAII usage
+ * - Non-copyable to maintain service uniqueness
+ * - Centralized error handling and logging
+ *
+ * @par Example Usage
+ * @code{.cpp}
  * int main() {
+ *   // Create context with app name and optional config file
  *   ApplicationContext ctx("MyApp", "config.yaml");
+ *
+ *   // Access managed services
  *   auto& logger = ctx.getLogger();
  *   auto& config = ctx.getConfig();
  *
  *   logger.Info("Application started");
+ *
  *   // Use services...
+ *
  *   return 0;
- * } // Context cleaned up automatically
+ *   // Context and services cleaned up automatically
+ * }
  * @endcode
  *
- * @note The context should be instantiated once at application startup and
- * destroyed when the application exits.
+ * @tparam Traits Configuration traits class defining service types:
+ *         - LoggerType: The logging service implementation
+ *         - ConfigType: The configuration service implementation
+ *
+ * @note The context should be instantiated exactly once at application startup
+ * @note Services are initialized in order: Logger -> Config -> Future Services
+ * @note Cleanup occurs automatically in reverse order on destruction
  */
 template <typename Traits>
 class ApplicationContext {
@@ -53,10 +64,16 @@ class ApplicationContext {
 
  public:
   /**
-   * @brief Initialize application context with required services
-   * @param app_name Name of the application for logging
-   * @param config_file Optional path to configuration file
+   * @brief Constructs and initializes the application context
+   *
+   * @param app_name Name of the application used for logging and identification
+   * @param config_file Optional path to configuration file (empty for defaults)
    * @throws std::runtime_error If initialization of any service fails
+   *
+   * @details Initializes services in the following order:
+   * 1. Logger initialization with application name
+   * 2. Configuration loading if config file specified
+   * 3. Logs successful initialization
    */
   ApplicationContext(const std::string& app_name,
                      const std::string& config_file = "") {
@@ -69,7 +86,12 @@ class ApplicationContext {
   }
 
   /**
-   * @brief Clean up application services in reverse initialization order
+   * @brief Destructor - cleans up application services
+   *
+   * @details Services are cleaned up in reverse initialization order:
+   * 1. Future services (when implemented)
+   * 2. Configuration
+   * 3. Logger
    */
   ~ApplicationContext() {
     logger_.Info("Shutting down application context");
@@ -84,9 +106,16 @@ class ApplicationContext {
   ApplicationContext(ApplicationContext&&) = default;
   ApplicationContext& operator=(ApplicationContext&&) = default;
 
-  // Access to services
+  /**
+   * @brief Get reference to the logging service
+   * @return Reference to the logger instance
+   */
   LoggerType& getLogger() { return logger_; }
 
+  /**
+   * @brief Get reference to the configuration service
+   * @return Reference to the config instance
+   */
   ConfigType& getConfig() { return config_; }
 
   // Timer access will be added later
@@ -97,12 +126,24 @@ class ApplicationContext {
   ConfigType config_;
   // Timer timer_;  // To be implemented
 
+  /**
+   * @brief Initialize the logging service
+   * @param app_name Application name for logger identification
+   */
   void initLogger(const std::string& app_name) {
     logger_.backend().Init(app_name);
   }
 
+  /**
+   * @brief Shutdown the logging service cleanly
+   */
   void shutdownLogger() { logger_.backend().Shutdown(); }
 
+  /**
+   * @brief Load configuration from specified file
+   * @param config_file Path to configuration file
+   * @throws std::runtime_error If configuration loading fails
+   */
   void loadConfig(const std::string& config_file) {
     if (!config_.LoadFromFile(config_file)) {
       throw std::runtime_error("Failed to load configuration from: " +
