@@ -22,7 +22,6 @@
 
 #include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
-// #include "ConsoleLogger.hpp"
 #include "GoogleLogger.hpp"
 #include "JsonConfig.hpp"
 #include "utils/config/Config.hpp"
@@ -31,11 +30,11 @@
 using namespace metada::framework::runs;
 using namespace metada::framework::common::utils::config;
 using namespace metada::framework::common::utils::logger;
+using namespace metada::backends::common::utils::config;
+using namespace metada::backends::common::utils::logger;
 
-using ConfigType = metada::framework::common::utils::config::Config<
-    metada::backends::common::utils::config::json::JsonConfig>;
-using LoggerType = metada::framework::common::utils::logger::Logger<
-    metada::backends::common::utils::logger::glog::GoogleLogger>;
+using ConfigType = Config<json::JsonConfig>;
+using LoggerType = Logger<glog::GoogleLogger>;
 
 using Traits = AppTraits<LoggerType, ConfigType>;
 
@@ -117,7 +116,7 @@ bool isYamlFile(const std::string& filename) {
 int main(int argc, char* argv[]) {
   auto context = ApplicationContext<Traits>("letkf_app", argv[1]);
   auto logger = context.getLogger();
-  // auto config = context.getConfig();
+  auto config = context.getConfig();
 
   logger.Info("LETKF application starting...");
 

@@ -33,6 +33,10 @@ class LoggerTest : public ::testing::Test {
  protected:
   /** @brief Logger instance with mock backend */
   Logger<MockLogger> logger;
+
+  void SetUp() override { MockLogger::Init("test"); }
+
+  void TearDown() override { MockLogger::Shutdown(); }
 };
 
 /**
