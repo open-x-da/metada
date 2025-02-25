@@ -1,7 +1,7 @@
 # Create YAML config backend library
 add_library(config_yaml
     YamlConfig.cpp)
-add_library(metada::backends::common::utils::config::yaml
+add_library(metada::backends::common::utils::config
     ALIAS config_yaml)
 
 # Set include directories

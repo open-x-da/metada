@@ -1,7 +1,7 @@
 # Create Glog logger backend library
 add_library(logger_glog INTERFACE)
 
-add_library(metada::backends::common::utils::logger::glog
+add_library(metada::backends::common::utils::logger
     ALIAS logger_glog)
 
 # Set include directories

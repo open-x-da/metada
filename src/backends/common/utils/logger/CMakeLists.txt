@@ -1,33 +1,13 @@
-set(LOGGER_BACKENDS "")
-# Define available logger backends and set default
+# Logger backend selection
+#
+# Supports Google Glog or basic console logging.
+# Console logger is used as fallback if Glog is not available.
+
 if(Glog_FOUND)
     set(LOGGER_BACKEND "GLOG" CACHE STRING "Select logger backend")
 else()
-    set(LOGGER_BACKEND "CONSOLE" CACHE STRING "Select logger backend") 
-endif()
-list(APPEND LOGGER_BACKENDS ${LOGGER_BACKEND})
-
-# Set the allowed values for LOGGER_BACKEND
-set_property(CACHE LOGGER_BACKEND PROPERTY STRINGS ${LOGGER_BACKENDS})
-
-# Add selected backend subdirectory
-if(LOGGER_BACKEND IN_LIST LOGGER_BACKENDS)
-    string(TOLOWER ${LOGGER_BACKEND} LOGGER_BACKEND_LOWER)
-    add_subdirectory(${LOGGER_BACKEND_LOWER})
-else()
-    message(FATAL_ERROR "Invalid LOGGER_BACKEND value: ${LOGGER_BACKEND}. Must be one of: ${LOGGER_BACKENDS}")
+    set(LOGGER_BACKEND "CONSOLE" CACHE STRING "Select logger backend")
 endif()
 
-# Create backend logger library
-add_library(logger_backends INTERFACE)
-add_library(metada::backends::common::utils::logger ALIAS logger_backends)
-
-target_include_directories(logger_backends
-    INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
-
-target_link_libraries(logger_backends
-    INTERFACE
-        metada::backends::common::utils::logger::${LOGGER_BACKEND_LOWER}
-)
+string(TOLOWER ${LOGGER_BACKEND} LOGGER_BACKEND_LOWER)
+add_subdirectory(${LOGGER_BACKEND_LOWER})

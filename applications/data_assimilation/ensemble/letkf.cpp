@@ -34,8 +34,6 @@ using namespace metada::framework::common::utils::logger;
 
 using ConfigType = metada::framework::common::utils::config::Config<
     metada::backends::common::utils::config::json::JsonConfig>;
-// using LoggerType = metada::framework::common::utils::logger::Logger<
-//     metada::backends::common::utils::logger::console::ConsoleLogger>;
 using LoggerType = metada::framework::common::utils::logger::Logger<
     metada::backends::common::utils::logger::glog::GoogleLogger>;
 
