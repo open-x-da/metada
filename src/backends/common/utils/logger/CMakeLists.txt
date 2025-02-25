@@ -1,16 +1,11 @@
+set(LOGGER_BACKENDS "")
 # Define available logger backends and set default
-if(glog_FOUND)
+if(Glog_FOUND)
     set(LOGGER_BACKEND "GLOG" CACHE STRING "Select logger backend")
 else()
     set(LOGGER_BACKEND "CONSOLE" CACHE STRING "Select logger backend") 
 endif()
-
-# Set available options based on found packages
-set(LOGGER_BACKENDS "")
-if(glog_FOUND)
-    list(APPEND LOGGER_BACKENDS "GLOG")
-endif()
-list(APPEND LOGGER_BACKENDS "CONSOLE")
+list(APPEND LOGGER_BACKENDS ${LOGGER_BACKEND})
 
 # Set the allowed values for LOGGER_BACKEND
 set_property(CACHE LOGGER_BACKEND PROPERTY STRINGS ${LOGGER_BACKENDS})

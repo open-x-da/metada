@@ -22,7 +22,8 @@
 
 #include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
-#include "ConsoleLogger.hpp"
+// #include "ConsoleLogger.hpp"
+#include "GoogleLogger.hpp"
 #include "JsonConfig.hpp"
 #include "utils/config/Config.hpp"
 #include "utils/logger/Logger.hpp"
@@ -33,8 +34,10 @@ using namespace metada::framework::common::utils::logger;
 
 using ConfigType = metada::framework::common::utils::config::Config<
     metada::backends::common::utils::config::json::JsonConfig>;
+// using LoggerType = metada::framework::common::utils::logger::Logger<
+//     metada::backends::common::utils::logger::console::ConsoleLogger>;
 using LoggerType = metada::framework::common::utils::logger::Logger<
-    metada::backends::common::utils::logger::console::ConsoleLogger>;
+    metada::backends::common::utils::logger::glog::GoogleLogger>;
 
 using Traits = AppTraits<LoggerType, ConfigType>;
 

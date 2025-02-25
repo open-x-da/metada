@@ -2,20 +2,20 @@
 
 #include <glog/logging.h>
 
-#include "ILogger.hpp"
+#include "utils/logger/ILogger.hpp"
 
 namespace metada::backends::common::utils::logger::glog {
 
 /**
  * @brief Google logger backend implementation
- * 
+ *
  * This class implements the ILogger interface using Google's glog library as
  * the logging backend. It provides advanced logging functionality with
  * automatic file management and detailed message formatting.
  *
  * Features:
  * - Automatic log file naming and rotation
- * - Timestamps and source location information 
+ * - Timestamps and source location information
  * - Separate log files per severity level
  * - Conditional logging and debug-only logging
  * - Thread-safe logging operations
@@ -31,16 +31,16 @@ namespace metada::backends::common::utils::logger::glog {
  * @code
  * // Initialize logging
  * GoogleLogger::Init("MyApp");
- * 
+ *
  * // Create logger instance
  * GoogleLogger logger;
- * 
+ *
  * // Log at different levels
  * logger.Info("Application started");
  * logger.Warning("Resource usage high");
  * logger.Error("Failed to connect to database");
  * logger.Debug("Connection attempt details: ...");
- * 
+ *
  * // Cleanup on shutdown
  * GoogleLogger::Shutdown();
  * @endcode

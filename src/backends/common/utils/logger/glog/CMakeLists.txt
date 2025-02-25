@@ -1,18 +1,17 @@
 # Create Glog logger backend library
-add_library(logger_glog
-    GlogLogger.cpp)
-    
+add_library(logger_glog INTERFACE)
+
 add_library(metada::backends::common::utils::logger::glog
     ALIAS logger_glog)
 
 # Set include directories
 target_include_directories(logger_glog
-    PUBLIC
+    INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 # Link dependencies
 target_link_libraries(logger_glog
-    PUBLIC
+    INTERFACE
         metada::framework::common
         glog::glog)
 

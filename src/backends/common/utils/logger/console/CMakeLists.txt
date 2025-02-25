@@ -9,11 +9,6 @@ target_include_directories(logger_console
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
-# Link dependencies
-target_link_libraries(logger_console
-    INTERFACE
-        metada::framework::common)
-
 # Add format target
 AddFormatTarget(logger_console
     ${CMAKE_CURRENT_SOURCE_DIR})
