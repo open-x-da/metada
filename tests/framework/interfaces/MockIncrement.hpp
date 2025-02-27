@@ -12,8 +12,8 @@ class IState;
 
 namespace tests {
 
-using metada::framework::IIncrement;
-using metada::framework::IState;
+using framework::IIncrement;
+using framework::IState;
 
 class MockIncrement : public IIncrement {
  public:

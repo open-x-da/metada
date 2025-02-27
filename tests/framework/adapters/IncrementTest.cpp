@@ -8,11 +8,12 @@
 
 namespace metada::tests {
 
-using metada::framework::Increment;
-using metada::framework::common::utils::config::Config;
 using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
+
+using framework::Increment;
+using framework::common::utils::config::Config;
 
 class IncrementTest : public ::testing::Test {
  protected:

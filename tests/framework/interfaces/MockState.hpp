@@ -36,10 +36,10 @@ class IConfig;
 
 namespace tests {
 
+using framework::IState;
 using framework::common::utils::config::Config;
 using framework::common::utils::config::IConfig;
 using framework::common::utils::config::tests::MockConfig;
-using metada::framework::IState;
 
 /**
  * @brief Mock implementation of IState for testing

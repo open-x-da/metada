@@ -8,16 +8,18 @@
 
 namespace metada::tests {
 
-using StateType = metada::framework::State<MockState>;
-using ConfigType = metada::framework::common::utils::config::Config<
-    metada::framework::common::utils::config::tests::MockConfig>;
-
 using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Ref;
 using ::testing::Return;
 using ::testing::ReturnRef;
+
+using StateType = framework::State<MockState>;
+using Ensemble = framework::Ensemble<StateType>;
+
+using ConfigType = framework::common::utils::config::Config<
+    framework::common::utils::config::tests::MockConfig>;
 
 class EnsembleTest : public ::testing::Test {
  protected:
@@ -45,13 +47,13 @@ class EnsembleTest : public ::testing::Test {
 
 // Test ensemble initialization
 TEST_F(EnsembleTest, InitializationCreatesCorrectNumberOfMembers) {
-  metada::framework::Ensemble<StateType> ensemble(config_, size_);
+  Ensemble ensemble(config_, size_);
   EXPECT_EQ(ensemble.getSize(), size_);
 }
 
 // Test member access
 TEST_F(EnsembleTest, MemberAccessIsValid) {
-  metada::framework::Ensemble<StateType> ensemble(config_, size_);
+  Ensemble ensemble(config_, size_);
 
   // Test access to all members
   for (size_t i = 0; i < size_; ++i) {
@@ -67,7 +69,7 @@ TEST_F(EnsembleTest, MemberAccessIsValid) {
 
 // Test mean computation
 TEST_F(EnsembleTest, ComputeMean) {
-  metada::framework::Ensemble<NiceMock<StateType>> ensemble(config_, size_);
+  Ensemble ensemble(config_, size_);
 
   {
     InSequence seq;
@@ -91,14 +93,14 @@ TEST_F(EnsembleTest, ComputeMean) {
 
 // Test out of bounds access
 TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
-  metada::framework::Ensemble<StateType> ensemble(config_, size_);
+  Ensemble ensemble(config_, size_);
   EXPECT_THROW(ensemble.getMember(size_), std::out_of_range);
   EXPECT_THROW(ensemble.getPerturbation(size_), std::out_of_range);
 }
 
 // Test perturbation computation
 TEST_F(EnsembleTest, ComputePerturbationsCreatesValidPerturbations) {
-  metada::framework::Ensemble<StateType> ensemble(config_, size_);
+  Ensemble ensemble(config_, size_);
 
   // Test perturbation computation
   EXPECT_NO_THROW(ensemble.computePerturbations());
