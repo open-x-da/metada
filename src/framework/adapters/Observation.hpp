@@ -2,88 +2,157 @@
 
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "IObservation.hpp"
 
-namespace metada::framework::repr {
+namespace metada::framework {
 
 /**
- * @brief Main observation class template providing a generic interface to
- * observation implementations
+ * @brief Adapter class for observation implementations in data assimilation
+ * systems
  *
- * This class template provides a static interface for handling observational
- * data using a backend specified by the ObservationBackend template parameter.
- * The backend must implement the IObservation interface.
+ * This template class provides a type-safe interface for handling observational
+ * data using a backend that implements the IObservation interface.
  *
- * @tparam ObservationBackend The observation backend type that implements
- * IObservation
+ * Features:
+ * - Type-safe data access through templates
+ * - Delegation to backend implementation
+ * - Comprehensive error handling
+ * - Fluent interface for chaining operations
+ *
+ * @tparam ObservationBackend The backend implementation type
  */
 template <typename ObservationBackend>
 class Observation {
  private:
-  ObservationBackend backend_;  ///< Instance of the observation backend
+  ObservationBackend backend_;  ///< Backend implementation instance
 
  public:
   /** @brief Default constructor */
   Observation() = default;
 
-  /** @brief Get direct access to the backend instance */
-  ObservationBackend& backend() { return backend_; }
+  /** @brief Constructor with initialization */
+  Observation(ObservationBackend&& backend) : backend_(std::move(backend)) {
+    initialize();
+  }
 
-  /** @brief Get const access to the backend instance */
+  /** @brief Access to backend instance */
+  ObservationBackend& backend() { return backend_; }
   const ObservationBackend& backend() const { return backend_; }
 
-  // Core observation operations
-  void initialize() { backend_.initialize(); }
+  // Lifecycle management
+  Observation& initialize() {
+    backend_.initialize();
+    return *this;
+  }
+
   void validate() const { backend_.validate(); }
+
   bool isValid() const { return backend_.isValid(); }
 
-  // Data access
+  // Type-safe data access
   template <typename T>
-  T& getValue() {
-    return *static_cast<T*>(backend_.getValue());
-  }
-
-  template <typename T>
-  const T& getValue() const {
-    return *static_cast<const T*>(backend_.getValue());
+  T& getData() {
+    if (!isValid()) {
+      throw std::runtime_error("Accessing data from invalid observation");
+    }
+    return *static_cast<T*>(backend_.getData());
   }
 
   template <typename T>
-  T& getError() {
-    return *static_cast<T*>(backend_.getError());
+  const T& getData() const {
+    if (!isValid()) {
+      throw std::runtime_error("Accessing data from invalid observation");
+    }
+    return *static_cast<const T*>(backend_.getData());
   }
 
   template <typename T>
-  const T& getError() const {
-    return *static_cast<const T*>(backend_.getError());
+  T& getUncertainty() {
+    return *static_cast<T*>(backend_.getUncertainty());
   }
 
-  // Metadata management
-  void setLocation(double lat, double lon, double height) {
-    backend_.setLocation(lat, lon, height);
+  template <typename T>
+  const T& getUncertainty() const {
+    return *static_cast<const T*>(backend_.getUncertainty());
   }
 
-  void setTime(double timestamp) { backend_.setTime(timestamp); }
-  void setQualityFlag(int flag) { backend_.setQualityFlag(flag); }
+  size_t getDataSize() const { return backend_.getDataSize(); }
 
-  // Observation attributes
-  void setAttribute(const std::string& key, const std::string& value) {
+  // Spatiotemporal metadata with fluent interface
+  Observation& setLocation(double lat, double lon, double elevation) {
+    backend_.setLocation(lat, lon, elevation);
+    return *this;
+  }
+
+  Observation& setTime(double timestamp) {
+    backend_.setTime(timestamp);
+    return *this;
+  }
+
+  const std::vector<double>& getLocation() const {
+    return backend_.getLocation();
+  }
+
+  double getTimestamp() const { return backend_.getTimestamp(); }
+
+  // Quality control with fluent interface
+  Observation& setQualityFlag(int flag) {
+    backend_.setQualityFlag(flag);
+    return *this;
+  }
+
+  int getQualityFlag() const { return backend_.getQualityFlag(); }
+
+  Observation& setConfidence(double value) {
+    backend_.setConfidence(value);
+    return *this;
+  }
+
+  double getConfidence() const { return backend_.getConfidence(); }
+
+  // Extensible attributes with fluent interface
+  Observation& setAttribute(const std::string& key, const std::string& value) {
     backend_.setAttribute(key, value);
+    return *this;
   }
 
   std::string getAttribute(const std::string& key) const {
     return backend_.getAttribute(key);
   }
 
-  // Location access
-  const std::vector<double>& getLocation() const {
-    return backend_.getLocation();
+  bool hasAttribute(const std::string& key) const {
+    return backend_.hasAttribute(key);
   }
-  double getTimestamp() const { return backend_.getTimestamp(); }
-  int getQualityFlag() const { return backend_.getQualityFlag(); }
+
+  std::map<std::string, std::string> getAllAttributes() const {
+    return backend_.getAllAttributes();
+  }
+
+  // Observation metadata with fluent interface
+  Observation& setObsType(const std::string& type) {
+    backend_.setObsType(type);
+    return *this;
+  }
+
+  std::string getObsType() const { return backend_.getObsType(); }
+
+  Observation& setSource(const std::string& source) {
+    backend_.setSource(source);
+    return *this;
+  }
+
+  std::string getSource() const { return backend_.getSource(); }
+
+  Observation& setInstrument(const std::string& instrument) {
+    backend_.setInstrument(instrument);
+    return *this;
+  }
+
+  std::string getInstrument() const { return backend_.getInstrument(); }
 };
 
-}  // namespace metada::framework::repr
+}  // namespace metada::framework

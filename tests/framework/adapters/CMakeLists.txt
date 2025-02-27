@@ -62,12 +62,32 @@ target_include_directories(increment_test
 #        metada::framework::repr
 #)
 
+#   IObservations tests
+add_executable(observation_test
+    ObservationTest.cpp
+)
+
+target_link_libraries(observation_test
+    PRIVATE
+        metada::framework::interfaces
+        metada::framework::adapters
+        metada::framework::interfaces::test
+)
+
+target_include_directories(observation_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
+)
+
 metada_add_test_with_coverage(state_test)
 metada_add_test_with_coverage(ensemble_test)
 metada_add_test_with_coverage(increment_test)
 #metada_add_test_with_coverage(model_test)
+metada_add_test_with_coverage(observation_test)
 
 AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
