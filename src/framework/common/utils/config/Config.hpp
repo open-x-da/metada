@@ -86,18 +86,9 @@ class Config {
 
   /**
    * @brief Get a value from the configuration with a default fallback
-   * @param key Dot-separated path to the configuration value (e.g.
-   * "database.host")
-   * @param default_value Value to return if key doesn't exist or access fails
-   * @return ConfigValue containing either the requested value or the default
-   * value
    */
-  std::variant<bool, int, double, std::string, std::vector<bool>,
-               std::vector<int>, std::vector<double>, std::vector<std::string>>
-  Get(const std::string& key,
-      const std::variant<bool, int, double, std::string, std::vector<bool>,
-                         std::vector<int>, std::vector<double>,
-                         std::vector<std::string>>& default_value = {}) {
+  ConfigValue Get(const std::string& key,
+                  const ConfigValue& default_value = ConfigValue()) {
     try {
       return backend_.Get(key);
     } catch (...) {
@@ -107,26 +98,13 @@ class Config {
 
   /**
    * @brief Get a value from the configuration without catching exceptions
-   * @param key Dot-separated path to the configuration value (e.g.
-   * "database.host")
-   * @return ConfigValue containing the requested value
    */
-  std::variant<bool, int, double, std::string, std::vector<bool>,
-               std::vector<int>, std::vector<double>, std::vector<std::string>>
-  GetUnsafe(const std::string& key) {
-    return backend_.Get(key);
-  }
+  ConfigValue GetUnsafe(const std::string& key) { return backend_.Get(key); }
 
   /**
    * @brief Set a value in the configuration
-   * @param key Dot-separated path where to store the value (e.g.
-   * "database.port")
-   * @param value ConfigValue to store
    */
-  void Set(const std::string& key,
-           const std::variant<bool, int, double, std::string, std::vector<bool>,
-                              std::vector<int>, std::vector<double>,
-                              std::vector<std::string>>& value) {
+  void Set(const std::string& key, const ConfigValue& value) {
     backend_.Set(key, value);
   }
 
