@@ -31,6 +31,10 @@
 
 namespace metada::framework {
 
+// Forward declaration
+template <typename T>
+class Increment;
+
 namespace common::utils::config {
 template <typename T>
 class Config;
@@ -298,6 +302,54 @@ class State {
     backend_.multiply(scalar);
     return *this;
   }
+
+  /**
+   * @brief Create an increment representing the difference between this state
+   * and another
+   *
+   * @tparam IncrementBackend The backend type for the increment
+   * @param other The state to subtract from this one
+   * @return An increment representing (this - other)
+   */
+  template <typename IncrementBackend>
+  Increment<IncrementBackend> createIncrementTo(const State& other) const;
+
+  /**
+   * @brief Apply an increment to this state
+   *
+   * @tparam IncrementBackend The backend type for the increment
+   * @param increment The increment to apply
+   * @return Reference to this state after applying the increment
+   */
+  template <typename IncrementBackend>
+  State& applyIncrement(const Increment<IncrementBackend>& increment);
 };
+
+}  // namespace metada::framework
+
+// Include Increment.hpp after State class definition to resolve circular
+// dependency
+#include "Increment.hpp"
+
+namespace metada::framework {
+
+// Implementation of methods that depend on Increment
+template <typename StateBackend>
+template <typename IncrementBackend>
+Increment<IncrementBackend> State<StateBackend>::createIncrementTo(
+    const State& other) const {
+  auto increment = Increment<IncrementBackend>();
+  increment.initialize();
+  increment.differenceFromStates(*this, other);
+  return increment;
+}
+
+template <typename StateBackend>
+template <typename IncrementBackend>
+State<StateBackend>& State<StateBackend>::applyIncrement(
+    const Increment<IncrementBackend>& increment) {
+  increment.addToState(*this);
+  return *this;
+}
 
 }  // namespace metada::framework

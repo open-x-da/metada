@@ -4,10 +4,13 @@
 #include <string>
 #include <vector>
 
-#include "IIncrement.hpp"
-#include "State.hpp"
+#include "../interfaces/IIncrement.hpp"
 
-namespace metada::framework::interfaces {
+namespace metada::framework {
+
+// Forward declaration
+template <typename T>
+class State;
 
 /**
  * @brief Main increment class template providing a generic interface to
@@ -51,17 +54,26 @@ class Increment {
 
   double norm() const { return backend_.norm(); }
 
-  // State operations
+  // State operations - forward declare these methods
   template <typename StateType>
-  void addToState(State<StateType>& state) const {
-    backend_.addToState(state.backend());
-  }
+  void addToState(State<StateType>& state) const;
 
   template <typename StateType>
   void differenceFromStates(const State<StateType>& state1,
-                            const State<StateType>& state2) {
-    backend_.differenceFromStates(state1.backend(), state2.backend());
-  }
+                            const State<StateType>& state2);
+
+  /**
+   * @brief Create an increment from the difference of two states
+   *
+   * Factory method that creates a new increment representing state1 - state2.
+   *
+   * @param state1 First state
+   * @param state2 Second state
+   * @return A new increment containing the difference
+   */
+  template <typename StateType>
+  static Increment createFromDifference(const State<StateType>& state1,
+                                        const State<StateType>& state2);
 
   // Data access
   template <typename T>
@@ -91,4 +103,35 @@ class Increment {
   bool isInitialized() const { return backend_.isInitialized(); }
 };
 
-}  // namespace metada::framework::interfaces
+}  // namespace metada::framework
+
+// Include State.hpp after Increment class definition
+#include "State.hpp"
+
+namespace metada::framework {
+
+// Implementation of methods that depend on State
+template <typename IncrementBackend>
+template <typename StateType>
+void Increment<IncrementBackend>::addToState(State<StateType>& state) const {
+  backend_.addToState(state.backend());
+}
+
+template <typename IncrementBackend>
+template <typename StateType>
+void Increment<IncrementBackend>::differenceFromStates(
+    const State<StateType>& state1, const State<StateType>& state2) {
+  backend_.differenceFromStates(state1.backend(), state2.backend());
+}
+
+template <typename IncrementBackend>
+template <typename StateType>
+Increment<IncrementBackend> Increment<IncrementBackend>::createFromDifference(
+    const State<StateType>& state1, const State<StateType>& state2) {
+  Increment result;
+  result.initialize();
+  result.differenceFromStates(state1, state2);
+  return result;
+}
+
+}  // namespace metada::framework

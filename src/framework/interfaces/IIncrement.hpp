@@ -3,9 +3,18 @@
 #include <string>
 #include <vector>
 
-#include "State.hpp"
+#include "IState.hpp"
 
-namespace metada::framework::interfaces {
+namespace metada::framework {
+
+// Forward declaration
+template <typename T>
+class State;
+
+template <typename T>
+class Increment;
+
+namespace interfaces {
 
 /**
  * @brief Abstract interface for increment implementations
@@ -55,4 +64,5 @@ class IIncrement {
   virtual bool isInitialized() const = 0;
 };
 
-}  // namespace metada::framework::interfaces
+}  // namespace interfaces
+}  // namespace metada::framework

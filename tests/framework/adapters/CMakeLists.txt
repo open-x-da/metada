@@ -35,14 +35,22 @@ target_include_directories(ensemble_test
 )
 
 # Increment tests
-#add_executable(increment_test
-#       IncrementTest.cpp
-#)
+add_executable(increment_test
+    IncrementTest.cpp
+)
 
-#target_link_libraries(increment_test
-#    PRIVATE
-#        metada::framework::repr
-#)
+target_link_libraries(increment_test
+    PRIVATE
+        metada::framework::interfaces
+        metada::framework::adapters
+        metada::framework::interfaces::test
+)
+
+target_include_directories(increment_test
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
+        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
+)
 
 # Model tests
 #add_executable(model_test
@@ -56,10 +64,10 @@ target_include_directories(ensemble_test
 
 metada_add_test_with_coverage(state_test)
 metada_add_test_with_coverage(ensemble_test)
-#metada_add_test_with_coverage(increment_test)
+metada_add_test_with_coverage(increment_test)
 #metada_add_test_with_coverage(model_test)
 
 AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
-#AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR}) 
-#AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR}) 
+AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
+# AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})

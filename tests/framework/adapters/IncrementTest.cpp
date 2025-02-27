@@ -2,11 +2,16 @@
 #include <gtest/gtest.h>
 
 #include "Increment.hpp"
+#include "MockConfig.hpp"
 #include "MockIncrement.hpp"
 #include "MockState.hpp"
 
-namespace metada::framework::interfaces::tests {
+namespace metada::framework::tests {
 
+using backends::MockState;
+using common::utils::config::Config;
+using common::utils::config::tests::MockConfig;
+using interfaces::tests::MockIncrement;
 using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -24,6 +29,7 @@ class IncrementTest : public ::testing::Test {
 
   std::vector<size_t> dimensions_;
   double* test_data_;
+  Config<MockConfig> config;
 };
 
 TEST_F(IncrementTest, InitializeDelegatestoBackend) {
@@ -71,8 +77,7 @@ TEST_F(IncrementTest, LinearAlgebraOperations) {
 TEST_F(IncrementTest, StateOperations) {
   MockIncrement mock_backend;
   Increment<MockIncrement> increment;
-  MockState state1_backend, state2_backend;
-  State<MockState> state1(state1_backend), state2(state2_backend);
+  State<MockState> state1(config), state2(config);
 
   EXPECT_CALL(increment.backend(), addToState(_)).Times(1);
   EXPECT_CALL(increment.backend(), differenceFromStates(_, _)).Times(1);
@@ -130,4 +135,4 @@ TEST_F(IncrementTest, BackendAccessors) {
   const_backend.isInitialized();
 }
 
-}  // namespace metada::framework::interfaces::tests
+}  // namespace metada::framework::tests
