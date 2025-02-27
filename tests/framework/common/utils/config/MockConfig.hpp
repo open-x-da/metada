@@ -2,9 +2,13 @@
 
 #include <gmock/gmock.h>
 
+#include "utils/config/ConfigValue.hpp"
 #include "utils/config/IConfig.hpp"
 
-namespace metada::framework::common::utils::config::tests {
+namespace metada::tests {
+
+using framework::ConfigValue;
+using framework::IConfig;
 
 /**
  * @brief Mock configuration backend for testing
@@ -24,4 +28,4 @@ class MockConfig : public IConfig {
   MOCK_METHOD(void, Clear, (), (override));
 };
 
-}  // namespace metada::framework::common::utils::config::tests
+}  // namespace metada::tests

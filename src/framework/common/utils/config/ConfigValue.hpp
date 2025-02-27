@@ -4,7 +4,7 @@
 #include <variant>
 #include <vector>
 
-namespace metada::framework::common::utils::config {
+namespace metada::framework {
 
 /**
  * @brief Configuration value type supporting multiple data types
@@ -27,4 +27,4 @@ using ConfigValue = std::variant<bool, int, double, std::string,
                                  std::vector<bool>, std::vector<int>,
                                  std::vector<double>, std::vector<std::string>>;
 
-}  // namespace metada::framework::common::utils::config
+}  // namespace metada::framework

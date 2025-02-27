@@ -26,11 +26,7 @@
 
 namespace metada::framework {
 
-namespace common::utils::config {
 class IConfig;  // Forward declaration
-}
-// Use alias for shorter reference
-using common::utils::config::IConfig;
 
 /**
  * @brief Abstract interface for state implementations

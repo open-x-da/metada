@@ -30,16 +30,16 @@
 namespace metada {
 
 // Forward declarations with namespace forwarding
-namespace framework::common::utils::config {
+namespace framework {
 class IConfig;
-}  // namespace framework::common::utils::config
+}  // namespace framework
 
 namespace tests {
 
+using framework::Config;
+using framework::IConfig;
 using framework::IState;
-using framework::common::utils::config::Config;
-using framework::common::utils::config::IConfig;
-using framework::common::utils::config::tests::MockConfig;
+using tests::MockConfig;
 
 /**
  * @brief Mock implementation of IState for testing

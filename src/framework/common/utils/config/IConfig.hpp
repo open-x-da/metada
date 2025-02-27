@@ -5,7 +5,7 @@
 
 #include "ConfigValue.hpp"
 
-namespace metada::framework::common::utils::config {
+namespace metada::framework {
 
 /**
  * @brief Abstract interface for configuration backend implementations
@@ -111,4 +111,4 @@ class IConfig {
   virtual void Clear() = 0;
 };
 
-}  // namespace metada::framework::common::utils::config
+}  // namespace metada::framework

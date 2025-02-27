@@ -18,8 +18,7 @@ using ::testing::ReturnRef;
 using StateType = framework::State<MockState>;
 using Ensemble = framework::Ensemble<StateType>;
 
-using ConfigType = framework::common::utils::config::Config<
-    framework::common::utils::config::tests::MockConfig>;
+using ConfigType = framework::Config<MockConfig>;
 
 class EnsembleTest : public ::testing::Test {
  protected:

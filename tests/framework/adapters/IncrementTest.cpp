@@ -12,8 +12,8 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
+using framework::Config;
 using framework::Increment;
-using framework::common::utils::config::Config;
 
 class IncrementTest : public ::testing::Test {
  protected:

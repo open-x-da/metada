@@ -27,8 +27,8 @@
 #include "utils/config/Config.hpp"
 #include "utils/logger/Logger.hpp"
 
+using namespace metada::framework;
 using namespace metada::framework::runs;
-using namespace metada::framework::common::utils::config;
 using namespace metada::framework::common::utils::logger;
 using namespace metada::backends::common::utils::config;
 using namespace metada::backends::common::utils::logger;

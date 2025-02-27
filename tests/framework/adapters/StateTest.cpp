@@ -41,9 +41,8 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
+using framework::Config;
 using framework::State;
-using framework::common::utils::config::Config;
-using framework::common::utils::config::tests::MockConfig;
 
 /**
  * @brief Test fixture for State class tests

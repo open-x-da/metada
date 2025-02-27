@@ -65,8 +65,7 @@ bool JsonConfig::LoadFromString(const std::string& content) {
  * @throw std::runtime_error if the key doesn't exist or value type is not
  * supported
  */
-framework::common::utils::config::ConfigValue JsonConfig::Get(
-    const std::string& key) const {
+framework::ConfigValue JsonConfig::Get(const std::string& key) const {
   try {
     const auto& j = GetJsonRef(root_, key);
     return JsonToConfigValue(j);
@@ -94,9 +93,7 @@ framework::common::utils::config::ConfigValue JsonConfig::Get(
  * @throw std::runtime_error if the key path is invalid or contains invalid
  * characters
  */
-void JsonConfig::Set(
-    const std::string& key,
-    const framework::common::utils::config::ConfigValue& value) {
+void JsonConfig::Set(const std::string& key, const ConfigValue& value) {
   auto& target = GetJsonRef(root_, key);
   target = ConfigValueToJson(value);
 }
@@ -228,9 +225,8 @@ const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
  * @throw std::runtime_error if the JSON value type is not supported (e.g.
  * objects or null)
  */
-framework::common::utils::config::ConfigValue JsonConfig::JsonToConfigValue(
-    const nlohmann::json& j) {
-  using framework::common::utils::config::ConfigValue;
+framework::ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
+  using framework::ConfigValue;
 
   if (j.is_boolean()) {
     return j.get<bool>();
@@ -272,8 +268,7 @@ framework::common::utils::config::ConfigValue JsonConfig::JsonToConfigValue(
  * @param value The ConfigValue to convert
  * @return nlohmann::json containing the converted value
  */
-nlohmann::json JsonConfig::ConfigValueToJson(
-    const framework::common::utils::config::ConfigValue& value) {
+nlohmann::json JsonConfig::ConfigValueToJson(const ConfigValue& value) {
   return std::visit(
       [](const auto& v) -> nlohmann::json { return nlohmann::json(v); }, value);
 }

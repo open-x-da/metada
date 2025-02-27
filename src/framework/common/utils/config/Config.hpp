@@ -3,7 +3,7 @@
 #include "ConfigValue.hpp"
 #include "IConfig.hpp"
 
-namespace metada::framework::common::utils::config {
+namespace metada::framework {
 
 /**
  * @brief Main configuration class template providing a generic interface to
@@ -134,4 +134,4 @@ class Config {
   void Clear() { backend_.Clear(); }
 };
 
-}  // namespace metada::framework::common::utils::config
+}  // namespace metada::framework

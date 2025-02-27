@@ -8,7 +8,7 @@
 #include "MockState.hpp"
 #include "State.hpp"
 
-namespace metada::framework::interfaces::tests {
+namespace metada::tests {
 
 class MockModel : public IModel {
  public:
@@ -30,4 +30,4 @@ class MockModel : public IModel {
   MOCK_METHOD(bool, isInitialized, (), (const, override));
 };
 
-}  // namespace metada::framework::interfaces::tests
+}  // namespace metada::tests

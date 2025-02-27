@@ -35,11 +35,9 @@ namespace metada::framework {
 template <typename T>
 class Increment;
 
-namespace common::utils::config {
 template <typename T>
 class Config;
-}  // namespace common::utils::config
-using common::utils::config::Config;
+
 /**
  * @brief Main state class template providing a generic interface to state
  * implementations

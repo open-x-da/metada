@@ -4,10 +4,13 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#include "utils/config/ConfigValue.hpp"
 #include "utils/config/IConfig.hpp"
 
 namespace metada::backends::common::utils::config::json {
 
+using framework::ConfigValue;
+using framework::IConfig;
 /**
  * @brief JSON configuration backend implementation
  *
@@ -45,7 +48,7 @@ namespace metada::backends::common::utils::config::json {
  * @see IConfig Base interface class
  * @see nlohmann::json JSON library used for implementation
  */
-class JsonConfig : public framework::common::utils::config::IConfig {
+class JsonConfig : public IConfig {
  public:
   /** @brief Default constructor creating an empty configuration */
   JsonConfig() = default;
@@ -78,8 +81,7 @@ class JsonConfig : public framework::common::utils::config::IConfig {
    * @throws std::runtime_error if the key doesn't exist or value type is not
    * supported
    */
-  framework::common::utils::config::ConfigValue Get(
-      const std::string& key) const override;
+  ConfigValue Get(const std::string& key) const override;
 
   /**
    * @brief Set a value in the configuration
@@ -89,8 +91,7 @@ class JsonConfig : public framework::common::utils::config::IConfig {
    * @throws std::runtime_error if the key path is invalid or value type is not
    * supported
    */
-  void Set(const std::string& key,
-           const framework::common::utils::config::ConfigValue& value) override;
+  void Set(const std::string& key, const ConfigValue& value) override;
 
   /**
    * @brief Check if a key exists in the configuration
@@ -149,8 +150,7 @@ class JsonConfig : public framework::common::utils::config::IConfig {
    * @return Equivalent ConfigValue
    * @throws std::runtime_error if JSON value type is not supported
    */
-  static framework::common::utils::config::ConfigValue JsonToConfigValue(
-      const nlohmann::json& j);
+  static ConfigValue JsonToConfigValue(const nlohmann::json& j);
 
   /**
    * @brief Convert a ConfigValue to a JSON value
@@ -158,8 +158,7 @@ class JsonConfig : public framework::common::utils::config::IConfig {
    * @return Equivalent JSON value
    * @throws std::runtime_error if ConfigValue type is not supported
    */
-  static nlohmann::json ConfigValueToJson(
-      const framework::common::utils::config::ConfigValue& value);
+  static nlohmann::json ConfigValueToJson(const ConfigValue& value);
 };
 
 }  // namespace metada::backends::common::utils::config::json
