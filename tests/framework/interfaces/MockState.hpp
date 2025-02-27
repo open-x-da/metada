@@ -27,26 +27,19 @@
 #include "IState.hpp"
 #include "utils/config/Config.hpp"
 
-// Forward declarations with namespace forwarding
-namespace metada::framework::common::utils::config {
-class IConfig;
+namespace metada {
 
-template <typename T>
-class Config;
+// Forward declarations with namespace forwarding
+namespace framework::common::utils::config {
+class IConfig;
+}  // namespace framework::common::utils::config
 
 namespace tests {
-class MockConfig;
-}  // namespace tests
-}  // namespace metada::framework::common::utils::config
-
-namespace metada::backends {
 
 using framework::common::utils::config::Config;
 using framework::common::utils::config::IConfig;
 using framework::common::utils::config::tests::MockConfig;
-
-using ::testing::_;
-using ::testing::Return;
+using metada::framework::IState;
 
 /**
  * @brief Mock implementation of IState for testing
@@ -81,7 +74,7 @@ using ::testing::Return;
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
-class MockState : public framework::IState {
+class MockState : public IState {
  private:
   const Config<MockConfig>& config_;
 
@@ -106,10 +99,9 @@ class MockState : public framework::IState {
   MOCK_METHOD(void, validate, (), (const, override));
 
   // Copy operations
-  MOCK_METHOD(void, copyFrom, (const framework::IState& other), (override));
-  MOCK_METHOD(void, moveFrom, (framework::IState && other), (override));
-  MOCK_METHOD(bool, equals, (const framework::IState& other),
-              (const, override));
+  MOCK_METHOD(void, copyFrom, (const IState& other), (override));
+  MOCK_METHOD(void, moveFrom, (IState && other), (override));
+  MOCK_METHOD(bool, equals, (const IState& other), (const, override));
 
   // Data access
   MOCK_METHOD(void*, getData, (), (override));
@@ -127,12 +119,13 @@ class MockState : public framework::IState {
   MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
 
   // Arithmetic operations
-  MOCK_METHOD(void, add, (const framework::IState& other), (override));
-  MOCK_METHOD(void, subtract, (const framework::IState& other), (override));
+  MOCK_METHOD(void, add, (const IState& other), (override));
+  MOCK_METHOD(void, subtract, (const IState& other), (override));
   MOCK_METHOD(void, multiply, (double scalar), (override));
 
   // Get the config
   const Config<MockConfig>& config() const { return config_; }
 };
 
-}  // namespace metada::backends
+}  // namespace tests
+}  // namespace metada

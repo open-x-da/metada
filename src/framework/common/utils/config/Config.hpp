@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ConfigValue.hpp"
 #include "IConfig.hpp"
 
 namespace metada::framework::common::utils::config {
@@ -91,8 +92,12 @@ class Config {
    * @return ConfigValue containing either the requested value or the default
    * value
    */
-  ConfigValue Get(const std::string& key,
-                  const ConfigValue& default_value = ConfigValue()) {
+  std::variant<bool, int, double, std::string, std::vector<bool>,
+               std::vector<int>, std::vector<double>, std::vector<std::string>>
+  Get(const std::string& key,
+      const std::variant<bool, int, double, std::string, std::vector<bool>,
+                         std::vector<int>, std::vector<double>,
+                         std::vector<std::string>>& default_value = {}) {
     try {
       return backend_.Get(key);
     } catch (...) {
@@ -106,7 +111,11 @@ class Config {
    * "database.host")
    * @return ConfigValue containing the requested value
    */
-  ConfigValue GetUnsafe(const std::string& key) { return backend_.Get(key); }
+  std::variant<bool, int, double, std::string, std::vector<bool>,
+               std::vector<int>, std::vector<double>, std::vector<std::string>>
+  GetUnsafe(const std::string& key) {
+    return backend_.Get(key);
+  }
 
   /**
    * @brief Set a value in the configuration
@@ -114,7 +123,10 @@ class Config {
    * "database.port")
    * @param value ConfigValue to store
    */
-  void Set(const std::string& key, const ConfigValue& value) {
+  void Set(const std::string& key,
+           const std::variant<bool, int, double, std::string, std::vector<bool>,
+                              std::vector<int>, std::vector<double>,
+                              std::vector<std::string>>& value) {
     backend_.Set(key, value);
   }
 

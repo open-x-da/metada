@@ -6,11 +6,11 @@
 #include "State.hpp"
 #include "utils/config/Config.hpp"
 
-namespace metada::framework::tests {
+namespace metada::tests {
 
-using StateType = State<backends::MockState>;
-using ConfigType =
-    common::utils::config::Config<common::utils::config::tests::MockConfig>;
+using StateType = metada::framework::State<MockState>;
+using ConfigType = metada::framework::common::utils::config::Config<
+    metada::framework::common::utils::config::tests::MockConfig>;
 
 using ::testing::InSequence;
 using ::testing::Invoke;
@@ -45,13 +45,13 @@ class EnsembleTest : public ::testing::Test {
 
 // Test ensemble initialization
 TEST_F(EnsembleTest, InitializationCreatesCorrectNumberOfMembers) {
-  Ensemble<StateType> ensemble(config_, size_);
+  metada::framework::Ensemble<StateType> ensemble(config_, size_);
   EXPECT_EQ(ensemble.getSize(), size_);
 }
 
 // Test member access
 TEST_F(EnsembleTest, MemberAccessIsValid) {
-  Ensemble<StateType> ensemble(config_, size_);
+  metada::framework::Ensemble<StateType> ensemble(config_, size_);
 
   // Test access to all members
   for (size_t i = 0; i < size_; ++i) {
@@ -67,7 +67,7 @@ TEST_F(EnsembleTest, MemberAccessIsValid) {
 
 // Test mean computation
 TEST_F(EnsembleTest, ComputeMean) {
-  Ensemble<NiceMock<StateType>> ensemble(config_, size_);
+  metada::framework::Ensemble<NiceMock<StateType>> ensemble(config_, size_);
 
   {
     InSequence seq;
@@ -91,18 +91,18 @@ TEST_F(EnsembleTest, ComputeMean) {
 
 // Test out of bounds access
 TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
-  Ensemble<StateType> ensemble(config_, size_);
+  metada::framework::Ensemble<StateType> ensemble(config_, size_);
   EXPECT_THROW(ensemble.getMember(size_), std::out_of_range);
   EXPECT_THROW(ensemble.getPerturbation(size_), std::out_of_range);
 }
 
 // Test perturbation computation
 TEST_F(EnsembleTest, ComputePerturbationsCreatesValidPerturbations) {
-  Ensemble<StateType> ensemble(config_, size_);
+  metada::framework::Ensemble<StateType> ensemble(config_, size_);
 
   // Test perturbation computation
   EXPECT_NO_THROW(ensemble.computePerturbations());
   EXPECT_NO_THROW(ensemble.getPerturbation(0));
 }
 
-}  // namespace metada::framework::tests
+}  // namespace metada::tests

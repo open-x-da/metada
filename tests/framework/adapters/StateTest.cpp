@@ -35,15 +35,15 @@
 #include "State.hpp"
 #include "utils/config/Config.hpp"
 
-namespace metada::framework::interfaces::tests {
+namespace metada::tests {
 
 using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
-using metada::backends::MockState;
 using metada::framework::common::utils::config::Config;
 using metada::framework::common::utils::config::tests::MockConfig;
+using metada::tests::MockState;
 
 /**
  * @brief Test fixture for State class tests
@@ -96,16 +96,16 @@ class StateTest : public ::testing::Test {
  */
 TEST_F(StateTest, ConstructorTests) {
   // Test configuration constructor
-  State<MockState> state(config_);
+  metada::framework::State<MockState> state(config_);
   EXPECT_TRUE(state.isInitialized());
 
   // Test copy constructor
-  State<MockState> state_copy(state);
+  metada::framework::State<MockState> state_copy(state);
   EXPECT_CALL(state_copy.backend(), equals(_)).WillOnce(Return(true));
   EXPECT_TRUE(state_copy == state);
 
   // Test move constructor
-  State<MockState> state_moved(std::move(state_copy));
+  metada::framework::State<MockState> state_moved(std::move(state_copy));
   // Verify the moved-from state is no longer initialized
   EXPECT_FALSE(state_copy.isInitialized());
   EXPECT_TRUE(state_moved.isInitialized());
@@ -120,7 +120,7 @@ TEST_F(StateTest, ConstructorTests) {
  * - validate() checks state consistency
  */
 TEST_F(StateTest, CoreStateOperations) {
-  State<MockState> state(config_);
+  metada::framework::State<MockState> state(config_);
 
   // Test reset
   EXPECT_CALL(state.backend(), reset()).Times(1);
@@ -140,8 +140,8 @@ TEST_F(StateTest, CoreStateOperations) {
  * - Proper state transfer
  */
 TEST_F(StateTest, CopyAssignment) {
-  State<MockState> state1(config_);
-  State<MockState> state2(config_);
+  metada::framework::State<MockState> state1(config_);
+  metada::framework::State<MockState> state2(config_);
 
   // Test copy assignment
   EXPECT_CALL(state2.backend(), copyFrom(testing::Ref(state1.backend())))
@@ -159,8 +159,8 @@ TEST_F(StateTest, CopyAssignment) {
  * - Destination state validation
  */
 TEST_F(StateTest, MoveAssignment) {
-  State<MockState> state1(config_);
-  State<MockState> state2(config_);
+  metada::framework::State<MockState> state1(config_);
+  metada::framework::State<MockState> state2(config_);
 
   // Set up expectations for move assignment
   EXPECT_CALL(state2.backend(), moveFrom(_)).Times(1);
@@ -183,8 +183,8 @@ TEST_F(StateTest, MoveAssignment) {
  * - Proper delegation to backend equals()
  */
 TEST_F(StateTest, EqualityComparison) {
-  State<MockState> state1(config_);
-  State<MockState> state2(config_);
+  metada::framework::State<MockState> state1(config_);
+  metada::framework::State<MockState> state2(config_);
 
   EXPECT_CALL(state1.backend(), equals(testing::Ref(state2.backend())))
       .WillOnce(Return(true))
@@ -209,7 +209,7 @@ TEST_F(StateTest, EqualityComparison) {
  * - Backend delegation
  */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
-  State<MockState> state(config_);
+  metada::framework::State<MockState> state(config_);
 
   EXPECT_CALL(state.backend(), getData()).WillOnce(Return(test_data_));
 
@@ -227,7 +227,7 @@ TEST_F(StateTest, GetDataReturnsTypedPointer) {
  * - Backend delegation for storage
  */
 TEST_F(StateTest, MetadataOperations) {
-  State<MockState> state(config_);
+  metada::framework::State<MockState> state(config_);
 
   EXPECT_CALL(state.backend(), setMetadata("key1", "value1")).Times(1);
   EXPECT_CALL(state.backend(), getMetadata("key1")).WillOnce(Return("value1"));
@@ -246,7 +246,7 @@ TEST_F(StateTest, MetadataOperations) {
  * - Backend delegation
  */
 TEST_F(StateTest, StateInformation) {
-  State<MockState> state(config_);
+  metada::framework::State<MockState> state(config_);
 
   EXPECT_CALL(state.backend(), getVariableNames())
       .WillOnce(ReturnRef(variable_names_));
@@ -268,19 +268,21 @@ TEST_F(StateTest, StateInformation) {
  * - Subtraction assignment (-=)
  */
 TEST_F(StateTest, ArithmeticOperations) {
-  State<MockState> state1(config_);
-  State<MockState> state2(config_);
+  metada::framework::State<MockState> state1(config_);
+  metada::framework::State<MockState> state2(config_);
 
   // Construct result from state1 for testing purposes
-  State<MockState> result(config_);
+  metada::framework::State<MockState> result(config_);
 
   EXPECT_NO_THROW(result = state1 + state2);
 
-  EXPECT_NO_THROW(State<MockState> result1 = state1 + state2);
+  EXPECT_NO_THROW(metada::framework::State<MockState> result1 =
+                      state1 + state2);
 
   EXPECT_NO_THROW(result = state1 - state2);
 
-  EXPECT_NO_THROW(State<MockState> result2 = state1 - state2);
+  EXPECT_NO_THROW(metada::framework::State<MockState> result2 =
+                      state1 - state2);
 
   // Test addition assignment
   EXPECT_CALL(state1.backend(), add(testing::Ref(state2.backend()))).Times(1);
@@ -309,8 +311,8 @@ TEST_F(StateTest, ArithmeticOperations) {
  * - Invalid state data
  */
 TEST_F(StateTest, ArithmeticErrors) {
-  State<MockState> state1(config_);
-  State<MockState> state2(config_);
+  metada::framework::State<MockState> state1(config_);
+  metada::framework::State<MockState> state2(config_);
 
   // Test addition with incompatible states
   EXPECT_CALL(state1.backend(), add(testing::Ref(state2.backend())))
@@ -323,4 +325,4 @@ TEST_F(StateTest, ArithmeticErrors) {
   EXPECT_THROW(state1 -= state2, std::runtime_error);
 }
 
-}  // namespace metada::framework::interfaces::tests
+}  // namespace metada::tests

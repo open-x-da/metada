@@ -14,8 +14,6 @@ class State;
 template <typename T>
 class Increment;
 
-namespace interfaces {
-
 /**
  * @brief Abstract interface for increment implementations
  *
@@ -44,12 +42,6 @@ class IIncrement {
   virtual double dot(const IIncrement& other) const = 0;  // inner product
   virtual double norm() const = 0;                        // L2 norm
 
-  // State operations
-  virtual void addToState(IState& state) const = 0;  // state += increment
-  virtual void differenceFromStates(
-      const IState& state1,  // increment = state1 - state2
-      const IState& state2) = 0;
-
   // Data access
   virtual void* getData() = 0;
   virtual const void* getData() const = 0;
@@ -64,5 +56,4 @@ class IIncrement {
   virtual bool isInitialized() const = 0;
 };
 
-}  // namespace interfaces
 }  // namespace metada::framework

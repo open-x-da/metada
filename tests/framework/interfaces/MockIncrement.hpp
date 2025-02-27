@@ -4,7 +4,16 @@
 
 #include "IIncrement.hpp"
 
-namespace metada::framework::interfaces::tests {
+namespace metada {
+
+namespace framework {
+class IState;
+}  // namespace framework
+
+namespace tests {
+
+using metada::framework::IIncrement;
+using metada::framework::IState;
 
 class MockIncrement : public IIncrement {
  public:
@@ -15,10 +24,6 @@ class MockIncrement : public IIncrement {
   MOCK_METHOD(void, axpy, (double alpha, const IIncrement& other), (override));
   MOCK_METHOD(double, dot, (const IIncrement& other), (const, override));
   MOCK_METHOD(double, norm, (), (const, override));
-
-  MOCK_METHOD(void, addToState, (IState & state), (const, override));
-  MOCK_METHOD(void, differenceFromStates,
-              (const IState& state1, const IState& state2), (override));
 
   MOCK_METHOD(void*, getData, (), (override));
   MOCK_METHOD(const void*, getData, (), (const, override));
@@ -32,4 +37,5 @@ class MockIncrement : public IIncrement {
   MOCK_METHOD(bool, isInitialized, (), (const, override));
 };
 
-}  // namespace metada::framework::interfaces::tests
+}  // namespace tests
+}  // namespace metada

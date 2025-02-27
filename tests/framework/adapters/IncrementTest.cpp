@@ -6,12 +6,10 @@
 #include "MockIncrement.hpp"
 #include "MockState.hpp"
 
-namespace metada::framework::tests {
+namespace metada::tests {
 
-using backends::MockState;
-using common::utils::config::Config;
-using common::utils::config::tests::MockConfig;
-using interfaces::tests::MockIncrement;
+using metada::framework::Increment;
+using metada::framework::common::utils::config::Config;
 using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -74,18 +72,6 @@ TEST_F(IncrementTest, LinearAlgebraOperations) {
   EXPECT_DOUBLE_EQ(increment.norm(), 2.0);
 }
 
-TEST_F(IncrementTest, StateOperations) {
-  MockIncrement mock_backend;
-  Increment<MockIncrement> increment;
-  State<MockState> state1(config), state2(config);
-
-  EXPECT_CALL(increment.backend(), addToState(_)).Times(1);
-  EXPECT_CALL(increment.backend(), differenceFromStates(_, _)).Times(1);
-
-  increment.addToState(state1);
-  increment.differenceFromStates(state1, state2);
-}
-
 TEST_F(IncrementTest, GetDataReturnsTypedPointer) {
   MockIncrement mock_backend;
   Increment<MockIncrement> increment;
@@ -135,4 +121,4 @@ TEST_F(IncrementTest, BackendAccessors) {
   const_backend.isInitialized();
 }
 
-}  // namespace metada::framework::tests
+}  // namespace metada::tests
