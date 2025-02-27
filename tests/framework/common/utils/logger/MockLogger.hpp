@@ -4,7 +4,9 @@
 
 #include "utils/logger/ILogger.hpp"
 
-namespace metada::framework::common::utils::logger::tests {
+namespace metada::tests {
+
+using framework::ILogger;
 
 /**
  * @brief Mock logger backend for testing
@@ -31,4 +33,4 @@ class MockLogger : public ILogger {
   static void Shutdown() {}
 };
 
-}  // namespace metada::framework::common::utils::logger::tests
+}  // namespace metada::tests

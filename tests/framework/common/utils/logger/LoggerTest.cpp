@@ -19,9 +19,11 @@
 #include "MockLogger.hpp"
 #include "utils/logger/Logger.hpp"
 
-namespace metada::framework::common::utils::logger::tests {
+namespace metada::tests {
 
 using ::testing::Return;
+
+using framework::Logger;
 
 /**
  * @brief Test fixture for Logger class tests
@@ -88,4 +90,4 @@ TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
   logger.Debug("test message");
 }
 
-}  // namespace metada::framework::common::utils::logger::tests
+}  // namespace metada::tests

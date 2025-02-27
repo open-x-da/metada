@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace metada::framework::common::utils::logger {
+namespace metada::framework {
 
 /**
  * @brief Abstract interface for logger backend implementations
@@ -101,4 +101,4 @@ class ILogger {
    */
 };
 
-}  // namespace metada::framework::common::utils::logger
+}  // namespace metada::framework

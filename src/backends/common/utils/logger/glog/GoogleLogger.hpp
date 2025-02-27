@@ -6,6 +6,8 @@
 
 namespace metada::backends::common::utils::logger::glog {
 
+using framework::ILogger;
+
 /**
  * @brief Google logger backend implementation
  *
@@ -51,7 +53,7 @@ namespace metada::backends::common::utils::logger::glog {
  * @see ILogger Base interface class
  * @see https://github.com/google/glog Google logging library documentation
  */
-class GoogleLogger : public framework::common::utils::logger::ILogger {
+class GoogleLogger : public framework::ILogger {
  public:
   /**
    * @brief Log info message using glog
