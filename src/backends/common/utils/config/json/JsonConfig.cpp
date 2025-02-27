@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace metada::backends::common::utils::config::json {
+namespace metada::backends::config {
 
 /**
  * @brief Load configuration from a JSON file
@@ -65,7 +65,7 @@ bool JsonConfig::LoadFromString(const std::string& content) {
  * @throw std::runtime_error if the key doesn't exist or value type is not
  * supported
  */
-framework::ConfigValue JsonConfig::Get(const std::string& key) const {
+ConfigValue JsonConfig::Get(const std::string& key) const {
   try {
     const auto& j = GetJsonRef(root_, key);
     return JsonToConfigValue(j);
@@ -225,9 +225,7 @@ const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
  * @throw std::runtime_error if the JSON value type is not supported (e.g.
  * objects or null)
  */
-framework::ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
-  using framework::ConfigValue;
-
+ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
   if (j.is_boolean()) {
     return j.get<bool>();
   } else if (j.is_number_integer()) {
@@ -273,4 +271,4 @@ nlohmann::json JsonConfig::ConfigValueToJson(const ConfigValue& value) {
       [](const auto& v) -> nlohmann::json { return nlohmann::json(v); }, value);
 }
 
-}  // namespace metada::backends::common::utils::config::json
+}  // namespace metada::backends::config

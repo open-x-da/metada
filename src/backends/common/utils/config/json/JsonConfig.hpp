@@ -7,7 +7,7 @@
 #include "utils/config/ConfigValue.hpp"
 #include "utils/config/IConfig.hpp"
 
-namespace metada::backends::common::utils::config::json {
+namespace metada::backends::config {
 
 using framework::ConfigValue;
 using framework::IConfig;
@@ -161,4 +161,4 @@ class JsonConfig : public IConfig {
   static nlohmann::json ConfigValueToJson(const ConfigValue& value);
 };
 
-}  // namespace metada::backends::common::utils::config::json
+}  // namespace metada::backends::config

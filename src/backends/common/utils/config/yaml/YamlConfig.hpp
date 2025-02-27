@@ -7,7 +7,9 @@
 
 #include "IConfig.hpp"
 
-namespace metada::backends::common::utils::config::yaml {
+namespace metada::backends::config {
+
+using framework::IConfig;
 
 /**
  * @brief YAML configuration backend implementation
@@ -46,7 +48,7 @@ namespace metada::backends::common::utils::config::yaml {
  * @see IConfig Base interface class
  * @see YAML::Node YAML-CPP library used for implementation
  */
-class YamlConfig : public framework::tools::config::IConfig {
+class YamlConfig : public IConfig {
  public:
   /** @brief Default constructor creating an empty configuration */
   YamlConfig() = default;
@@ -79,7 +81,7 @@ class YamlConfig : public framework::tools::config::IConfig {
    * @throws std::runtime_error if the key doesn't exist or value type is not
    * supported
    */
-  framework::tools::config::ConfigValue Get(
+  ConfigValue Get(
       const std::string& key) const override;
 
   /**
@@ -91,7 +93,7 @@ class YamlConfig : public framework::tools::config::IConfig {
    * supported
    */
   void Set(const std::string& key,
-           const framework::tools::config::ConfigValue& value) override;
+          const ConfigValue& value) override;
 
   /**
    * @brief Check if a key exists in the configuration
@@ -140,7 +142,7 @@ class YamlConfig : public framework::tools::config::IConfig {
    * @return ConfigValue containing the converted value
    * @throws std::runtime_error if node type is not supported
    */
-  static framework::tools::config::ConfigValue NodeToConfigValue(
+  static ConfigValue NodeToConfigValue(
       const YAML::Node& node);
 
   /**
@@ -150,7 +152,7 @@ class YamlConfig : public framework::tools::config::IConfig {
    * @throws std::runtime_error if value type is not supported
    */
   static YAML::Node ConfigValueToNode(
-      const framework::tools::config::ConfigValue& value);
+      const ConfigValue& value);
 };
 
-}  // namespace metada::backends::common::utils::config::yaml
+}  // namespace metada::backends::config

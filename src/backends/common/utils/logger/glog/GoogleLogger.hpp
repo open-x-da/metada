@@ -4,7 +4,7 @@
 
 #include "utils/logger/ILogger.hpp"
 
-namespace metada::backends::common::utils::logger::glog {
+namespace metada::backends::logger {
 
 using framework::ILogger;
 
@@ -53,7 +53,7 @@ using framework::ILogger;
  * @see ILogger Base interface class
  * @see https://github.com/google/glog Google logging library documentation
  */
-class GoogleLogger : public framework::ILogger {
+class GoogleLogger : public ILogger {
  public:
   /**
    * @brief Log info message using glog
@@ -127,4 +127,4 @@ class GoogleLogger : public framework::ILogger {
   static void Shutdown() { google::ShutdownGoogleLogging(); }
 };
 
-}  // namespace metada::backends::common::utils::logger::glog
+}  // namespace metada::backends::logger

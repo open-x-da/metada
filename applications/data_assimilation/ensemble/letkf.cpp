@@ -29,11 +29,11 @@
 
 using namespace metada::framework;
 using namespace metada::framework::runs;
-using namespace metada::backends::common::utils::config;
-using namespace metada::backends::common::utils::logger;
+using namespace metada::backends::config;
+using namespace metada::backends::logger;
 
-using ConfigType = Config<json::JsonConfig>;
-using LoggerType = Logger<glog::GoogleLogger>;
+using ConfigType = Config<JsonConfig>;
+using LoggerType = Logger<GoogleLogger>;
 
 using Traits = AppTraits<LoggerType, ConfigType>;
 

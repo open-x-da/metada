@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace metada::backends::common::utils::config::yaml {
+namespace metada::backends::config {
 
 /**
  * @brief Load configuration from a YAML file
@@ -59,8 +59,7 @@ bool YamlConfig::LoadFromString(const std::string& content) {
  * @return ConfigValue containing the requested value
  * @throws std::runtime_error if the key doesn't exist or value type is not supported
  */
-framework::common::utils::config::ConfigValue YamlConfig::Get(
-    const std::string& key) const {
+ConfigValue YamlConfig::Get(const std::string& key) const {
   auto node = GetNode(root_, key);
   if (!node.IsDefined()) {
     throw std::runtime_error("Key not found: " + key);
@@ -98,7 +97,7 @@ std::vector<std::string> SplitString(const std::string& str, char delim) {
  * @param value ConfigValue containing the value to set
  */
 void YamlConfig::Set(const std::string& key,
-                     const framework::common::utils::config::ConfigValue& value) {
+                     const ConfigValue& value) {
   auto keys = SplitString(key, '.');
   YAML::Node current = root_;
 
@@ -217,9 +216,7 @@ YAML::Node YamlConfig::GetNode(const YAML::Node& node, const std::string& key) {
  * @return ConfigValue containing the converted value
  * @throws std::runtime_error if node type is not supported
  */
-framework::common::utils::config::ConfigValue YamlConfig::NodeToConfigValue(
-    const YAML::Node& node) {
-  using framework::common::utils::config::ConfigValue;
+ConfigValue YamlConfig::NodeToConfigValue(const YAML::Node& node) {
 
   if (node.IsScalar()) {
     // Try to parse as different types
@@ -276,7 +273,7 @@ framework::common::utils::config::ConfigValue YamlConfig::NodeToConfigValue(
  * @return YAML::Node containing the converted value
  */
 YAML::Node YamlConfig::ConfigValueToNode(
-    const framework::common::utils::config::ConfigValue& value) {
+      const ConfigValue& value) {
   return std::visit([](const auto& v) -> YAML::Node { return YAML::Node(v); },
                     value);
 }

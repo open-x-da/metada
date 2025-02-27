@@ -4,7 +4,9 @@
 
 #include "utils/logger/ILogger.hpp"
 
-namespace metada::backends::common::utils::logger::console {
+namespace metada::backends::logger {
+
+using framework::ILogger;
 
 /**
  * @file ConsoleLogger.hpp
@@ -49,7 +51,7 @@ namespace metada::backends::common::utils::logger::console {
  *
  * @see ILogger Base interface class
  */
-class ConsoleLogger : public framework::common::utils::logger::ILogger {
+class ConsoleLogger : public ILogger {
  public:
   /**
    * @brief Log info message to stdout
@@ -131,4 +133,4 @@ class ConsoleLogger : public framework::common::utils::logger::ILogger {
   }
 };
 
-}  // namespace metada::backends::common::utils::logger::console
+}  // namespace metada::backends::logger
