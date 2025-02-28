@@ -52,7 +52,7 @@ class ObservationTest : public ::testing::Test {
   }
 
   MockObservation mockBackend_;
-  Observation<MockObservation> observation_;
+  Observation<MockObservation> observation_{mockBackend_};
 };
 
 TEST_F(ObservationTest, InitializeCallsBackend) {

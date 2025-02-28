@@ -28,11 +28,14 @@ namespace metada::framework {
 template <typename ObservationBackend>
 class Observation {
  private:
-  ObservationBackend backend_;  ///< Backend implementation instance
+  ObservationBackend& backend_;  ///< Backend implementation instance
 
  public:
   /** @brief Default constructor */
   Observation() = default;
+
+  /** @brief Constructor with initialization */
+  Observation(ObservationBackend& backend) : backend_(backend) { initialize(); }
 
   /** @brief Constructor with initialization */
   Observation(ObservationBackend&& backend) : backend_(std::move(backend)) {
