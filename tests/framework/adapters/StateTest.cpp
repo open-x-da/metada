@@ -48,6 +48,7 @@ using ::testing::ReturnRef;
 using framework::Config;
 using framework::Logger;
 using framework::State;
+using framework::runs::ApplicationContext;
 
 using Traits = AppTraits<MockLogger, MockConfig, MockState>;
 
@@ -62,36 +63,79 @@ using Traits = AppTraits<MockLogger, MockConfig, MockState>;
  */
 class StateTest : public ::testing::Test {
  protected:
-  std::unique_ptr<Config<Traits::ConfigType>> config_;
-  std::unique_ptr<Logger<Traits::LoggerType>> logger_;
+  std::unique_ptr<ApplicationContext<Traits>>
+      context_;  ///< Application context for testing
+  std::vector<std::string> variable_names_;  ///< Test variable names
+  std::vector<size_t> dimensions_;           ///< Test dimensions
+  std::vector<double> test_data_;            ///< Test data array
+
+  // Common State objects for tests
+  std::unique_ptr<State<Traits::StateType>> state1_;  ///< First test state
+  std::unique_ptr<State<Traits::StateType>> state2_;  ///< Second test state
+
   /**
    * @brief Set up test data before each test
    *
    * Initializes:
+   * - Application context
    * - Variable names array
    * - Dimensions array
    * - Test data array with sequential values
+   * - Common State objects
    */
   void SetUp() override {
-    logger_ = std::make_unique<Logger<Traits::LoggerType>>();
-    config_ = std::make_unique<Config<Traits::ConfigType>>();
+    // Create a new application context for testing
+    context_ = std::make_unique<ApplicationContext<Traits>>("StateTest");
+
     // Setup common test data
     variable_names_ = {"temperature", "pressure"};
     dimensions_ = {10, 20};
-    test_data_ = new double[10];  // Example data
+    test_data_.resize(10);  // Example data
     for (int i = 0; i < 10; i++) test_data_[i] = i;
+
+    // Create common State objects
+    state1_ = std::make_unique<State<Traits::StateType>>(getConfig());
+    state2_ = std::make_unique<State<Traits::StateType>>(getConfig());
+
+    // Setup common expectations for test data access
+    ON_CALL(state1_->backend(), getData())
+        .WillByDefault(Return(test_data_.data()));
+    ON_CALL(state1_->backend(), getVariableNames())
+        .WillByDefault(ReturnRef(variable_names_));
+    ON_CALL(state1_->backend(), getDimensions())
+        .WillByDefault(ReturnRef(dimensions_));
   }
 
   /**
    * @brief Clean up test data after each test
-   *
-   * Frees allocated test data array
    */
-  void TearDown() override { delete[] test_data_; }
+  void TearDown() override {
+    // Clean up State objects first
+    state1_.reset();
+    state2_.reset();
 
-  std::vector<std::string> variable_names_;  ///< Test variable names
-  std::vector<size_t> dimensions_;           ///< Test dimensions
-  double* test_data_;                        ///< Test data array
+    // Then clean up other resources
+    test_data_.clear();
+    context_.reset();
+  }
+
+  /**
+   * @brief Get reference to the logger from context
+   */
+  Logger<Traits::LoggerType>& getLogger() { return context_->getLogger(); }
+
+  /**
+   * @brief Get reference to the config from context
+   */
+  Config<Traits::ConfigType>& getConfig() { return context_->getConfig(); }
+
+  /**
+   * @brief Create a fresh State object for tests that need a new instance
+   * @return A new State object initialized with the test config
+   */
+  State<Traits::StateType> createState() {
+    return State<Traits::StateType>(getConfig());
+  }
 };
 
 /**
@@ -104,8 +148,8 @@ class StateTest : public ::testing::Test {
  * - Move constructor with proper state transfer
  */
 TEST_F(StateTest, ConstructorTests) {
-  // Test configuration constructor
-  State<Traits::StateType> state(*config_);
+  // Test configuration constructor - use the helper method
+  auto state = createState();
   EXPECT_TRUE(state.isInitialized());
 
   // Test copy constructor
@@ -129,15 +173,12 @@ TEST_F(StateTest, ConstructorTests) {
  * - validate() checks state consistency
  */
 TEST_F(StateTest, CoreStateOperations) {
-  State<Traits::StateType> state(*config_);
+  // Use the pre-created state object
+  EXPECT_CALL(state1_->backend(), reset()).Times(1);
+  state1_->reset();
 
-  // Test reset
-  EXPECT_CALL(state.backend(), reset()).Times(1);
-  state.reset();
-
-  // Test validate
-  EXPECT_CALL(state.backend(), validate()).Times(1);
-  state.validate();
+  EXPECT_CALL(state1_->backend(), validate()).Times(1);
+  state1_->validate();
 }
 
 /**
@@ -149,13 +190,10 @@ TEST_F(StateTest, CoreStateOperations) {
  * - Proper state transfer
  */
 TEST_F(StateTest, CopyAssignment) {
-  State<Traits::StateType> state1(*config_);
-  State<Traits::StateType> state2(*config_);
-
-  // Test copy assignment
-  EXPECT_CALL(state2.backend(), copyFrom(testing::Ref(state1.backend())))
+  // Use the pre-created state objects
+  EXPECT_CALL(state2_->backend(), copyFrom(testing::Ref(state1_->backend())))
       .Times(1);
-  state2 = state1;
+  *state2_ = *state1_;
 }
 
 /**
@@ -168,18 +206,18 @@ TEST_F(StateTest, CopyAssignment) {
  * - Destination state validation
  */
 TEST_F(StateTest, MoveAssignment) {
-  State<Traits::StateType> state1(*config_);
-  State<Traits::StateType> state2(*config_);
+  // Create a new state for move testing
+  auto temp_state = createState();
 
   // Set up expectations for move assignment
-  EXPECT_CALL(state2.backend(), moveFrom(_)).Times(1);
+  EXPECT_CALL(state1_->backend(), moveFrom(_)).Times(1);
 
   // Test move assignment
-  state2 = std::move(state1);
+  *state1_ = std::move(temp_state);
 
   // Verify states after move
-  EXPECT_FALSE(state1.isInitialized());
-  EXPECT_TRUE(state2.isInitialized());
+  EXPECT_FALSE(temp_state.isInitialized());
+  EXPECT_TRUE(state1_->isInitialized());
 }
 
 /**
@@ -192,20 +230,17 @@ TEST_F(StateTest, MoveAssignment) {
  * - Proper delegation to backend equals()
  */
 TEST_F(StateTest, EqualityComparison) {
-  State<Traits::StateType> state1(*config_);
-  State<Traits::StateType> state2(*config_);
-
-  EXPECT_CALL(state1.backend(), equals(testing::Ref(state2.backend())))
+  EXPECT_CALL(state1_->backend(), equals(testing::Ref(state2_->backend())))
       .WillOnce(Return(true))
       .WillOnce(Return(false));
-  EXPECT_TRUE(state1 == state2);
-  EXPECT_FALSE(state1 == state2);
+  EXPECT_TRUE(*state1_ == *state2_);
+  EXPECT_FALSE(*state1_ == *state2_);
 
-  EXPECT_CALL(state1.backend(), equals(testing::Ref(state2.backend())))
+  EXPECT_CALL(state1_->backend(), equals(testing::Ref(state2_->backend())))
       .WillOnce(Return(true))
       .WillOnce(Return(false));
-  EXPECT_FALSE(state1 != state2);
-  EXPECT_TRUE(state1 != state2);
+  EXPECT_FALSE(*state1_ != *state2_);
+  EXPECT_TRUE(*state1_ != *state2_);
 }
 
 /**
@@ -218,12 +253,9 @@ TEST_F(StateTest, EqualityComparison) {
  * - Backend delegation
  */
 TEST_F(StateTest, GetDataReturnsTypedPointer) {
-  State<Traits::StateType> state(*config_);
-
-  EXPECT_CALL(state.backend(), getData()).WillOnce(Return(test_data_));
-
-  double* data = &state.getData<double>();
-  EXPECT_EQ(data, test_data_);
+  // We've already set up the default behavior in SetUp()
+  double* data = &state1_->getData<double>();
+  EXPECT_EQ(data, test_data_.data());
 }
 
 /**
@@ -236,13 +268,12 @@ TEST_F(StateTest, GetDataReturnsTypedPointer) {
  * - Backend delegation for storage
  */
 TEST_F(StateTest, MetadataOperations) {
-  State<Traits::StateType> state(*config_);
+  EXPECT_CALL(state1_->backend(), setMetadata("key1", "value1")).Times(1);
+  EXPECT_CALL(state1_->backend(), getMetadata("key1"))
+      .WillOnce(Return("value1"));
 
-  EXPECT_CALL(state.backend(), setMetadata("key1", "value1")).Times(1);
-  EXPECT_CALL(state.backend(), getMetadata("key1")).WillOnce(Return("value1"));
-
-  state.setMetadata("key1", "value1");
-  EXPECT_EQ(state.getMetadata("key1"), "value1");
+  state1_->setMetadata("key1", "value1");
+  EXPECT_EQ(state1_->getMetadata("key1"), "value1");
 }
 
 /**
@@ -255,15 +286,9 @@ TEST_F(StateTest, MetadataOperations) {
  * - Backend delegation
  */
 TEST_F(StateTest, StateInformation) {
-  State<Traits::StateType> state(*config_);
-
-  EXPECT_CALL(state.backend(), getVariableNames())
-      .WillOnce(ReturnRef(variable_names_));
-  EXPECT_CALL(state.backend(), getDimensions())
-      .WillOnce(ReturnRef(dimensions_));
-
-  EXPECT_EQ(state.getVariableNames(), variable_names_);
-  EXPECT_EQ(state.getDimensions(), dimensions_);
+  // We've already set up the default behavior in SetUp()
+  EXPECT_EQ(state1_->getVariableNames(), variable_names_);
+  EXPECT_EQ(state1_->getDimensions(), dimensions_);
 }
 
 /**
@@ -277,36 +302,31 @@ TEST_F(StateTest, StateInformation) {
  * - Subtraction assignment (-=)
  */
 TEST_F(StateTest, ArithmeticOperations) {
-  State<Traits::StateType> state1(*config_);
-  State<Traits::StateType> state2(*config_);
+  // Create a result state for testing
+  auto result = createState();
 
-  // Construct result from state1 for testing purposes
-  State<Traits::StateType> result(*config_);
-
-  EXPECT_NO_THROW(result = state1 + state2);
-
-  EXPECT_NO_THROW(State<Traits::StateType> result1 = state1 + state2);
-
-  EXPECT_NO_THROW(result = state1 - state2);
-
-  EXPECT_NO_THROW(State<Traits::StateType> result2 = state1 - state2);
+  EXPECT_NO_THROW(result = *state1_ + *state2_);
+  EXPECT_NO_THROW(auto result1 = *state1_ + *state2_);
+  EXPECT_NO_THROW(result = *state1_ - *state2_);
+  EXPECT_NO_THROW(auto result2 = *state1_ - *state2_);
 
   // Test addition assignment
-  EXPECT_CALL(state1.backend(), add(testing::Ref(state2.backend()))).Times(1);
-  state1 += state2;
+  EXPECT_CALL(state1_->backend(), add(testing::Ref(state2_->backend())))
+      .Times(1);
+  *state1_ += *state2_;
 
   // Test subtraction assignment
-  EXPECT_CALL(state1.backend(), subtract(testing::Ref(state2.backend())))
+  EXPECT_CALL(state1_->backend(), subtract(testing::Ref(state2_->backend())))
       .Times(1);
-  state1 -= state2;
+  *state1_ -= *state2_;
 
   // Test multiplication
-  EXPECT_NO_THROW(result = state1 * 2.0);
-  EXPECT_NO_THROW(result = 2.0 * state1);
+  EXPECT_NO_THROW(result = *state1_ * 2.0);
+  EXPECT_NO_THROW(result = 2.0 * *state1_);
 
   // Test multiplication assignment
-  EXPECT_CALL(state1.backend(), multiply(2.0)).Times(1);
-  state1 *= 2.0;
+  EXPECT_CALL(state1_->backend(), multiply(2.0)).Times(1);
+  *state1_ *= 2.0;
 }
 
 /**
@@ -318,18 +338,15 @@ TEST_F(StateTest, ArithmeticOperations) {
  * - Invalid state data
  */
 TEST_F(StateTest, ArithmeticErrors) {
-  State<Traits::StateType> state1(*config_);
-  State<Traits::StateType> state2(*config_);
-
   // Test addition with incompatible states
-  EXPECT_CALL(state1.backend(), add(testing::Ref(state2.backend())))
+  EXPECT_CALL(state1_->backend(), add(testing::Ref(state2_->backend())))
       .WillOnce(testing::Throw(std::runtime_error("Incompatible states")));
-  EXPECT_THROW(state1 += state2, std::runtime_error);
+  EXPECT_THROW(*state1_ += *state2_, std::runtime_error);
 
   // Test subtraction with incompatible states
-  EXPECT_CALL(state1.backend(), subtract(testing::Ref(state2.backend())))
+  EXPECT_CALL(state1_->backend(), subtract(testing::Ref(state2_->backend())))
       .WillOnce(testing::Throw(std::runtime_error("Incompatible states")));
-  EXPECT_THROW(state1 -= state2, std::runtime_error);
+  EXPECT_THROW(*state1_ -= *state2_, std::runtime_error);
 }
 
 }  // namespace metada::tests
