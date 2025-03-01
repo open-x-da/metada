@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 
+#include "utils/logger/Logger.hpp"
+
 namespace metada::framework {
 
 // Forward declaration

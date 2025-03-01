@@ -9,6 +9,13 @@ struct AppTraits<LoggerBackend, ConfigBackend> {
     using ConfigType = ConfigBackend;            // Config backend
 };
 
+// Specialization for Logger, Config and State backends
+template <typename LoggerBackend, typename ConfigBackend, typename StateBackend>
+struct AppTraits<LoggerBackend, ConfigBackend, StateBackend> {
+    using LoggerType = LoggerBackend;            // Logger backend
+    using ConfigType = ConfigBackend;            // Config backend
+    using StateType = StateBackend;              // State backend
+};
 // Future specializations can be added as needed:
 // template <typename LoggerBackend, typename ConfigBackend, typename NewBackend>
 // struct AppTraits<LoggerBackend, ConfigBackend, NewBackend> { ... };

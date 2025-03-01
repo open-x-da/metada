@@ -62,6 +62,37 @@ class ApplicationContext {
   using LoggerType = typename Traits::LoggerType;
   using ConfigType = typename Traits::ConfigType;
 
+ private:
+  LoggerType logger_;
+  ConfigType config_;
+  // Timer timer_;  // To be implemented
+
+  /**
+   * @brief Initialize the logging service
+   * @param app_name Application name for logger identification
+   */
+  void initLogger(const std::string& app_name) {
+    logger_.backend().Init(app_name);
+  }
+
+  /**
+   * @brief Shutdown the logging service cleanly
+   */
+  void shutdownLogger() { logger_.backend().Shutdown(); }
+
+  /**
+   * @brief Load configuration from specified file
+   * @param config_file Path to configuration file
+   * @throws std::runtime_error If configuration loading fails
+   */
+  void loadConfig(const std::string& config_file) {
+    if (!config_.LoadFromFile(config_file)) {
+      throw std::runtime_error("Failed to load configuration from: " +
+                               config_file);
+    }
+    logger_.Info("Loaded configuration from: " + config_file);
+  }
+
  public:
   /**
    * @brief Constructs and initializes the application context
@@ -120,37 +151,6 @@ class ApplicationContext {
 
   // Timer access will be added later
   // Timer& getTimer() { return timer_; }
-
- private:
-  LoggerType logger_;
-  ConfigType config_;
-  // Timer timer_;  // To be implemented
-
-  /**
-   * @brief Initialize the logging service
-   * @param app_name Application name for logger identification
-   */
-  void initLogger(const std::string& app_name) {
-    logger_.backend().Init(app_name);
-  }
-
-  /**
-   * @brief Shutdown the logging service cleanly
-   */
-  void shutdownLogger() { logger_.backend().Shutdown(); }
-
-  /**
-   * @brief Load configuration from specified file
-   * @param config_file Path to configuration file
-   * @throws std::runtime_error If configuration loading fails
-   */
-  void loadConfig(const std::string& config_file) {
-    if (!config_.LoadFromFile(config_file)) {
-      throw std::runtime_error("Failed to load configuration from: " +
-                               config_file);
-    }
-    logger_.Info("Loaded configuration from: " + config_file);
-  }
 };
 
 }  // namespace metada::framework::runs

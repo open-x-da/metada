@@ -39,7 +39,6 @@ namespace tests {
 using framework::Config;
 using framework::IConfig;
 using framework::IState;
-using tests::MockConfig;
 
 /**
  * @brief Mock implementation of IState for testing

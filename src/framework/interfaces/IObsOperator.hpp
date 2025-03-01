@@ -7,7 +7,7 @@
 #include "IObservation.hpp"
 #include "IState.hpp"
 
-namespace metada::framework::interfaces {
+namespace metada::framework {
 
 /**
  * @brief Abstract interface for observation operator implementations
@@ -55,4 +55,4 @@ class IObsOperator {
   virtual bool isInitialized() const = 0;
 };
 
-}  // namespace metada::framework::interfaces
+}  // namespace metada::framework
