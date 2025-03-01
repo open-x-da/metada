@@ -36,8 +36,6 @@
 #include "MockLogger.hpp"
 #include "MockState.hpp"
 #include "State.hpp"
-#include "utils/config/Config.hpp"
-#include "utils/logger/Logger.hpp"
 
 namespace metada::tests {
 
@@ -179,7 +177,6 @@ TEST_F(StateTest, CoreStateOperations) {
 
   EXPECT_CALL(state1_->backend(), validate()).Times(1);
   state1_->validate();
-  getLogger().Debug("Called validate() on state1");
 }
 
 /**
