@@ -1,5 +1,9 @@
 #pragma once
 #include <stdexcept>
+#include <string>
+
+#include "utils/config/Config.hpp"
+#include "utils/logger/Logger.hpp"
 
 namespace metada::framework::runs {
 
@@ -32,13 +36,13 @@ namespace metada::framework::runs {
  *
  * @par Example Usage
  * @code{.cpp}
- * int main() {
- *   // Create context with app name and optional config file
- *   ApplicationContext ctx("MyApp", "config.yaml");
+ * int main(int argc, char* argv[]) {
+ *   // Create context with app name and config file
+ *   auto context = ApplicationContext<Traits>("my_app", argv[1]);
  *
  *   // Access managed services
- *   auto& logger = ctx.getLogger();
- *   auto& config = ctx.getConfig();
+ *   auto& logger = context.getLogger();
+ *   auto& config = context.getConfig();
  *
  *   logger.Info("Application started");
  *
@@ -59,12 +63,9 @@ namespace metada::framework::runs {
  */
 template <typename Traits>
 class ApplicationContext {
-  using LoggerType = typename Traits::LoggerType;
-  using ConfigType = typename Traits::ConfigType;
-
  private:
-  LoggerType logger_;
-  ConfigType config_;
+  Logger<typename Traits::LoggerType> logger_;
+  Config<typename Traits::ConfigType> config_;
   // Timer timer_;  // To be implemented
 
   /**
@@ -86,11 +87,18 @@ class ApplicationContext {
    * @throws std::runtime_error If configuration loading fails
    */
   void loadConfig(const std::string& config_file) {
-    if (!config_.LoadFromFile(config_file)) {
-      throw std::runtime_error("Failed to load configuration from: " +
-                               config_file);
+    try {
+      if (!config_.LoadFromFile(config_file)) {
+        logger_.Error("Failed to load configuration from: " + config_file);
+        throw std::runtime_error("Failed to load configuration from: " +
+                                 config_file);
+      }
+      logger_.Info("Loaded configuration from: " + config_file);
+    } catch (const std::exception& e) {
+      logger_.Error("Error loading configuration: " + std::string(e.what()));
+      throw std::runtime_error("Error loading configuration: " +
+                               std::string(e.what()));
     }
-    logger_.Info("Loaded configuration from: " + config_file);
   }
 
  public:
@@ -141,13 +149,13 @@ class ApplicationContext {
    * @brief Get reference to the logging service
    * @return Reference to the logger instance
    */
-  LoggerType& getLogger() { return logger_; }
+  Logger<typename Traits::LoggerType>& getLogger() { return logger_; }
 
   /**
    * @brief Get reference to the configuration service
    * @return Reference to the config instance
    */
-  ConfigType& getConfig() { return config_; }
+  Config<typename Traits::ConfigType>& getConfig() { return config_; }
 
   // Timer access will be added later
   // Timer& getTimer() { return timer_; }

@@ -24,78 +24,36 @@
 #include "ApplicationContext.hpp"
 #include "GoogleLogger.hpp"
 #include "JsonConfig.hpp"
-#include "utils/config/Config.hpp"
-#include "utils/logger/Logger.hpp"
 
 using namespace metada::framework;
 using namespace metada::framework::runs;
 using namespace metada::backends::config;
 using namespace metada::backends::logger;
 
-using ConfigType = Config<JsonConfig>;
-using LoggerType = Logger<GoogleLogger>;
-
-using Traits = AppTraits<LoggerType, ConfigType>;
-
 /**
- * @brief Load LETKF configuration from file
+ * @brief Application traits definition for LETKF
  *
- * Attempts to load and parse configuration settings from the specified file.
- * Handles both YAML and JSON formats. The configuration file should contain
- * LETKF-specific parameters such as ensemble size, inflation factor, and
- * state variables.
- *
- * @param logger Logger instance for status and error reporting
- * @param config_file Path to configuration file
- * @return true if configuration loaded successfully, false otherwise
- * @throws std::runtime_error If file cannot be opened or parsed
+ * Defines the backend services used by the LETKF application:
+ * - GoogleLogger: Provides structured logging capabilities
+ * - JsonConfig: Handles JSON configuration file parsing
  */
-template <typename Logger>
-bool LoadConfiguration(Logger& logger, const std::string& config_file) {
-  try {
-    ConfigType config;
-    if (!config.LoadFromFile(config_file)) {
-      logger.Error("Failed to load configuration from: " + config_file);
-      return false;
-    }
-    logger.Info("Loaded configuration from: " + config_file);
-    return true;
-  } catch (const std::exception& e) {
-    logger.Error("Error loading configuration: " + std::string(e.what()));
-    return false;
-  }
-}
-
-/**
- * @brief Check if a filename has a YAML extension
- *
- * Validates if the given filename ends with a YAML extension (.yaml or .yml).
- * This helps determine the appropriate parser to use for configuration files.
- *
- * @param filename Name of file to check
- * @return true if file has .yaml or .yml extension, false otherwise
- */
-bool isYamlFile(const std::string& filename) {
-  size_t pos = filename.find_last_of('.');
-  if (pos == std::string::npos) return false;
-  std::string ext = filename.substr(pos);
-  return ext == ".yaml" || ext == ".yml";
-}
+using Traits = AppTraits<GoogleLogger, JsonConfig>;
 
 /**
  * @brief Main entry point for LETKF application
  *
- * Initializes the application, loads configuration, sets up LETKF parameters
- * and executes the data assimilation algorithm. The application follows these
- * steps:
- * 1. Initialize logging system
+ * @details
+ * Initializes the application context, loads configuration, sets up LETKF
+ * parameters and executes the data assimilation algorithm. The application
+ * follows these steps:
+ * 1. Initialize application context (logging system and configuration)
  * 2. Parse command line arguments
  * 3. Load and validate configuration
  * 4. Set up LETKF parameters
  * 5. Execute data assimilation
- * 6. Clean up resources
+ * 6. Clean up resources automatically via RAII
  *
- * Expected configuration format:
+ * @par Expected configuration format:
  * ```yaml
  * letkf:
  *   ensemble_size: 32        # Number of ensemble members
@@ -126,22 +84,10 @@ int main(int argc, char* argv[]) {
       return 1;
     }
 
-    // Load configuration
-    std::string config_file = argv[1];
-    if (!LoadConfiguration(logger, config_file)) {
-      return 1;
-    }
-
     // Example: Read LETKF parameters from configuration
     int ensemble_size;
     double inflation_factor;
     std::vector<std::string> state_variables;
-
-    ConfigType config;
-    if (!config.LoadFromFile(config_file)) {
-      logger.Error("Failed to load configuration file: " + config_file);
-      return 1;
-    }
 
     try {
       ensemble_size = std::get<int>(config.Get("letkf.ensemble_size", 32));
