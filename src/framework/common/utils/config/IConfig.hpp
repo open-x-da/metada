@@ -42,6 +42,39 @@ class IConfig {
   virtual ~IConfig() = default;
 
   /**
+   * @brief Delete copy constructor to make IConfig non-copyable
+   *
+   * Configuration objects often manage resources or maintain internal state
+   * that shouldn't be casually copied. Derived classes can override this
+   * if they need to support copying.
+   */
+  IConfig(const IConfig&) = delete;
+
+  /**
+   * @brief Delete copy assignment operator to make IConfig non-copyable
+   *
+   * Configuration objects often manage resources or maintain internal state
+   * that shouldn't be casually copied. Derived classes can override this
+   * if they need to support copying.
+   */
+  IConfig& operator=(const IConfig&) = delete;
+
+  /**
+   * @brief Default move constructor
+   */
+  IConfig(IConfig&&) = default;
+
+  /**
+   * @brief Default move assignment operator
+   */
+  IConfig& operator=(IConfig&&) = default;
+
+  /**
+   * @brief Default constructor
+   */
+  IConfig() = default;
+
+  /**
    * @brief Load configuration from a file
    * @param filename Path to the configuration file
    * @return true if loading was successful, false otherwise

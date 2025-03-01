@@ -132,6 +132,7 @@ class StateTest : public ::testing::Test {
    * @return A new State object initialized with the test config
    */
   State<Traits::StateType> createState() {
+    // Since Config is non-copyable, we pass a reference to the config
     return State<Traits::StateType>(getConfig());
   }
 };

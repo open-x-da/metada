@@ -72,8 +72,8 @@ using Traits = AppTraits<GoogleLogger, JsonConfig>;
  */
 int main(int argc, char* argv[]) {
   auto context = ApplicationContext<Traits>("letkf_app", argv[1]);
-  auto logger = context.getLogger();
-  auto config = context.getConfig();
+  auto& logger = context.getLogger();
+  auto& config = context.getConfig();
 
   logger.Info("LETKF application starting...");
 

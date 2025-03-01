@@ -55,6 +55,32 @@ class Config {
   Config() = default;
 
   /**
+   * @brief Delete copy constructor to make Config non-copyable
+   *
+   * Configuration objects often manage resources or maintain internal state
+   * that shouldn't be casually copied.
+   */
+  Config(const Config&) = delete;
+
+  /**
+   * @brief Delete copy assignment operator to make Config non-copyable
+   *
+   * Configuration objects often manage resources or maintain internal state
+   * that shouldn't be casually copied.
+   */
+  Config& operator=(const Config&) = delete;
+
+  /**
+   * @brief Default move constructor
+   */
+  Config(Config&&) = default;
+
+  /**
+   * @brief Default move assignment operator
+   */
+  Config& operator=(Config&&) = default;
+
+  /**
    * @brief Get direct access to the backend instance
    * @return Reference to the backend instance
    */
