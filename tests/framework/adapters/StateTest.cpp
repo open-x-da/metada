@@ -114,6 +114,8 @@ class StateTest : public ::testing::Test {
 
     // Then clean up other resources
     test_data_.clear();
+    dimensions_.clear();
+    variable_names_.clear();
     context_.reset();
   }
 

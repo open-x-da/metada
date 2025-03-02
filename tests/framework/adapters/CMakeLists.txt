@@ -74,6 +74,8 @@ target_link_libraries(observation_test
         metada::framework::interfaces
         metada::framework::adapters
         metada::framework::interfaces::test
+        metada::framework::runs
+        metada::framework::traits
 )
 
 target_include_directories(observation_test

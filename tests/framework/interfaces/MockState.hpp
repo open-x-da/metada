@@ -27,14 +27,7 @@
 #include "IState.hpp"
 #include "utils/config/Config.hpp"
 
-namespace metada {
-
-// Forward declarations with namespace forwarding
-namespace framework {
-class IConfig;
-}  // namespace framework
-
-namespace tests {
+namespace metada::tests {
 
 using framework::Config;
 using framework::IConfig;
@@ -149,5 +142,4 @@ class MockState : public IState {
   const Config<MockConfig>& config() const { return config_; }
 };
 
-}  // namespace tests
-}  // namespace metada
+}  // namespace metada::tests

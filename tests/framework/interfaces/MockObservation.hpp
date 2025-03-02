@@ -1,21 +1,36 @@
+/**
+ * @file MockObservation.hpp
+ * @brief Mock implementation of IObservation interface for testing
+ * @ingroup tests
+ * @author Metada Framework Team
+ *
+ * @details
+ * This mock class provides a test double for the IObservation interface using
+ * Google Mock. It allows testing code that depends on IObservation by providing
+ * mock implementations of all interface methods that can be configured with
+ * expectations and behaviors.
+ *
+ * The mock implementation supports:
+ * - Setting expectations on method calls
+ * - Configuring return values and behaviors
+ * - Verifying interaction patterns
+ * - Testing error conditions
+ *
+ * @see IObservation
+ * @see testing::Mock
+ */
+
 #pragma once
 
 #include <gmock/gmock.h>
 
-#include <algorithm>
-#include <map>
 #include <string>
 #include <vector>
 
 #include "IObservation.hpp"
-#include "MockConfig.hpp"
 #include "utils/config/Config.hpp"
 
 namespace metada::tests {
-
-using ::testing::_;
-using ::testing::Return;
-using ::testing::ReturnRef;
 
 using metada::framework::Config;
 using metada::framework::IConfig;
@@ -23,144 +38,97 @@ using metada::framework::IObservation;
 
 /**
  * @brief Mock implementation of IObservation for testing
+ *
+ * @details
+ * Provides mock methods for all IObservation interface operations, organized
+ * into the following categories:
+ *
+ * @par Lifecycle Management
+ * - initialize() - Initialize observation from configuration
+ * - reset() - Reset observation to initial values
+ * - validate() - Validate observation consistency
+ * - isValid() - Check if observation is valid
+ * - isInitialized() - Check initialization status
+ *
+ * @par Copy/Move Operations
+ * - copyFrom() - Copy observation from another instance
+ * - moveFrom() - Move observation from another instance
+ * - equals() - Compare equality with another observation
+ *
+ * @par Data Access
+ * - getData() - Get raw pointer to data
+ * - getData() const - Get const raw pointer to data
+ * - getUncertainty() - Get raw pointer to uncertainty data
+ * - getUncertainty() const - Get const raw pointer to uncertainty data
+ * - getSize() - Get size of observation data
+ *
+ * @par Metadata Operations
+ * - setMetadata() - Set metadata key-value pair
+ * - getMetadata() - Get metadata value by key
+ * - hasMetadata() - Check if metadata key exists
+ *
+ * @par Observation Information
+ * - getVariableNames() - Get names of observation variables
+ * - hasVariable() - Check if variable exists
+ * - getDimensions() - Get dimensions of observation space
+ *
+ * @par Spatiotemporal Metadata
+ * - setLocations() - Set spatial locations for observations
+ * - setTimes() - Set timestamps for observations
+ * - getLocations() - Get spatial locations
+ * - getTimes() - Get timestamps
+ *
+ * @par Arithmetic Operations
+ * - add() - Add another observation
+ * - subtract() - Subtract another observation
+ * - multiply() - Multiply by scalar
+ *
+ * @par Quality Control
+ * - setQualityFlags() - Set quality control flags
+ * - getQualityFlags() - Get quality control flags
+ * - setConfidenceValues() - Set confidence values
+ * - getConfidenceValues() - Get confidence values
+ *
+ * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
+ * setting expectations and verifying calls.
  */
 class MockObservation : public IObservation {
  private:
   const Config<MockConfig>& config_;
-  bool initialized_{false};
-  std::vector<std::string> variableNames_;
-  std::vector<size_t> dimensions_;
-  std::vector<std::vector<double>> locations_;
-  std::vector<double> times_;
-  std::vector<int> qualityFlags_;
-  std::vector<double> confidenceValues_;
-  std::map<std::string, std::string> metadata_;
 
  public:
+  // Disable default constructor
+  MockObservation() = delete;
+
   /**
    * @brief Constructor that initializes observation from config
    */
   explicit MockObservation(const Config<MockConfig>& config) : config_(config) {
-    // Set up default behaviors for mocked methods
-    ON_CALL(*this, isInitialized()).WillByDefault([this]() {
-      return initialized_;
-    });
-    ON_CALL(*this, getVariableNames()).WillByDefault(ReturnRef(variableNames_));
-    ON_CALL(*this, getDimensions()).WillByDefault(ReturnRef(dimensions_));
-    ON_CALL(*this, getLocations()).WillByDefault(ReturnRef(locations_));
-    ON_CALL(*this, getTimes()).WillByDefault(ReturnRef(times_));
-    ON_CALL(*this, getQualityFlags()).WillByDefault(ReturnRef(qualityFlags_));
-    ON_CALL(*this, getConfidenceValues())
-        .WillByDefault(ReturnRef(confidenceValues_));
-
-    ON_CALL(*this, setMetadata(testing::_, testing::_))
-        .WillByDefault(
-            [this](const std::string& key, const std::string& value) {
-              metadata_[key] = value;
-            });
-    ON_CALL(*this, getMetadata(testing::_))
-        .WillByDefault([this](const std::string& key) {
-          auto it = metadata_.find(key);
-          if (it != metadata_.end()) {
-            return it->second;
-          }
-          throw std::runtime_error("Metadata key not found: " + key);
-        });
-    ON_CALL(*this, hasMetadata(testing::_))
-        .WillByDefault([this](const std::string& key) {
-          return metadata_.find(key) != metadata_.end();
-        });
-
-    ON_CALL(*this, hasVariable(testing::_))
-        .WillByDefault([this](const std::string& name) {
-          return std::find(variableNames_.begin(), variableNames_.end(),
-                           name) != variableNames_.end();
-        });
-
-    ON_CALL(*this, setLocations(testing::_))
-        .WillByDefault(
-            [this](const std::vector<std::vector<double>>& locations) {
-              locations_ = locations;
-            });
-    ON_CALL(*this, setTimes(testing::_))
-        .WillByDefault([this](const std::vector<double>& timestamps) {
-          times_ = timestamps;
-        });
-    ON_CALL(*this, setQualityFlags(testing::_))
-        .WillByDefault(
-            [this](const std::vector<int>& flags) { qualityFlags_ = flags; });
-    ON_CALL(*this, setConfidenceValues(testing::_))
-        .WillByDefault([this](const std::vector<double>& values) {
-          confidenceValues_ = values;
-        });
-
     initialize(config.backend());
   }
 
   /**
    * @brief Copy constructor
    */
-  MockObservation(const MockObservation& other)
-      : config_(other.config_),
-        initialized_(other.initialized_),
-        variableNames_(other.variableNames_),
-        dimensions_(other.dimensions_),
-        locations_(other.locations_),
-        times_(other.times_),
-        qualityFlags_(other.qualityFlags_),
-        confidenceValues_(other.confidenceValues_),
-        metadata_(other.metadata_) {}
+  MockObservation(const MockObservation& other) : config_(other.config_) {}
 
   /**
    * @brief Move constructor
    */
-  MockObservation(MockObservation&& other) noexcept
-      : config_(other.config_),
-        initialized_(other.initialized_),
-        variableNames_(std::move(other.variableNames_)),
-        dimensions_(std::move(other.dimensions_)),
-        locations_(std::move(other.locations_)),
-        times_(std::move(other.times_)),
-        qualityFlags_(std::move(other.qualityFlags_)),
-        confidenceValues_(std::move(other.confidenceValues_)),
-        metadata_(std::move(other.metadata_)) {
-    other.initialized_ = false;
-  }
+  MockObservation(MockObservation&& other) noexcept : config_(other.config_) {}
 
   /**
    * @brief Copy assignment operator
    */
-  MockObservation& operator=(const MockObservation& other) {
-    if (this != &other) {
-      // We can't reassign config_ since it's a reference
-      initialized_ = other.initialized_;
-      variableNames_ = other.variableNames_;
-      dimensions_ = other.dimensions_;
-      locations_ = other.locations_;
-      times_ = other.times_;
-      qualityFlags_ = other.qualityFlags_;
-      confidenceValues_ = other.confidenceValues_;
-      metadata_ = other.metadata_;
-    }
+  MockObservation& operator=([[maybe_unused]] const MockObservation& other) {
     return *this;
   }
 
   /**
    * @brief Move assignment operator
    */
-  MockObservation& operator=(MockObservation&& other) noexcept {
-    if (this != &other) {
-      // We can't reassign config_ since it's a reference
-      initialized_ = other.initialized_;
-      variableNames_ = std::move(other.variableNames_);
-      dimensions_ = std::move(other.dimensions_);
-      locations_ = std::move(other.locations_);
-      times_ = std::move(other.times_);
-      qualityFlags_ = std::move(other.qualityFlags_);
-      confidenceValues_ = std::move(other.confidenceValues_);
-      metadata_ = std::move(other.metadata_);
-      other.initialized_ = false;
-    }
+  MockObservation& operator=(
+      [[maybe_unused]] MockObservation&& other) noexcept {
     return *this;
   }
 
