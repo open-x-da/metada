@@ -52,6 +52,15 @@ class IConfig;  // Forward declaration
  * - Consistent state validation
  */
 class IState {
+ protected:
+  /**
+   * @brief Default constructor is protected to enforce initialization with a
+   * config
+   * @details Only derived classes can use this constructor. States should
+   * always be initialized with a configuration object.
+   */
+  IState() = default;
+
  public:
   /**
    * @brief Virtual destructor for proper cleanup
@@ -82,11 +91,6 @@ class IState {
    * @details Allows move assignment of IState-derived objects
    */
   IState& operator=(IState&&) = default;
-
-  /**
-   * @brief Default constructor
-   */
-  IState() = default;
 
   /**
    * @brief Initialize state from configuration
