@@ -56,6 +56,11 @@ using framework::ILogger;
 class GoogleLogger : public ILogger {
  public:
   /**
+   * @brief Default constructor
+   */
+  GoogleLogger() = default;
+
+  /**
    * @brief Log info message using glog
    *
    * Writes an informational message using glog's INFO level. Info messages

@@ -5,10 +5,12 @@
 #include <memory>
 #include <string>
 
-#include "IConfig.hpp"
+#include "utils/config/ConfigValue.hpp"
+#include "utils/config/IConfig.hpp"
 
 namespace metada::backends::config {
 
+using framework::ConfigValue;
 using framework::IConfig;
 
 /**

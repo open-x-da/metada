@@ -54,6 +54,11 @@ using framework::ILogger;
 class ConsoleLogger : public ILogger {
  public:
   /**
+   * @brief Default constructor
+   */
+  ConsoleLogger() = default;
+
+  /**
    * @brief Log info message to stdout
    *
    * Writes an informational message to standard output with [INFO] prefix.

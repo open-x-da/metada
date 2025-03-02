@@ -76,13 +76,13 @@ class Config : public NonCopyable {
    * @brief Get direct access to the backend instance
    * @return Reference to the backend instance
    */
-  ConfigBackend& backend() { return backend_; }
+  Backend& backend() { return backend_; }
 
   /**
    * @brief Get const access to the backend instance
    * @return Const reference to the backend instance
    */
-  const ConfigBackend& backend() const { return backend_; }
+  const Backend& backend() const { return backend_; }
 
   /**
    * @brief Load configuration from a file
