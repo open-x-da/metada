@@ -60,6 +60,35 @@ class IState {
   virtual ~IState() = default;
 
   /**
+   * @brief Default copy constructor
+   * @details Allows copying of IState-derived objects
+   */
+  IState(const IState&) = default;
+
+  /**
+   * @brief Default copy assignment operator
+   * @details Allows copy assignment of IState-derived objects
+   */
+  IState& operator=(const IState&) = default;
+
+  /**
+   * @brief Default move constructor
+   * @details Allows moving of IState-derived objects
+   */
+  IState(IState&&) = default;
+
+  /**
+   * @brief Default move assignment operator
+   * @details Allows move assignment of IState-derived objects
+   */
+  IState& operator=(IState&&) = default;
+
+  /**
+   * @brief Default constructor
+   */
+  IState() = default;
+
+  /**
    * @brief Initialize state from configuration
    * @param config Configuration object containing initialization parameters
    * @throws std::runtime_error If initialization fails

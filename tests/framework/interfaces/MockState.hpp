@@ -86,11 +86,33 @@ class MockState : public IState {
     initialize(config.backend());
   }
 
-  MockState(const MockState& other) = delete;
-  MockState& operator=(const MockState& other) = delete;
+  // Copy constructor
+  MockState(const MockState& other) : config_(other.config_) {
+    // We don't call copyFrom here because it would create a circular dependency
+    // in tests where expectations are set on copyFrom itself
+    // The test should set appropriate expectations for copyFrom if needed
+  }
 
-  MockState(MockState&& other) noexcept = delete;
-  MockState& operator=(MockState&& other) noexcept = delete;
+  // Copy assignment operator
+  MockState& operator=([[maybe_unused]] const MockState& other) {
+    // We don't call copyFrom here for the same reason as in the copy
+    // constructor Just keep the reference to the config
+    return *this;
+  }
+
+  // Move constructor
+  MockState(MockState&& other) noexcept : config_(other.config_) {
+    // We don't call moveFrom here because it would create a circular dependency
+    // in tests where expectations are set on moveFrom itself
+    // The test should set appropriate expectations for moveFrom if needed
+  }
+
+  // Move assignment operator
+  MockState& operator=([[maybe_unused]] MockState&& other) noexcept {
+    // We don't call moveFrom here for the same reason as in the move
+    // constructor Just keep the reference to the config
+    return *this;
+  }
 
   // Core state operations
   MOCK_METHOD(void, initialize, (const IConfig& config), (override));

@@ -151,10 +151,20 @@ TEST_F(StateTest, ConstructorTests) {
   auto state = createState();
   EXPECT_TRUE(state.isInitialized());
 
+  // For the copy constructor test, we need to use ON_CALL instead of
+  // EXPECT_CALL because we can't set expectations on state_copy.backend()
+  // before it exists
+  ON_CALL(state.backend(), copyFrom(_)).WillByDefault(Return());
+
   // Test copy constructor
   State<Traits::StateType> state_copy(state);
   EXPECT_CALL(state_copy.backend(), equals(_)).WillOnce(Return(true));
   EXPECT_TRUE(state_copy == state);
+  EXPECT_TRUE(
+      state_copy.isInitialized());  // Copy should preserve initialization state
+
+  // For the move constructor test, we need to use ON_CALL
+  ON_CALL(state_copy.backend(), moveFrom(_)).WillByDefault(Return());
 
   // Test move constructor
   State<Traits::StateType> state_moved(std::move(state_copy));
@@ -187,12 +197,16 @@ TEST_F(StateTest, CoreStateOperations) {
  * Verifies proper state copying between instances:
  * - Correct delegation to backend copyFrom()
  * - Proper state transfer
+ * - Preservation of initialization state
  */
 TEST_F(StateTest, CopyAssignment) {
   // Use the pre-created state objects
   EXPECT_CALL(state2_->backend(), copyFrom(testing::Ref(state1_->backend())))
       .Times(1);
   *state2_ = *state1_;
+
+  // Verify initialization state is preserved
+  EXPECT_TRUE(state2_->isInitialized());
 }
 
 /**
@@ -207,6 +221,7 @@ TEST_F(StateTest, CopyAssignment) {
 TEST_F(StateTest, MoveAssignment) {
   // Create a new state for move testing
   auto temp_state = createState();
+  EXPECT_TRUE(temp_state.isInitialized());
 
   // Set up expectations for move assignment
   EXPECT_CALL(state1_->backend(), moveFrom(_)).Times(1);
@@ -346,6 +361,44 @@ TEST_F(StateTest, ArithmeticErrors) {
   EXPECT_CALL(state1_->backend(), subtract(testing::Ref(state2_->backend())))
       .WillOnce(testing::Throw(std::runtime_error("Incompatible states")));
   EXPECT_THROW(*state1_ -= *state2_, std::runtime_error);
+}
+
+/**
+ * @brief Test MockState copy and move operations
+ *
+ * @details
+ * Verifies that MockState properly supports:
+ * - Copy construction
+ * - Copy assignment
+ * - Move construction
+ * - Move assignment
+ *
+ * This test ensures that our mock implementation correctly supports
+ * the copy/move semantics we've implemented in the State classes.
+ */
+TEST_F(StateTest, MockStateCopyAndMove) {
+  // Get a reference to the backend of state1_
+  auto& mockState1 = state1_->backend();
+
+  // Test copy construction of MockState
+  MockState mockState2(mockState1);
+
+  // Test copy assignment of MockState
+  MockState mockState3(getConfig());
+  mockState3 = mockState1;
+
+  // Test move construction of MockState
+  MockState mockState4(std::move(mockState3));
+
+  // Test move assignment of MockState
+  MockState mockState5(getConfig());
+  mockState5 = std::move(mockState4);
+
+  // Verify that all operations completed without errors
+  // Note: We don't need to verify specific behavior since the mock
+  // implementation doesn't actually copy/move data, just maintains
+  // the reference to the config
+  SUCCEED() << "MockState copy and move operations completed successfully";
 }
 
 }  // namespace metada::tests

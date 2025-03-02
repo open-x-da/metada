@@ -92,9 +92,9 @@ class State {
    * @brief Copy constructor
    * @param other State instance to copy from
    */
-  explicit State(const State& other) : backend_(other.backend_.config()) {
+  State(const State& other) : backend_(other.backend_.config()) {
     backend_.copyFrom(other.backend_);
-    initialized_ = true;
+    initialized_ = other.initialized_;
   }
 
   // Core state operations
