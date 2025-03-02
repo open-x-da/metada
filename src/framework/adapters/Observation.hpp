@@ -44,18 +44,20 @@ class Observation {
    * @brief Constructor with backend rvalue reference
    *
    * This constructor takes ownership of the backend instance.
+   * Note: The backend must be already initialized with a config.
    */
-  explicit Observation(Backend&& backend) : backend_(std::move(backend)) {
-    initialize();
-  }
+  explicit Observation(Backend&& backend)
+      : backend_(std::move(backend)), initialized_(true) {}
 
   /**
    * @brief Constructor with backend lvalue reference
    *
    * This constructor is particularly useful for shared_ptr backends or
    * when working with mock objects that can't be moved.
+   * Note: The backend must be already initialized with a config.
    */
-  explicit Observation(Backend& backend) : backend_(backend) { initialize(); }
+  explicit Observation(Backend& backend)
+      : backend_(backend), initialized_(true) {}
 
   /**
    * @brief Constructor that initializes observation with configuration
@@ -112,12 +114,6 @@ class Observation {
   const Backend& backend() const { return backend_; }
 
   // Lifecycle management
-  Observation& initialize() {
-    backend_.initialize();
-    initialized_ = true;
-    return *this;
-  }
-
   Observation& initialize(const IConfig& config) {
     backend_.initialize(config);
     initialized_ = true;

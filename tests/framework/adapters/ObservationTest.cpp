@@ -66,19 +66,6 @@ class ObservationTest : public ::testing::Test {
   }
 };
 
-TEST_F(ObservationTest, InitializeCallsBackend) {
-  // Create a new mock for this specific test
-  Config<MockConfig> testConfig;
-  MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);
-
-  // Create a new observation with this mock
-  Observation<MockObservation> testObs(testMock);
-
-  // Call initialize
-  testObs.initialize();
-}
-
 TEST_F(ObservationTest, InitializeWithConfigCallsBackend) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
@@ -96,7 +83,8 @@ TEST_F(ObservationTest, GetDataReturnsCorrectValue) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, isValid()).WillRepeatedly(Return(true));
   EXPECT_CALL(testMock, getData())
       .WillRepeatedly(Return(static_cast<void*>(&temperature_)));
@@ -112,7 +100,8 @@ TEST_F(ObservationTest, GetUncertaintyReturnsCorrectValue) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, getUncertainty())
       .WillRepeatedly(Return(static_cast<void*>(&uncertainty_)));
 
@@ -127,7 +116,8 @@ TEST_F(ObservationTest, LocationsAreCorrectlyReturned) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, getLocations()).WillRepeatedly(ReturnRef(locations_));
 
   // Create a new observation with this mock
@@ -148,7 +138,8 @@ TEST_F(ObservationTest, SetLocationsCallsBackend) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, setLocations(_)).Times(1);
 
   // Create a new observation with this mock
@@ -164,7 +155,8 @@ TEST_F(ObservationTest, FluentInterfaceWorks) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, setLocations(_)).Times(1);
   EXPECT_CALL(testMock, setTimes(_)).Times(1);
   EXPECT_CALL(testMock, setQualityFlags(_)).Times(1);
@@ -187,7 +179,8 @@ TEST_F(ObservationTest, MetadataOperationsWork) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
 
   // Create a new observation with this mock
   Observation<MockObservation> testObs(testMock);
@@ -205,7 +198,8 @@ TEST_F(ObservationTest, ThrowsOnInvalidAccess) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, isValid()).WillOnce(Return(false));
 
   // Create a new observation with this mock
@@ -219,7 +213,8 @@ TEST_F(ObservationTest, CopyConstructionWorks) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, isValid()).WillRepeatedly(Return(true));
   EXPECT_CALL(testMock, getData())
       .WillRepeatedly(Return(static_cast<void*>(&temperature_)));
@@ -241,7 +236,8 @@ TEST_F(ObservationTest, MoveConstructionWorks) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
-  EXPECT_CALL(testMock, initialize()).Times(1);  // Called in constructor
+  EXPECT_CALL(testMock, initialize(testing::_))
+      .Times(1);  // Called in constructor
   EXPECT_CALL(testMock, isValid()).WillRepeatedly(Return(true));
   EXPECT_CALL(testMock, getData())
       .WillRepeatedly(Return(static_cast<void*>(&temperature_)));
@@ -263,8 +259,8 @@ TEST_F(ObservationTest, ArithmeticOperationsWork) {
   MockObservation testMock2(testConfig);
 
   // Setup expectations
-  EXPECT_CALL(testMock1, initialize()).Times(1);
-  EXPECT_CALL(testMock2, initialize()).Times(1);
+  EXPECT_CALL(testMock1, initialize(testing::_)).Times(1);
+  EXPECT_CALL(testMock2, initialize(testing::_)).Times(1);
   EXPECT_CALL(testMock1, add(_)).Times(1);
   EXPECT_CALL(testMock1, subtract(_)).Times(1);
   EXPECT_CALL(testMock1, multiply(2.0)).Times(1);
@@ -286,8 +282,8 @@ TEST_F(ObservationTest, OperatorOverloadsWork) {
   MockObservation testMock2(testConfig);
 
   // Setup expectations
-  EXPECT_CALL(testMock1, initialize()).Times(1);
-  EXPECT_CALL(testMock2, initialize()).Times(1);
+  EXPECT_CALL(testMock1, initialize(testing::_)).Times(1);
+  EXPECT_CALL(testMock2, initialize(testing::_)).Times(1);
 
   // For operator+
   EXPECT_CALL(testMock1, copyFrom(_)).Times(3);  // Once for each operator test

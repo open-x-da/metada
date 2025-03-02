@@ -165,7 +165,6 @@ class MockObservation : public IObservation {
   }
 
   // Lifecycle management
-  MOCK_METHOD(void, initialize, (), (override));
   MOCK_METHOD(void, initialize, (const IConfig& config), (override));
   MOCK_METHOD(void, reset, (), (override));
   MOCK_METHOD(void, validate, (), (const, override));

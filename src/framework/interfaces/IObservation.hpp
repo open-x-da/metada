@@ -37,12 +37,6 @@ class IObservation {
 
   // Lifecycle management
   /**
-   * @brief Initialize the observation
-   * @throws std::runtime_error If initialization fails
-   */
-  virtual void initialize() = 0;
-
-  /**
    * @brief Initialize the observation from configuration
    * @param config Configuration object containing initialization parameters
    * @throws std::runtime_error If initialization fails
