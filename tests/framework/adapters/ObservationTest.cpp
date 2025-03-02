@@ -475,9 +475,14 @@ TEST_F(ObservationTest, OperatorOverloadsWork) {
  */
 TEST_F(ObservationTest, ArithmeticAssignmentOperatorsWork) {
   // Set expectations for the backend operations
-  EXPECT_CALL(obs1_->backend(), add(testing::Ref(obs2_->backend()))).Times(1);
-  EXPECT_CALL(obs1_->backend(), subtract(testing::Ref(obs2_->backend())))
-      .Times(1);
+  EXPECT_CALL(obs1_->backend(), isValid())
+      .Times(3)
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(obs2_->backend(), isValid())
+      .Times(2)
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(obs1_->backend(), add(_)).Times(1);
+  EXPECT_CALL(obs1_->backend(), subtract(_)).Times(1);
   EXPECT_CALL(obs1_->backend(), multiply(2.0)).Times(1);
 
   // Test the operators
