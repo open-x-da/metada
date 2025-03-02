@@ -3,26 +3,23 @@
  * @brief Unit tests for the Observation class template
  * @ingroup tests
  * @author Metada Framework Team
- *
- * @details
+ * 
  * This test suite verifies the functionality of the Observation class template,
- * which provides a generic interface for observation implementations. The tests
- * cover:
- *
- * Core functionality:
- * - Initialization and construction
- * - Observation operations (reset, validate)
- * - Data access and type safety
- *
- * Advanced features:
- * - Metadata management
- * - Spatiotemporal metadata
- * - Quality control
+ * which provides a generic interface for observation implementations.
+ * 
+ * The tests cover:
+ * - Construction and initialization
+ * - Core operations (reset, validate, data access)
  * - Copy/move semantics
- * - Arithmetic operations
- *
+ * - Arithmetic operations (+, -, *, +=, -=, *=)
+ * - Comparison operators (==, !=)
+ * - Metadata management
+ * - Location and time data handling
+ * - Quality control flags
+ * - Error handling for invalid states
+ * 
  * The test suite uses Google Test/Mock framework for mocking and assertions.
- *
+ * 
  * @see Observation
  * @see IObservation
  * @see MockObservation
@@ -58,67 +55,60 @@ using Traits = AppTraits<MockLogger, MockConfig, MockState, MockObservation>;
 
 /**
  * @brief Test fixture for Observation class tests
- *
- * @details
- * Provides common test data and setup/teardown for Observation tests:
- * - Variable names and dimensions
- * - Locations and timestamps
- * - Quality flags and confidence values
- * - Test data for observations and uncertainties
+ * 
+ * Provides common setup and test data for Observation tests including:
+ * - Mock objects and application context
+ * - Sample observation data and metadata
+ * - Helper methods for observation creation and access
  */
 class ObservationTest : public ::testing::Test {
  protected:
-  /** @brief Application context for testing */
+  /** @brief Application context instance */
   std::unique_ptr<ApplicationContext<Traits>> context_;
 
-  // Test data
-  /** @brief Names of observation variables */
+  /** @brief Variable names for test data */
   std::vector<std::string> variableNames_;
 
-  /** @brief Dimensions of observation variables */
+  /** @brief Variable dimensions */
   std::vector<size_t> dimensions_;
 
-  /** @brief Spatial locations of observations */
+  /** @brief Sample location coordinates */
   std::vector<std::vector<double>> locations_;
 
-  /** @brief Timestamps of observations */
+  /** @brief Sample timestamps */
   std::vector<double> times_;
 
-  /** @brief Quality flags for observations */
+  /** @brief Quality control flags */
   std::vector<int> qualityFlags_;
 
-  /** @brief Confidence values for observations */
+  /** @brief Confidence values */
   std::vector<double> confidenceValues_;
 
-  /** @brief Sample temperature observation value */
+  /** @brief Sample temperature value */
   double temperature_;
 
   /** @brief Sample uncertainty value */
   double uncertainty_;
 
-  // Mock config and observation
-  /** @brief Mock configuration object */
+  /** @brief Mock configuration */
   Config<MockConfig> mockConfig_;
 
   /** @brief Mock observation backend */
   MockObservation mockBackend_{mockConfig_};
 
-  /** @brief Observation adapter using mock backend */
+  /** @brief Test observation instance */
   Observation<MockObservation> observation_{mockBackend_};
 
-  // Observations for tests
-  /** @brief First test observation instance */
+  /** @brief First test observation */
   std::unique_ptr<Observation<Traits::ObservationType>> obs1_;
 
-  /** @brief Second test observation instance */
+  /** @brief Second test observation */
   std::unique_ptr<Observation<Traits::ObservationType>> obs2_;
 
   /**
-   * @brief Set up test data before each test
-   *
-   * Initializes:
-   * - Mock expectations for common operations
-   * - Test data access
+   * @brief Set up test fixture
+   * 
+   * Initializes test data, creates observation instances, and sets up mock expectations
    */
   void SetUp() override {
     // Create a new application context for this test
@@ -158,7 +148,9 @@ class ObservationTest : public ::testing::Test {
   }
 
   /**
-   * @brief Clean up test data after each test
+   * @brief Clean up test fixture
+   * 
+   * Releases test resources and cleans up test data
    */
   void TearDown() override {
     // Clean up observations
@@ -176,20 +168,20 @@ class ObservationTest : public ::testing::Test {
   }
 
   /**
-   * @brief Get reference to the logger from context
-   * @return Reference to the logger instance
+   * @brief Get logger instance from context
+   * @return Reference to logger
    */
   Logger<Traits::LoggerType>& getLogger() { return context_->getLogger(); }
 
   /**
-   * @brief Get reference to the config from context
-   * @return Reference to the configuration instance
+   * @brief Get configuration instance from context
+   * @return Reference to configuration
    */
   Config<Traits::ConfigType>& getConfig() { return context_->getConfig(); }
 
   /**
-   * @brief Create a fresh Observation object for tests that need a new instance
-   * @return A new Observation object initialized with the test config
+   * @brief Create new observation instance
+   * @return New observation initialized with test config
    */
   Observation<Traits::ObservationType> createObservation() {
     return Observation<Traits::ObservationType>(getConfig());
@@ -197,11 +189,13 @@ class ObservationTest : public ::testing::Test {
 };
 
 /**
- * @brief Test initialization with config
- *
- * @details
- * Verifies that the constructor properly initializes the observation
- * by calling initialize on the backend with the provided config.
+ * @brief Test observation construction
+ * 
+ * Verifies:
+ * - Configuration constructor initialization
+ * - Copy constructor behavior
+ * - Move constructor behavior
+ * - Initialization state preservation
  */
 TEST_F(ObservationTest, ConstructorTests) {
   // Test configuration constructor - use the helper method
@@ -234,11 +228,10 @@ TEST_F(ObservationTest, ConstructorTests) {
 
 /**
  * @brief Test core observation operations
- *
- * @details
- * Verifies basic observation manipulation:
- * - reset() properly resets observation
- * - validate() checks observation consistency
+ * 
+ * Verifies:
+ * - reset() functionality
+ * - validate() functionality
  */
 TEST_F(ObservationTest, CoreObservationOperations) {
   // Use the pre-created observation object
@@ -251,9 +244,8 @@ TEST_F(ObservationTest, CoreObservationOperations) {
 
 /**
  * @brief Test data access
- *
- * @details
- * Verifies that getData returns the correct typed data from the backend.
+ * 
+ * Verifies getData() returns correct typed data
  */
 TEST_F(ObservationTest, GetDataReturnsCorrectValue) {
   EXPECT_EQ(obs1_->getData<double>(), temperature_);
@@ -261,9 +253,8 @@ TEST_F(ObservationTest, GetDataReturnsCorrectValue) {
 
 /**
  * @brief Test uncertainty access
- *
- * @details
- * Verifies that getUncertainty returns the correct typed uncertainty data.
+ * 
+ * Verifies getUncertainty() returns correct uncertainty value
  */
 TEST_F(ObservationTest, GetUncertaintyReturnsCorrectValue) {
   EXPECT_EQ(obs1_->getUncertainty<double>(), uncertainty_);
@@ -271,9 +262,8 @@ TEST_F(ObservationTest, GetUncertaintyReturnsCorrectValue) {
 
 /**
  * @brief Test location data access
- *
- * @details
- * Verifies that getLocations returns the correct location data.
+ * 
+ * Verifies getLocations() returns correct location coordinates
  */
 TEST_F(ObservationTest, LocationsAreCorrectlyReturned) {
   // Expect the getLocations method to be called
@@ -293,10 +283,9 @@ TEST_F(ObservationTest, LocationsAreCorrectlyReturned) {
 }
 
 /**
- * @brief Test setting locations
- *
- * @details
- * Verifies that setLocations properly calls the backend.
+ * @brief Test location setting
+ * 
+ * Verifies setLocations() properly updates backend
  */
 TEST_F(ObservationTest, SetLocationsCallsBackend) {
   // Use the pre-created observation with mockBackend_
@@ -313,10 +302,9 @@ TEST_F(ObservationTest, SetLocationsCallsBackend) {
 }
 
 /**
- * @brief Test fluent interface
- *
- * @details
- * Verifies that method chaining works correctly.
+ * @brief Test method chaining
+ * 
+ * Verifies fluent interface works for multiple operations
  */
 TEST_F(ObservationTest, FluentInterfaceWorks) {
   // Use the pre-created observation with mockBackend_
@@ -343,9 +331,11 @@ TEST_F(ObservationTest, FluentInterfaceWorks) {
 
 /**
  * @brief Test metadata operations
- *
- * @details
- * Verifies that metadata can be set and retrieved correctly.
+ * 
+ * Verifies:
+ * - Setting metadata
+ * - Getting metadata
+ * - Checking metadata existence
  */
 TEST_F(ObservationTest, MetadataOperationsWork) {
   // Use the pre-created observation with mockBackend_
@@ -364,10 +354,9 @@ TEST_F(ObservationTest, MetadataOperationsWork) {
 }
 
 /**
- * @brief Test exception on invalid access
- *
- * @details
- * Verifies that accessing data from an invalid observation throws an exception.
+ * @brief Test invalid data access
+ * 
+ * Verifies exception throwing for invalid observation access
  */
 TEST_F(ObservationTest, ThrowsOnInvalidAccess) {
   // Create a new observation with invalid state for this specific test
@@ -382,12 +371,10 @@ TEST_F(ObservationTest, ThrowsOnInvalidAccess) {
 
 /**
  * @brief Test copy assignment
- *
- * @details
- * Verifies proper observation copying between instances:
- * - Correct delegation to backend copyFrom()
- * - Proper observation transfer
- * - Preservation of initialization state
+ * 
+ * Verifies:
+ * - Backend copyFrom() called correctly
+ * - Initialization state preserved
  */
 TEST_F(ObservationTest, CopyAssignment) {
   // Use the pre-created observation objects
@@ -401,12 +388,11 @@ TEST_F(ObservationTest, CopyAssignment) {
 
 /**
  * @brief Test move assignment
- *
- * @details
- * Verifies proper move semantics:
- * - Correct observation transfer
- * - Source observation invalidation
- * - Destination observation validation
+ * 
+ * Verifies:
+ * - Proper observation transfer
+ * - Source invalidation
+ * - Destination validation
  */
 TEST_F(ObservationTest, MoveAssignment) {
   // Create a new observation for move testing
@@ -426,9 +412,8 @@ TEST_F(ObservationTest, MoveAssignment) {
 
 /**
  * @brief Test arithmetic operations
- *
- * @details
- * Verifies that arithmetic operations work correctly.
+ * 
+ * Verifies add(), subtract(), multiply() functionality
  */
 TEST_F(ObservationTest, ArithmeticOperationsWork) {
   // Create observations for this test
@@ -447,9 +432,8 @@ TEST_F(ObservationTest, ArithmeticOperationsWork) {
 
 /**
  * @brief Test operator overloads
- *
- * @details
- * Verifies that operator overloads work correctly.
+ * 
+ * Verifies +, -, * operator functionality
  */
 TEST_F(ObservationTest, OperatorOverloadsWork) {
   // Create a result observation for testing
@@ -468,10 +452,8 @@ TEST_F(ObservationTest, OperatorOverloadsWork) {
 
 /**
  * @brief Test arithmetic assignment operators
- *
- * @details
- * Verifies that the arithmetic assignment operators (+=, -=, *=) work
- * correctly.
+ * 
+ * Verifies +=, -=, *= operator functionality
  */
 TEST_F(ObservationTest, ArithmeticAssignmentOperatorsWork) {
   // Set expectations for the backend operations
@@ -495,9 +477,8 @@ TEST_F(ObservationTest, ArithmeticAssignmentOperatorsWork) {
 
 /**
  * @brief Test comparison operators
- *
- * @details
- * Verifies that the equality (==) and inequality (!=) operators work correctly.
+ * 
+ * Verifies == and != operator functionality
  */
 TEST_F(ObservationTest, ComparisonOperatorsWork) {
   // Create observations for comparison
