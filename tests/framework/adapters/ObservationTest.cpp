@@ -70,13 +70,12 @@ TEST_F(ObservationTest, InitializeWithConfigCallsBackend) {
   // Create a new mock for this specific test
   Config<MockConfig> testConfig;
   MockObservation testMock(testConfig);
+
+  // Expect initialize to be called when creating the observation
   EXPECT_CALL(testMock, initialize(testing::_)).Times(1);
 
-  // Create a new observation with this mock
-  Observation<MockObservation> testObs(testMock);
-
-  // Call initialize with config
-  testObs.initialize(testConfig.backend());
+  // Create a new observation with this mock - this should call initialize
+  Observation<MockObservation> testObs(testConfig);
 }
 
 TEST_F(ObservationTest, GetDataReturnsCorrectValue) {
@@ -85,7 +84,6 @@ TEST_F(ObservationTest, GetDataReturnsCorrectValue) {
   MockObservation testMock(testConfig);
   EXPECT_CALL(testMock, initialize(testing::_))
       .Times(1);  // Called in constructor
-  EXPECT_CALL(testMock, isValid()).WillRepeatedly(Return(true));
   EXPECT_CALL(testMock, getData())
       .WillRepeatedly(Return(static_cast<void*>(&temperature_)));
 

@@ -47,9 +47,8 @@ class Observation {
    * @param config Configuration object containing initialization parameters
    */
   template <typename T>
-  explicit Observation(const Config<T>& config) {
-    initialize(config.backend());
-  }
+  explicit Observation(const Config<T>& config)
+      : backend_(config), initialized_(true) {}
 
   /**
    * @brief Constructor with backend rvalue reference
@@ -73,16 +72,18 @@ class Observation {
   /**
    * @brief Copy constructor
    */
-  Observation(const Observation& other)
-      : backend_(other.backend_), initialized_(other.initialized_) {
+  Observation(const Observation& other) : backend_(other.backend_.config()) {
     backend_.copyFrom(other.backend_);
+    initialized_ = other.initialized_;
   }
 
   /**
    * @brief Move constructor
    */
   Observation(Observation&& other) noexcept
-      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
+      : backend_(other.backend_.config()) {
+    backend_.moveFrom(std::move(other.backend_));
+    initialized_ = other.initialized_;
     other.initialized_ = false;
   }
 
@@ -102,7 +103,7 @@ class Observation {
    */
   Observation& operator=(Observation&& other) noexcept {
     if (this != &other) {
-      backend_ = std::move(other.backend_);
+      backend_.moveFrom(std::move(other.backend_));
       initialized_ = other.initialized_;
       other.initialized_ = false;
     }
@@ -114,12 +115,6 @@ class Observation {
   const Backend& backend() const { return backend_; }
 
   // Lifecycle management
-  Observation& initialize(const IConfig& config) {
-    backend_.initialize(config);
-    initialized_ = true;
-    return *this;
-  }
-
   Observation& reset() {
     backend_.reset();
     return *this;
