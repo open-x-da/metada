@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "IObservation.hpp"
+#include "utils/config/Config.hpp"
 
 namespace metada::framework {
 
@@ -17,44 +18,144 @@ namespace metada::framework {
  * This template class provides a type-safe interface for handling observational
  * data using a backend that implements the IObservation interface.
  *
+ * Unlike the previous design, observations are now copyable to allow for
+ * operations like ensemble generation, observation perturbation, and
+ * observation-space calculations in data assimilation algorithms.
+ *
  * Features:
  * - Type-safe data access through templates
  * - Delegation to backend implementation
  * - Comprehensive error handling
- * - Fluent interface for chaining operations
+ * - Arithmetic operations for observation-space calculations
  *
- * @tparam ObservationBackend The backend implementation type
+ * @tparam Backend The backend implementation type
  */
-template <typename ObservationBackend>
+template <typename Backend>
 class Observation {
  private:
-  ObservationBackend& backend_;  ///< Backend implementation instance
+  Backend backend_;          ///< Backend implementation instance
+  bool initialized_{false};  ///< Initialization flag
 
  public:
-  /** @brief Default constructor */
-  Observation() = default;
+  /** @brief Default constructor is deleted since we need a backend */
+  Observation() = delete;
 
-  /** @brief Constructor with initialization */
-  Observation(ObservationBackend& backend) : backend_(backend) { initialize(); }
-
-  /** @brief Constructor with initialization */
-  Observation(ObservationBackend&& backend) : backend_(std::move(backend)) {
+  /**
+   * @brief Constructor with backend rvalue reference
+   *
+   * This constructor takes ownership of the backend instance.
+   */
+  explicit Observation(Backend&& backend) : backend_(std::move(backend)) {
     initialize();
   }
 
+  /**
+   * @brief Constructor with backend lvalue reference
+   *
+   * This constructor is particularly useful for shared_ptr backends or
+   * when working with mock objects that can't be moved.
+   */
+  explicit Observation(Backend& backend) : backend_(backend) { initialize(); }
+
+  /**
+   * @brief Constructor that initializes observation with configuration
+   *
+   * @tparam T The configuration backend type
+   * @param config Configuration object containing initialization parameters
+   */
+  template <typename T>
+  explicit Observation(const Config<T>& config) {
+    initialize(config.backend());
+  }
+
+  /**
+   * @brief Copy constructor
+   */
+  Observation(const Observation& other)
+      : backend_(other.backend_), initialized_(other.initialized_) {
+    backend_.copyFrom(other.backend_);
+  }
+
+  /**
+   * @brief Move constructor
+   */
+  Observation(Observation&& other) noexcept
+      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
+    other.initialized_ = false;
+  }
+
+  /**
+   * @brief Copy assignment operator
+   */
+  Observation& operator=(const Observation& other) {
+    if (this != &other) {
+      backend_.copyFrom(other.backend_);
+      initialized_ = other.initialized_;
+    }
+    return *this;
+  }
+
+  /**
+   * @brief Move assignment operator
+   */
+  Observation& operator=(Observation&& other) noexcept {
+    if (this != &other) {
+      backend_ = std::move(other.backend_);
+      initialized_ = other.initialized_;
+      other.initialized_ = false;
+    }
+    return *this;
+  }
+
   /** @brief Access to backend instance */
-  ObservationBackend& backend() { return backend_; }
-  const ObservationBackend& backend() const { return backend_; }
+  Backend& backend() { return backend_; }
+  const Backend& backend() const { return backend_; }
 
   // Lifecycle management
   Observation& initialize() {
     backend_.initialize();
+    initialized_ = true;
+    return *this;
+  }
+
+  Observation& initialize(const IConfig& config) {
+    backend_.initialize(config);
+    initialized_ = true;
+    return *this;
+  }
+
+  Observation& reset() {
+    backend_.reset();
     return *this;
   }
 
   void validate() const { backend_.validate(); }
 
   bool isValid() const { return backend_.isValid(); }
+
+  bool isInitialized() const { return initialized_; }
+
+  // Copy/Move operations
+  Observation& copyFrom(const Observation& other) {
+    backend_.copyFrom(other.backend_);
+    initialized_ = other.initialized_;
+    return *this;
+  }
+
+  Observation& moveFrom(Observation&& other) {
+    backend_.moveFrom(std::move(other.backend_));
+    initialized_ = other.initialized_;
+    other.initialized_ = false;
+    return *this;
+  }
+
+  bool equals(const Observation& other) const {
+    return backend_.equals(other.backend_);
+  }
+
+  bool operator==(const Observation& other) const { return equals(other); }
+
+  bool operator!=(const Observation& other) const { return !equals(other); }
 
   // Type-safe data access
   template <typename T>
@@ -83,79 +184,110 @@ class Observation {
     return *static_cast<const T*>(backend_.getUncertainty());
   }
 
-  size_t getDataSize() const { return backend_.getDataSize(); }
+  size_t getSize() const { return backend_.getSize(); }
 
-  // Spatiotemporal metadata with fluent interface
-  Observation& setLocation(double lat, double lon, double elevation) {
-    backend_.setLocation(lat, lon, elevation);
+  // Metadata operations
+  Observation& setMetadata(const std::string& key, const std::string& value) {
+    backend_.setMetadata(key, value);
     return *this;
   }
 
-  Observation& setTime(double timestamp) {
-    backend_.setTime(timestamp);
+  std::string getMetadata(const std::string& key) const {
+    return backend_.getMetadata(key);
+  }
+
+  bool hasMetadata(const std::string& key) const {
+    return backend_.hasMetadata(key);
+  }
+
+  // Observation information
+  const std::vector<std::string>& getVariableNames() const {
+    return backend_.getVariableNames();
+  }
+
+  bool hasVariable(const std::string& name) const {
+    return backend_.hasVariable(name);
+  }
+
+  const std::vector<size_t>& getDimensions() const {
+    return backend_.getDimensions();
+  }
+
+  // Spatiotemporal metadata
+  Observation& setLocations(const std::vector<std::vector<double>>& locations) {
+    backend_.setLocations(locations);
     return *this;
   }
 
-  const std::vector<double>& getLocation() const {
-    return backend_.getLocation();
-  }
-
-  double getTimestamp() const { return backend_.getTimestamp(); }
-
-  // Quality control with fluent interface
-  Observation& setQualityFlag(int flag) {
-    backend_.setQualityFlag(flag);
+  Observation& setTimes(const std::vector<double>& timestamps) {
+    backend_.setTimes(timestamps);
     return *this;
   }
 
-  int getQualityFlag() const { return backend_.getQualityFlag(); }
+  const std::vector<std::vector<double>>& getLocations() const {
+    return backend_.getLocations();
+  }
 
-  Observation& setConfidence(double value) {
-    backend_.setConfidence(value);
+  const std::vector<double>& getTimes() const { return backend_.getTimes(); }
+
+  // Arithmetic operations
+  Observation& add(const Observation& other) {
+    backend_.add(other.backend_);
     return *this;
   }
 
-  double getConfidence() const { return backend_.getConfidence(); }
-
-  // Extensible attributes with fluent interface
-  Observation& setAttribute(const std::string& key, const std::string& value) {
-    backend_.setAttribute(key, value);
+  Observation& subtract(const Observation& other) {
+    backend_.subtract(other.backend_);
     return *this;
   }
 
-  std::string getAttribute(const std::string& key) const {
-    return backend_.getAttribute(key);
-  }
-
-  bool hasAttribute(const std::string& key) const {
-    return backend_.hasAttribute(key);
-  }
-
-  std::map<std::string, std::string> getAllAttributes() const {
-    return backend_.getAllAttributes();
-  }
-
-  // Observation metadata with fluent interface
-  Observation& setObsType(const std::string& type) {
-    backend_.setObsType(type);
+  Observation& multiply(double scalar) {
+    backend_.multiply(scalar);
     return *this;
   }
 
-  std::string getObsType() const { return backend_.getObsType(); }
+  Observation operator+(const Observation& other) const {
+    Observation result(*this);
+    result.add(other);
+    return result;
+  }
 
-  Observation& setSource(const std::string& source) {
-    backend_.setSource(source);
+  Observation operator-(const Observation& other) const {
+    Observation result(*this);
+    result.subtract(other);
+    return result;
+  }
+
+  Observation operator*(double scalar) const {
+    Observation result(*this);
+    result.multiply(scalar);
+    return result;
+  }
+
+  // Quality control
+  Observation& setQualityFlags(const std::vector<int>& flags) {
+    backend_.setQualityFlags(flags);
     return *this;
   }
 
-  std::string getSource() const { return backend_.getSource(); }
+  const std::vector<int>& getQualityFlags() const {
+    return backend_.getQualityFlags();
+  }
 
-  Observation& setInstrument(const std::string& instrument) {
-    backend_.setInstrument(instrument);
+  Observation& setConfidenceValues(const std::vector<double>& values) {
+    backend_.setConfidenceValues(values);
     return *this;
   }
 
-  std::string getInstrument() const { return backend_.getInstrument(); }
+  const std::vector<double>& getConfidenceValues() const {
+    return backend_.getConfidenceValues();
+  }
 };
+
+// Free function for scalar multiplication
+template <typename Backend>
+Observation<Backend> operator*(double scalar, const Observation<Backend>& obs) {
+  return obs * scalar;
+}
 
 }  // namespace metada::framework
