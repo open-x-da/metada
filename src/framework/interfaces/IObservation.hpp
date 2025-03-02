@@ -29,11 +29,44 @@ class IConfig;
  * - Support for observation operators and observation error covariance
  */
 class IObservation {
+ protected:
+  /**
+   * @brief Default constructor is protected to enforce initialization with a
+   * config
+   * @details Only derived classes can use this constructor. Observations should
+   * always be initialized with a configuration object.
+   */
+  IObservation() = default;
+
  public:
   /**
    * @brief Virtual destructor for proper cleanup
    */
   virtual ~IObservation() = default;
+
+  /**
+   * @brief Default copy constructor
+   * @details Allows copying of IObservation-derived objects
+   */
+  IObservation(const IObservation&) = default;
+
+  /**
+   * @brief Default copy assignment operator
+   * @details Allows copy assignment of IObservation-derived objects
+   */
+  IObservation& operator=(const IObservation&) = default;
+
+  /**
+   * @brief Default move constructor
+   * @details Allows moving of IObservation-derived objects
+   */
+  IObservation(IObservation&&) = default;
+
+  /**
+   * @brief Default move assignment operator
+   * @details Allows move assignment of IObservation-derived objects
+   */
+  IObservation& operator=(IObservation&&) = default;
 
   // Lifecycle management
   /**

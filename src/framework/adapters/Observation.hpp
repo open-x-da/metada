@@ -41,6 +41,17 @@ class Observation {
   Observation() = delete;
 
   /**
+   * @brief Constructor that initializes observation with configuration
+   *
+   * @tparam T The configuration backend type
+   * @param config Configuration object containing initialization parameters
+   */
+  template <typename T>
+  explicit Observation(const Config<T>& config) {
+    initialize(config.backend());
+  }
+
+  /**
    * @brief Constructor with backend rvalue reference
    *
    * This constructor takes ownership of the backend instance.
@@ -58,17 +69,6 @@ class Observation {
    */
   explicit Observation(Backend& backend)
       : backend_(backend), initialized_(true) {}
-
-  /**
-   * @brief Constructor that initializes observation with configuration
-   *
-   * @tparam T The configuration backend type
-   * @param config Configuration object containing initialization parameters
-   */
-  template <typename T>
-  explicit Observation(const Config<T>& config) {
-    initialize(config.backend());
-  }
 
   /**
    * @brief Copy constructor
