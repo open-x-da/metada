@@ -178,6 +178,14 @@ class IState {
   virtual const std::vector<std::string>& getVariableNames() const = 0;
 
   /**
+   * @brief Check if the state contains a specific variable
+   * @param name Name of the variable to check
+   * @return true if the variable exists in the state, false otherwise
+   * @details Verifies if a named variable is present in the state
+   */
+  virtual bool hasVariable(const std::string& name) const = 0;
+
+  /**
    * @brief Get dimensions of state space
    * @return Const reference to vector containing dimension sizes
    * @details Returns ordered list of dimension sizes for state space

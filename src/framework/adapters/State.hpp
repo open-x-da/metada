@@ -211,6 +211,17 @@ class State {
   }
 
   /**
+   * @brief Check if the state contains a specific variable
+   * @param name Name of the variable to check
+   * @return true if the variable exists in the state, false otherwise
+   */
+  bool hasVariable(const std::string& name) const {
+    const auto& variables = getVariableNames();
+    return std::find(variables.begin(), variables.end(), name) !=
+           variables.end();
+  }
+
+  /**
    * @brief Get dimensions of state space
    * @return Const reference to vector of dimension sizes
    */

@@ -296,6 +296,7 @@ TEST_F(StateTest, MetadataOperations) {
  * @details
  * Verifies state query operations:
  * - Variable name retrieval
+ * - Variable existence check
  * - Dimension information access
  * - Backend delegation
  */
@@ -303,6 +304,11 @@ TEST_F(StateTest, StateInformation) {
   // We've already set up the default behavior in SetUp()
   EXPECT_EQ(state1_->getVariableNames(), variable_names_);
   EXPECT_EQ(state1_->getDimensions(), dimensions_);
+
+  // Test hasVariable method
+  EXPECT_TRUE(state1_->hasVariable("temperature"));
+  EXPECT_TRUE(state1_->hasVariable("pressure"));
+  EXPECT_FALSE(state1_->hasVariable("nonexistent_variable"));
 }
 
 /**

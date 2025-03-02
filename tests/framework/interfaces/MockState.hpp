@@ -137,6 +137,7 @@ class MockState : public IState {
   // State information queries
   MOCK_METHOD(const std::vector<std::string>&, getVariableNames, (),
               (const, override));
+  MOCK_METHOD(bool, hasVariable, (const std::string& name), (const, override));
   MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
 
   // Arithmetic operations
