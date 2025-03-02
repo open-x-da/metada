@@ -18,6 +18,21 @@ using framework::IConfig;
  */
 class MockConfig : public IConfig {
  public:
+  /**
+   * @brief Default constructor
+   */
+  MockConfig() = default;
+
+  /**
+   * @brief Move constructor - explicitly defined for Google Mock compatibility
+   */
+  MockConfig(MockConfig&&) noexcept {}
+
+  /**
+   * @brief Move assignment - explicitly defined for Google Mock compatibility
+   */
+  MockConfig& operator=(MockConfig&&) noexcept { return *this; }
+
   MOCK_METHOD(bool, LoadFromFile, (const std::string&), (override));
   MOCK_METHOD(bool, LoadFromString, (const std::string&), (override));
   MOCK_METHOD(ConfigValue, Get, (const std::string&), (const, override));

@@ -43,27 +43,34 @@ namespace metada::framework {
  * - String
  * - Arrays of the above types
  *
- * @tparam ConfigBackend The configuration backend type that implements IConfig
+ * @tparam Backend The configuration backend type that implements IConfig
  * @see IConfig Base interface class for configuration backends
  */
-template <typename ConfigBackend>
+template <typename Backend>
 class Config : public NonCopyable {
  private:
-  ConfigBackend backend_;  ///< Instance of the configuration backend
+  Backend backend_;  ///< Instance of the configuration backend
 
  public:
   /** @brief Default constructor */
   Config() = default;
 
   /**
-   * @brief Default move constructor
+   * @brief Move constructor - explicitly defined for compatibility with mock
+   * objects
    */
-  Config(Config&&) = default;
+  Config(Config&& other) noexcept : backend_(std::move(other.backend_)) {}
 
   /**
-   * @brief Default move assignment operator
+   * @brief Move assignment - explicitly defined for compatibility with mock
+   * objects
    */
-  Config& operator=(Config&&) = default;
+  Config& operator=(Config&& other) noexcept {
+    if (this != &other) {
+      backend_ = std::move(other.backend_);
+    }
+    return *this;
+  }
 
   /**
    * @brief Get direct access to the backend instance

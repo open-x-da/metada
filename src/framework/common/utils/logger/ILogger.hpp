@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "utils/NonCopyable.hpp"
+
 namespace metada::framework {
 
 /**
@@ -10,6 +12,11 @@ namespace metada::framework {
  * This interface defines the contract that all logger backends must implement.
  * It provides a unified API for logging messages at different severity levels
  * in a backend-agnostic way.
+ *
+ * The ILogger interface is non-copyable to prevent unintended duplication of
+ * logger instances, which could lead to resource contention or inconsistent
+ * logging behavior. However, it supports move semantics to allow transferring
+ * ownership when needed.
  *
  * Key features:
  * - Multiple severity levels (Info, Warning, Error, Debug)
@@ -35,8 +42,9 @@ namespace metada::framework {
  *
  * @see Logger Main logger class template using this interface
  * @see LoggerTraits Compile-time backend selection
+ * @see NonCopyable
  */
-class ILogger {
+class ILogger : public NonCopyable {
  public:
   /**
    * @brief Virtual destructor

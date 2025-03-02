@@ -13,9 +13,28 @@ using framework::ILogger;
  *
  * Implements ILogger interface using Google Mock to provide mock logging
  * methods. Used to verify Logger's interaction with its backend implementation.
+ *
+ * This class inherits non-copyable behavior from ILogger but supports move
+ * semantics to allow transferring ownership when needed.
  */
 class MockLogger : public ILogger {
  public:
+  /**
+   * @brief Default constructor
+   */
+  MockLogger() = default;
+
+  /**
+   * @brief Move constructor - explicitly defined for Google Mock compatibility
+   */
+  MockLogger(MockLogger&&) noexcept {}
+
+  /**
+   * @brief Move assignment - explicitly defined for Google Mock compatibility
+   */
+  MockLogger& operator=(MockLogger&&) noexcept { return *this; }
+
+  // Mock methods
   MOCK_METHOD(void, Info, (const std::string& message), (override));
   MOCK_METHOD(void, Warning, (const std::string& message), (override));
   MOCK_METHOD(void, Error, (const std::string& message), (override));

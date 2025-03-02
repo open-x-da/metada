@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "utils/NonCopyable.hpp"
+
 namespace metada::framework {
 
 /**
@@ -16,6 +18,11 @@ namespace metada::framework {
  * This allows switching between different logging backends (e.g. console, file,
  * third-party logging libraries) without changing the logging code.
  *
+ * The Logger class is non-copyable to prevent unintended duplication of logger
+ * instances, which could lead to resource contention or inconsistent logging
+ * behavior. However, it supports move semantics to allow transferring ownership
+ * when needed.
+ *
  * Example usage:
  * @code
  * ConsoleLogger backend;
@@ -29,9 +36,10 @@ namespace metada::framework {
  *
  * @see ILogger
  * @see LoggerTraits
+ * @see NonCopyable
  */
 template <typename Backend>
-class Logger {
+class Logger : public NonCopyable {
  public:
   /**
    * @brief Default constructor
@@ -39,6 +47,23 @@ class Logger {
    * Creates a new Logger instance with a default-constructed backend
    */
   Logger() = default;
+
+  /**
+   * @brief Move constructor - explicitly defined for compatibility with mock
+   * objects
+   */
+  Logger(Logger&& other) noexcept : backend_(std::move(other.backend_)) {}
+
+  /**
+   * @brief Move assignment - explicitly defined for compatibility with mock
+   * objects
+   */
+  Logger& operator=(Logger&& other) noexcept {
+    if (this != &other) {
+      backend_ = std::move(other.backend_);
+    }
+    return *this;
+  }
 
   /**
    * @brief Default destructor

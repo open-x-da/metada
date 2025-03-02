@@ -303,4 +303,51 @@ TEST_F(ConfigTest, GetSafeReturnsDefaultOnError) {
             ConfigValue());  // Should return default-constructed ConfigValue
 }
 
+/**
+ * @brief Verify move semantics and non-copyable behavior
+ *
+ * Tests that Config properly supports:
+ * - Move construction
+ * - Move assignment
+ * - Non-copyable behavior (verified at compile time)
+ */
+TEST_F(ConfigTest, MoveSemantics) {
+  // Setup expectations for the original config
+  EXPECT_CALL(config.backend(), Get("key"))
+      .WillOnce(Return(ConfigValue("original")));
+  auto result = config.Get("key");
+  EXPECT_EQ(std::get<std::string>(result), "original");
+
+  // Test move construction
+  Config<MockConfig> moved_config(std::move(config));
+
+  // Setup expectations for the moved config
+  EXPECT_CALL(moved_config.backend(), Get("key"))
+      .WillOnce(Return(ConfigValue("moved")));
+  result = moved_config.Get("key");
+  EXPECT_EQ(std::get<std::string>(result), "moved");
+
+  // Create a new config for move assignment test
+  Config<MockConfig> another_config;
+  EXPECT_CALL(another_config.backend(), Get("key"))
+      .WillOnce(Return(ConfigValue("another")));
+  result = another_config.Get("key");
+  EXPECT_EQ(std::get<std::string>(result), "another");
+
+  // Test move assignment
+  Config<MockConfig> assigned_config;
+  assigned_config = std::move(another_config);
+
+  // Setup expectations for the assigned config
+  EXPECT_CALL(assigned_config.backend(), Get("key"))
+      .WillOnce(Return(ConfigValue("assigned")));
+  result = assigned_config.Get("key");
+  EXPECT_EQ(std::get<std::string>(result), "assigned");
+
+  // Note: The following would not compile due to deleted copy operations:
+  // Config<MockConfig> copy_config(config); // Copy construction - deleted
+  // Config<MockConfig> assign_config;
+  // assign_config = config; // Copy assignment - deleted
+}
+
 }  // namespace metada::tests

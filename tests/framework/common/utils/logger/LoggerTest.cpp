@@ -11,6 +11,7 @@
  * - Proper delegation of logging methods (Info, Warning, Error, Debug)
  * - Message passing integrity
  * - Call frequency verification
+ * - Move semantics (non-copyable behavior)
  */
 
 #include <gmock/gmock.h>
@@ -88,6 +89,45 @@ TEST_F(LoggerTest, ErrorCallsUnderlyingImplementation) {
 TEST_F(LoggerTest, DebugCallsUnderlyingImplementation) {
   EXPECT_CALL(logger.backend(), Debug("test message")).Times(1);
   logger.Debug("test message");
+}
+
+/**
+ * @brief Verify move semantics and non-copyable behavior
+ *
+ * Tests that Logger properly supports:
+ * - Move construction
+ * - Move assignment
+ * - Non-copyable behavior (verified at compile time)
+ */
+TEST_F(LoggerTest, MoveSemantics) {
+  // Setup expectations for the original logger
+  EXPECT_CALL(logger.backend(), Info("original logger")).Times(1);
+  logger.Info("original logger");
+
+  // Test move construction
+  Logger<MockLogger> moved_logger(std::move(logger));
+
+  // Setup expectations for the moved logger
+  EXPECT_CALL(moved_logger.backend(), Info("moved logger")).Times(1);
+  moved_logger.Info("moved logger");
+
+  // Create a new logger for move assignment test
+  Logger<MockLogger> another_logger;
+  EXPECT_CALL(another_logger.backend(), Info("another logger")).Times(1);
+  another_logger.Info("another logger");
+
+  // Test move assignment
+  Logger<MockLogger> assigned_logger;
+  assigned_logger = std::move(another_logger);
+
+  // Setup expectations for the assigned logger
+  EXPECT_CALL(assigned_logger.backend(), Info("assigned logger")).Times(1);
+  assigned_logger.Info("assigned logger");
+
+  // Note: The following would not compile due to deleted copy operations:
+  // Logger<MockLogger> copy_logger(logger); // Copy construction - deleted
+  // Logger<MockLogger> assign_logger;
+  // assign_logger = logger; // Copy assignment - deleted
 }
 
 }  // namespace metada::tests
