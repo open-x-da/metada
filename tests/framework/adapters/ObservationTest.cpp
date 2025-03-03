@@ -3,10 +3,10 @@
  * @brief Unit tests for the Observation class template
  * @ingroup tests
  * @author Metada Framework Team
- * 
+ *
  * This test suite verifies the functionality of the Observation class template,
  * which provides a generic interface for observation implementations.
- * 
+ *
  * The tests cover:
  * - Construction and initialization
  * - Core operations (reset, validate, data access)
@@ -17,9 +17,9 @@
  * - Location and time data handling
  * - Quality control flags
  * - Error handling for invalid states
- * 
+ *
  * The test suite uses Google Test/Mock framework for mocking and assertions.
- * 
+ *
  * @see Observation
  * @see IObservation
  * @see MockObservation
@@ -55,7 +55,7 @@ using Traits = AppTraits<MockLogger, MockConfig, MockState, MockObservation>;
 
 /**
  * @brief Test fixture for Observation class tests
- * 
+ *
  * Provides common setup and test data for Observation tests including:
  * - Mock objects and application context
  * - Sample observation data and metadata
@@ -107,8 +107,9 @@ class ObservationTest : public ::testing::Test {
 
   /**
    * @brief Set up test fixture
-   * 
-   * Initializes test data, creates observation instances, and sets up mock expectations
+   *
+   * Initializes test data, creates observation instances, and sets up mock
+   * expectations
    */
   void SetUp() override {
     // Create a new application context for this test
@@ -149,7 +150,7 @@ class ObservationTest : public ::testing::Test {
 
   /**
    * @brief Clean up test fixture
-   * 
+   *
    * Releases test resources and cleans up test data
    */
   void TearDown() override {
@@ -190,7 +191,7 @@ class ObservationTest : public ::testing::Test {
 
 /**
  * @brief Test observation construction
- * 
+ *
  * Verifies:
  * - Configuration constructor initialization
  * - Copy constructor behavior
@@ -228,7 +229,7 @@ TEST_F(ObservationTest, ConstructorTests) {
 
 /**
  * @brief Test core observation operations
- * 
+ *
  * Verifies:
  * - reset() functionality
  * - validate() functionality
@@ -244,7 +245,7 @@ TEST_F(ObservationTest, CoreObservationOperations) {
 
 /**
  * @brief Test data access
- * 
+ *
  * Verifies getData() returns correct typed data
  */
 TEST_F(ObservationTest, GetDataReturnsCorrectValue) {
@@ -253,7 +254,7 @@ TEST_F(ObservationTest, GetDataReturnsCorrectValue) {
 
 /**
  * @brief Test uncertainty access
- * 
+ *
  * Verifies getUncertainty() returns correct uncertainty value
  */
 TEST_F(ObservationTest, GetUncertaintyReturnsCorrectValue) {
@@ -262,7 +263,7 @@ TEST_F(ObservationTest, GetUncertaintyReturnsCorrectValue) {
 
 /**
  * @brief Test location data access
- * 
+ *
  * Verifies getLocations() returns correct location coordinates
  */
 TEST_F(ObservationTest, LocationsAreCorrectlyReturned) {
@@ -284,7 +285,7 @@ TEST_F(ObservationTest, LocationsAreCorrectlyReturned) {
 
 /**
  * @brief Test location setting
- * 
+ *
  * Verifies setLocations() properly updates backend
  */
 TEST_F(ObservationTest, SetLocationsCallsBackend) {
@@ -303,7 +304,7 @@ TEST_F(ObservationTest, SetLocationsCallsBackend) {
 
 /**
  * @brief Test method chaining
- * 
+ *
  * Verifies fluent interface works for multiple operations
  */
 TEST_F(ObservationTest, FluentInterfaceWorks) {
@@ -331,7 +332,7 @@ TEST_F(ObservationTest, FluentInterfaceWorks) {
 
 /**
  * @brief Test metadata operations
- * 
+ *
  * Verifies:
  * - Setting metadata
  * - Getting metadata
@@ -355,7 +356,7 @@ TEST_F(ObservationTest, MetadataOperationsWork) {
 
 /**
  * @brief Test invalid data access
- * 
+ *
  * Verifies exception throwing for invalid observation access
  */
 TEST_F(ObservationTest, ThrowsOnInvalidAccess) {
@@ -371,7 +372,7 @@ TEST_F(ObservationTest, ThrowsOnInvalidAccess) {
 
 /**
  * @brief Test copy assignment
- * 
+ *
  * Verifies:
  * - Backend copyFrom() called correctly
  * - Initialization state preserved
@@ -388,7 +389,7 @@ TEST_F(ObservationTest, CopyAssignment) {
 
 /**
  * @brief Test move assignment
- * 
+ *
  * Verifies:
  * - Proper observation transfer
  * - Source invalidation
@@ -412,7 +413,7 @@ TEST_F(ObservationTest, MoveAssignment) {
 
 /**
  * @brief Test arithmetic operations
- * 
+ *
  * Verifies add(), subtract(), multiply() functionality
  */
 TEST_F(ObservationTest, ArithmeticOperationsWork) {
@@ -432,7 +433,7 @@ TEST_F(ObservationTest, ArithmeticOperationsWork) {
 
 /**
  * @brief Test operator overloads
- * 
+ *
  * Verifies +, -, * operator functionality
  */
 TEST_F(ObservationTest, OperatorOverloadsWork) {
@@ -452,7 +453,7 @@ TEST_F(ObservationTest, OperatorOverloadsWork) {
 
 /**
  * @brief Test arithmetic assignment operators
- * 
+ *
  * Verifies +=, -=, *= operator functionality
  */
 TEST_F(ObservationTest, ArithmeticAssignmentOperatorsWork) {
@@ -477,7 +478,7 @@ TEST_F(ObservationTest, ArithmeticAssignmentOperatorsWork) {
 
 /**
  * @brief Test comparison operators
- * 
+ *
  * Verifies == and != operator functionality
  */
 TEST_F(ObservationTest, ComparisonOperatorsWork) {
