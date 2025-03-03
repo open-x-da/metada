@@ -462,6 +462,56 @@ TEST_F(ObservationTest, OperatorOverloadsWork) {
   EXPECT_NO_THROW(auto result2 = *obs1_ - *obs2_);
   EXPECT_NO_THROW(result = *obs1_ * 2.0);
   EXPECT_NO_THROW(auto result3 = *obs1_ * 2.0);
+  EXPECT_NO_THROW(result = 2.0 * *obs1_);
+  EXPECT_NO_THROW(auto result4 = 2.0 * *obs1_);
+}
+
+/**
+ * @brief Test arithmetic assignment operators
+ *
+ * @details
+ * Verifies that the arithmetic assignment operators (+=, -=, *=) work
+ * correctly.
+ */
+TEST_F(ObservationTest, ArithmeticAssignmentOperatorsWork) {
+  // Set expectations for the backend operations
+  EXPECT_CALL(obs1_->backend(), add(testing::Ref(obs2_->backend()))).Times(1);
+  EXPECT_CALL(obs1_->backend(), subtract(testing::Ref(obs2_->backend())))
+      .Times(1);
+  EXPECT_CALL(obs1_->backend(), multiply(2.0)).Times(1);
+
+  // Test the operators
+  *obs1_ += *obs2_;
+  *obs1_ -= *obs2_;
+  *obs1_ *= 2.0;
+
+  // No need for assertions as we're verifying the calls to the backend
+}
+
+/**
+ * @brief Test comparison operators
+ *
+ * @details
+ * Verifies that the equality (==) and inequality (!=) operators work correctly.
+ */
+TEST_F(ObservationTest, ComparisonOperatorsWork) {
+  // Create observations for comparison
+  auto obsA = createObservation();
+  auto obsB = createObservation();
+
+  // Set up expectations for the equals method
+  EXPECT_CALL(obsA.backend(), equals(_))
+      .WillOnce(Return(true))
+      .WillOnce(Return(true))
+      .WillOnce(Return(false))
+      .WillOnce(Return(false));
+
+  // Test the operators
+  EXPECT_TRUE(obsA == obsA);   // Should be equal to itself
+  EXPECT_FALSE(obsA != obsA);  // Should not be unequal to itself
+
+  EXPECT_FALSE(obsA == obsB);  // Should not be equal to a different observation
+  EXPECT_TRUE(obsA != obsB);   // Should be unequal to a different observation
 }
 
 }  // namespace metada::tests

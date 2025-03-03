@@ -144,8 +144,65 @@ class Observation {
     return backend_.equals(other.backend_);
   }
 
+  /**
+   * @brief Addition assignment operator
+   *
+   * @param other The observation to add to this one
+   * @return Observation& Reference to this observation after addition
+   * @throws std::runtime_error If either observation is invalid
+   */
+  Observation& operator+=(const Observation& other) {
+    if (!isValid() || !other.isValid()) {
+      throw std::runtime_error("Cannot add invalid observations");
+    }
+    backend_.add(other.backend_);
+    return *this;
+  }
+
+  /**
+   * @brief Subtraction assignment operator
+   *
+   * @param other The observation to subtract from this one
+   * @return Observation& Reference to this observation after subtraction
+   * @throws std::runtime_error If either observation is invalid
+   */
+  Observation& operator-=(const Observation& other) {
+    if (!isValid() || !other.isValid()) {
+      throw std::runtime_error("Cannot subtract invalid observations");
+    }
+    backend_.subtract(other.backend_);
+    return *this;
+  }
+
+  /**
+   * @brief Multiplication assignment operator
+   *
+   * @param scalar The scalar value to multiply this observation by
+   * @return Observation& Reference to this observation after multiplication
+   * @throws std::runtime_error If the observation is invalid
+   */
+  Observation& operator*=(double scalar) {
+    if (!isValid()) {
+      throw std::runtime_error("Cannot multiply invalid observation");
+    }
+    backend_.multiply(scalar);
+    return *this;
+  }
+
+  /**
+   * @brief Equality operator
+   *
+   * @param other The observation to compare with
+   * @return bool True if the observations are equal, false otherwise
+   */
   bool operator==(const Observation& other) const { return equals(other); }
 
+  /**
+   * @brief Inequality operator
+   *
+   * @param other The observation to compare with
+   * @return bool True if the observations are not equal, false otherwise
+   */
   bool operator!=(const Observation& other) const { return !equals(other); }
 
   // Type-safe data access
