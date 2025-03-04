@@ -46,9 +46,7 @@ class ObsOperatorTest : public ::testing::Test {
   std::unique_ptr<Increment<Traits::IncrementType>> incrementAdapter_;
 
   // System under test
-  std::unique_ptr<ObsOperator<Traits::StateType, Traits::IncrementType,
-                              Traits::ObservationType, Traits::ObsOperatorType>>
-      obsOperator_;
+  std::unique_ptr<ObsOperator<Traits::ObsOperatorType>> obsOperator_;
 
   void SetUp() override {
     context_ = std::make_unique<ApplicationContext<Traits>>("ObsOperatorTest");
@@ -64,5 +62,38 @@ class ObsOperatorTest : public ::testing::Test {
     obs_vars_.clear();
   }
 };
+
+TEST_F(ObsOperatorTest, NonCopyableButMovable) {
+  using ObsOperatorType = ObsOperator<Traits::ObsOperatorType>;
+
+  // Verify type traits
+  EXPECT_FALSE(std::is_copy_constructible_v<ObsOperatorType>);
+  EXPECT_FALSE(std::is_copy_assignable_v<ObsOperatorType>);
+  EXPECT_TRUE(std::is_move_constructible_v<ObsOperatorType>);
+  EXPECT_TRUE(std::is_move_assignable_v<ObsOperatorType>);
+}
+
+TEST_F(ObsOperatorTest, CannotInitializeWithoutConfig) {
+  using ObsOperatorType = ObsOperator<Traits::ObsOperatorType>;
+
+  // Verify that default construction is not possible
+  EXPECT_FALSE(std::is_default_constructible_v<ObsOperatorType>);
+
+  // Verify that construction without config is not possible
+  EXPECT_FALSE((std::is_constructible_v<ObsOperatorType>));
+}
+
+TEST_F(ObsOperatorTest, CanInitializeFromConfig) {
+  // Create mock config
+  MockConfig config;
+
+  ObsOperator<Traits::ObsOperatorType> obsOp(config);
+
+  // Verify initialization succeeded
+  EXPECT_TRUE(obsOp.isInitialized());
+
+  // Verify we can't initialize again
+  EXPECT_THROW(obsOp.initialize(config), std::runtime_error);
+}
 
 }  // namespace metada::tests

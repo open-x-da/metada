@@ -31,61 +31,84 @@ namespace metada::framework {
  * @tparam StateType The state type used by this operator
  * @tparam ObsType The observation type used by this operator
  */
-template <typename Backend, typename StateType, typename IncrementType,
-          typename ObsType>
+template <typename Backend>
 class ObsOperator : public NonCopyable {
  private:
-  Backend& backend_;
+  std::unique_ptr<Backend> backend_;
   bool initialized_{false};
 
  public:
-  /** @brief Default constructor - deleted to prevent usage without backend */
+  /** @brief Default constructor - deleted to prevent usage without config */
   ObsOperator() = delete;
 
-  /** @brief Constructor with backend reference */
-  explicit ObsOperator(Backend& backend) : backend_(backend) {}
+  /** @brief Constructor with configuration */
+  template <typename Config>
+  explicit ObsOperator(const Config& config)
+      : backend_(std::make_unique<Backend>()) {
+    initialize(config);
+  }
 
-  /** @brief Get direct access to the backend instance */
-  Backend& backend() { return backend_; }
+  /** @brief Move constructor */
+  ObsOperator(ObsOperator&& other) noexcept
+      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
+    other.initialized_ = false;
+  }
+
+  /** @brief Move assignment operator */
+  ObsOperator& operator=(ObsOperator&& other) noexcept {
+    if (this != &other) {
+      backend_ = std::move(other.backend_);
+      initialized_ = other.initialized_;
+      other.initialized_ = false;
+    }
+    return *this;
+  }
 
   /** @brief Get const access to the backend instance */
-  const Backend& backend() const { return backend_; }
+  const Backend& backend() const { return *backend_; }
 
-  void initialize(const IConfig& config) {
-    backend_.initialize(config);
+  template <typename Config>
+  void initialize(const Config& config) {
+    if (initialized_) {
+      throw std::runtime_error("ObsOperator already initialized");
+    }
+    backend_->initialize(config);
     initialized_ = true;
   }
 
   bool isInitialized() const { return initialized_; }
 
   // Forward operator: model state -> observation space
+  template <typename StateType, typename ObsType>
   void apply(const State<StateType>& state,
              const Observation<ObsType>& obs) const {
     if (!initialized_) throw std::runtime_error("ObsOperator not initialized");
-    backend_.apply(state.backend(), obs.backend());
+    backend_->apply(state.backend(), obs.backend());
   }
 
   // Tangent linear operator: increment -> observation space
+  template <typename IncrementType, typename ObsType>
   void applyTangentLinear(const Increment<IncrementType>& dx,
                           const Observation<ObsType>& dy) const {
     if (!initialized_) throw std::runtime_error("ObsOperator not initialized");
-    backend_.applyTangentLinear(dx.backend(), dy.backend());
+    backend_->applyTangentLinear(dx.backend(), dy.backend());
   }
 
   // Adjoint operator: observation -> increment space
+  template <typename IncrementType, typename ObsType>
   void applyAdjoint(const Observation<ObsType>& dy,
                     Increment<IncrementType>& dx) const {
     if (!initialized_) throw std::runtime_error("ObsOperator not initialized");
-    backend_.applyAdjoint(dy.backend(), dx.backend());
+    backend_->applyAdjoint(dy.backend(), dx.backend());
   }
 
   // Required variables
   const std::vector<std::string>& getRequiredStateVars() const {
-    return backend_.getRequiredStateVars();
+    return backend_->getRequiredStateVars();
   }
 
   const std::vector<std::string>& getRequiredObsVars() const {
-    return backend_.getRequiredObsVars();
+    return backend_->getRequiredObsVars();
   }
 };
 
