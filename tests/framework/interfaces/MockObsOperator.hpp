@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "IObsOperator.hpp"
+#include "utils/config/IConfig.hpp"
 
 namespace metada::tests {
 
@@ -24,35 +25,24 @@ using framework::IState;
 class MockObsOperator : public IObsOperator {
  public:
   // Core operations
-  MOCK_METHOD(void, initialize, (), (override));
-  MOCK_METHOD(void, finalize, (), (override));
+  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
+  MOCK_METHOD(bool, isInitialized, (), (const, override));
 
   // Forward operator
-  MOCK_METHOD(void, apply, (const IState&, IObservation&), (const, override));
-
-  // Tangent linear operator
-  MOCK_METHOD(void, applyTangentLinear, (const IIncrement&, IObservation&),
+  MOCK_METHOD(void, apply, (const IState& state, IObservation& obs),
               (const, override));
 
-  // Adjoint operator
-  MOCK_METHOD(void, applyAdjoint, (const IObservation&, IIncrement&),
+  // Tangent linear and adjoint
+  MOCK_METHOD(void, applyTangentLinear,
+              (const IIncrement& dx, IObservation& dy), (const, override));
+  MOCK_METHOD(void, applyAdjoint, (const IObservation& dy, IIncrement& dx),
               (const, override));
 
-  // Error handling
-  MOCK_METHOD(void, setObservationError, (const IObservation&), (override));
-  MOCK_METHOD(double, getObservationError, (const IObservation&),
+  // Metadata
+  MOCK_METHOD(const std::vector<std::string>&, getRequiredStateVars, (),
               (const, override));
-
-  // Configuration
-  MOCK_METHOD(void, setParameter, (const std::string&, double), (override));
-  MOCK_METHOD(double, getParameter, (const std::string&), (const, override));
-
-  // Required variables
-  MOCK_METHOD(const std::vector<std::string>&, getRequiredStateVariables, (),
+  MOCK_METHOD(const std::vector<std::string>&, getRequiredObsVars, (),
               (const, override));
-  MOCK_METHOD(const std::vector<std::string>&, getRequiredObsVariables, (),
-              (const, override));
-  MOCK_METHOD(bool, isInitialized, (), (const, override));
 };
 
 }  // namespace metada::tests

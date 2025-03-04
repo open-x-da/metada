@@ -6,6 +6,8 @@
 #include "IIncrement.hpp"
 #include "IObservation.hpp"
 #include "IState.hpp"
+#include "utils/NonCopyable.hpp"
+#include "utils/config/IConfig.hpp"
 
 namespace metada::framework {
 
@@ -22,37 +24,25 @@ namespace metada::framework {
  * - Adjoint operator
  * - Observation error handling
  */
-class IObsOperator {
+class IObsOperator : public NonCopyable {
  public:
   virtual ~IObsOperator() = default;
 
   // Core operations
-  virtual void initialize() = 0;
-  virtual void finalize() = 0;
-
-  // Forward operator: model state -> observation space
-  virtual void apply(const IState& state, IObservation& observation) const = 0;
-
-  // Tangent linear operator: increment -> observation space
-  virtual void applyTangentLinear(const IIncrement& increment,
-                                  IObservation& observation) const = 0;
-
-  // Adjoint operator: observation -> increment space
-  virtual void applyAdjoint(const IObservation& observation,
-                            IIncrement& increment) const = 0;
-
-  // Error handling
-  virtual void setObservationError(const IObservation& obs) = 0;
-  virtual double getObservationError(const IObservation& obs) const = 0;
-
-  // Configuration
-  virtual void setParameter(const std::string& name, double value) = 0;
-  virtual double getParameter(const std::string& name) const = 0;
-
-  // Required variables
-  virtual const std::vector<std::string>& getRequiredStateVariables() const = 0;
-  virtual const std::vector<std::string>& getRequiredObsVariables() const = 0;
+  virtual void initialize(const IConfig& config) = 0;
   virtual bool isInitialized() const = 0;
+
+  // Forward operator
+  virtual void apply(const IState& state, IObservation& obs) const = 0;
+
+  // Tangent linear and adjoint
+  virtual void applyTangentLinear(const IIncrement& dx,
+                                  IObservation& dy) const = 0;
+  virtual void applyAdjoint(const IObservation& dy, IIncrement& dx) const = 0;
+
+  // Metadata
+  virtual const std::vector<std::string>& getRequiredStateVars() const = 0;
+  virtual const std::vector<std::string>& getRequiredObsVars() const = 0;
 };
 
 }  // namespace metada::framework

@@ -26,6 +26,16 @@ struct AppTraits<LoggerBackend, ConfigBackend, StateBackend, ObservationBackend>
     using ObservationType = ObservationBackend; // Observation backend
 };
 
+// Specialization for Logger, Config, State, Increment, Observation and ObsOperator backends
+template <typename LoggerBackend, typename ConfigBackend, typename StateBackend, typename IncrementBackend, typename ObservationBackend, typename ObsOperatorBackend>
+struct AppTraits<LoggerBackend, ConfigBackend, StateBackend, IncrementBackend, ObservationBackend, ObsOperatorBackend> {
+    using LoggerType = LoggerBackend;            // Logger backend
+    using ConfigType = ConfigBackend;            // Config backend
+    using StateType = StateBackend;              // State backend
+    using IncrementType = IncrementBackend;      // Increment backend
+    using ObservationType = ObservationBackend; // Observation backend
+    using ObsOperatorType = ObsOperatorBackend; // ObsOperator backend
+};
 // Future specializations can be added as needed:
 // template <typename LoggerBackend, typename ConfigBackend, typename NewBackend>
 // struct AppTraits<LoggerBackend, ConfigBackend, NewBackend> { ... };
