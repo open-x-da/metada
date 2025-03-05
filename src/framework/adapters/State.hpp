@@ -103,6 +103,28 @@ class State {
   bool isInitialized() const { return initialized_; }
 
   /**
+   * @brief Set all values to zero
+   * @return Reference to this state
+   */
+  State& zero() {
+    backend_.zero();
+    return *this;
+  }
+
+  /**
+   * @brief Calculate the dot product with another state
+   * @param other State to calculate dot product with
+   * @return Resulting dot product value
+   */
+  double dot(const State& other) const { return backend_.dot(other.backend_); }
+
+  /**
+   * @brief Calculate the L2 norm of this state
+   * @return L2 norm value
+   */
+  double norm() const { return backend_.norm(); }
+
+  /**
    * @brief Move constructor
    * @param other State instance to move from
    */
