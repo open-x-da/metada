@@ -4,134 +4,297 @@
 #include <string>
 #include <vector>
 
-#include "../interfaces/IIncrement.hpp"
-
 namespace metada::framework {
 
-// Forward declaration
-template <typename T>
-class State;
-
 /**
- * @brief Main increment class template providing a generic interface to
- * increment implementations
+ * @brief Increment class representing perturbations or differences between
+ * entities
  *
- * This class template provides a static interface for handling state
- * increments/perturbations using a backend specified by the IncrementBackend
- * template parameter. The backend must implement the IIncrement interface.
+ * @details
+ * This class template provides a representation of an increment as a difference
+ * between entities in data assimilation systems. The increment is a core
+ * concept in data assimilation, representing perturbations, differences, or
+ * innovation vectors.
  *
- * @tparam IncrementBackend The increment backend type that implements
- * IIncrement
+ * Common use cases include:
+ * - Analysis increments (x_a - x_b)
+ * - Observation innovations (y - H(x))
+ * - Ensemble perturbations
+ * - Iterative minimization steps
+ *
+ * The EntityType template parameter must support the following operations:
+ * - += operator for adding another entity
+ * - *= operator for scaling by a scalar value
+ * - -= operator for computing differences
+ * - zero() method for resetting values
+ * - norm() method for computing the L2 norm
+ * - dot() method for computing inner products
+ * - getData<T>() method for accessing the underlying data
+ * - setMetadata/getMetadata for managing metadata
+ * - getDimensions() for size/shape information
+ * - isInitialized() for checking validity
+ *
+ * @tparam EntityType The type of entity this increment operates on
  */
-template <typename IncrementBackend>
+template <typename EntityType>
 class Increment {
  private:
-  IncrementBackend backend_;  ///< Instance of the increment backend
+  EntityType entity_;        ///< The underlying entity
+  bool initialized_{false};  ///< Initialization flag
 
  public:
   /** @brief Default constructor */
   Increment() = default;
 
-  /** @brief Get direct access to the backend instance */
-  IncrementBackend& backend() { return backend_; }
-
-  /** @brief Get const access to the backend instance */
-  const IncrementBackend& backend() const { return backend_; }
-
-  // Core increment operations
-  void initialize() { backend_.initialize(); }
-  void zero() { backend_.zero(); }
-  void scale(double alpha) { backend_.scale(alpha); }
-
-  // Linear algebra operations
-  void axpy(double alpha, const Increment& other) {
-    backend_.axpy(alpha, other.backend());
+  /**
+   * @brief Constructor from two entities (computes the difference)
+   *
+   * @param entity1 The first entity
+   * @param entity2 The second entity
+   * @details Creates an increment as the difference between entity1 and entity2
+   * (entity1 - entity2)
+   */
+  Increment(const EntityType& entity1, const EntityType& entity2)
+      : entity_(entity1), initialized_(true) {
+    entity_ -= entity2;
   }
-
-  double dot(const Increment& other) const {
-    return backend_.dot(other.backend());
-  }
-
-  double norm() const { return backend_.norm(); }
-
-  // State operations - forward declare these methods
-  template <typename StateType>
-  void addToState(State<StateType>& state) const;
-
-  template <typename StateType>
-  void differenceFromStates(const State<StateType>& state1,
-                            const State<StateType>& state2);
 
   /**
-   * @brief Create an increment from the difference of two states
+   * @brief Get access to the underlying entity
    *
-   * Factory method that creates a new increment representing state1 - state2.
+   * @return Reference to the underlying entity
+   */
+  EntityType& entity() { return entity_; }
+
+  /**
+   * @brief Get const access to the underlying entity
    *
-   * @param state1 First state
-   * @param state2 Second state
+   * @return Const reference to the underlying entity
+   */
+  const EntityType& entity() const { return entity_; }
+
+  /**
+   * @brief Set all elements to zero
+   *
+   * @return Reference to this increment
+   */
+  Increment& zero() {
+    entity_.zero();
+    return *this;
+  }
+
+  /**
+   * @brief Scale the increment by a factor
+   *
+   * @param alpha The scaling factor
+   * @return Reference to this increment
+   */
+  Increment& scale(double alpha) {
+    entity_ *= alpha;
+    return *this;
+  }
+
+  /**
+   * @brief Add another increment scaled by a factor (this += alpha * other)
+   *
+   * This is the AXPY operation (A times X Plus Y) common in linear algebra and
+   * extensively used in iterative minimization algorithms.
+   *
+   * @param alpha The scaling factor
+   * @param other The increment to add
+   * @return Reference to this increment
+   */
+  Increment& axpy(double alpha, const Increment& other) {
+    EntityType scaled = other.entity_;
+    scaled *= alpha;
+    entity_ += scaled;
+    return *this;
+  }
+
+  /**
+   * @brief Compute dot product with another increment
+   *
+   * The inner product is essential for algorithms like conjugate gradient and
+   * for computing norms and projections.
+   *
+   * @param other The other increment
+   * @return The dot product value
+   */
+  double dot(const Increment& other) const {
+    return entity_.dot(other.entity_);
+  }
+
+  /**
+   * @brief Compute the L2 norm of the increment
+   *
+   * The norm is used to measure the size of the increment and for convergence
+   * criteria in iterative algorithms.
+   *
+   * @return The L2 norm value
+   */
+  double norm() const { return entity_.norm(); }
+
+  /**
+   * @brief Apply this increment to an entity
+   *
+   * Adds this increment to the provided entity. This is used, for example,
+   * to update the background state with an analysis increment.
+   *
+   * @param target The entity to apply this increment to
+   * @return Reference to the modified entity
+   */
+  template <typename TargetType>
+  TargetType& applyTo(TargetType& target) const {
+    target += entity_;
+    return target;
+  }
+
+  /**
+   * @brief Create an increment from the difference of two entities
+   *
+   * Factory method that creates a new increment representing first - second.
+   * This is used to create innovation vectors, analysis increments, etc.
+   *
+   * @param first First entity
+   * @param second Second entity
    * @return A new increment containing the difference
    */
-  template <typename StateType>
-  static Increment createFromDifference(const State<StateType>& state1,
-                                        const State<StateType>& state2);
+  static Increment createFromDifference(const EntityType& first,
+                                        const EntityType& second) {
+    Increment result;
+    result.entity_ = first;
+    result.entity_ -= second;
+    result.initialized_ = true;
+    return result;
+  }
 
-  // Data access
+  /**
+   * @brief Get typed access to the underlying data
+   *
+   * @tparam T The type to cast the data to
+   * @return Reference to the data with the requested type
+   */
   template <typename T>
   T& getData() {
-    return *static_cast<T*>(backend_.getData());
+    return entity_.template getData<T>();
   }
 
+  /**
+   * @brief Get const typed access to the underlying data
+   *
+   * @tparam T The type to cast the data to
+   * @return Const reference to the data with the requested type
+   */
   template <typename T>
   const T& getData() const {
-    return *static_cast<const T*>(backend_.getData());
+    return entity_.template getData<T>();
   }
 
-  // Metadata operations
+  /**
+   * @brief Set metadata value
+   *
+   * @param key The metadata key
+   * @param value The metadata value
+   */
   void setMetadata(const std::string& key, const std::string& value) {
-    backend_.setMetadata(key, value);
+    entity_.setMetadata(key, value);
   }
 
+  /**
+   * @brief Get metadata value
+   *
+   * @param key The metadata key
+   * @return The metadata value
+   */
   std::string getMetadata(const std::string& key) const {
-    return backend_.getMetadata(key);
+    return entity_.getMetadata(key);
   }
 
-  // Increment information
+  /**
+   * @brief Get the dimensions of the increment
+   *
+   * @return Vector of dimensions
+   */
   const std::vector<size_t>& getDimensions() const {
-    return backend_.getDimensions();
+    return entity_.getDimensions();
   }
 
-  bool isInitialized() const { return backend_.isInitialized(); }
+  /**
+   * @brief Check if the increment is initialized
+   *
+   * @return true if initialized, false otherwise
+   */
+  bool isInitialized() const { return initialized_ && entity_.isInitialized(); }
+
+  /**
+   * @brief Addition operator
+   *
+   * Creates a new increment by adding another increment to this one.
+   * Used in combining increments from different sources.
+   *
+   * @param other The increment to add
+   * @return A new increment containing the sum
+   */
+  Increment operator+(const Increment& other) const {
+    Increment result(*this);
+    result.entity_ += other.entity_;
+    return result;
+  }
+
+  /**
+   * @brief Multiplication operator
+   *
+   * Creates a new increment by scaling this increment by a scalar value.
+   *
+   * @param scalar The scalar to multiply by
+   * @return A new increment containing the product
+   */
+  Increment operator*(double scalar) const {
+    Increment result(*this);
+    result.entity_ *= scalar;
+    return result;
+  }
+
+  /**
+   * @brief Addition assignment operator
+   *
+   * Adds another increment to this one in-place.
+   *
+   * @param other The increment to add
+   * @return Reference to this increment
+   */
+  Increment& operator+=(const Increment& other) {
+    entity_ += other.entity_;
+    return *this;
+  }
+
+  /**
+   * @brief Multiplication assignment operator
+   *
+   * Scales this increment by a scalar value in-place.
+   *
+   * @param scalar The scalar to multiply by
+   * @return Reference to this increment
+   */
+  Increment& operator*=(double scalar) {
+    entity_ *= scalar;
+    return *this;
+  }
 };
 
-}  // namespace metada::framework
-
-// Include State.hpp after Increment class definition
-#include "State.hpp"
-
-namespace metada::framework {
-
-// Implementation of methods that depend on State
-template <typename IncrementBackend>
-template <typename StateType>
-void Increment<IncrementBackend>::addToState(State<StateType>& state) const {
-  backend_.addToState(state.backend());
-}
-
-template <typename IncrementBackend>
-template <typename StateType>
-void Increment<IncrementBackend>::differenceFromStates(
-    const State<StateType>& state1, const State<StateType>& state2) {
-  backend_.differenceFromStates(state1.backend(), state2.backend());
-}
-
-template <typename IncrementBackend>
-template <typename StateType>
-Increment<IncrementBackend> Increment<IncrementBackend>::createFromDifference(
-    const State<StateType>& state1, const State<StateType>& state2) {
-  Increment result;
-  result.initialize();
-  result.differenceFromStates(state1, state2);
-  return result;
+/**
+ * @brief Non-member multiplication operator (scalar * increment)
+ *
+ * Allows scalar multiplication with the scalar on the left side.
+ *
+ * @param scalar The scalar to multiply by
+ * @param increment The increment to multiply
+ * @return A new increment containing the product
+ */
+template <typename EntityType>
+Increment<EntityType> operator*(double scalar,
+                                const Increment<EntityType>& increment) {
+  return increment * scalar;
 }
 
 }  // namespace metada::framework

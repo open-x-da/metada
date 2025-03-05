@@ -318,22 +318,22 @@ class State {
    * @brief Create an increment representing the difference between this state
    * and another
    *
-   * @tparam IncrementBackend The backend type for the increment
+   * @tparam IncrementType The increment type to create
    * @param other The state to subtract from this one
    * @return An increment representing (this - other)
    */
-  template <typename IncrementBackend>
-  Increment<IncrementBackend> createIncrementTo(const State& other) const;
+  template <typename IncrementType>
+  IncrementType createIncrementTo(const State& other) const;
 
   /**
    * @brief Apply an increment to this state
    *
-   * @tparam IncrementBackend The backend type for the increment
+   * @tparam IncrementType The increment type to apply
    * @param increment The increment to apply
    * @return Reference to this state after applying the increment
    */
-  template <typename IncrementBackend>
-  State& applyIncrement(const Increment<IncrementBackend>& increment);
+  template <typename IncrementType>
+  State& applyIncrement(const IncrementType& increment);
 };
 
 }  // namespace metada::framework
@@ -346,20 +346,18 @@ namespace metada::framework {
 
 // Implementation of methods that depend on Increment
 template <typename StateBackend>
-template <typename IncrementBackend>
-Increment<IncrementBackend> State<StateBackend>::createIncrementTo(
-    const State& other) const {
-  auto increment = Increment<IncrementBackend>();
-  increment.initialize();
-  increment.differenceFromStates(*this, other);
-  return increment;
+template <typename IncrementType>
+IncrementType State<StateBackend>::createIncrementTo(const State& other) const {
+  // Use the factory method in Increment
+  return IncrementType::createFromDifference(*this, other);
 }
 
 template <typename StateBackend>
-template <typename IncrementBackend>
+template <typename IncrementType>
 State<StateBackend>& State<StateBackend>::applyIncrement(
-    const Increment<IncrementBackend>& increment) {
-  increment.addToState(*this);
+    const IncrementType& increment) {
+  // Use the applyTo method in Increment
+  increment.applyTo(*this);
   return *this;
 }
 

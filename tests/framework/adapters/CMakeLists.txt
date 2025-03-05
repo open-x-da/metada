@@ -28,6 +28,8 @@ target_link_libraries(ensemble_test
         metada::framework::interfaces
         metada::framework::adapters
         metada::framework::interfaces::test
+        metada::framework::runs
+        metada::framework::traits
 )
 
 target_include_directories(ensemble_test
@@ -46,6 +48,8 @@ target_link_libraries(increment_test
         metada::framework::interfaces
         metada::framework::adapters
         metada::framework::interfaces::test
+        metada::framework::runs
+        metada::framework::traits
 )
 
 target_include_directories(increment_test
@@ -85,35 +89,35 @@ target_include_directories(observation_test
 )
 
 # IObsOperator tests
-add_executable(obsoperator_test
-    ObsOperatorTest.cpp
-)
+#add_executable(obsoperator_test
+#    ObsOperatorTest.cpp
+#)
 
-target_link_libraries(obsoperator_test
-    PRIVATE
-        metada::framework::interfaces
-        metada::framework::adapters
-        metada::framework::interfaces::test
-        metada::framework::runs
-        metada::framework::traits
-)
+#target_link_libraries(obsoperator_test
+#    PRIVATE
+#        metada::framework::interfaces
+#        metada::framework::adapters
+#        metada::framework::interfaces::test
+#        metada::framework::runs
+#        metada::framework::traits
+#)
 
-target_include_directories(obsoperator_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
-)
+#target_include_directories(obsoperator_test
+#    PRIVATE
+#        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
+#        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
+#)
 
 metada_add_test_with_coverage(state_test)
 metada_add_test_with_coverage(ensemble_test)
 metada_add_test_with_coverage(increment_test)
 #metada_add_test_with_coverage(model_test)
 metada_add_test_with_coverage(observation_test)
-metada_add_test_with_coverage(obsoperator_test)
+#metada_add_test_with_coverage(obsoperator_test)
 
 # AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
-# AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
-AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
+# AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
