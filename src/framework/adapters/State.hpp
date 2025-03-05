@@ -29,8 +29,6 @@
 #include <string>
 #include <vector>
 
-#include "utils/logger/Logger.hpp"
-
 namespace metada::framework {
 
 // Forward declaration
@@ -57,20 +55,20 @@ class Config;
  *
  * Example usage:
  * @code
- * Config<MyConfig> config;
- * State<MyStateBackend> state(config);
+ * Config<T> config;
+ * State<Backend> state(config);
  * state.reset();
  * auto& data = state.getData<double>();
  * @endcode
  *
- * @tparam StateBackend The state backend type that implements IState interface
+ * @tparam Backend The state backend type that implements IState interface
  *
  * @see IState
  */
-template <typename StateBackend>
+template <typename Backend>
 class State {
  private:
-  StateBackend backend_;     ///< Instance of the state backend
+  Backend backend_;          ///< Instance of the state backend
   bool initialized_{false};  ///< Initialization flag
 
  public:
@@ -255,13 +253,13 @@ class State {
    * @brief Get direct access to the backend instance
    * @return Reference to backend implementation
    */
-  StateBackend& backend() { return backend_; }
+  Backend& backend() { return backend_; }
 
   /**
    * @brief Get const access to the backend instance
    * @return Const reference to backend implementation
    */
-  const StateBackend& backend() const { return backend_; }
+  const Backend& backend() const { return backend_; }
 
   /**
    * @brief Addition operator
@@ -367,17 +365,16 @@ class State {
 namespace metada::framework {
 
 // Implementation of methods that depend on Increment
-template <typename StateBackend>
+template <typename Backend>
 template <typename IncrementType>
-IncrementType State<StateBackend>::createIncrementTo(const State& other) const {
+IncrementType State<Backend>::createIncrementTo(const State& other) const {
   // Use the factory method in Increment
   return IncrementType::createFromDifference(*this, other);
 }
 
-template <typename StateBackend>
+template <typename Backend>
 template <typename IncrementType>
-State<StateBackend>& State<StateBackend>::applyIncrement(
-    const IncrementType& increment) {
+State<Backend>& State<Backend>::applyIncrement(const IncrementType& increment) {
   // Use the applyTo method in Increment
   increment.applyTo(*this);
   return *this;
