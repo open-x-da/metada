@@ -161,10 +161,8 @@ class Increment {
    */
   static Increment createFromDifference(const EntityType& first,
                                         const EntityType& second) {
-    Increment result;
-    result.entity_ = first;
+    Increment result(first);
     result.entity_ -= second;
-    result.initialized_ = true;
     return result;
   }
 
