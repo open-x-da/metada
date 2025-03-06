@@ -156,11 +156,17 @@ TEST_F(ObsOperatorTest, ApplyTangentLinearOperator) {
   ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
   State<Traits::StateType> state1(getConfig());
   State<Traits::StateType> state2(getConfig());
-  Observation<Traits::ObservationType> dy(getConfig());
+  Observation<Traits::ObservationType> y1(getConfig());
+  Observation<Traits::ObservationType> y2(getConfig());
 
   // Create increments from states
-  using IncrementType = Increment<State<Traits::StateType>>;
-  IncrementType dx = IncrementType::createFromDifference(state1, state2);
+  using IncrementState = Increment<State<Traits::StateType>>;
+  IncrementState dx = IncrementState::createFromDifference(state1, state2);
+
+  // Create increments from observations
+  using IncrementObs = Increment<Observation<Traits::ObservationType>>;
+  IncrementObs dy = IncrementObs::createFromDifference(y1, y2);
+
   // Test tangent linear operator (H')
   EXPECT_CALL(obsOp.backend(), applyTangentLinear(_, _)).Times(1);
 
@@ -175,11 +181,16 @@ TEST_F(ObsOperatorTest, ApplyAdjointOperator) {
   ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
   State<Traits::StateType> state1(getConfig());
   State<Traits::StateType> state2(getConfig());
-  Observation<Traits::ObservationType> dy(getConfig());
+  Observation<Traits::ObservationType> y1(getConfig());
+  Observation<Traits::ObservationType> y2(getConfig());
+
+  // Create increments from observations
+  using IncrementObs = Increment<Observation<Traits::ObservationType>>;
+  IncrementObs dy = IncrementObs::createFromDifference(y1, y2);
 
   // Create increments from states
-  using IncrementType = Increment<State<Traits::StateType>>;
-  IncrementType dx = IncrementType::createFromDifference(state1, state2);
+  using IncrementState = Increment<State<Traits::StateType>>;
+  IncrementState dx = IncrementState::createFromDifference(state1, state2);
 
   // Test adjoint operator (H'*)
   EXPECT_CALL(obsOp.backend(), applyAdjoint(_, _)).Times(1);
@@ -211,7 +222,8 @@ TEST_F(ObsOperatorTest, ThrowsWhenNotInitialized) {
   // Create test instances
   ObsOperator<Traits::ObsOperatorType> obsOp1(getConfig());
   State<Traits::StateType> state(getConfig());
-  Observation<Traits::ObservationType> obs(getConfig());
+  Observation<Traits::ObservationType> obs1(getConfig());
+  Observation<Traits::ObservationType> obs2(getConfig());
   State<Traits::StateType> state1(getConfig());
   State<Traits::StateType> state2(getConfig());
 
@@ -219,13 +231,17 @@ TEST_F(ObsOperatorTest, ThrowsWhenNotInitialized) {
   using IncrementType = Increment<State<Traits::StateType>>;
   IncrementType dx = IncrementType::createFromDifference(state1, state2);
 
+  // Create increments from observations
+  using IncrementObs = Increment<Observation<Traits::ObservationType>>;
+  IncrementObs dy = IncrementObs::createFromDifference(obs1, obs2);
+
   // Create uninitialized operator through move
   ObsOperator<Traits::ObsOperatorType> uninitializedOp(std::move(obsOp1));
 
   // Test exception throwing
-  EXPECT_THROW(uninitializedOp.apply(state, obs), std::runtime_error);
-  EXPECT_THROW(uninitializedOp.applyTangentLinear(dx, obs), std::runtime_error);
-  EXPECT_THROW(uninitializedOp.applyAdjoint(obs, dx), std::runtime_error);
+  EXPECT_THROW(uninitializedOp.apply(state, obs1), std::runtime_error);
+  EXPECT_THROW(uninitializedOp.applyTangentLinear(dx, dy), std::runtime_error);
+  EXPECT_THROW(uninitializedOp.applyAdjoint(dy, dx), std::runtime_error);
 }
 
 /**

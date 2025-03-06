@@ -13,6 +13,10 @@
 
 namespace metada::framework {
 
+// Forward declaration
+template <typename T>
+class Config;
+
 /**
  * @brief Observation operator for data assimilation algorithms
  *
@@ -47,8 +51,8 @@ class ObsOperator : public NonCopyable {
    * @tparam Config Configuration type
    * @param config Configuration object
    */
-  template <typename Config>
-  explicit ObsOperator(const Config& config)
+  template <typename T>
+  explicit ObsOperator(const Config<T>& config)
       : backend_(std::make_unique<Backend>()) {
     initialize(config);
   }
@@ -79,12 +83,12 @@ class ObsOperator : public NonCopyable {
    * @param config Configuration object
    * @throws std::runtime_error If already initialized
    */
-  template <typename Config>
-  void initialize(const Config& config) {
+  template <typename T>
+  void initialize(const Config<T>& config) {
     if (initialized_) {
       throw std::runtime_error("ObsOperator already initialized");
     }
-    backend_->initialize(config);
+    backend_->initialize(config.backend());
     initialized_ = true;
   }
 
@@ -121,9 +125,10 @@ class ObsOperator : public NonCopyable {
    */
   template <typename IncrementType, typename ObsType>
   void applyTangentLinear(const Increment<IncrementType>& dx,
-                          Observation<ObsType>& dy) const {
+                          Increment<ObsType>& dy) const {
     checkInitialized();
-    backend_->applyTangentLinear(dx.backend().getData(), dy.backend());
+    backend_->applyTangentLinear(static_cast<const void*>(&dx.entity()),
+                                 static_cast<void*>(&dy.entity()));
   }
 
   /**
@@ -138,10 +143,11 @@ class ObsOperator : public NonCopyable {
    * @throws std::runtime_error If not initialized
    */
   template <typename IncrementType, typename ObsType>
-  void applyAdjoint(const Observation<ObsType>& dy,
+  void applyAdjoint(const Increment<ObsType>& dy,
                     Increment<IncrementType>& dx) const {
     checkInitialized();
-    backend_->applyAdjoint(dy.backend(), dx.backend().getData());
+    backend_->applyAdjoint(static_cast<const void*>(&dy.entity()),
+                           static_cast<void*>(&dx.entity()));
   }
 
   /** @brief Get required state variables */

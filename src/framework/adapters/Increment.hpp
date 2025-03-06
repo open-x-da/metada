@@ -61,14 +61,14 @@ class Increment {
 
   // Core accessors
   /**
-   * @brief Gets mutable reference to underlying entity
-   * @return Reference to entity
+   * @brief Get access to the underlying entity
+   * @return Reference to the entity
    */
   EntityType& entity() { return entity_; }
 
   /**
-   * @brief Gets const reference to underlying entity
-   * @return Const reference to entity
+   * @brief Get const access to the underlying entity
+   * @return Const reference to the entity
    */
   const EntityType& entity() const { return entity_; }
 

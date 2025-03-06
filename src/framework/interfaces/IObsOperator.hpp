@@ -33,10 +33,10 @@ class IObsOperator : public NonCopyable {
   virtual void apply(const IState& state, IObservation& obs) const = 0;
 
   // Tangent linear: H'(x)δx - Working with raw data pointers
-  virtual void applyTangentLinear(const void* dx, IObservation& dy) const = 0;
+  virtual void applyTangentLinear(const void* dx, void* dy) const = 0;
 
   // Adjoint: H'*(x)δy - Working with raw data pointers
-  virtual void applyAdjoint(const IObservation& dy, void* dx) const = 0;
+  virtual void applyAdjoint(const void* dy, void* dx) const = 0;
 
   // Metadata
   virtual const std::vector<std::string>& getRequiredStateVars() const = 0;

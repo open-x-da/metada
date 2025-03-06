@@ -33,11 +33,11 @@ class MockObsOperator : public IObsOperator {
               (const, override));
 
   // Tangent linear: H'(x)δx
-  MOCK_METHOD(void, applyTangentLinear, (const void* dx, IObservation& dy),
+  MOCK_METHOD(void, applyTangentLinear, (const void* dx, void* dy),
               (const, override));
 
   // Adjoint: H'*(x)δy
-  MOCK_METHOD(void, applyAdjoint, (const IObservation& dy, void* dx),
+  MOCK_METHOD(void, applyAdjoint, (const void* dy, void* dx),
               (const, override));
 
   // Metadata
