@@ -138,6 +138,8 @@ class MockState : public IState {
   MOCK_METHOD(void, add, (const IState& other), (override));
   MOCK_METHOD(void, subtract, (const IState& other), (override));
   MOCK_METHOD(void, multiply, (double scalar), (override));
+  MOCK_METHOD(double, dot, (const IState& other), (const, override));
+  MOCK_METHOD(double, norm, (), (const, override));
 
   // Get the config
   const Config<MockConfig>& config() const { return config_; }

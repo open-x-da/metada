@@ -312,7 +312,8 @@ class State {
   }
 
   /**
-   * @brief Multiplication operator (scalar on left)
+   * @brief Non-member multiplication operator (scalar * State) (scalar on
+   * left)
    * @param scalar Value to multiply by
    * @param state State to multiply
    * @return New state containing the product

@@ -222,6 +222,21 @@ class IState {
    * @throws std::runtime_error If multiplication fails
    */
   virtual void multiply(double scalar) = 0;
+
+  /**
+   * @brief Calculate the dot product of this state with another state
+   * @param other State to calculate dot product with
+   * @return Resulting dot product value
+   * @throws std::runtime_error If dot product operation fails
+   */
+  virtual double dot(const IState& other) const = 0;
+
+  /**
+   * @brief Calculate the norm of this state
+   * @return Resulting norm value
+   * @throws std::runtime_error If norm operation fails
+   */
+  virtual double norm() const = 0;
 };
 
 }  // namespace metada::framework

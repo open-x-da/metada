@@ -282,21 +282,18 @@ class Increment {
     entity_ *= scalar;
     return *this;
   }
+
+  /**
+   * @brief Non-member multiplication operator (scalar * Increment)
+   *
+   * Allows scalar multiplication with the scalar on the left side.
+   *
+   * @param scalar The scalar to multiply by
+   * @param increment The increment to multiply
+   * @return A new increment containing the product
+   */
+  friend Increment operator*(double scalar, const Increment& increment) {
+    return increment * scalar;
+  }
 };
-
-/**
- * @brief Non-member multiplication operator (scalar * increment)
- *
- * Allows scalar multiplication with the scalar on the left side.
- *
- * @param scalar The scalar to multiply by
- * @param increment The increment to multiply
- * @return A new increment containing the product
- */
-template <typename EntityType>
-Increment<EntityType> operator*(double scalar,
-                                const Increment<EntityType>& increment) {
-  return increment * scalar;
-}
-
 }  // namespace metada::framework

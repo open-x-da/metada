@@ -105,7 +105,7 @@ TEST_F(IncrementTest, ZeroOperation) {
   auto increment = createTestIncrement();
 
   // Expect the zero operation to be called on the backend
-  // EXPECT_CALL(entity1_->backend(), zero()).Times(1);
+  EXPECT_CALL(increment.entity().backend(), zero()).Times(1);
 
   increment.zero();
 }
@@ -117,7 +117,7 @@ TEST_F(IncrementTest, ScaleOperation) {
   auto increment = createTestIncrement();
 
   // Expect the scale operation to be called on the backend
-  // EXPECT_CALL(entity1_->backend(), operator*=(2.5)).Times(1);
+  EXPECT_CALL(increment.entity().backend(), multiply(2.5)).Times(1);
 
   increment.scale(2.5);
 }
@@ -129,8 +129,7 @@ TEST_F(IncrementTest, AxpyOperation) {
   auto increment1 = createTestIncrement();
   auto increment2 = createTestIncrement();
   // Expect the axpy operation to be implemented correctly
-  // EXPECT_CALL(entity2_->backend(), operator*=(3.0)).Times(1);
-  // EXPECT_CALL(entity1_->backend(), operator+=(entity2_->backend())).Times(1);
+  EXPECT_CALL(increment1.entity().backend(), add(_)).Times(1);
 
   increment1.axpy(3.0, increment2);
 }
@@ -138,28 +137,27 @@ TEST_F(IncrementTest, AxpyOperation) {
 /**
  * @brief Test dot product operation
  */
-// TEST_F(IncrementTest, DotProductOperation) {
-//   auto increment1 = createTestIncrement();
-//   auto increment2 = createTestIncrement();
+TEST_F(IncrementTest, DotProductOperation) {
+  auto increment1 = createTestIncrement();
+  auto increment2 = createTestIncrement();
 
-// Expect the dot product to be calculated on the backend
-// EXPECT_CALL(entity1_->backend(), dot(entity2_->backend()))
-//     .WillOnce(Return(42.0));
+  // Expect the dot product to be calculated on the backend
+  EXPECT_CALL(increment1.entity().backend(), dot(_)).WillOnce(Return(42.0));
 
-//   EXPECT_DOUBLE_EQ(increment1.dot(increment2), 42.0);
-// }
+  EXPECT_DOUBLE_EQ(increment1.dot(increment2), 42.0);
+}
 
 /**
  * @brief Test norm operation
  */
-// TEST_F(IncrementTest, NormOperation) {
-//   auto increment = createTestIncrement();
+TEST_F(IncrementTest, NormOperation) {
+  auto increment = createTestIncrement();
 
-// Expect the norm to be calculated on the backend
-// EXPECT_CALL(entity1_->backend(), norm()).WillOnce(Return(5.0));
+  // Expect the norm to be calculated on the backend
+  EXPECT_CALL(increment.entity().backend(), norm()).WillOnce(Return(5.0));
 
-//   EXPECT_DOUBLE_EQ(increment.norm(), 5.0);
-// }
+  EXPECT_DOUBLE_EQ(increment.norm(), 5.0);
+}
 
 /**
  * @brief Test applying an increment to an entity
@@ -168,7 +166,7 @@ TEST_F(IncrementTest, ApplyToOperation) {
   auto increment = createTestIncrement();
 
   // Expect the increment to be applied to entity2
-  // EXPECT_CALL(entity2_->backend(), operator+=(entity1_->backend())).Times(1);
+  EXPECT_CALL(entity2_->backend(), add(_)).Times(1);
 
   increment.applyTo(*entity2_);
 }
@@ -181,16 +179,13 @@ TEST_F(IncrementTest, OperatorOverloads) {
   auto increment2 = createTestIncrement();
 
   // Test addition operator
-  // EXPECT_CALL(entity1_->backend(), operator+=(entity2_->backend())).Times(1);
-  auto result1 = increment1 + increment2;
+  EXPECT_NO_THROW(auto result1 = increment1 + increment2);
 
   // Test multiplication operator
-  // EXPECT_CALL(entity1_->backend(), operator*=(3.5)).Times(1);
-  auto result2 = increment1 * 3.5;
+  EXPECT_NO_THROW(auto result2 = increment1 * 3.5);
 
   // Test non-member multiplication operator
-  // EXPECT_CALL(entity1_->backend(), operator*=(4.0)).Times(1);
-  auto result3 = 4.0 * increment1;
+  EXPECT_NO_THROW(auto result3 = 4.0 * increment1);
 }
 
 }  // namespace metada::tests

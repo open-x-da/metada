@@ -409,4 +409,23 @@ TEST_F(StateTest, MockStateCopyAndMove) {
   SUCCEED() << "MockState copy and move operations completed successfully";
 }
 
+/**
+ * @brief Test the zero() method that sets all state values to zero
+ *
+ * Verifies:
+ * - The backend zero() method is called correctly
+ * - The method returns a reference to itself for method chaining
+ */
+TEST_F(StateTest, ZeroMethod) {
+  // Create a test state
+  auto state = createState();
+
+  // Expect the zero method to be called
+  EXPECT_CALL(state.backend(), zero()).Times(1);
+
+  // Call the zero method and verify it returns reference to self
+  State<Traits::StateType>& result = state.zero();
+  EXPECT_EQ(&result, &state);
+}
+
 }  // namespace metada::tests
