@@ -89,26 +89,26 @@ TEST_F(IncrementTest, CreateFromTwoEntities) {
 /**
  * @brief Test creating an increment using the factory method
  */
-// TEST_F(IncrementTest, CreateFromDifference) {
-//  Create increment using the factory method
-// auto increment = Increment<State<Traits::StateType>>::createFromDifference(
-//     *entity2_, *entity1_);
+TEST_F(IncrementTest, CreateFromDifference) {
+  // Create increment using the factory method
+  auto increment = Increment<State<Traits::StateType>>::createFromDifference(
+      *entity2_, *entity1_);
 
-// Verify the increment was created successfully
-// EXPECT_TRUE(increment.isInitialized());
-//}
+  // Verify the increment was created successfully
+  EXPECT_TRUE(increment.isInitialized());
+}
 
 /**
  * @brief Test zero operation
  */
-// TEST_F(IncrementTest, ZeroOperation) {
-//   auto increment = createTestIncrement();
+TEST_F(IncrementTest, ZeroOperation) {
+  auto increment = createTestIncrement();
 
-// Expect the zero operation to be called on the backend
-// EXPECT_CALL(entity1_->backend(), zero()).Times(1);
+  // Expect the zero operation to be called on the backend
+  // EXPECT_CALL(entity1_->backend(), zero()).Times(1);
 
-//   increment.zero();
-// }
+  increment.zero();
+}
 
 /**
  * @brief Test scale operation

@@ -111,6 +111,7 @@ class MockState : public IState {
   MOCK_METHOD(void, initialize, (const IConfig& config), (override));
   MOCK_METHOD(void, reset, (), (override));
   MOCK_METHOD(void, validate, (), (const, override));
+  MOCK_METHOD(void, zero, (), (override));
 
   // Copy operations
   MOCK_METHOD(void, copyFrom, (const IState& other), (override));

@@ -33,9 +33,6 @@ namespace metada::framework {
 
 // Forward declaration
 template <typename T>
-class Increment;
-
-template <typename T>
 class Config;
 
 /**

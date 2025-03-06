@@ -109,6 +109,12 @@ class IState {
   virtual void reset() = 0;
 
   /**
+   * @brief Set all values to zero
+   * @return Reference to this state
+   */
+  virtual void zero() = 0;
+
+  /**
    * @brief Validate the state consistency
    * @throws std::runtime_error If validation fails
    * @details Verifies internal state consistency and validity of all values

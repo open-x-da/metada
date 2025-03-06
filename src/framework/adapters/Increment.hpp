@@ -42,6 +42,10 @@ class Increment {
   EntityType entity_;        ///< The underlying entity
   bool initialized_{false};  ///< Initialization flag
 
+  // Constructor that takes an entity
+  explicit Increment(const EntityType& entity)
+      : entity_(entity), initialized_(true) {}
+
  public:
   /** @brief Default constructor */
   Increment() = default;
@@ -150,18 +154,18 @@ class Increment {
   }
 
   /**
-   * @brief Create an increment from the difference of two entities
-   *
-   * Factory method that creates a new increment representing first - second.
-   * This is used to create innovation vectors, analysis increments, etc.
-   *
-   * @param first First entity
-   * @param second Second entity
-   * @return A new increment containing the difference
+   * @brief Create an increment as a copy of an entity
+   */
+  static Increment createFromEntity(const EntityType& entity) {
+    return Increment(entity);
+  }
+
+  /**
+   * @brief Create an increment as the difference between entities
    */
   static Increment createFromDifference(const EntityType& first,
                                         const EntityType& second) {
-    Increment result(first);
+    Increment result = createFromEntity(first);
     result.entity_ -= second;
     return result;
   }
