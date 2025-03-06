@@ -10,26 +10,19 @@
 #include "Observation.hpp"
 #include "State.hpp"
 #include "utils/NonCopyable.hpp"
-#include "utils/config/IConfig.hpp"
 
 namespace metada::framework {
 
 /**
- * @brief Main observation operator class template providing a generic interface
+ * @brief Observation operator for data assimilation algorithms
  *
- * This class template provides a static interface for observation operators
- * using a backend specified by the ObsOperatorBackend template parameter. The
- * backend must implement the IObsOperator interface.
+ * Maps between model space and observation space, providing essential
+ * operations for variational and ensemble data assimilation:
+ * - H: Forward observation operator (state → observation)
+ * - H': Tangent linear operator (increment → observation)
+ * - H'*: Adjoint operator (observation → increment)
  *
- * The observation operator is responsible for:
- * - Mapping model state variables to observation space (H operator)
- * - Computing tangent linear approximations (H' operator)
- * - Computing adjoint operations (H'* operator)
- * - Managing observation errors and uncertainties
- *
- * @tparam ObsOperatorBackend The observation operator backend type
- * @tparam StateType The state type used by this operator
- * @tparam ObsType The observation type used by this operator
+ * @tparam Backend Backend implementation type
  */
 template <typename Backend>
 class ObsOperator : public NonCopyable {
@@ -37,11 +30,23 @@ class ObsOperator : public NonCopyable {
   std::unique_ptr<Backend> backend_;
   bool initialized_{false};
 
+  /** @brief Check initialization status and throw if not initialized */
+  void checkInitialized() const {
+    if (!isInitialized()) {
+      throw std::runtime_error("ObsOperator not initialized");
+    }
+  }
+
  public:
-  /** @brief Default constructor - deleted to prevent usage without config */
+  /** @brief Default constructor deleted - must initialize with config */
   ObsOperator() = delete;
 
-  /** @brief Constructor with configuration */
+  /**
+   * @brief Constructor with configuration
+   *
+   * @tparam Config Configuration type
+   * @param config Configuration object
+   */
   template <typename Config>
   explicit ObsOperator(const Config& config)
       : backend_(std::make_unique<Backend>()) {
@@ -64,9 +69,16 @@ class ObsOperator : public NonCopyable {
     return *this;
   }
 
-  /** @brief Get const access to the backend instance */
+  /** @brief Get const access to backend */
   const Backend& backend() const { return *backend_; }
 
+  /**
+   * @brief Initialize with configuration
+   *
+   * @tparam Config Configuration type
+   * @param config Configuration object
+   * @throws std::runtime_error If already initialized
+   */
   template <typename Config>
   void initialize(const Config& config) {
     if (initialized_) {
@@ -76,37 +88,68 @@ class ObsOperator : public NonCopyable {
     initialized_ = true;
   }
 
+  /** @brief Check if initialized */
   bool isInitialized() const { return initialized_; }
 
-  // Forward operator: model state -> observation space
+  /**
+   * @brief Apply forward operator: H(x)
+   *
+   * Maps state to observation space (y = H(x))
+   *
+   * @tparam StateType State type
+   * @tparam ObsType Observation type
+   * @param state Model state
+   * @param obs Output observation
+   * @throws std::runtime_error If not initialized
+   */
   template <typename StateType, typename ObsType>
-  void apply(const State<StateType>& state,
-             const Observation<ObsType>& obs) const {
-    if (!initialized_) throw std::runtime_error("ObsOperator not initialized");
+  void apply(const State<StateType>& state, Observation<ObsType>& obs) const {
+    checkInitialized();
     backend_->apply(state.backend(), obs.backend());
   }
 
-  // Tangent linear operator: increment -> observation space
+  /**
+   * @brief Apply tangent linear operator: H'(x)δx
+   *
+   * Maps increment to observation space (δy = H'(x)δx)
+   *
+   * @tparam IncrementType Increment type
+   * @tparam ObsType Observation type
+   * @param dx State increment
+   * @param dy Output observation increment
+   * @throws std::runtime_error If not initialized
+   */
   template <typename IncrementType, typename ObsType>
   void applyTangentLinear(const Increment<IncrementType>& dx,
-                          const Observation<ObsType>& dy) const {
-    if (!initialized_) throw std::runtime_error("ObsOperator not initialized");
-    backend_->applyTangentLinear(dx.backend(), dy.backend());
+                          Observation<ObsType>& dy) const {
+    checkInitialized();
+    backend_->applyTangentLinear(dx.backend().getData(), dy.backend());
   }
 
-  // Adjoint operator: observation -> increment space
+  /**
+   * @brief Apply adjoint operator: H'*(x)δy
+   *
+   * Maps observation to increment space (δx = H'*(x)δy)
+   *
+   * @tparam IncrementType Increment type
+   * @tparam ObsType Observation type
+   * @param dy Observation increment
+   * @param dx Output state increment
+   * @throws std::runtime_error If not initialized
+   */
   template <typename IncrementType, typename ObsType>
   void applyAdjoint(const Observation<ObsType>& dy,
                     Increment<IncrementType>& dx) const {
-    if (!initialized_) throw std::runtime_error("ObsOperator not initialized");
-    backend_->applyAdjoint(dy.backend(), dx.backend());
+    checkInitialized();
+    backend_->applyAdjoint(dy.backend(), dx.backend().getData());
   }
 
-  // Required variables
+  /** @brief Get required state variables */
   const std::vector<std::string>& getRequiredStateVars() const {
     return backend_->getRequiredStateVars();
   }
 
+  /** @brief Get required observation variables */
   const std::vector<std::string>& getRequiredObsVars() const {
     return backend_->getRequiredObsVars();
   }

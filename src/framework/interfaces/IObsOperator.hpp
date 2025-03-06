@@ -1,28 +1,25 @@
 #pragma once
 
-#include <memory>
 #include <vector>
 
-#include "IIncrement.hpp"
 #include "IObservation.hpp"
-#include "IState.hpp"
 #include "utils/NonCopyable.hpp"
-#include "utils/config/IConfig.hpp"
 
 namespace metada::framework {
 
+// Forward declaration
+class IState;
+class IConfig;
+
 /**
- * @brief Abstract interface for observation operator implementations
+ * @brief Interface for observation operator implementations
  *
- * This interface defines the contract that all observation operator
- * implementations must follow. It provides a unified API for mapping between
- * model space and observation space.
+ * Defines the contract for mapping between model space and observation space
+ * in data assimilation algorithms. Implementations must provide:
  *
- * Key features:
- * - Forward operator (model -> observation)
- * - Tangent linear operator
- * - Adjoint operator
- * - Observation error handling
+ * 1. Forward operator (H): Map model state to observation space
+ * 2. Tangent linear (H'): Linearized approximation of H
+ * 3. Adjoint operator (H'*): Transpose of the tangent linear
  */
 class IObsOperator : public NonCopyable {
  public:
@@ -32,13 +29,14 @@ class IObsOperator : public NonCopyable {
   virtual void initialize(const IConfig& config) = 0;
   virtual bool isInitialized() const = 0;
 
-  // Forward operator
+  // Forward operator: H(x)
   virtual void apply(const IState& state, IObservation& obs) const = 0;
 
-  // Tangent linear and adjoint
-  virtual void applyTangentLinear(const IIncrement& dx,
-                                  IObservation& dy) const = 0;
-  virtual void applyAdjoint(const IObservation& dy, IIncrement& dx) const = 0;
+  // Tangent linear: H'(x)δx - Working with raw data pointers
+  virtual void applyTangentLinear(const void* dx, IObservation& dy) const = 0;
+
+  // Adjoint: H'*(x)δy - Working with raw data pointers
+  virtual void applyAdjoint(const IObservation& dy, void* dx) const = 0;
 
   // Metadata
   virtual const std::vector<std::string>& getRequiredStateVars() const = 0;

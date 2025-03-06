@@ -10,7 +10,6 @@
 
 namespace metada::tests {
 
-using framework::IIncrement;
 using framework::IObservation;
 using framework::IObsOperator;
 using framework::IState;
@@ -18,9 +17,10 @@ using framework::IState;
 /**
  * @brief Mock implementation of IObsOperator for testing
  *
- * This mock class provides test doubles for all methods in the IObsOperator
- * interface, allowing tests to verify interactions with observation operators
- * without requiring real implementations.
+ * Provides mock methods for all observation operator operations:
+ * - Forward operator (H): state -> observation
+ * - Tangent linear (H'): increment -> observation
+ * - Adjoint (H'*): observation -> increment
  */
 class MockObsOperator : public IObsOperator {
  public:
@@ -28,14 +28,16 @@ class MockObsOperator : public IObsOperator {
   MOCK_METHOD(void, initialize, (const IConfig& config), (override));
   MOCK_METHOD(bool, isInitialized, (), (const, override));
 
-  // Forward operator
+  // Forward operator: H(x)
   MOCK_METHOD(void, apply, (const IState& state, IObservation& obs),
               (const, override));
 
-  // Tangent linear and adjoint
-  MOCK_METHOD(void, applyTangentLinear,
-              (const IIncrement& dx, IObservation& dy), (const, override));
-  MOCK_METHOD(void, applyAdjoint, (const IObservation& dy, IIncrement& dx),
+  // Tangent linear: H'(x)δx
+  MOCK_METHOD(void, applyTangentLinear, (const void* dx, IObservation& dy),
+              (const, override));
+
+  // Adjoint: H'*(x)δy
+  MOCK_METHOD(void, applyAdjoint, (const IObservation& dy, void* dx),
               (const, override));
 
   // Metadata

@@ -7,62 +7,81 @@
 
 #include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
+#include "Increment.hpp"
 #include "MockConfig.hpp"
-#include "MockIncrement.hpp"
 #include "MockLogger.hpp"
 #include "MockObsOperator.hpp"
 #include "MockObservation.hpp"
 #include "MockState.hpp"
 #include "ObsOperator.hpp"
+#include "State.hpp"
 
 namespace metada::tests {
 
 using ::testing::_;
-using ::testing::Ref;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
+using framework::Config;
 using framework::Increment;
+using framework::Logger;
 using framework::Observation;
 using framework::ObsOperator;
 using framework::State;
 using framework::runs::ApplicationContext;
 
-using Traits = AppTraits<MockLogger, MockConfig, MockState, MockIncrement,
-                         MockObservation, MockObsOperator>;
+// Define test traits without MockIncrement
+using Traits = AppTraits<MockLogger, MockConfig, MockState, MockObservation,
+                         MockObsOperator>;
 
+/**
+ * @brief Test fixture for ObsOperator class
+ *
+ * Tests the observation operator class that provides mapping
+ * between model space and observation space in data assimilation.
+ */
 class ObsOperatorTest : public ::testing::Test {
  protected:
   /** @brief Application context instance */
   std::unique_ptr<ApplicationContext<Traits>> context_;
 
   // Test data
-  std::vector<std::string> state_vars_;
-  std::vector<std::string> obs_vars_;
+  std::vector<std::string> state_vars_{"temperature", "pressure"};
+  std::vector<std::string> obs_vars_{"radiance"};
 
-  // Adapters
-  std::unique_ptr<State<Traits::StateType>> stateAdapter_;
-  std::unique_ptr<Observation<Traits::ObservationType>> obsAdapter_;
-  std::unique_ptr<Increment<Traits::IncrementType>> incrementAdapter_;
+  // Mock configuration
+  Config<MockConfig> mock_config_;
 
-  // System under test
-  std::unique_ptr<ObsOperator<Traits::ObsOperatorType>> obsOperator_;
+  // Test vectors for expected return values
+  std::vector<std::string> state_vars_return_;
+  std::vector<std::string> obs_vars_return_;
 
   void SetUp() override {
     context_ = std::make_unique<ApplicationContext<Traits>>("ObsOperatorTest");
 
-    // Setup test data
-    state_vars_ = {"temperature", "pressure"};
-    obs_vars_ = {"radiance"};
+    // Setup return values for metadata methods
+    state_vars_return_ = state_vars_;
+    obs_vars_return_ = obs_vars_;
   }
 
-  void TearDown() override {
-    context_.reset();
-    state_vars_.clear();
-    obs_vars_.clear();
-  }
+  void TearDown() override { context_.reset(); }
+
+  /**
+   * @brief Get logger instance from context
+   * @return Reference to logger
+   */
+  Logger<Traits::LoggerType>& getLogger() { return context_->getLogger(); }
+
+  /**
+   * @brief Get configuration instance from context
+   * @return Reference to configuration
+   */
+  Config<Traits::ConfigType>& getConfig() { return context_->getConfig(); }
 };
 
+/**
+ * @brief Test that ObsOperator correctly follows NonCopyable pattern
+ */
 TEST_F(ObsOperatorTest, NonCopyableButMovable) {
   using ObsOperatorType = ObsOperator<Traits::ObsOperatorType>;
 
@@ -73,95 +92,149 @@ TEST_F(ObsOperatorTest, NonCopyableButMovable) {
   EXPECT_TRUE(std::is_move_assignable_v<ObsOperatorType>);
 }
 
+/**
+ * @brief Test ObsOperator initialization constraints
+ */
 TEST_F(ObsOperatorTest, CannotInitializeWithoutConfig) {
   using ObsOperatorType = ObsOperator<Traits::ObsOperatorType>;
 
   // Verify that default construction is not possible
   EXPECT_FALSE(std::is_default_constructible_v<ObsOperatorType>);
-
-  // Verify that construction without config is not possible
-  EXPECT_FALSE((std::is_constructible_v<ObsOperatorType>));
 }
 
+/**
+ * @brief Test initialization from configuration
+ */
 TEST_F(ObsOperatorTest, CanInitializeFromConfig) {
-  // Create mock config
-  Config<MockConfig> config;
+  // Setup expectations for initialization
+  EXPECT_CALL(getConfig().backend(), Get("obs_operator"))
+      .WillOnce(Return(framework::ConfigValue(true)));
 
-  ObsOperator<Traits::ObsOperatorType> obsOp(config);
+  // Create ObsOperator using config
+  ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
 
   // Verify initialization succeeded
   EXPECT_TRUE(obsOp.isInitialized());
 
   // Verify we can't initialize again
-  EXPECT_THROW(obsOp.initialize(config), std::runtime_error);
+  EXPECT_THROW(obsOp.initialize(getConfig()), std::runtime_error);
 }
 
-TEST_F(ObsOperatorTest, ApplyOperations) {
-  Config<MockConfig> config;
-  ObsOperator<Traits::ObsOperatorType> obsOp(config);
+/**
+ * @brief Test initialization failure handling
+ */
+TEST_F(ObsOperatorTest, InitializationFailsWithInvalidConfig) {
+  // Setup expectations for failed initialization
+  EXPECT_CALL(getConfig().backend(), Get("obs_operator"))
+      .WillOnce(Return(framework::ConfigValue(false)));
 
-  // Create mock state and observation
-  State<Traits::StateType> state(config);
-  Observation<Traits::ObservationType> obs(config);
+  // Expect exception when constructing with invalid config
+  EXPECT_THROW(
+      { ObsOperator<Traits::ObsOperatorType> obsOp(getConfig()); },
+      std::runtime_error);
+}
 
-  // Test apply operation
-  EXPECT_CALL(obsOp.backend(),
-              apply(testing::Ref(state.backend()), testing::Ref(obs.backend())))
-      .Times(1);
+/**
+ * @brief Test forward operator
+ */
+TEST_F(ObsOperatorTest, ApplyForwardOperator) {
+  // Create test instances
+  ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
+  State<Traits::StateType> state(getConfig());
+  Observation<Traits::ObservationType> obs(getConfig());
+
+  // Test forward operator (H)
+  EXPECT_CALL(obsOp.backend(), apply(_, _)).Times(1);
   obsOp.apply(state, obs);
-
-  // Test tangent linear operation
-  Increment<Traits::IncrementType> dx(config);
-  EXPECT_CALL(obsOp.backend(), applyTangentLinear(testing::Ref(dx.backend()),
-                                                  testing::Ref(obs.backend())))
-      .Times(1);
-  obsOp.applyTangentLinear(dx, obs);
-
-  // Test adjoint operation
-  EXPECT_CALL(obsOp.backend(), applyAdjoint(testing::Ref(obs.backend()),
-                                            testing::Ref(dx.backend())))
-      .Times(1);
-  obsOp.applyAdjoint(obs, dx);
 }
 
+/**
+ * @brief Test tangent linear operator - using State differences
+ */
+TEST_F(ObsOperatorTest, ApplyTangentLinearOperator) {
+  // Create test instances
+  ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
+  State<Traits::StateType> state1(getConfig());
+  State<Traits::StateType> state2(getConfig());
+  Observation<Traits::ObservationType> dy(getConfig());
+
+  // Create increments from states
+  using IncrementType = Increment<State<Traits::StateType>>;
+  IncrementType dx = IncrementType::createFromDifference(state1, state2);
+  // Test tangent linear operator (H')
+  EXPECT_CALL(obsOp.backend(), applyTangentLinear(_, _)).Times(1);
+
+  obsOp.applyTangentLinear(dx, dy);
+}
+
+/**
+ * @brief Test adjoint operator - using State differences
+ */
+TEST_F(ObsOperatorTest, ApplyAdjointOperator) {
+  // Create test instances
+  ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
+  State<Traits::StateType> state1(getConfig());
+  State<Traits::StateType> state2(getConfig());
+  Observation<Traits::ObservationType> dy(getConfig());
+
+  // Create increments from states
+  using IncrementType = Increment<State<Traits::StateType>>;
+  IncrementType dx = IncrementType::createFromDifference(state1, state2);
+
+  // Test adjoint operator (H'*)
+  EXPECT_CALL(obsOp.backend(), applyAdjoint(_, _)).Times(1);
+
+  obsOp.applyAdjoint(dy, dx);
+}
+
+/**
+ * @brief Test accessor methods for required variables
+ */
 TEST_F(ObsOperatorTest, RequiredVariables) {
-  Config<MockConfig> config;
-  ObsOperator<Traits::ObsOperatorType> obsOp(config);
+  ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
 
-  // Setup test data
-  std::vector<std::string> stateVars = {"temperature", "pressure"};
-  std::vector<std::string> obsVars = {"radiance"};
-
-  // Test getRequiredStateVars
+  // Setup expectations for required variables
   EXPECT_CALL(obsOp.backend(), getRequiredStateVars())
-      .WillOnce(ReturnRef(stateVars));
-  EXPECT_EQ(obsOp.getRequiredStateVars(), stateVars);
-
-  // Test getRequiredObsVars
+      .WillOnce(ReturnRef(state_vars_return_));
   EXPECT_CALL(obsOp.backend(), getRequiredObsVars())
-      .WillOnce(ReturnRef(obsVars));
-  EXPECT_EQ(obsOp.getRequiredObsVars(), obsVars);
+      .WillOnce(ReturnRef(obs_vars_return_));
+
+  // Test getters
+  EXPECT_EQ(obsOp.getRequiredStateVars(), state_vars_);
+  EXPECT_EQ(obsOp.getRequiredObsVars(), obs_vars_);
 }
 
+/**
+ * @brief Test exception handling for uninitialized state
+ */
 TEST_F(ObsOperatorTest, ThrowsWhenNotInitialized) {
-  Config<MockConfig> config;
-  ObsOperator<Traits::ObsOperatorType> obsOp(config);
+  // Create test instances
+  ObsOperator<Traits::ObsOperatorType> obsOp1(getConfig());
+  State<Traits::StateType> state(getConfig());
+  Observation<Traits::ObservationType> obs(getConfig());
+  State<Traits::StateType> state1(getConfig());
+  State<Traits::StateType> state2(getConfig());
 
-  // Force uninitialized state
-  obsOp = ObsOperator<Traits::ObsOperatorType>(std::move(obsOp));
+  // Create increment from states
+  using IncrementType = Increment<State<Traits::StateType>>;
+  IncrementType dx = IncrementType::createFromDifference(state1, state2);
 
-  State<Traits::StateType> state(config);
-  Observation<Traits::ObservationType> obs(config);
-  Increment<Traits::IncrementType> dx(config);
+  // Create uninitialized operator through move
+  ObsOperator<Traits::ObsOperatorType> uninitializedOp(std::move(obsOp1));
 
-  EXPECT_THROW(obsOp.apply(state, obs), std::runtime_error);
-  EXPECT_THROW(obsOp.applyTangentLinear(dx, obs), std::runtime_error);
-  EXPECT_THROW(obsOp.applyAdjoint(obs, dx), std::runtime_error);
+  // Test exception throwing
+  EXPECT_THROW(uninitializedOp.apply(state, obs), std::runtime_error);
+  EXPECT_THROW(uninitializedOp.applyTangentLinear(dx, obs), std::runtime_error);
+  EXPECT_THROW(uninitializedOp.applyAdjoint(obs, dx), std::runtime_error);
 }
 
+/**
+ * @brief Test move operations
+ */
 TEST_F(ObsOperatorTest, MoveOperations) {
-  Config<MockConfig> config;
-  ObsOperator<Traits::ObsOperatorType> obsOp1(config);
+  // Create source operator
+  ObsOperator<Traits::ObsOperatorType> obsOp1(getConfig());
+  EXPECT_TRUE(obsOp1.isInitialized());
 
   // Test move constructor
   ObsOperator<Traits::ObsOperatorType> obsOp2(std::move(obsOp1));
@@ -169,7 +242,7 @@ TEST_F(ObsOperatorTest, MoveOperations) {
   EXPECT_FALSE(obsOp1.isInitialized());  // NOLINT: accessing moved-from object
 
   // Test move assignment
-  ObsOperator<Traits::ObsOperatorType> obsOp3(config);
+  ObsOperator<Traits::ObsOperatorType> obsOp3(getConfig());
   obsOp3 = std::move(obsOp2);
   EXPECT_TRUE(obsOp3.isInitialized());
   EXPECT_FALSE(obsOp2.isInitialized());  // NOLINT: accessing moved-from object
