@@ -122,8 +122,6 @@ class Observation {
 
   void validate() const { backend_.validate(); }
 
-  bool isValid() const { return backend_.isValid(); }
-
   bool isInitialized() const { return initialized_; }
 
   // Copy/Move operations
@@ -152,9 +150,6 @@ class Observation {
    * @throws std::runtime_error If either observation is invalid
    */
   Observation& operator+=(const Observation& other) {
-    if (!isValid() || !other.isValid()) {
-      throw std::runtime_error("Cannot add invalid observations");
-    }
     backend_.add(other.backend_);
     return *this;
   }
@@ -167,9 +162,6 @@ class Observation {
    * @throws std::runtime_error If either observation is invalid
    */
   Observation& operator-=(const Observation& other) {
-    if (!isValid() || !other.isValid()) {
-      throw std::runtime_error("Cannot subtract invalid observations");
-    }
     backend_.subtract(other.backend_);
     return *this;
   }
@@ -182,9 +174,6 @@ class Observation {
    * @throws std::runtime_error If the observation is invalid
    */
   Observation& operator*=(double scalar) {
-    if (!isValid()) {
-      throw std::runtime_error("Cannot multiply invalid observation");
-    }
     backend_.multiply(scalar);
     return *this;
   }
@@ -208,17 +197,11 @@ class Observation {
   // Type-safe data access
   template <typename T>
   T& getData() {
-    if (!isValid()) {
-      throw std::runtime_error("Accessing data from invalid observation");
-    }
     return *static_cast<T*>(backend_.getData());
   }
 
   template <typename T>
   const T& getData() const {
-    if (!isValid()) {
-      throw std::runtime_error("Accessing data from invalid observation");
-    }
     return *static_cast<const T*>(backend_.getData());
   }
 

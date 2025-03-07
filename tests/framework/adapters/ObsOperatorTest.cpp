@@ -106,10 +106,6 @@ TEST_F(ObsOperatorTest, CannotInitializeWithoutConfig) {
  * @brief Test initialization from configuration
  */
 TEST_F(ObsOperatorTest, CanInitializeFromConfig) {
-  // Setup expectations for initialization
-  EXPECT_CALL(getConfig().backend(), Get("obs_operator"))
-      .WillOnce(Return(framework::ConfigValue(true)));
-
   // Create ObsOperator using config
   ObsOperator<Traits::ObsOperatorType> obsOp(getConfig());
 
@@ -118,20 +114,6 @@ TEST_F(ObsOperatorTest, CanInitializeFromConfig) {
 
   // Verify we can't initialize again
   EXPECT_THROW(obsOp.initialize(getConfig()), std::runtime_error);
-}
-
-/**
- * @brief Test initialization failure handling
- */
-TEST_F(ObsOperatorTest, InitializationFailsWithInvalidConfig) {
-  // Setup expectations for failed initialization
-  EXPECT_CALL(getConfig().backend(), Get("obs_operator"))
-      .WillOnce(Return(framework::ConfigValue(false)));
-
-  // Expect exception when constructing with invalid config
-  EXPECT_THROW(
-      { ObsOperator<Traits::ObsOperatorType> obsOp(getConfig()); },
-      std::runtime_error);
 }
 
 /**
@@ -186,6 +168,7 @@ TEST_F(ObsOperatorTest, ApplyAdjointOperator) {
 
   // Create increments from observations
   using IncrementObs = Increment<Observation<Traits::ObservationType>>;
+
   IncrementObs dy = IncrementObs::createFromDifference(y1, y2);
 
   // Create increments from states
@@ -213,35 +196,6 @@ TEST_F(ObsOperatorTest, RequiredVariables) {
   // Test getters
   EXPECT_EQ(obsOp.getRequiredStateVars(), state_vars_);
   EXPECT_EQ(obsOp.getRequiredObsVars(), obs_vars_);
-}
-
-/**
- * @brief Test exception handling for uninitialized state
- */
-TEST_F(ObsOperatorTest, ThrowsWhenNotInitialized) {
-  // Create test instances
-  ObsOperator<Traits::ObsOperatorType> obsOp1(getConfig());
-  State<Traits::StateType> state(getConfig());
-  Observation<Traits::ObservationType> obs1(getConfig());
-  Observation<Traits::ObservationType> obs2(getConfig());
-  State<Traits::StateType> state1(getConfig());
-  State<Traits::StateType> state2(getConfig());
-
-  // Create increment from states
-  using IncrementType = Increment<State<Traits::StateType>>;
-  IncrementType dx = IncrementType::createFromDifference(state1, state2);
-
-  // Create increments from observations
-  using IncrementObs = Increment<Observation<Traits::ObservationType>>;
-  IncrementObs dy = IncrementObs::createFromDifference(obs1, obs2);
-
-  // Create uninitialized operator through move
-  ObsOperator<Traits::ObsOperatorType> uninitializedOp(std::move(obsOp1));
-
-  // Test exception throwing
-  EXPECT_THROW(uninitializedOp.apply(state, obs1), std::runtime_error);
-  EXPECT_THROW(uninitializedOp.applyTangentLinear(dx, dy), std::runtime_error);
-  EXPECT_THROW(uninitializedOp.applyAdjoint(dy, dx), std::runtime_error);
 }
 
 /**

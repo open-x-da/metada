@@ -136,7 +136,6 @@ class MockObservation : public IObservation {
   MOCK_METHOD(void, initialize, (const IConfig& config), (override));
   MOCK_METHOD(void, reset, (), (override));
   MOCK_METHOD(void, validate, (), (const, override));
-  MOCK_METHOD(bool, isValid, (), (const, override));
   MOCK_METHOD(bool, isInitialized, (), (const, override));
 
   // Copy/Move operations

@@ -88,12 +88,6 @@ class IObservation {
   virtual void validate() const = 0;
 
   /**
-   * @brief Check if the observation is valid
-   * @return true if valid, false otherwise
-   */
-  virtual bool isValid() const = 0;
-
-  /**
    * @brief Check if the observation is initialized
    * @return true if initialized, false otherwise
    */

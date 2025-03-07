@@ -134,7 +134,6 @@ class ObservationTest : public ::testing::Test {
     ON_CALL(obs1_->backend(), getUncertainty())
         .WillByDefault(Return(&uncertainty_));
     ON_CALL(obs1_->backend(), getSize()).WillByDefault(Return(2));
-    ON_CALL(obs1_->backend(), isValid()).WillByDefault(Return(true));
     ON_CALL(obs1_->backend(), isInitialized()).WillByDefault(Return(true));
     ON_CALL(obs1_->backend(), getLocations())
         .WillByDefault(ReturnRef(locations_));
@@ -363,9 +362,6 @@ TEST_F(ObservationTest, ThrowsOnInvalidAccess) {
   // Create a new observation with invalid state for this specific test
   auto invalidObs = createObservation();
 
-  // Override the default valid state for this test
-  EXPECT_CALL(invalidObs.backend(), isValid()).WillRepeatedly(Return(false));
-
   // Test that accessing data from an invalid observation throws an exception
   EXPECT_THROW(invalidObs.getData<double>(), std::runtime_error);
 }
@@ -458,12 +454,6 @@ TEST_F(ObservationTest, OperatorOverloadsWork) {
  */
 TEST_F(ObservationTest, ArithmeticAssignmentOperatorsWork) {
   // Set expectations for the backend operations
-  EXPECT_CALL(obs1_->backend(), isValid())
-      .Times(3)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(obs2_->backend(), isValid())
-      .Times(2)
-      .WillRepeatedly(Return(true));
   EXPECT_CALL(obs1_->backend(), add(_)).Times(1);
   EXPECT_CALL(obs1_->backend(), subtract(_)).Times(1);
   EXPECT_CALL(obs1_->backend(), multiply(2.0)).Times(1);

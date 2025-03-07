@@ -123,8 +123,8 @@ class ObsOperator : public NonCopyable {
    * @param dy Output observation increment
    * @throws std::runtime_error If not initialized
    */
-  template <typename IncrementType, typename ObsType>
-  void applyTangentLinear(const Increment<IncrementType>& dx,
+  template <typename StateType, typename ObsType>
+  void applyTangentLinear(const Increment<StateType>& dx,
                           Increment<ObsType>& dy) const {
     checkInitialized();
     backend_->applyTangentLinear(static_cast<const void*>(&dx.entity()),
@@ -142,9 +142,9 @@ class ObsOperator : public NonCopyable {
    * @param dx Output state increment
    * @throws std::runtime_error If not initialized
    */
-  template <typename IncrementType, typename ObsType>
+  template <typename StateType, typename ObsType>
   void applyAdjoint(const Increment<ObsType>& dy,
-                    Increment<IncrementType>& dx) const {
+                    Increment<StateType>& dx) const {
     checkInitialized();
     backend_->applyAdjoint(static_cast<const void*>(&dy.entity()),
                            static_cast<void*>(&dx.entity()));
