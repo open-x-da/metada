@@ -30,6 +30,9 @@ function(metada_project_initialize)
     # Include testing and coverage configuration
     include(TestingAndCoverage)
     
+    # Include precompiled headers configuration
+    include(PrecompiledHeaders)
+    
     # Include package configuration module
     include(package/Config)
     
@@ -38,4 +41,7 @@ function(metada_project_initialize)
 
     # Add at the beginning of metada_project_initialize() function
     option(USE_GLOG "Enable Google logging backend" ON)
+    
+    # Option to control precompiled headers usage
+    option(USE_PRECOMPILED_HEADERS "Enable precompiled headers for faster builds" ON)
 endfunction()

@@ -47,5 +47,8 @@ add_subdirectory(tests)
 # Add documentation
 add_subdirectory(docs)
 
+# Enable precompiled headers for all targets
+include(EnablePrecompiledHeaders)
+
 # Show final configuration
 metada_project_summary()
