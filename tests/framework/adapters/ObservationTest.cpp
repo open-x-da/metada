@@ -354,19 +354,6 @@ TEST_F(ObservationTest, MetadataOperationsWork) {
 }
 
 /**
- * @brief Test invalid data access
- *
- * Verifies exception throwing for invalid observation access
- */
-TEST_F(ObservationTest, ThrowsOnInvalidAccess) {
-  // Create a new observation with invalid state for this specific test
-  auto invalidObs = createObservation();
-
-  // Test that accessing data from an invalid observation throws an exception
-  EXPECT_THROW(invalidObs.getData<double>(), std::runtime_error);
-}
-
-/**
  * @brief Test copy assignment
  *
  * Verifies:

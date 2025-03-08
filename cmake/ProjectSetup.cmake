@@ -10,8 +10,8 @@ function(metada_project_initialize)
         set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
     endif()
 
-    # Configure C++17 as the project standard
-    set(CMAKE_CXX_STANDARD 17)
+    # Configure C++20 as the project standard
+    set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     set(CMAKE_CXX_EXTENSIONS OFF)
 
