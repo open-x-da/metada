@@ -50,5 +50,8 @@ add_subdirectory(docs)
 # Enable precompiled headers for all targets
 include(EnablePrecompiledHeaders)
 
+# Enable unity builds for all targets
+include(EnableUnityBuild)
+
 # Show final configuration
 metada_project_summary()

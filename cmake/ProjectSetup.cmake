@@ -21,6 +21,16 @@ function(metada_project_initialize)
         link_libraries(c++fs)
     endif()
 
+    # Add at the beginning of metada_project_initialize() function
+    option(USE_GLOG "Enable Google logging backend" ON)
+    
+    # Option to control precompiled headers usage
+    option(USE_PRECOMPILED_HEADERS "Enable precompiled headers for faster builds" ON)
+    
+    # Option to control unity builds
+    option(USE_UNITY_BUILD "Enable unity builds for faster compilation" ON)
+    option(UNITY_BUILD_BATCH_SIZE "Number of source files to batch in each unity source" 8)
+
     # Include compiler flags configuration
     include(CompilerFlags)
 
@@ -33,15 +43,12 @@ function(metada_project_initialize)
     # Include precompiled headers configuration
     include(PrecompiledHeaders)
     
+    # Include unity build configuration
+    include(UnityBuild)
+    
     # Include package configuration module
     include(package/Config)
     
     # Include printing utilities for configuration summary
     include(print/Config)
-
-    # Add at the beginning of metada_project_initialize() function
-    option(USE_GLOG "Enable Google logging backend" ON)
-    
-    # Option to control precompiled headers usage
-    option(USE_PRECOMPILED_HEADERS "Enable precompiled headers for faster builds" ON)
 endfunction()
