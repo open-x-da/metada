@@ -1,123 +1,67 @@
+# Define a helper function to set up test executables with C++20 support
+function(setup_test_executable target source)
+    add_executable(${target} ${source})
+    
+    target_link_libraries(${target}
+        PRIVATE
+            metada::framework::interfaces
+            metada::framework::adapters
+            metada::framework::interfaces::test
+            metada::framework::runs
+            metada::framework::traits
+    )
+    
+    target_include_directories(${target}
+        PRIVATE
+            ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
+            ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
+    )
+    
+    # Set C++20 properties
+    set_target_properties(${target} PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+    )
+    
+    # Add compiler-specific flags for C++20 concepts
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
+            target_compile_options(${target} PRIVATE -fconcepts)
+        endif()
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
+            target_compile_options(${target} PRIVATE -fconcepts-ts)
+        endif()
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+        target_compile_options(${target} PRIVATE /Zc:__cplusplus /permissive-)
+    endif()
+    
+    # Add test with coverage
+    metada_add_test_with_coverage(${target})
+endfunction()
+
 # State tests
-add_executable(state_test
-    StateTest.cpp
-)
-
-target_link_libraries(state_test
-    PRIVATE
-        metada::framework::interfaces
-        metada::framework::adapters
-        metada::framework::interfaces::test
-        metada::framework::runs
-        metada::framework::traits
-)
-
-target_include_directories(state_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
-)
+setup_test_executable(state_test StateTest.cpp)
 
 # Ensemble tests
-add_executable(ensemble_test
-    EnsembleTest.cpp
-)
-
-target_link_libraries(ensemble_test
-    PRIVATE
-        metada::framework::interfaces
-        metada::framework::adapters
-        metada::framework::interfaces::test
-        metada::framework::runs
-        metada::framework::traits
-)
-
-target_include_directories(ensemble_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
-)
+setup_test_executable(ensemble_test EnsembleTest.cpp)
 
 # Increment tests
-add_executable(increment_test
-    IncrementTest.cpp
-)
-
-target_link_libraries(increment_test
-    PRIVATE
-        metada::framework::interfaces
-        metada::framework::adapters
-        metada::framework::interfaces::test
-        metada::framework::runs
-        metada::framework::traits
-)
-
-target_include_directories(increment_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
-)
+setup_test_executable(increment_test IncrementTest.cpp)
 
 # Model tests
-#add_executable(model_test
-#    ModelTest.cpp
-#)
-
-#target_link_libraries(model_test
-#    PRIVATE
-#        metada::framework::repr
-#)
+setup_test_executable(model_test ModelTest.cpp)
 
 # IObservations tests
-add_executable(observation_test
-    ObservationTest.cpp
-)
-
-target_link_libraries(observation_test
-    PRIVATE
-        metada::framework::interfaces
-        metada::framework::adapters
-        metada::framework::interfaces::test
-        metada::framework::runs
-        metada::framework::traits
-)
-
-target_include_directories(observation_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
-)
+setup_test_executable(observation_test ObservationTest.cpp)
 
 # IObsOperator tests
-add_executable(obsoperator_test
-    ObsOperatorTest.cpp
-)
-
-target_link_libraries(obsoperator_test
-    PRIVATE
-        metada::framework::interfaces
-        metada::framework::adapters
-        metada::framework::interfaces::test
-        metada::framework::runs
-        metada::framework::traits
-)
-
-target_include_directories(obsoperator_test
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
-        ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
-)
-
-metada_add_test_with_coverage(state_test)
-metada_add_test_with_coverage(ensemble_test)
-metada_add_test_with_coverage(increment_test)
-#metada_add_test_with_coverage(model_test)
-metada_add_test_with_coverage(observation_test)
-metada_add_test_with_coverage(obsoperator_test)
+setup_test_executable(obsoperator_test ObsOperatorTest.cpp)
 
 # AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
-# AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
-#AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})

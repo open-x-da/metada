@@ -33,6 +33,7 @@ class IConfig;
 class ITimeStepper;
 class IAIPredictor;
 class IBatchProcessor;
+class IHardwareAccelerator;
 
 /**
  * @brief Abstract interface for model implementations
@@ -70,7 +71,7 @@ class IModel : private NonCopyable {
    *
    * @param config Configuration object with model parameters
    */
-  explicit IModel(const IConfig& config) {}
+  explicit IModel([[maybe_unused]] const IConfig& config) {}
 
  public:
   /**
@@ -168,6 +169,17 @@ class IModel : private NonCopyable {
    * not supported
    */
   virtual IBatchProcessor* getBatchProcessor() { return nullptr; }
+
+  /**
+   * @brief Get the model's hardware acceleration capability
+   *
+   * This method returns a pointer to the model's hardware acceleration
+   * capability if the model supports hardware acceleration. If the model does
+   * not support hardware acceleration, this method returns nullptr.
+   *
+   * @return Pointer to the model's hardware acceleration capability, or nullptr
+   */
+  virtual IHardwareAccelerator* getHardwareAccelerator() { return nullptr; }
 };
 
 }  // namespace metada::framework

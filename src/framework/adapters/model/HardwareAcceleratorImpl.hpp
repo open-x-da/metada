@@ -29,6 +29,10 @@ namespace metada::framework {
  * functionality for both physical and AI models that support specialized
  * hardware.
  *
+ * Note: This implementation assumes the backend supports all methods.
+ * The Model class is responsible for checking capability support before
+ * creating this implementation.
+ *
  * @tparam Backend The backend type implementing the model
  */
 template <typename Backend>

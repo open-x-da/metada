@@ -27,10 +27,12 @@
 
 #pragma once
 
+#include <concepts>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "../common/utils/NonCopyable.hpp"
 #include "../interfaces/IAIPredictor.hpp"
@@ -38,10 +40,10 @@
 #include "../interfaces/IHardwareAccelerator.hpp"
 #include "../interfaces/IModel.hpp"
 #include "../interfaces/ITimeStepper.hpp"
-#include "model/AIPredictorImpl.hpp"
-#include "model/BatchProcessorImpl.hpp"
-#include "model/HardwareAcceleratorImpl.hpp"
-#include "model/TimeStepperImpl.hpp"
+// #include "model/AIPredictorImpl.hpp"
+// #include "model/BatchProcessorImpl.hpp"
+//  #include "model/HardwareAcceleratorImpl.hpp"
+// #include "model/TimeStepperImpl.hpp"
 
 namespace metada::framework {
 
@@ -51,6 +53,80 @@ class Config;
 
 template <typename T>
 class State;
+
+// C++20 concepts for capability detection
+// Time stepping capability - check for all required methods
+template <typename T>
+concept HasTimeSteppingCapability =
+    requires(T& backend, IState& state1, IState& state2, double dt, bool enable,
+             std::string scheme) {
+      backend.step(state1, state2);
+      { backend.getTimeStep() } -> std::convertible_to<double>;
+      backend.setTimeStep(dt);
+      { backend.getMaxStableTimeStep(state1) } -> std::convertible_to<double>;
+      { backend.usesAdaptiveTimeStep() } -> std::convertible_to<bool>;
+      backend.setAdaptiveTimeStep(enable);
+      { backend.getCurrentTime() } -> std::convertible_to<double>;
+      backend.setCurrentTime(dt);
+      { backend.getTimeSteppingScheme() } -> std::convertible_to<std::string>;
+    };
+
+// AI prediction capability - check for all required methods
+template <typename T>
+concept HasAIPredictionCapability =
+    requires(T& backend, IState& state1, IState& state2, double leadTime,
+             std::vector<std::unique_ptr<IState>>& predictions,
+             std::vector<double>& leadTimes, std::string weightsPath,
+             std::string device) {
+      backend.predict(state1, state2, leadTime);
+      backend.predictMultiple(state1, predictions, leadTimes);
+      { backend.supportsLeadTime(leadTime) } -> std::convertible_to<bool>;
+      {
+        backend.getSupportedLeadTimes()
+      } -> std::convertible_to<std::vector<double>>;
+      { backend.getArchitecture() } -> std::convertible_to<std::string>;
+      { backend.getWeightsVersion() } -> std::convertible_to<std::string>;
+      { backend.isDeterministic() } -> std::convertible_to<bool>;
+      { backend.isReady() } -> std::convertible_to<bool>;
+      backend.loadWeights(weightsPath);
+      backend.setDevice(device);
+      { backend.getDevice() } -> std::convertible_to<std::string>;
+    };
+
+// Batch processing capability - check for all required methods
+template <typename T>
+concept HasBatchProcessingCapability =
+    requires(T& backend, std::vector<std::shared_ptr<IState>>& input,
+             std::vector<std::shared_ptr<IState>>& output, double startTime,
+             double endTime, size_t batchSize, bool enable) {
+      backend.processBatch(input, output, startTime, endTime);
+      { backend.getMaxBatchSize() } -> std::convertible_to<size_t>;
+      backend.setBatchSize(batchSize);
+      { backend.getBatchSize() } -> std::convertible_to<size_t>;
+      { backend.supportsVariableBatchSize() } -> std::convertible_to<bool>;
+      { backend.isBatchProcessingSupported() } -> std::convertible_to<bool>;
+      { backend.getOptimalBatchSize() } -> std::convertible_to<size_t>;
+      { backend.supportsAutomaticBatching() } -> std::convertible_to<bool>;
+      backend.setAutomaticBatching(enable);
+    };
+
+// Hardware acceleration capability - check for all required methods
+template <typename T>
+concept HasHardwareAccelerationCapability =
+    requires(T& backend, std::string device, size_t memSize, bool enable) {
+      backend.setDevice(device);
+      { backend.getDevice() } -> std::convertible_to<std::string>;
+      {
+        backend.getAvailableDevices()
+      } -> std::convertible_to<std::vector<std::string>>;
+      { backend.supportsDeviceType(device) } -> std::convertible_to<bool>;
+      { backend.getAvailableMemory() } -> std::convertible_to<size_t>;
+      backend.setMemoryLimit(memSize);
+      { backend.getMemoryLimit() } -> std::convertible_to<size_t>;
+      backend.setAsynchronousExecution(enable);
+      { backend.isAsynchronousExecutionEnabled() } -> std::convertible_to<bool>;
+      backend.synchronize();
+    };
 
 /**
  * @brief Main model class template providing a generic interface to model
@@ -74,19 +150,17 @@ class State;
  * @tparam Backend The backend type implementing the model
  * @tparam ConfigType The type of configuration object used
  */
-template <typename Backend,
-          typename ConfigType = Config<typename Backend::config_type>>
+template <typename Backend>
 class Model : private NonCopyable {
  private:
   Backend backend_;          ///< Instance of the model backend
   bool initialized_{false};  ///< Initialization state
-  ConfigType configCopy_;    ///< Copy of the configuration
 
   // Capability interface implementations
-  std::optional<TimeStepperImpl<Backend>> timeStepper_;
-  std::optional<AIPredictorImpl<Backend>> aiPredictor_;
-  std::optional<BatchProcessorImpl<Backend>> batchProcessor_;
-  std::optional<HardwareAcceleratorImpl<Backend>> hardwareAccelerator_;
+  // std::optional<TimeStepperImpl<Backend>> timeStepper_;
+  // std::optional<AIPredictorImpl<Backend>> aiPredictor_;
+  // std::optional<BatchProcessorImpl<Backend>> batchProcessor_;
+  // std::optional<HardwareAcceleratorImpl<Backend>> hardwareAccelerator_;
 
  public:
   /**
@@ -101,8 +175,8 @@ class Model : private NonCopyable {
    *
    * @param config Configuration object with model parameters
    */
-  explicit Model(const ConfigType& config)
-      : backend_(config), configCopy_(config) {
+  template <typename T>
+  explicit Model(const Config<T>& config) : backend_(config) {
     initializeCapabilities();
   }
 
@@ -112,9 +186,10 @@ class Model : private NonCopyable {
    * @param config Configuration object with model parameters
    * @throws std::runtime_error if initialization fails
    */
-  void initialize(const IConfig& config) {
+  template <typename T>
+  void initialize(const Config<T>& config) {
     try {
-      backend_.initialize(config);
+      backend_.initialize(config.backend());
       initialized_ = true;
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model initialization failed: ") +
@@ -139,13 +214,6 @@ class Model : private NonCopyable {
    * @return true if the model is initialized, false otherwise
    */
   bool isInitialized() const { return initialized_; }
-
-  /**
-   * @brief Get the configuration object used to create this model
-   *
-   * @return Const reference to the configuration object
-   */
-  const ConfigType& getConfig() const { return configCopy_; }
 
   /**
    * @brief Get a parameter from the model
@@ -210,9 +278,9 @@ class Model : private NonCopyable {
    * @return Pointer to the model's time stepping capability, or nullptr if not
    * supported
    */
-  ITimeStepper* getTimeStepper() {
-    return timeStepper_ ? &*timeStepper_ : nullptr;
-  }
+  // ITimeStepper* getTimeStepper() {
+  //   return timeStepper_ ? &*timeStepper_ : nullptr;
+  // }
 
   /**
    * @brief Get the model's AI prediction capability
@@ -220,9 +288,9 @@ class Model : private NonCopyable {
    * @return Pointer to the model's AI prediction capability, or nullptr if not
    * supported
    */
-  IAIPredictor* getAIPredictor() {
-    return aiPredictor_ ? &*aiPredictor_ : nullptr;
-  }
+  // IAIPredictor* getAIPredictor() {
+  //   return aiPredictor_ ? &*aiPredictor_ : nullptr;
+  // }
 
   /**
    * @brief Get the model's batch processing capability
@@ -230,9 +298,9 @@ class Model : private NonCopyable {
    * @return Pointer to the model's batch processing capability, or nullptr if
    * not supported
    */
-  IBatchProcessor* getBatchProcessor() {
-    return batchProcessor_ ? &*batchProcessor_ : nullptr;
-  }
+  // IBatchProcessor* getBatchProcessor() {
+  //   return batchProcessor_ ? &*batchProcessor_ : nullptr;
+  // }
 
   /**
    * @brief Get the model's hardware acceleration capability
@@ -240,9 +308,9 @@ class Model : private NonCopyable {
    * @return Pointer to the model's hardware acceleration capability, or nullptr
    * if not supported
    */
-  IHardwareAccelerator* getHardwareAccelerator() {
-    return hardwareAccelerator_ ? &*hardwareAccelerator_ : nullptr;
-  }
+  // IHardwareAccelerator* getHardwareAccelerator() {
+  //   return hardwareAccelerator_ ? &*hardwareAccelerator_ : nullptr;
+  // }
 
   /**
    * @brief Get the backend instance
@@ -253,14 +321,14 @@ class Model : private NonCopyable {
    *
    * @return Reference to the backend instance
    */
-  Backend& getBackend() { return backend_; }
+  Backend& backend() { return backend_; }
 
   /**
    * @brief Get the backend instance (const version)
    *
    * @return Const reference to the backend instance
    */
-  const Backend& getBackend() const { return backend_; }
+  const Backend& backend() const { return backend_; }
 
   /**
    * @brief Type-safe run method that works directly with State templates
@@ -280,8 +348,8 @@ class Model : private NonCopyable {
     }
 
     try {
-      backend_.run(initialState.getBackend(), finalState.getBackend(),
-                   startTime, endTime);
+      backend_.run(initialState.backend(), finalState.backend(), startTime,
+                   endTime);
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model run failed: ") + e.what());
     }
@@ -290,39 +358,56 @@ class Model : private NonCopyable {
  private:
   /**
    * @brief Initialize the capabilities based on what the backend supports
+   *
+   * Uses C++20 concepts to check if the backend supports various capabilities.
    */
   void initializeCapabilities() {
     // Check if backend supports time stepping
-    if constexpr (requires(Backend& b) {
-                    b.step(std::declval<IState&>(), std::declval<IState&>());
-                  }) {
-      timeStepper_.emplace(backend_);
-    }
+    // if constexpr (HasTimeSteppingCapability<Backend>) {
+    //   timeStepper_.emplace(backend_);
+    // }
 
     // Check if backend supports AI prediction
-    if constexpr (requires(Backend& b) {
-                    b.predict(std::declval<IState&>(), std::declval<IState&>(),
-                              double());
-                  }) {
-      aiPredictor_.emplace(backend_);
-    }
+    // if constexpr (HasAIPredictionCapability<Backend>) {
+    //   aiPredictor_.emplace(backend_);
+    // }
 
     // Check if backend supports batch processing
-    if constexpr (requires(Backend& b) {
-                    b.processBatch(
-                        std::declval<std::vector<std::shared_ptr<IState>>&>(),
-                        std::declval<std::vector<std::shared_ptr<IState>>&>(),
-                        double(), double());
-                  }) {
-      batchProcessor_.emplace(backend_);
-    }
+    // if constexpr (HasBatchProcessingCapability<Backend>) {
+    //   batchProcessor_.emplace(backend_);
+    // }
 
     // Check if backend supports hardware acceleration
-    if constexpr (requires(Backend& b) {
-                    b.setDevice(std::declval<std::string>());
-                  }) {
-      hardwareAccelerator_.emplace(backend_);
-    }
+    // The backend must provide ALL of the required methods for hardware
+    // acceleration
+    // if constexpr (HasHardwareAccelerationCapability<Backend>) {
+    //   // Make sure the backend has all the methods required by
+    //   // HardwareAcceleratorImpl
+    //   if constexpr (requires(Backend& b, std::string device, size_t memSize,
+    //                             bool enable) {
+    //                       b.setDevice(device);
+    //                       { b.getDevice() } ->
+    //                       std::convertible_to<std::string>;
+    //                       {
+    //                         b.supportsDeviceType(device)
+    //                       } -> std::convertible_to<bool>;
+    //                       {
+    //                         b.getAvailableDevices()
+    //                       } -> std::convertible_to<std::vector<std::string>>;
+    //                       { b.getAvailableMemory() } ->
+    //                       std::convertible_to<size_t>;
+    //                       b.setMemoryLimit(memSize);
+    //                       { b.getMemoryLimit() } ->
+    //                       std::convertible_to<size_t>;
+    //                       b.setAsynchronousExecution(enable);
+    //                       {
+    //                         b.isAsynchronousExecutionEnabled()
+    //                       } -> std::convertible_to<bool>;
+    //                       b.synchronize();
+    //                     }) {
+    //     hardwareAccelerator_.emplace(backend_);
+    //   }
+    // }
   }
 };
 

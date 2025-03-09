@@ -11,9 +11,15 @@ function(metada_project_initialize)
     endif()
 
     # Configure C++20 as the project standard
-    set(CMAKE_CXX_STANDARD 20)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-    set(CMAKE_CXX_EXTENSIONS OFF)
+    set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ standard to use" FORCE)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ standard to be supported" FORCE)
+    set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Disable compiler-specific extensions" FORCE)
+    
+    # Add compile feature requirement for C++20 to ensure concepts and requires expressions work
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=c++20>")
+    
+    # Log C++ standard being used
+    message(STATUS "Using C++ standard: C++20")
 
     # On older Apple systems (Clang < 9.0), the filesystem library needs to be explicitly linked
     # This is because std::filesystem was experimental before C++17 and required separate linking
@@ -33,6 +39,9 @@ function(metada_project_initialize)
 
     # Include compiler flags configuration
     include(CompilerFlags)
+
+    # Include target property helpers
+    include(TargetProperties)
 
     # Include code formatting configuration
     include(CodeFormat)
