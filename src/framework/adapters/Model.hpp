@@ -1,33 +1,17 @@
 /**
  * @file Model.hpp
- * @brief Template class providing a generic interface to model implementations
- * @ingroup repr
+ * @brief Adapter implementing the IModel interface for various backends
+ * @ingroup adapters
  * @author Metada Framework Team
  *
  * @details
- * This header provides a template class that wraps model backend
- * implementations and provides a unified interface for model operations. The
- * Model class delegates operations to the backend while providing type
- * safety and a consistent API.
- *
- * The Model class template is designed to:
- * - Provide a generic interface to different model backend implementations
- * - Support initialization from configuration objects
- * - Enable core model operations (run, etc)
- * - Support capability interfaces for specialized functionality (time stepping,
- * AI prediction, etc)
- * - Implement proper exception handling and error reporting
- *
- * @see IModel
- * @see ITimeStepper
- * @see IAIPredictor
- * @see IBatchProcessor
- * @see Config
+ * This file contains a template implementation of the IModel interface
+ * that works with various backend model implementations. It serves as an
+ * adapter between the core interfaces and concrete model implementations.
  */
 
 #pragma once
 
-#include <concepts>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -38,12 +22,11 @@
 #include "../interfaces/IAIPredictor.hpp"
 #include "../interfaces/IBatchProcessor.hpp"
 #include "../interfaces/IHardwareAccelerator.hpp"
-#include "../interfaces/IModel.hpp"
 #include "../interfaces/ITimeStepper.hpp"
-// #include "model/AIPredictorImpl.hpp"
-// #include "model/BatchProcessorImpl.hpp"
-//  #include "model/HardwareAcceleratorImpl.hpp"
-// #include "model/TimeStepperImpl.hpp"
+#include "model/AIPredictorImpl.hpp"
+#include "model/BatchProcessorImpl.hpp"
+#include "model/HardwareAcceleratorImpl.hpp"
+#include "model/TimeStepperImpl.hpp"
 
 namespace metada::framework {
 
@@ -55,7 +38,6 @@ template <typename T>
 class State;
 
 // C++20 concepts for capability detection
-// Time stepping capability - check for all required methods
 template <typename T>
 concept HasTimeSteppingCapability =
     requires(T& backend, IState& state1, IState& state2, double dt, bool enable,
@@ -71,7 +53,6 @@ concept HasTimeSteppingCapability =
       { backend.getTimeSteppingScheme() } -> std::convertible_to<std::string>;
     };
 
-// AI prediction capability - check for all required methods
 template <typename T>
 concept HasAIPredictionCapability =
     requires(T& backend, IState& state1, IState& state2, double leadTime,
@@ -93,7 +74,6 @@ concept HasAIPredictionCapability =
       { backend.getDevice() } -> std::convertible_to<std::string>;
     };
 
-// Batch processing capability - check for all required methods
 template <typename T>
 concept HasBatchProcessingCapability =
     requires(T& backend, std::vector<std::shared_ptr<IState>>& input,
@@ -110,16 +90,15 @@ concept HasBatchProcessingCapability =
       backend.setAutomaticBatching(enable);
     };
 
-// Hardware acceleration capability - check for all required methods
 template <typename T>
 concept HasHardwareAccelerationCapability =
     requires(T& backend, std::string device, size_t memSize, bool enable) {
       backend.setDevice(device);
       { backend.getDevice() } -> std::convertible_to<std::string>;
+      { backend.supportsDeviceType(device) } -> std::convertible_to<bool>;
       {
         backend.getAvailableDevices()
       } -> std::convertible_to<std::vector<std::string>>;
-      { backend.supportsDeviceType(device) } -> std::convertible_to<bool>;
       { backend.getAvailableMemory() } -> std::convertible_to<size_t>;
       backend.setMemoryLimit(memSize);
       { backend.getMemoryLimit() } -> std::convertible_to<size_t>;
@@ -128,27 +107,84 @@ concept HasHardwareAccelerationCapability =
       backend.synchronize();
     };
 
+// Component implementation for TimeSteppingCapability
+template <typename Backend, bool HasCapability = false>
+struct TimeStepperComponent {
+  void initialize(Backend&) {}
+  void reset() {}
+  ITimeStepper* get() const { return nullptr; }
+};
+
+template <typename Backend>
+struct TimeStepperComponent<Backend, true> {
+  std::optional<TimeStepperImpl<Backend>> impl_;
+
+  void initialize(Backend& backend) { impl_.emplace(backend); }
+  void reset() { impl_.reset(); }
+  ITimeStepper* get() const { return impl_ ? &*impl_ : nullptr; }
+};
+
+// Component implementation for AIPredictionCapability
+template <typename Backend, bool HasCapability = false>
+struct AIPredictorComponent {
+  void initialize(Backend&) {}
+  void reset() {}
+  IAIPredictor* get() const { return nullptr; }
+};
+
+template <typename Backend>
+struct AIPredictorComponent<Backend, true> {
+  std::optional<AIPredictorImpl<Backend>> impl_;
+
+  void initialize(Backend& backend) { impl_.emplace(backend); }
+  void reset() { impl_.reset(); }
+  IAIPredictor* get() const { return impl_ ? &*impl_ : nullptr; }
+};
+
+// Component implementation for BatchProcessingCapability
+template <typename Backend, bool HasCapability = false>
+struct BatchProcessorComponent {
+  void initialize(Backend&) {}
+  void reset() {}
+  IBatchProcessor* get() const { return nullptr; }
+};
+
+template <typename Backend>
+struct BatchProcessorComponent<Backend, true> {
+  std::optional<BatchProcessorImpl<Backend>> impl_;
+
+  void initialize(Backend& backend) { impl_.emplace(backend); }
+  void reset() { impl_.reset(); }
+  IBatchProcessor* get() const { return impl_ ? &*impl_ : nullptr; }
+};
+
+// Component implementation for HardwareAccelerationCapability
+template <typename Backend, bool HasCapability = false>
+struct HardwareAcceleratorComponent {
+  void initialize(Backend&) {}
+  void reset() {}
+  IHardwareAccelerator* get() const { return nullptr; }
+};
+
+template <typename Backend>
+struct HardwareAcceleratorComponent<Backend, true> {
+  std::optional<HardwareAcceleratorImpl<Backend>> impl_;
+
+  void initialize(Backend& backend) { impl_.emplace(backend); }
+  void reset() { impl_.reset(); }
+  IHardwareAccelerator* get() const { return impl_ ? &*impl_ : nullptr; }
+};
+
 /**
  * @brief Main model class template providing a generic interface to model
  * implementations
  *
  * @details
- * This class template wraps a model backend implementation and provides a
- * type-safe interface for all model operations. It delegates operations to
- * the backend through composition, following the adapter pattern.
+ * This class adapts the backend model implementation to the IModel interface.
+ * It provides capability-based query methods for optional capabilities using
+ * a component-based design that leverages C++20 features.
  *
- * Key features:
- * - Type safety through templates
- * - Composition-based design (not inheritance)
- * - Capability interface implementations as needed
- * - Proper error handling and diagnostics
- * - Consistent interface across different backends
- *
- * The backend must implement the necessary operations to provide the core
- * functionality required by the model.
- *
- * @tparam Backend The backend type implementing the model
- * @tparam ConfigType The type of configuration object used
+ * @tparam Backend The backend model type
  */
 template <typename Backend>
 class Model : private NonCopyable {
@@ -156,11 +192,16 @@ class Model : private NonCopyable {
   Backend backend_;          ///< Instance of the model backend
   bool initialized_{false};  ///< Initialization state
 
-  // Capability interface implementations
-  // std::optional<TimeStepperImpl<Backend>> timeStepper_;
-  // std::optional<AIPredictorImpl<Backend>> aiPredictor_;
-  // std::optional<BatchProcessorImpl<Backend>> batchProcessor_;
-  // std::optional<HardwareAcceleratorImpl<Backend>> hardwareAccelerator_;
+  // Capabilities implemented as components with zero overhead for unsupported
+  // capabilities
+  [[no_unique_address]] TimeStepperComponent<
+      Backend, HasTimeSteppingCapability<Backend>> timeStepper_;
+  [[no_unique_address]] AIPredictorComponent<
+      Backend, HasAIPredictionCapability<Backend>> aiPredictor_;
+  [[no_unique_address]] BatchProcessorComponent<
+      Backend, HasBatchProcessingCapability<Backend>> batchProcessor_;
+  [[no_unique_address]] HardwareAcceleratorComponent<
+      Backend, HasHardwareAccelerationCapability<Backend>> hardwareAccelerator_;
 
  public:
   /**
@@ -186,13 +227,20 @@ class Model : private NonCopyable {
   /**
    * @brief Initialize the model with the given configuration
    *
+   * This method must be called before using the model.
+   *
    * @param config Configuration object with model parameters
    * @throws std::runtime_error if initialization fails
    */
   template <typename T>
   void initialize(const Config<T>& config) {
+    if (initialized_) {
+      return;  // Already initialized
+    }
+
     try {
       backend_.initialize(config.backend());
+      initializeCapabilities();
       initialized_ = true;
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model initialization failed: ") +
@@ -202,8 +250,16 @@ class Model : private NonCopyable {
 
   /**
    * @brief Reset the model to its initial state
+   *
+   * This method resets the model state without releasing resources.
+   *
+   * @throws std::runtime_error if reset fails
    */
   void reset() {
+    if (!initialized_) {
+      throw std::runtime_error("Model not initialized");
+    }
+
     try {
       backend_.reset();
     } catch (const std::exception& e) {
@@ -212,20 +268,22 @@ class Model : private NonCopyable {
   }
 
   /**
-   * @brief Finalize the model and release resources
+   * @brief Finalize the model, releasing all resources
    *
-   * This method should be called when the model is no longer needed.
-   * It releases any resources held by the model, such as memory, file handles,
-   * or hardware acceleration resources.
+   * @throws std::runtime_error if finalization fails
    */
   void finalize() {
+    if (!initialized_) {
+      return;  // No need to finalize if not initialized
+    }
+
     try {
       backend_.finalize();
-      // Clear capability implementations
-      // timeStepper_.reset();
-      // aiPredictor_.reset();
-      // batchProcessor_.reset();
-      // hardwareAccelerator_.reset();
+      // Reset all capabilities
+      timeStepper_.reset();
+      aiPredictor_.reset();
+      batchProcessor_.reset();
+      hardwareAccelerator_.reset();
       initialized_ = false;
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model finalization failed: ") +
@@ -241,45 +299,77 @@ class Model : private NonCopyable {
   bool isInitialized() const { return initialized_; }
 
   /**
-   * @brief Get a parameter from the model
+   * @brief Get a model parameter value
    *
-   * @param name The name of the parameter
-   * @return The value of the parameter as a string
-   * @throws std::out_of_range if the parameter doesn't exist
+   * @param name The parameter name
+   * @return The parameter value as a string
+   * @throws std::runtime_error if the parameter does not exist or cannot be
+   * retrieved
    */
   std::string getParameter(const std::string& name) const {
     try {
       return backend_.getParameter(name);
-    } catch (const std::exception&) {
-      throw std::out_of_range("Parameter not found: " + name);
+    } catch (const std::exception& e) {
+      throw std::runtime_error(std::string("Failed to get parameter '") + name +
+                               "': " + e.what());
     }
   }
 
   /**
-   * @brief Set a parameter in the model
+   * @brief Set a model parameter value
    *
-   * @param name The name of the parameter
-   * @param value The value of the parameter
-   * @throws std::invalid_argument if the parameter is invalid
+   * @param name The parameter name
+   * @param value The parameter value as a string
+   * @throws std::runtime_error if the parameter does not exist or cannot be set
    */
   void setParameter(const std::string& name, const std::string& value) {
     try {
       backend_.setParameter(name, value);
-      // We don't need to update a local parameters map anymore since we have
-      // the full config
     } catch (const std::exception& e) {
-      throw std::invalid_argument(std::string("Invalid parameter: ") +
-                                  e.what());
+      throw std::runtime_error(std::string("Failed to set parameter '") + name +
+                               "' to '" + value + "': " + e.what());
     }
   }
 
   /**
-   * @brief Run the model from initial state to final state
+   * @brief Get the model's time stepping capability
    *
-   * This is the primary execution method.
+   * @return Pointer to the model's time stepping capability, or nullptr
+   * if not supported
+   */
+  ITimeStepper* getTimeStepper() { return timeStepper_.get(); }
+
+  /**
+   * @brief Get the model's AI prediction capability
+   *
+   * @return Pointer to the model's AI prediction capability, or nullptr
+   * if not supported
+   */
+  IAIPredictor* getAIPredictor() { return aiPredictor_.get(); }
+
+  /**
+   * @brief Get the model's batch processing capability
+   *
+   * @return Pointer to the model's batch processing capability, or nullptr
+   * if not supported
+   */
+  IBatchProcessor* getBatchProcessor() { return batchProcessor_.get(); }
+
+  /**
+   * @brief Get the model's hardware acceleration capability
+   *
+   * @return Pointer to the model's hardware acceleration capability, or nullptr
+   * if not supported
+   */
+  IHardwareAccelerator* getHardwareAccelerator() {
+    return hardwareAccelerator_.get();
+  }
+
+  /**
+   * @brief Run the model from initialState to finalState
    *
    * @param initialState The initial state of the model
-   * @param finalState The final state after model execution (output parameter)
+   * @param finalState The final state after model run (output parameter)
    * @param startTime The start time for the model run
    * @param endTime The end time for the model run
    * @throws std::runtime_error if the model run fails
@@ -296,64 +386,6 @@ class Model : private NonCopyable {
       throw std::runtime_error(std::string("Model run failed: ") + e.what());
     }
   }
-
-  /**
-   * @brief Get the model's time stepping capability
-   *
-   * @return Pointer to the model's time stepping capability, or nullptr if not
-   * supported
-   */
-  // ITimeStepper* getTimeStepper() {
-  //   return timeStepper_ ? &*timeStepper_ : nullptr;
-  // }
-
-  /**
-   * @brief Get the model's AI prediction capability
-   *
-   * @return Pointer to the model's AI prediction capability, or nullptr if not
-   * supported
-   */
-  // IAIPredictor* getAIPredictor() {
-  //   return aiPredictor_ ? &*aiPredictor_ : nullptr;
-  // }
-
-  /**
-   * @brief Get the model's batch processing capability
-   *
-   * @return Pointer to the model's batch processing capability, or nullptr if
-   * not supported
-   */
-  // IBatchProcessor* getBatchProcessor() {
-  //   return batchProcessor_ ? &*batchProcessor_ : nullptr;
-  // }
-
-  /**
-   * @brief Get the model's hardware acceleration capability
-   *
-   * @return Pointer to the model's hardware acceleration capability, or nullptr
-   * if not supported
-   */
-  // IHardwareAccelerator* getHardwareAccelerator() {
-  //   return hardwareAccelerator_ ? &*hardwareAccelerator_ : nullptr;
-  // }
-
-  /**
-   * @brief Get the backend instance
-   *
-   * This method provides direct access to the backend model implementation.
-   * Use with caution as it bypasses the adapter's type safety and error
-   * handling.
-   *
-   * @return Reference to the backend instance
-   */
-  Backend& backend() { return backend_; }
-
-  /**
-   * @brief Get the backend instance (const version)
-   *
-   * @return Const reference to the backend instance
-   */
-  const Backend& backend() const { return backend_; }
 
   /**
    * @brief Type-safe run method that works directly with State templates
@@ -380,6 +412,24 @@ class Model : private NonCopyable {
     }
   }
 
+  /**
+   * @brief Get the backend instance
+   *
+   * This method provides direct access to the backend model implementation.
+   * Use with caution as it bypasses the adapter's type safety and error
+   * handling.
+   *
+   * @return Reference to the backend instance
+   */
+  Backend& backend() { return backend_; }
+
+  /**
+   * @brief Get the backend instance (const version)
+   *
+   * @return Const reference to the backend instance
+   */
+  const Backend& backend() const { return backend_; }
+
  private:
   /**
    * @brief Initialize the capabilities based on what the backend supports
@@ -387,52 +437,12 @@ class Model : private NonCopyable {
    * Uses C++20 concepts to check if the backend supports various capabilities.
    */
   void initializeCapabilities() {
-    // Check if backend supports time stepping
-    // if constexpr (HasTimeSteppingCapability<Backend>) {
-    //   timeStepper_.emplace(backend_);
-    // }
-
-    // Check if backend supports AI prediction
-    // if constexpr (HasAIPredictionCapability<Backend>) {
-    //   aiPredictor_.emplace(backend_);
-    // }
-
-    // Check if backend supports batch processing
-    // if constexpr (HasBatchProcessingCapability<Backend>) {
-    //   batchProcessor_.emplace(backend_);
-    // }
-
-    // Check if backend supports hardware acceleration
-    // The backend must provide ALL of the required methods for hardware
-    // acceleration
-    // if constexpr (HasHardwareAccelerationCapability<Backend>) {
-    //   // Make sure the backend has all the methods required by
-    //   // HardwareAcceleratorImpl
-    //   if constexpr (requires(Backend& b, std::string device, size_t memSize,
-    //                             bool enable) {
-    //                       b.setDevice(device);
-    //                       { b.getDevice() } ->
-    //                       std::convertible_to<std::string>;
-    //                       {
-    //                         b.supportsDeviceType(device)
-    //                       } -> std::convertible_to<bool>;
-    //                       {
-    //                         b.getAvailableDevices()
-    //                       } -> std::convertible_to<std::vector<std::string>>;
-    //                       { b.getAvailableMemory() } ->
-    //                       std::convertible_to<size_t>;
-    //                       b.setMemoryLimit(memSize);
-    //                       { b.getMemoryLimit() } ->
-    //                       std::convertible_to<size_t>;
-    //                       b.setAsynchronousExecution(enable);
-    //                       {
-    //                         b.isAsynchronousExecutionEnabled()
-    //                       } -> std::convertible_to<bool>;
-    //                       b.synchronize();
-    //                     }) {
-    //     hardwareAccelerator_.emplace(backend_);
-    //   }
-    // }
+    // Initialize all component capabilities
+    // The component will handle whether the initialization actually happens
+    timeStepper_.initialize(backend_);
+    aiPredictor_.initialize(backend_);
+    batchProcessor_.initialize(backend_);
+    hardwareAccelerator_.initialize(backend_);
   }
 };
 
