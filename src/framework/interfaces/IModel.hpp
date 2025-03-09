@@ -93,6 +93,15 @@ class IModel : private NonCopyable {
   virtual void reset() = 0;
 
   /**
+   * @brief Finalize the model and release resources
+   *
+   * This method should be called when the model is no longer needed.
+   * It releases any resources held by the model, such as memory, file handles,
+   * or hardware acceleration resources.
+   */
+  virtual void finalize() = 0;
+
+  /**
    * @brief Check if the model is initialized
    *
    * @return true if the model is initialized, false otherwise

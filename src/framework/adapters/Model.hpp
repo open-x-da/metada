@@ -174,6 +174,9 @@ class Model : private NonCopyable {
    * @brief Construct a new Model with the given configuration
    *
    * @param config Configuration object with model parameters
+   *
+   * @note The model must be initialized with initialize() before use, and when
+   * no longer needed, resources should be released with finalize().
    */
   template <typename T>
   explicit Model(const Config<T>& config) : backend_(config) {
@@ -205,6 +208,28 @@ class Model : private NonCopyable {
       backend_.reset();
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model reset failed: ") + e.what());
+    }
+  }
+
+  /**
+   * @brief Finalize the model and release resources
+   *
+   * This method should be called when the model is no longer needed.
+   * It releases any resources held by the model, such as memory, file handles,
+   * or hardware acceleration resources.
+   */
+  void finalize() {
+    try {
+      backend_.finalize();
+      // Clear capability implementations
+      // timeStepper_.reset();
+      // aiPredictor_.reset();
+      // batchProcessor_.reset();
+      // hardwareAccelerator_.reset();
+      initialized_ = false;
+    } catch (const std::exception& e) {
+      throw std::runtime_error(std::string("Model finalization failed: ") +
+                               e.what());
     }
   }
 

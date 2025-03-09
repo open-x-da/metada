@@ -53,6 +53,7 @@ using framework::ITimeStepper;
  * @par Lifecycle Management
  * - initialize() - Initialize model from configuration
  * - reset() - Reset model to initial state
+ * - finalize() - Finalize model
  * - isInitialized() - Check if model is initialized
  *
  * @par Parameter Management
@@ -84,6 +85,7 @@ class MockModel : public IModel {
   // Lifecycle management
   MOCK_METHOD(void, initialize, (const IConfig& config), (override));
   MOCK_METHOD(void, reset, (), (override));
+  MOCK_METHOD(void, finalize, (), (override));
   MOCK_METHOD(bool, isInitialized, (), (const, override));
 
   // Parameter management

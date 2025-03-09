@@ -20,7 +20,6 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
@@ -291,5 +290,46 @@ TEST_F(ModelTest, ModelExecution) {
 //   EXPECT_EQ(device, "cuda:0");
 //   hardwareAccelerator->setDevice("cuda:1");
 // }
+
+/**
+ * @brief Test model finalization
+ */
+TEST_F(ModelTest, Finalization) {
+  // Create model
+  Model<Traits::ModelType> model(getConfig());
+
+  // First initialize the model
+  EXPECT_CALL(model.backend(), initialize(_));
+  model.initialize(getConfig());
+  EXPECT_TRUE(model.isInitialized());
+
+  // Setup expectations for finalize
+  EXPECT_CALL(model.backend(), finalize());
+
+  // Finalize the model
+  model.finalize();
+
+  // Model should no longer be initialized
+  EXPECT_FALSE(model.isInitialized());
+}
+
+/**
+ * @brief Test error handling during finalization
+ */
+TEST_F(ModelTest, FinalizationError) {
+  // Create model
+  Model<Traits::ModelType> model(getConfig());
+
+  // First initialize the model
+  EXPECT_CALL(model.backend(), initialize(_));
+  model.initialize(getConfig());
+
+  // Setup expectations for finalize to throw
+  EXPECT_CALL(model.backend(), finalize())
+      .WillOnce(Throw(std::runtime_error("Finalization error")));
+
+  // Expect exception on finalize
+  EXPECT_THROW(model.finalize(), std::runtime_error);
+}
 
 }  // namespace metada::tests
