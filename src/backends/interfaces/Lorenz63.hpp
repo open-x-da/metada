@@ -4,6 +4,8 @@
 #include <memory>
 #include <vector>
 #include <stdexcept>
+#include <iostream>
+#include <iomanip>
 #include "lorenz63_fortran.h"
 
 namespace metada {
@@ -111,6 +113,11 @@ public:
         return ptr_.get();
     }
 
+    /**
+     * @brief Friend declaration for the stream output operator
+     */
+    friend std::ostream& operator<<(std::ostream& os, const Lorenz63State& state);
+
 private:
     // Custom deleter for Fortran state
     static void state_deleter(void* ptr) {
@@ -122,6 +129,21 @@ private:
     // Smart pointer to manage Fortran state
     std::shared_ptr<void> ptr_;
 };
+
+/**
+ * @brief Stream output operator for Lorenz63State
+ * 
+ * @param os Output stream
+ * @param state Lorenz63State to print
+ * @return std::ostream& Reference to the output stream
+ */
+inline std::ostream& operator<<(std::ostream& os, const Lorenz63State& state) {
+    os << "Lorenz63State(" 
+       << std::fixed << std::setprecision(6) << state.getX() << ", " 
+       << std::fixed << std::setprecision(6) << state.getY() << ", " 
+       << std::fixed << std::setprecision(6) << state.getZ() << ")";
+    return os;
+}
 
 /**
  * @brief C++ wrapper for the Lorenz63 Fortran Model class

@@ -13,10 +13,6 @@ target_include_directories(lorenz63
   PRIVATE
     ${CMAKE_BINARY_DIR}/modules)
 
-# Install the executable to the correct location
-install(TARGETS lorenz63
-  RUNTIME DESTINATION ${METADA_INSTALL_BINDIR})
-
 # Add C++ example if C++ is enabled
 if(CMAKE_CXX_COMPILER)
   # Create the C++ wrapper example executable
@@ -25,6 +21,11 @@ if(CMAKE_CXX_COMPILER)
   # Link to required libraries
   target_link_libraries(lorenz63_cpp_example
     PRIVATE
+      metada::framework::runs
+      metada::framework::traits
+      metada::framework::common
+      metada::backends::common::utils::logger
+      metada::backends::common::utils::config
       lorenz63_state
       lorenz63_geometry
       lorenz63_model)
@@ -35,7 +36,4 @@ if(CMAKE_CXX_COMPILER)
       ${CMAKE_BINARY_DIR}/modules
       ${CMAKE_SOURCE_DIR}/src/backends/interfaces)
   
-  # Install the C++ example
-  install(TARGETS lorenz63_cpp_example
-    RUNTIME DESTINATION ${METADA_INSTALL_BINDIR})
 endif()
