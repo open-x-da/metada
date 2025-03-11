@@ -20,21 +20,20 @@ using framework::LogStream;
  * expected parameters and at the expected severity levels during tests.
  *
  * The mock provides methods to set expectations on logging calls and verify
- * that they were satisfied. It supports both the traditional string-based API
- * and the newer stream-based API.
+ * that they were satisfied.
  *
  * Example usage:
  * @code
  * MockLogger mock_logger;
  *
- * // Test traditional API
- * EXPECT_CALL(mock_logger, Info("Starting test"));
- * EXPECT_CALL(mock_logger, Error("Test failed"));
+ * // Test message logging at different severity levels
+ * EXPECT_CALL(mock_logger, LogMessage(LogLevel::Info, "Starting test"));
+ * EXPECT_CALL(mock_logger, LogMessage(LogLevel::Error, "Test failed"));
  *
- * // Test stream API (needs special handling)
- * // For this, you typically verify Info/Error etc. gets called with the
- * // final formatted string
- * EXPECT_CALL(mock_logger, Info("User 123 logged in from 192.168.1.1"));
+ * // When using stream API, the eventual message string is what gets logged
+ * // So you set expectations on the LogMessage method with the final string
+ * EXPECT_CALL(mock_logger, LogMessage(LogLevel::Info, "User 123 logged in from
+ * 192.168.1.1"));
  *
  * // Then pass the mock to code under test
  * TestFunction(mock_logger);
@@ -57,21 +56,16 @@ class MockLogger : public ILogger {
    */
   MockLogger& operator=(MockLogger&&) noexcept { return *this; }
 
-  // Mock methods for string-based API
-  MOCK_METHOD(void, Info, (const std::string& message), (override));
-  MOCK_METHOD(void, Warning, (const std::string& message), (override));
-  MOCK_METHOD(void, Error, (const std::string& message), (override));
-  MOCK_METHOD(void, Debug, (const std::string& message), (override));
+  // Mock the LogMessage method
+  MOCK_METHOD(void, LogMessage, (LogLevel level, const std::string& message),
+              (override));
 
-  // Methods for stream-based API
-  // Note: These use the base class implementations which ultimately call the
-  // mocked methods
-  LogStream InfoStream() override { return framework::ILogger::InfoStream(); }
-  LogStream WarningStream() override {
-    return framework::ILogger::WarningStream();
-  }
-  LogStream ErrorStream() override { return framework::ILogger::ErrorStream(); }
-  LogStream DebugStream() override { return framework::ILogger::DebugStream(); }
+  // Use base class implementation for stream methods
+  // These will ultimately call our mocked LogMessage method
+  using ILogger::DebugStream;
+  using ILogger::ErrorStream;
+  using ILogger::InfoStream;
+  using ILogger::WarningStream;
 
   /**
    * @brief No-op initialization for testing

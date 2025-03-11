@@ -3,10 +3,12 @@
 #include <iostream>
 
 #include "utils/logger/ILogger.hpp"
+#include "utils/logger/LogStream.hpp"
 
 namespace metada::backends::logger {
 
 using framework::ILogger;
+using framework::LogLevel;
 
 /**
  * @file ConsoleLogger.hpp
@@ -31,24 +33,6 @@ using framework::ILogger;
  * - ERROR: Serious problems requiring immediate action (stderr, red)
  * - DEBUG: Detailed troubleshooting information (stdout, blue)
  *
- * Example usage with string-based API:
- * @code
- * // Initialize logging
- * ConsoleLogger::Init("MyApp");
- *
- * // Create logger instance
- * ConsoleLogger logger;
- *
- * // Log at different levels
- * logger.Info("Application started");
- * logger.Warning("Resource usage high");
- * logger.Error("Failed to connect to database");
- * logger.Debug("Connection attempt details: ...");
- *
- * // Cleanup on shutdown
- * ConsoleLogger::Shutdown();
- * @endcode
- *
  * Example usage with stream-based API:
  * @code
  * // Initialize logging
@@ -58,10 +42,10 @@ using framework::ILogger;
  * ConsoleLogger logger;
  *
  * // Log at different levels using stream interface
- * logger.InfoStream() << "Application started with version " << app_version;
- * logger.WarningStream() << "Resource usage at " << usage_percent << "%";
- * logger.ErrorStream() << "Failed to connect to database: " << error_code;
- * logger.DebugStream() << "Connection params: " << host << ":" << port;
+ * logger.Info() << "Application started with version " << app_version;
+ * logger.Warning() << "Resource usage at " << usage_percent << "%";
+ * logger.Error() << "Failed to connect to database: " << error_code;
+ * logger.Debug() << "Connection params: " << host << ":" << port;
  *
  * // Cleanup on shutdown
  * ConsoleLogger::Shutdown();
@@ -77,51 +61,30 @@ class ConsoleLogger : public ILogger {
   ConsoleLogger() = default;
 
   /**
-   * @brief Log info message to stdout
+   * @brief Log a message at the specified level
    *
-   * Writes an informational message to standard output with [INFO] prefix.
-   * Info messages are used for general operational information.
+   * Routes messages to the appropriate output stream with the corresponding
+   * severity level prefix. Info, Warning, and Debug messages go to stdout,
+   * while Error messages go to stderr.
    *
-   * @param message The message to log at INFO level
+   * @param level The severity level of the message
+   * @param message The message to log
    */
-  void Info(const std::string& message) override {
-    std::cout << "[INFO] " << message << std::endl;
-  }
-
-  /**
-   * @brief Log warning message to stdout
-   *
-   * Writes a warning message to standard output with [WARNING] prefix.
-   * Warning messages indicate potential issues that may require attention.
-   *
-   * @param message The message to log at WARNING level
-   */
-  void Warning(const std::string& message) override {
-    std::cout << "[WARNING] " << message << std::endl;
-  }
-
-  /**
-   * @brief Log error message to stderr
-   *
-   * Writes an error message to standard error with [ERROR] prefix.
-   * Error messages indicate serious problems requiring immediate attention.
-   *
-   * @param message The message to log at ERROR level
-   */
-  void Error(const std::string& message) override {
-    std::cerr << "[ERROR] " << message << std::endl;
-  }
-
-  /**
-   * @brief Log debug message to stdout
-   *
-   * Writes a debug message to standard output with [DEBUG] prefix.
-   * Debug messages provide detailed information for troubleshooting.
-   *
-   * @param message The message to log at DEBUG level
-   */
-  void Debug(const std::string& message) override {
-    std::cout << "[DEBUG] " << message << std::endl;
+  void LogMessage(LogLevel level, const std::string& message) override {
+    switch (level) {
+      case LogLevel::Info:
+        std::cout << "[INFO] " << message << std::endl;
+        break;
+      case LogLevel::Warning:
+        std::cout << "[WARNING] " << message << std::endl;
+        break;
+      case LogLevel::Error:
+        std::cerr << "[ERROR] " << message << std::endl;
+        break;
+      case LogLevel::Debug:
+        std::cout << "[DEBUG] " << message << std::endl;
+        break;
+    }
   }
 
   /**

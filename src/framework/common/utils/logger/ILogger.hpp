@@ -15,7 +15,7 @@ enum class LogLevel;
  *
  * This interface defines the contract that all logger backends must implement.
  * It provides a unified API for logging messages at different severity levels
- * in a backend-agnostic way.
+ * in a backend-agnostic way using a stream-based interface.
  *
  * The ILogger interface is non-copyable to prevent unintended duplication of
  * logger instances, which could lead to resource contention or inconsistent
@@ -26,21 +26,21 @@ enum class LogLevel;
  * - Multiple severity levels (Info, Warning, Error, Debug)
  * - Process-wide initialization and cleanup
  * - Backend-agnostic interface
- * - Support for both string-based and stream-based logging
+ * - Stream-based logging with << operator support
  *
  * Example usage:
  * @code
  * class ConsoleLogger : public ILogger {
- *   void Info(const std::string& message) override;
- *   void Warning(const std::string& message) override;
- *   void Error(const std::string& message) override;
- *   void Debug(const std::string& message) override;
+ *   // Implement internal methods to handle messages
+ *   virtual void LogMessage(LogLevel level, const std::string& message)
+ * override;
+ *   // Implement stream methods by delegating to base class
  *   // ... static Init() and Shutdown() methods
  * };
  * @endcode
  *
  * Concrete implementations must provide:
- * - Logging methods for each severity level
+ * - Method to log messages at different levels
  * - Static Init() and Shutdown() methods for process-wide setup
  * - Thread-safe logging operations
  * - Proper message formatting and output
@@ -59,45 +59,16 @@ class ILogger : public NonCopyable {
   virtual ~ILogger() = default;
 
   /**
-   * @brief Log an informational message
+   * @brief Internal method to log a message at a specific level
    *
-   * Used for general operational information about the normal functioning
-   * of the application. Info messages should be concise and meaningful.
+   * This is the core method that concrete implementations must provide.
+   * It receives messages at different severity levels and handles the
+   * actual logging operation.
    *
-   * @param message The message to log at INFO level
+   * @param level The severity level of the message
+   * @param message The formatted message to log
    */
-  virtual void Info(const std::string& message) = 0;
-
-  /**
-   * @brief Log a warning message
-   *
-   * Used for potentially harmful situations or conditions that might
-   * require attention but don't prevent the application from functioning.
-   *
-   * @param message The message to log at WARNING level
-   */
-  virtual void Warning(const std::string& message) = 0;
-
-  /**
-   * @brief Log an error message
-   *
-   * Used for error conditions that prevent normal operation or indicate
-   * serious problems that need immediate attention.
-   *
-   * @param message The message to log at ERROR level
-   */
-  virtual void Error(const std::string& message) = 0;
-
-  /**
-   * @brief Log a debug message
-   *
-   * Used for detailed information useful during development and
-   * troubleshooting. Debug messages may include technical details not relevant
-   * for normal operation.
-   *
-   * @param message The message to log at DEBUG level
-   */
-  virtual void Debug(const std::string& message) = 0;
+  virtual void LogMessage(LogLevel level, const std::string& message) = 0;
 
   /**
    * @brief Create a LogStream for info-level logging

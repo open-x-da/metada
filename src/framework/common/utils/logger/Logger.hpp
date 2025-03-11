@@ -24,14 +24,6 @@ namespace metada::framework {
  * behavior. However, it supports move semantics to allow transferring ownership
  * when needed.
  *
- * Example usage with string-based logging:
- * @code
- * ConsoleLogger backend;
- * Logger<ConsoleLogger> logger;
- * logger.Info("Application started");
- * logger.Error("An error occurred");
- * @endcode
- *
  * Example usage with stream-based logging:
  * @code
  * ConsoleLogger backend;
@@ -79,46 +71,6 @@ class Logger : public NonCopyable {
    * @brief Default destructor
    */
   ~Logger() = default;
-
-  /**
-   * @brief Log an informational message
-   *
-   * Logs a message at INFO level. Info messages are used for general
-   * operational information about the normal functioning of the application.
-   *
-   * @param message The message to log at INFO level
-   */
-  void Info(const std::string& message) { backend_.Info(message); }
-
-  /**
-   * @brief Log a warning message
-   *
-   * Logs a message at WARNING level. Warning messages indicate potential
-   * issues that are not immediately threatening but may require attention.
-   *
-   * @param message The message to log at WARNING level
-   */
-  void Warning(const std::string& message) { backend_.Warning(message); }
-
-  /**
-   * @brief Log an error message
-   *
-   * Logs a message at ERROR level. Error messages indicate serious problems
-   * that need immediate attention and may prevent proper functioning.
-   *
-   * @param message The message to log at ERROR level
-   */
-  void Error(const std::string& message) { backend_.Error(message); }
-
-  /**
-   * @brief Log a debug message
-   *
-   * Logs a message at DEBUG level. Debug messages provide detailed information
-   * useful during development and troubleshooting.
-   *
-   * @param message The message to log at DEBUG level
-   */
-  void Debug(const std::string& message) { backend_.Debug(message); }
 
   /**
    * @brief Create a stream for info-level logging
