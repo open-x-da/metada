@@ -75,12 +75,12 @@ int main(int argc, char* argv[]) {
   auto& logger = context.getLogger();
   auto& config = context.getConfig();
 
-  logger.Info("LETKF application starting...");
+  logger.Info() << "LETKF application starting...";
 
   try {
     // Check command line arguments
     if (argc != 2) {
-      logger.Error("Usage: letkf <config_file>");
+      logger.Error() << "Usage: letkf <config_file>";
       return 1;
     }
 
@@ -97,30 +97,29 @@ int main(int argc, char* argv[]) {
           "letkf.state_variables",
           std::vector<std::string>{"temperature", "pressure", "humidity"}));
     } catch (const std::exception& e) {
-      logger.Error("Error reading configuration values: " +
-                   std::string(e.what()));
+      logger.Error() << "Error reading configuration values: " << e.what();
       return 1;
     }
 
     // Log configuration
-    logger.Info("LETKF Configuration:");
-    logger.Info("  - Ensemble Size: " + std::to_string(ensemble_size));
-    logger.Info("  - Inflation Factor: " + std::to_string(inflation_factor));
-    logger.Info("  - State Variables:");
+    logger.Info() << "LETKF Configuration:";
+    logger.Info() << "  - Ensemble Size: " << ensemble_size;
+    logger.Info() << "  - Inflation Factor: " << inflation_factor;
+    logger.Info() << "  - State Variables:";
     for (const auto& var : state_variables) {
-      logger.Info("    * " + var);
+      logger.Info() << "    * " << var;
     }
 
     // Add your LETKF implementation here
-    logger.Debug("Initializing LETKF parameters");
-    logger.Info("Loading ensemble members");
-    logger.Info("Processing observations");
-    logger.Info("Computing analysis");
+    logger.Debug() << "Initializing LETKF parameters";
+    logger.Info() << "Loading ensemble members";
+    logger.Info() << "Processing observations";
+    logger.Info() << "Computing analysis";
 
-    logger.Info("LETKF application completed successfully");
+    logger.Info() << "LETKF application completed successfully";
     return 0;
   } catch (const std::exception& e) {
-    logger.Error("LETKF application failed: " + std::string(e.what()));
+    logger.Error() << "LETKF application failed: " << e.what();
     return 1;
   }
 }

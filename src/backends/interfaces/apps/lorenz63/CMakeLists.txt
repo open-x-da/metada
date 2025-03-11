@@ -34,3 +34,5 @@ target_include_directories(lorenz63_cpp_example
     PRIVATE
         ${CMAKE_BINARY_DIR}/modules
         ${CMAKE_SOURCE_DIR}/src/backends/interfaces)
+
+AddFormatTarget(lorenz63_cpp_example ${CMAKE_CURRENT_SOURCE_DIR})

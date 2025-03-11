@@ -10,6 +10,7 @@
 namespace metada::tests {
 
 using framework::ILogger;
+using framework::LogLevel;
 using framework::LogStream;
 
 /**

@@ -181,8 +181,7 @@ TEST_F(LoggerTest, StreamBasedLoggingWithVariableTypes) {
       .Times(1);
   logger.Warning() << "warning " << 3.14 << " value";
 
-  EXPECT_CALL(logger.backend(),
-              LogMessage(LogLevel::Error, "error: value=true"))
+  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Error, "error: value=1"))
       .Times(1);
   logger.Error() << "error: value=" << true;
 
