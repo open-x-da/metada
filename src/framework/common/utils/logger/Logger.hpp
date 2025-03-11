@@ -3,6 +3,7 @@
 #include <string>
 
 #include "utils/NonCopyable.hpp"
+#include "utils/logger/LogStream.hpp"
 
 namespace metada::framework {
 
@@ -23,12 +24,20 @@ namespace metada::framework {
  * behavior. However, it supports move semantics to allow transferring ownership
  * when needed.
  *
- * Example usage:
+ * Example usage with string-based logging:
  * @code
  * ConsoleLogger backend;
  * Logger<ConsoleLogger> logger;
  * logger.Info("Application started");
  * logger.Error("An error occurred");
+ * @endcode
+ *
+ * Example usage with stream-based logging:
+ * @code
+ * ConsoleLogger backend;
+ * Logger<ConsoleLogger> logger;
+ * logger.Info() << "Application started with " << num_threads << " threads";
+ * logger.Error() << "Failed to connect to " << server << ": " << error_msg;
  * @endcode
  *
  * @tparam Backend The concrete logger backend type that implements the ILogger
@@ -37,6 +46,7 @@ namespace metada::framework {
  * @see ILogger
  * @see LoggerTraits
  * @see NonCopyable
+ * @see LogStream
  */
 template <typename Backend>
 class Logger : public NonCopyable {
@@ -109,6 +119,34 @@ class Logger : public NonCopyable {
    * @param message The message to log at DEBUG level
    */
   void Debug(const std::string& message) { backend_.Debug(message); }
+
+  /**
+   * @brief Create a stream for info-level logging
+   *
+   * @return A LogStream object for stream-style logging with << operator
+   */
+  LogStream Info() { return LogStream(backend_, LogLevel::Info); }
+
+  /**
+   * @brief Create a stream for warning-level logging
+   *
+   * @return A LogStream object for stream-style logging with << operator
+   */
+  LogStream Warning() { return LogStream(backend_, LogLevel::Warning); }
+
+  /**
+   * @brief Create a stream for error-level logging
+   *
+   * @return A LogStream object for stream-style logging with << operator
+   */
+  LogStream Error() { return LogStream(backend_, LogLevel::Error); }
+
+  /**
+   * @brief Create a stream for debug-level logging
+   *
+   * @return A LogStream object for stream-style logging with << operator
+   */
+  LogStream Debug() { return LogStream(backend_, LogLevel::Debug); }
 
   /**
    * @brief Get reference to the underlying backend

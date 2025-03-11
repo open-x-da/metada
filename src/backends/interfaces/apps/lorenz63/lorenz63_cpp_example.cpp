@@ -1,9 +1,6 @@
-#include <iostream>
-#include <iomanip>
 #include <string>
 #include <chrono>
 #include <stdexcept>
-#include <sstream>
 
 #include "ApplicationContext.hpp"
 #include "AppTraits.hpp"
@@ -19,14 +16,13 @@ using namespace metada::backends::config;
 using Traits = AppTraits<GoogleLogger, JsonConfig>;
 
 int main() {
-    try {
-        // Create the application context
+            // Create the application context
         auto app = ApplicationContext<Traits>("Lorenz63");
 
         // Get the logger and config
         auto& logger = app.getLogger();
         auto& config = app.getConfig();
-
+    try {
         // Create a Lorenz63 state with initial values (1.0, 1.0, 1.0)
         Lorenz63State state(1.0f, 1.0f, 1.0f);
         Lorenz63State initial_state(1.0f, 1.0f, 1.0f);
@@ -38,11 +34,11 @@ int main() {
         // Get the model parameters to verify
         float sigma, rho, beta, dt;
         model.getParameters(sigma, rho, beta, dt);
-        logger.Info("Model parameters:");
-        logger.Info("  sigma = " + std::to_string(sigma));
-        logger.Info("  rho = " + std::to_string(rho));
-        logger.Info("  beta = " + std::to_string(beta));
-        logger.Info("  dt = " + std::to_string(dt));
+        logger.Info() << "Model parameters:";
+        logger.Info() << "  sigma = " << sigma;
+        logger.Info() << "  rho = " << rho;
+        logger.Info() << "  beta = " << beta;
+        logger.Info() << "  dt = " << dt;
         
         // Create an integrator with the model
         Lorenz63Integrator integrator(model);
@@ -57,9 +53,7 @@ int main() {
             
             // Print every 100 steps
             if (i % 100 == 0) {
-                std::stringstream ss;
-                ss << "Step " << i << ": " << state;
-                logger.Info(ss.str());
+                logger.Info() << "Step " << i << ": " << state;
             }
         }
         
@@ -68,36 +62,25 @@ int main() {
         
         // Calculate distance from initial to final state
         float distance = state.distance(initial_state);
-        logger.Info("Distance from initial to final state: " + std::to_string(distance));
+        logger.Info() << "Distance from initial to final state: " << distance;
         
         // Print performance metrics
-        logger.Info("Performance:");
-        std::stringstream perf;
-        perf << "  Executed " << num_steps << " steps in " << duration.count() << " ms";
-        logger.Info(perf.str());
-        
-        std::stringstream avg;
-        avg << "  Average time per step: " << static_cast<float>(duration.count()) / num_steps << " ms";
-        logger.Info(avg.str());
+        logger.Info() << "Performance:";
+        logger.Info() << "  Executed " << num_steps << " steps in " << duration.count() << " ms";
+        logger.Info() << "  Average time per step: " << static_cast<float>(duration.count()) / num_steps << " ms";
         
         // Demonstrate vector access to components
         auto components = state.getComponents();
-        std::stringstream vec;
-        vec << "Final state as vector: [" << components[0] << ", " << components[1] << ", " << components[2] << "]";
-        logger.Info(vec.str());
-                  
+        logger.Info() << "Final state as vector: [" << components[0] << ", " << components[1] << ", " << components[2] << "]";
+        
         // Final state using stream operator
-        std::stringstream final;
-        final << "Final state using stream operator: " << state;
-        logger.Info(final.str());
-                  
+        logger.Info() << "Final state using stream operator: " << state;
+        
         // Demonstrate multiple states in one output
-        std::stringstream states;
-        states << "Initial and final states: " << initial_state << " -> " << state;
-        logger.Info(states.str());
+        logger.Info() << "Initial and final states: " << initial_state << " -> " << state;
     }
     catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        logger.Error() << "Error: " << e.what();
         return 1;
     }
     

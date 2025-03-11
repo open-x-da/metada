@@ -8,5 +8,8 @@ target_include_directories(common
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
+# Add subdirectories for utilities
+add_subdirectory(utils/logger)
+
 # Add format target
 AddFormatTarget(common ${CMAKE_CURRENT_SOURCE_DIR})

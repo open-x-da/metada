@@ -9,6 +9,7 @@ function(setup_test_executable target source)
             metada::framework::interfaces::test
             metada::framework::runs
             metada::framework::traits
+            metada::framework::common::utils::logger
     )
     
     target_include_directories(${target}
@@ -62,6 +63,6 @@ setup_test_executable(obsoperator_test ObsOperatorTest.cpp)
 # AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
-AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
-AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
+# AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
+# AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})

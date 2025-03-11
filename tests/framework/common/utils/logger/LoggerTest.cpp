@@ -17,11 +17,16 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <sstream>
+#include <string>
+
 #include "MockLogger.hpp"
+#include "utils/logger/LogStream.hpp"
 #include "utils/logger/Logger.hpp"
 
 namespace metada::tests {
 
+using ::testing::_;
 using ::testing::Return;
 
 using framework::Logger;
@@ -128,6 +133,64 @@ TEST_F(LoggerTest, MoveSemantics) {
   // Logger<MockLogger> copy_logger(logger); // Copy construction - deleted
   // Logger<MockLogger> assign_logger;
   // assign_logger = logger; // Copy assignment - deleted
+}
+
+/**
+ * @brief Test stream-based Info logging
+ *
+ * Verifies that the stream-based Info method correctly forwards
+ * the composed message to the backend's Info method.
+ */
+TEST_F(LoggerTest, StreamBasedInfoLogging) {
+  // The backend's Info method should be called with the composed message
+  EXPECT_CALL(logger.backend(), Info("test 42 message")).Times(1);
+
+  // Use the stream-based API to compose a message
+  logger.Info() << "test " << 42 << " message";
+}
+
+/**
+ * @brief Test stream-based Warning logging
+ *
+ * Verifies that the stream-based Warning method correctly forwards
+ * the composed message to the backend's Warning method.
+ */
+TEST_F(LoggerTest, StreamBasedWarningLogging) {
+  // The backend's Warning method should be called with the composed message
+  EXPECT_CALL(logger.backend(), Warning("warning 3.14 value")).Times(1);
+
+  // Use the stream-based API to compose a message
+  logger.Warning() << "warning " << 3.14 << " value";
+}
+
+/**
+ * @brief Test stream-based Error logging
+ *
+ * Verifies that the stream-based Error method correctly forwards
+ * the composed message to the backend's Error method.
+ */
+TEST_F(LoggerTest, StreamBasedErrorLogging) {
+  // The backend's Error method should be called with the composed message
+  EXPECT_CALL(logger.backend(), Error("error: value=1")).Times(1);
+
+  // Use the stream-based API to compose a message with a boolean
+  logger.Error() << "error: value=" << true;
+}
+
+/**
+ * @brief Test stream-based Debug logging
+ *
+ * Verifies that the stream-based Debug method correctly forwards
+ * the composed message to the backend's Debug method.
+ */
+TEST_F(LoggerTest, StreamBasedDebugLogging) {
+  // The backend's Debug method should be called with the composed message
+  EXPECT_CALL(logger.backend(), Debug("debug complex = (1,2)")).Times(1);
+
+  // Use the stream-based API to compose a message with formatted data
+  std::stringstream ss;
+  ss << "(" << 1 << "," << 2 << ")";
+  logger.Debug() << "debug complex = " << ss.str();
 }
 
 }  // namespace metada::tests

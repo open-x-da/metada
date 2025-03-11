@@ -31,7 +31,7 @@ using framework::ILogger;
  * - ERROR: Serious problems requiring immediate action (stderr, red)
  * - DEBUG: Detailed troubleshooting information (stdout, blue)
  *
- * Example usage:
+ * Example usage with string-based API:
  * @code
  * // Initialize logging
  * ConsoleLogger::Init("MyApp");
@@ -44,6 +44,24 @@ using framework::ILogger;
  * logger.Warning("Resource usage high");
  * logger.Error("Failed to connect to database");
  * logger.Debug("Connection attempt details: ...");
+ *
+ * // Cleanup on shutdown
+ * ConsoleLogger::Shutdown();
+ * @endcode
+ *
+ * Example usage with stream-based API:
+ * @code
+ * // Initialize logging
+ * ConsoleLogger::Init("MyApp");
+ *
+ * // Create logger instance
+ * ConsoleLogger logger;
+ *
+ * // Log at different levels using stream interface
+ * logger.InfoStream() << "Application started with version " << app_version;
+ * logger.WarningStream() << "Resource usage at " << usage_percent << "%";
+ * logger.ErrorStream() << "Failed to connect to database: " << error_code;
+ * logger.DebugStream() << "Connection params: " << host << ":" << port;
  *
  * // Cleanup on shutdown
  * ConsoleLogger::Shutdown();

@@ -9,6 +9,7 @@ target_link_libraries(letkf
         metada::framework::traits
         metada::backends::common::utils::logger
         metada::backends::common::utils::config
+        metada::framework::common::utils::logger
 )
 
 # Add format target to ensure consistent code style across the project

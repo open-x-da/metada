@@ -5,7 +5,8 @@ add_executable(logger_test
 # Link logger library and setup testing
 target_link_libraries(logger_test
     PRIVATE
-        metada::framework::common)
+        metada::framework::common
+        metada::framework::common::utils::logger)
 
 # Use the AddTests macro to handle GTest/GMock setup
 metada_add_test_with_coverage(logger_test)

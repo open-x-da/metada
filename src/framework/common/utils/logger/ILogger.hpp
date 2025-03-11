@@ -6,6 +6,10 @@
 
 namespace metada::framework {
 
+// Forward declarations
+class LogStream;
+enum class LogLevel;
+
 /**
  * @brief Abstract interface for logger backend implementations
  *
@@ -22,6 +26,7 @@ namespace metada::framework {
  * - Multiple severity levels (Info, Warning, Error, Debug)
  * - Process-wide initialization and cleanup
  * - Backend-agnostic interface
+ * - Support for both string-based and stream-based logging
  *
  * Example usage:
  * @code
@@ -93,6 +98,34 @@ class ILogger : public NonCopyable {
    * @param message The message to log at DEBUG level
    */
   virtual void Debug(const std::string& message) = 0;
+
+  /**
+   * @brief Create a LogStream for info-level logging
+   *
+   * @return A LogStream object for chaining with << operator
+   */
+  virtual LogStream InfoStream();
+
+  /**
+   * @brief Create a LogStream for warning-level logging
+   *
+   * @return A LogStream object for chaining with << operator
+   */
+  virtual LogStream WarningStream();
+
+  /**
+   * @brief Create a LogStream for error-level logging
+   *
+   * @return A LogStream object for chaining with << operator
+   */
+  virtual LogStream ErrorStream();
+
+  /**
+   * @brief Create a LogStream for debug-level logging
+   *
+   * @return A LogStream object for chaining with << operator
+   */
+  virtual LogStream DebugStream();
 
   /**
    * @note Required static methods for concrete implementations:

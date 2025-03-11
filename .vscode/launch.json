@@ -54,6 +54,42 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "Debug Lorenz63 C++ Example",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/src/backends/interfaces/apps/lorenz63/lorenz63_cpp_example",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "GLOG_logtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_v",
+                    "value": "2"
+                },
+                {
+                    "name": "GLOG_colorlogtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_minloglevel",
+                    "value": "0"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }
