@@ -1,7 +1,7 @@
 /**
  * @file Geometry.hpp
  * @brief Implementation of a Geometry adapter
- * @ingroup repr
+ * @ingroup adapters
  *
  * @details
  * This file provides a concrete implementation of a Geometry adapter.
@@ -203,7 +203,7 @@ class Geometry {
    *
    * @return Iterator pointing to the first grid point
    */
-  GeometryIterator<double> begin() const {
+  std::unique_ptr<IGeometryIterator<double>> begin() const {
     if (getDimensions() == 0 || getTotalPoints() == 0) {
       return end();
     }
@@ -211,8 +211,8 @@ class Geometry {
     std::vector<size_t> position(getDimensions(), 0);
     std::vector<double> coordinates = getCoordinates(position);
 
-    return GeometryPointIterator<double>(position, getResolution(), coordinates,
-                                         this);
+    return std::make_unique<GeometryPointIterator<double>>(
+        position, getResolution(), coordinates, this);
   }
 
   /**
@@ -220,26 +220,39 @@ class Geometry {
    *
    * @return Iterator pointing past the last grid point
    */
-  GeometryIterator<double> end() const { return GeometryIterator<double>(); }
+  std::unique_ptr<IGeometryIterator<double>> end() const {
+    return std::make_unique<GeometryIterator<double>>();
+  }
 
   /**
    * @brief Create a new geometry with the same configuration
    *
    * @return Unique pointer to a new geometry instance
    */
-  std::unique_ptr<Geometry<Backend>> clone() const {
+  std::unique_ptr<IGeometry> clone() const {
     return std::make_unique<Geometry<Backend>>(backend_);
   }
 
   /**
-   * @brief Check if this geometry is compatible with another geometry
+   * @brief Check if this geometry is compatible with another geometry adapter
    *
-   * @param other Geometry to compare with
+   * @param other Geometry adapter to compare with
    * @return True if geometries are compatible, false otherwise
    */
   template <typename OtherBackend>
   bool isCompatible(const Geometry<OtherBackend>& other) const {
     return backend_.isCompatible(other.backend());
+  }
+
+  /**
+   * @brief Check if this geometry is compatible with another geometry
+   *
+   * @param other Reference to IGeometry to compare with
+   * @return True if geometries are compatible, false otherwise
+   */
+  bool isCompatible(const IGeometry& other) const {
+    // Delegate to the backend to handle compatibility check
+    return backend_.isCompatible(other);
   }
 
   /**

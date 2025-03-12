@@ -128,7 +128,7 @@ class GeometryTest : public ::testing::Test {
     }
 
     // Create mock backends for the Geometry adapter
-    mock_backend1_ = std::make_unique<MockGeometry>();
+    mock_backend1_ = std::make_unique<Traits::GeometryType>();
     mock_backend1_->setTestDimensions(default_dimensions_);
     mock_backend1_->setTestResolution(default_resolution_);
     mock_backend1_->setTestBounds(default_min_bounds_, default_max_bounds_);
@@ -161,20 +161,8 @@ class GeometryTest : public ::testing::Test {
         .WillRepeatedly(Return(std::vector<size_t>{10}));
     EXPECT_CALL(*mock_backend2_, getTotalPoints()).WillRepeatedly(Return(10));
 
-    // Create geometry adapters with mock backends
-    /*
-    geometry1_ =
-        std::make_unique<Geometry<Traits::GeometryType>>(*mock_backend1_);
-    geometry2_ =
-        std::make_unique<Geometry<Traits::GeometryType>>(*mock_backend2_);
-
-    // Create a separate mock geometry for direct interface testing
-    direct_mock_geometry_ = std::make_unique<Traits::GeometryType>();
-    direct_mock_geometry_->setTestDimensions(default_dimensions_);
-    direct_mock_geometry_->setTestResolution(default_resolution_);
-    direct_mock_geometry_->setTestBounds(default_min_bounds_,
-                                         default_max_bounds_);
-    */
+    // Create the geometry objects
+    // SetupMockObjects();
   }
 
   /**
@@ -219,12 +207,30 @@ class GeometryTest : public ::testing::Test {
 
     return std::make_unique<Geometry<Traits::GeometryType>>(*mock_backend);
   }*/
+
+  /**
+   * @brief Create mock objects for the test
+   */
+  /*
+  void SetupMockObjects() {
+    // Create geometry adapters with mock backends
+    geometry1_ =
+        std::make_unique<Geometry<Traits::GeometryType>>(*mock_backend1_);
+    geometry2_ =
+        std::make_unique<Geometry<Traits::GeometryType>>(*mock_backend2_);
+
+    // Create a separate mock geometry for direct interface testing
+    direct_mock_geometry_ = std::make_unique<Traits::GeometryType>();
+    direct_mock_geometry_->setTestDimensions(default_dimensions_);
+    direct_mock_geometry_->setTestResolution(default_resolution_);
+    direct_mock_geometry_->setTestBounds(default_min_bounds_,
+                                         default_max_bounds_);
+  }*/
 };
 
 /**
  * @brief Test Geometry adapter for configuration and basic properties
  */
-/*
 TEST_F(GeometryTest, BasicProperties) {
   // Set up expectations for direct mock
   EXPECT_CALL(*direct_mock_geometry_, getDimensions())
@@ -248,7 +254,6 @@ TEST_F(GeometryTest, BasicProperties) {
       default_resolution_[0] * default_resolution_[1] * default_resolution_[2];
   EXPECT_EQ(geometry1_->getTotalPoints(), expected_total);
 }
-*/
 
 /**
  * @brief Test Geometry adapter for domain bounds

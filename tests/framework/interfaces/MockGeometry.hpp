@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 
 #include "IGeometry.hpp"
+#include "IGeometryIterator.hpp"
 #include "utils/config/Config.hpp"
 
 namespace metada::tests {
@@ -33,6 +34,7 @@ using framework::Config;
 using framework::GeometryIterator;
 using framework::IConfig;
 using framework::IGeometry;
+using framework::IGeometryIterator;
 
 /**
  * @brief Mock implementation of IGeometry for testing
@@ -123,19 +125,19 @@ class MockGeometry : public IGeometry {
    * @brief Get iterator to beginning of grid
    * @return Iterator pointing to first grid point
    */
-  GeometryIterator<double> begin() const override {
+  std::unique_ptr<IGeometryIterator<double>> begin() const override {
     current_position_ = std::vector<size_t>(dimensions_, 0);
     current_coordinates_ = std::vector<double>(dimensions_, 0.0);
-    return GeometryIterator<double>(current_position_, resolution_,
-                                    current_coordinates_);
+    return std::make_unique<GeometryIterator<double>>(
+        current_position_, resolution_, current_coordinates_);
   }
 
   /**
    * @brief Get iterator to end of grid
    * @return Iterator pointing past last grid point
    */
-  GeometryIterator<double> end() const override {
-    return GeometryIterator<double>();
+  std::unique_ptr<IGeometryIterator<double>> end() const override {
+    return std::make_unique<GeometryIterator<double>>();
   }
 
   MOCK_METHOD(std::unique_ptr<IGeometry>, clone, (), (const, override));

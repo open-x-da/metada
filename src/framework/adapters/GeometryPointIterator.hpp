@@ -1,16 +1,17 @@
 /**
  * @file GeometryPointIterator.hpp
  * @brief Implementation of GeometryIterator for coordinates
- * @ingroup repr
+ * @ingroup adapters
  *
  * @details
- * This header provides a concrete implementation of the GeometryIterator
+ * This header provides a concrete implementation of the IGeometryIterator
  * specialized for use with the Geometry adapter.
  */
 
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <vector>
 
 #include "GeometryIterator.hpp"
@@ -58,9 +59,17 @@ class GeometryPointIterator : public GeometryIterator<T> {
         }) {}
 
   /**
+   * @brief Copy constructor
+   */
+  GeometryPointIterator(const GeometryPointIterator& other)
+      : GeometryIterator<T>(other),
+        geometry_(other.geometry_),
+        get_coordinates_(other.get_coordinates_) {}
+
+  /**
    * @brief Pre-increment operator with coordinate update
    */
-  GeometryPointIterator& operator++() {
+  IGeometryIterator<T>& operator++() override {
     // Using the base class operator++
     GeometryIterator<T>::operator++();
 
@@ -72,6 +81,14 @@ class GeometryPointIterator : public GeometryIterator<T> {
     }
 
     return *this;
+  }
+
+  /**
+   * @brief Clone this iterator
+   * @return Unique pointer to a new iterator instance
+   */
+  std::unique_ptr<IGeometryIterator<T>> clone() const override {
+    return std::make_unique<GeometryPointIterator<T>>(*this);
   }
 
  private:

@@ -22,7 +22,7 @@ target_sources(interfaces
         ${CMAKE_CURRENT_SOURCE_DIR}/IBatchProcessor.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IHardwareAccelerator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometry.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/GeometryIterator.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/IGeometryIterator.hpp
 )
 
 # Set C++20 properties for the target

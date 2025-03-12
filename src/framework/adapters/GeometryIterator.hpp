@@ -1,34 +1,36 @@
 /**
  * @file GeometryIterator.hpp
- * @brief Iterator for traversing geometry grid points
- * @ingroup repr
+ * @brief Iterator implementation for traversing geometry grid points
+ * @ingroup adapters
  *
  * @details
- * This header provides an implementation of a forward iterator for traversing
- * geometry grid points in N-dimensional space.
+ * This header provides a concrete implementation of the IGeometryIterator
+ * interface for traversing geometry grid points in N-dimensional space.
  */
 
 #pragma once
 
 #include <iterator>
+#include <memory>
 #include <vector>
+
+#include "IGeometryIterator.hpp"
 
 namespace metada::framework {
 
 /**
- * @brief Forward iterator for traversing geometry grid points
+ * @brief Concrete implementation of the IGeometryIterator for traversing
+ * geometry grid points
  *
  * @tparam T Type of the coordinate value (typically double)
  */
 template <typename T>
-class GeometryIterator {
+class GeometryIterator : public IGeometryIterator<T> {
  public:
-  // Iterator traits
-  using iterator_category = std::forward_iterator_tag;
-  using value_type = std::vector<T>;
-  using difference_type = std::ptrdiff_t;
-  using pointer = value_type*;
-  using reference = value_type&;
+  // Inherit iterator traits from the interface
+  using typename IGeometryIterator<T>::value_type;
+  using typename IGeometryIterator<T>::pointer;
+  using typename IGeometryIterator<T>::reference;
 
   /**
    * @brief Default constructor creates an end iterator
@@ -48,19 +50,29 @@ class GeometryIterator {
         coordinates_(coordinates) {}
 
   /**
+   * @brief Copy constructor
+   */
+  GeometryIterator(const GeometryIterator& other)
+      : position_(other.position_),
+        dimensions_(other.dimensions_),
+        value_(other.value_),
+        valid_(other.valid_),
+        coordinates_(other.coordinates_) {}
+
+  /**
    * @brief Dereference operator returns current point coordinates
    */
-  const value_type& operator*() const { return coordinates_; }
+  const value_type& operator*() const override { return coordinates_; }
 
   /**
    * @brief Arrow operator for accessing point coordinates
    */
-  const value_type* operator->() const { return &coordinates_; }
+  const value_type* operator->() const override { return &coordinates_; }
 
   /**
    * @brief Pre-increment operator
    */
-  GeometryIterator& operator++() {
+  IGeometryIterator<T>& operator++() override {
     // Increment position along the dimensions
     for (size_t i = 0; i < position_.size(); ++i) {
       ++position_[i];
@@ -80,7 +92,7 @@ class GeometryIterator {
   }
 
   /**
-   * @brief Post-increment operator
+   * @brief Post-increment operator (non-virtual convenience method)
    */
   GeometryIterator operator++(int) {
     GeometryIterator tmp = *this;
@@ -91,17 +103,33 @@ class GeometryIterator {
   /**
    * @brief Equality comparison
    */
-  bool operator==(const GeometryIterator& other) const {
-    if (!valid_ && !other.valid_) return true;
-    if (valid_ != other.valid_) return false;
-    return position_ == other.position_;
+  bool operator==(const IGeometryIterator<T>& other) const override {
+    // Try to cast to our concrete type
+    const GeometryIterator<T>* otherIterator =
+        dynamic_cast<const GeometryIterator<T>*>(&other);
+
+    if (!otherIterator) {
+      return false;  // Not the same type, can't be equal
+    }
+
+    if (!valid_ && !otherIterator->valid_) return true;
+    if (valid_ != otherIterator->valid_) return false;
+    return position_ == otherIterator->position_;
   }
 
   /**
    * @brief Inequality comparison
    */
-  bool operator!=(const GeometryIterator& other) const {
+  bool operator!=(const IGeometryIterator<T>& other) const override {
     return !(*this == other);
+  }
+
+  /**
+   * @brief Clone this iterator
+   * @return Unique pointer to a new iterator instance
+   */
+  std::unique_ptr<IGeometryIterator<T>> clone() const override {
+    return std::make_unique<GeometryIterator<T>>(*this);
   }
 
   /**

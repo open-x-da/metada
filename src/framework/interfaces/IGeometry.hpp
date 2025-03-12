@@ -1,7 +1,7 @@
 /**
  * @file IGeometry.hpp
  * @brief Interface defining the contract for geometry implementations
- * @ingroup repr
+ * @ingroup interfaces
  *
  * @details
  * This header provides the abstract interface that all geometry implementations
@@ -23,11 +23,12 @@
 #include <string>
 #include <vector>
 
-#include "GeometryIterator.hpp"
-
 namespace metada::framework {
 
 class IConfig;  // Forward declaration
+
+template <typename T>
+class IGeometryIterator;
 
 /**
  * @brief Abstract interface for geometry implementations
@@ -161,14 +162,14 @@ class IGeometry {
    *
    * @return Iterator pointing to the first grid point
    */
-  virtual GeometryIterator<double> begin() const = 0;
+  virtual std::unique_ptr<IGeometryIterator<double>> begin() const = 0;
 
   /**
    * @brief Get iterator to the end of the geometry grid
    *
    * @return Iterator pointing past the last grid point
    */
-  virtual GeometryIterator<double> end() const = 0;
+  virtual std::unique_ptr<IGeometryIterator<double>> end() const = 0;
 
   /**
    * @brief Create a new geometry with the same configuration
