@@ -1,14 +1,14 @@
-# Define the scientific representation library
+# Define the scientific representation library as interface (header-only)
 add_library(adapters INTERFACE)
 
 # Create alias target
 add_library(metada::framework::adapters ALIAS adapters)
 
-# Set up include directories
+# Set up include directories for interface library
 target_include_directories(adapters
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
+        )
 
 # List header files for proper IDE indexing and documentation
 target_sources(adapters
@@ -19,6 +19,8 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/ObsOperator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Ensemble.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Model.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/Geometry.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/GeometryPointIterator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/TimeStepperImpl.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/AIPredictorImpl.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/BatchProcessorImpl.hpp
@@ -27,9 +29,6 @@ target_sources(adapters
 
 # Set C++20 properties for the target
 target_compile_features(adapters INTERFACE cxx_std_20)
-
-# For INTERFACE libraries, we need different property setting approach
-set_property(TARGET adapters PROPERTY INTERFACE_COMPILE_FEATURES cxx_std_20)
 
 # Add compiler-specific flags for C++20 concepts via generator expressions
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")

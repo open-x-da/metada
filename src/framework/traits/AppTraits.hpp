@@ -46,6 +46,15 @@ struct AppTraits<LoggerBackend, ConfigBackend, StateBackend, ObservationBackend,
     using ObsOperatorType = ObsOperatorBackend; // ObsOperator backend
     using ModelType = ModelBackend;               // Model backend
 };
-// Future specializations can be added as needed:
-// template <typename LoggerBackend, typename ConfigBackend, typename NewBackend>
-// struct AppTraits<LoggerBackend, ConfigBackend, NewBackend> { ... };
+
+// Specialization for Logger, Config, State, Observation, ObsOperator and Model backends
+template <typename LoggerBackend, typename ConfigBackend, typename GeometryBackend, typename StateBackend, typename ObservationBackend, typename ObsOperatorBackend, typename ModelBackend>
+struct AppTraits<LoggerBackend, ConfigBackend, GeometryBackend, StateBackend, ObservationBackend, ObsOperatorBackend, ModelBackend> {
+    using LoggerType = LoggerBackend;            // Logger backend
+    using ConfigType = ConfigBackend;            // Config backend
+    using GeometryType = GeometryBackend;        // Geometry backend
+    using StateType = StateBackend;              // State backend
+    using ObservationType = ObservationBackend; // Observation backend
+    using ObsOperatorType = ObsOperatorBackend; // ObsOperator backend
+    using ModelType = ModelBackend;               // Model backend
+};

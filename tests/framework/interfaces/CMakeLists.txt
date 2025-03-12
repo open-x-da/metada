@@ -21,6 +21,7 @@ target_sources(interfaces_test
         ${CMAKE_CURRENT_SOURCE_DIR}/MockAIPredictor.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/MockBatchProcessor.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/MockHardwareAccelerator.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/MockGeometry.hpp
 )
 
 # Set C++20 properties for the target

@@ -60,9 +60,13 @@ setup_test_executable(observation_test ObservationTest.cpp)
 # IObsOperator tests
 setup_test_executable(obsoperator_test ObsOperatorTest.cpp)
 
+# Geometry tests
+setup_test_executable(geometry_test GeometryTest.cpp)
+
 # AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
-AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
+# AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(geometry_test ${CMAKE_CURRENT_SOURCE_DIR})
