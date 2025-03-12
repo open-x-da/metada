@@ -1,5 +1,7 @@
 # Create the Lorenz 63 model library
-add_library(lorenz63_model STATIC model.f90)
+add_library(lorenz63_model STATIC 
+  model.f90
+  model_c_bindings.f90)
 
 # Set properties for the target
 set_target_properties(lorenz63_model PROPERTIES

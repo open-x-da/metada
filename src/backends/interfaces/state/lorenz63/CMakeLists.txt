@@ -1,5 +1,7 @@
 # Create the Lorenz 63 state library
-add_library(lorenz63_state STATIC state.f90)
+add_library(lorenz63_state STATIC 
+  state.f90
+  state_c_bindings.f90)
 
 # Set properties for the target
 set_target_properties(lorenz63_state PROPERTIES

@@ -2,11 +2,13 @@
 #include <stdexcept>
 #include <string>
 
-#include "../../../interfaces/Lorenz63.hpp"
 #include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
 #include "GoogleLogger.hpp"
 #include "JsonConfig.hpp"
+#include "geometry/lorenz63/Geometry.hpp"
+#include "model/lorenz63/Model.hpp"
+#include "state/lorenz63/State.hpp"
 
 using namespace metada::backends::interfaces;
 using namespace metada::framework::runs;
@@ -31,6 +33,10 @@ int main() {
     // sigma = 10.0, rho = 28.0, beta = 8/3, dt = 0.01
     Lorenz63Model model(10.0f, 28.0f, 8.0f / 3.0f, 0.01f);
 
+    // Define the phase space bounds (typical values for the Lorenz attractor)
+    Lorenz63Geometry geometry(-30.0f, 30.0f, -30.0f, 30.0f, 0.0f, 60.0f);
+    logger.Info() << "Phase space geometry: " << geometry;
+
     // Get the model parameters to verify
     float sigma, rho, beta, dt;
     model.getParameters(sigma, rho, beta, dt);
@@ -43,6 +49,13 @@ int main() {
     // Create an integrator with the model
     Lorenz63Integrator integrator(model);
 
+    // Check if initial state is within bounds
+    if (geometry.containsPoint(state)) {
+      logger.Info() << "Initial state is within phase space bounds.";
+    } else {
+      logger.Warning() << "Initial state is outside phase space bounds!";
+    }
+
     // Measure performance
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -54,6 +67,11 @@ int main() {
       // Print every 100 steps
       if (i % 100 == 0) {
         logger.Info() << "Step " << i << ": " << state;
+
+        // Check if current state is within bounds
+        if (!geometry.containsPoint(state)) {
+          logger.Warning() << "State has left the phase space bounds!";
+        }
       }
     }
 

@@ -1,5 +1,7 @@
 # Create the Lorenz 63 geometry library
-add_library(lorenz63_geometry STATIC geometry.f90)
+add_library(lorenz63_geometry STATIC 
+  geometry.f90
+  geometry_c_bindings.f90)
 
 # Set properties for the target
 set_target_properties(lorenz63_geometry PROPERTIES
