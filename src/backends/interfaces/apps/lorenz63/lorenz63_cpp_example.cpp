@@ -10,7 +10,7 @@
 #include "model/lorenz63/Model.hpp"
 #include "state/lorenz63/State.hpp"
 
-using namespace metada::backends::interfaces;
+using namespace metada::backends::lorenz63;
 using namespace metada::framework::runs;
 using namespace metada::backends::logger;
 using namespace metada::backends::config;
@@ -26,15 +26,15 @@ int main() {
   auto& config = app.getConfig();
   try {
     // Create a Lorenz63 state with initial values (1.0, 1.0, 1.0)
-    Lorenz63State state(1.0f, 1.0f, 1.0f);
-    Lorenz63State initial_state(1.0f, 1.0f, 1.0f);
+    State state(1.0f, 1.0f, 1.0f);
+    State initial_state(1.0f, 1.0f, 1.0f);
 
     // Create the Lorenz63 model with standard parameters
     // sigma = 10.0, rho = 28.0, beta = 8/3, dt = 0.01
-    Lorenz63Model model(10.0f, 28.0f, 8.0f / 3.0f, 0.01f);
+    Model model(10.0f, 28.0f, 8.0f / 3.0f, 0.01f);
 
     // Define the phase space bounds (typical values for the Lorenz attractor)
-    Lorenz63Geometry geometry(-30.0f, 30.0f, -30.0f, 30.0f, 0.0f, 60.0f);
+    Geometry geometry(-30.0f, 30.0f, -30.0f, 30.0f, 0.0f, 60.0f);
     logger.Info() << "Phase space geometry: " << geometry;
 
     // Get the model parameters to verify
@@ -47,7 +47,7 @@ int main() {
     logger.Info() << "  dt = " << dt;
 
     // Create an integrator with the model
-    Lorenz63Integrator integrator(model);
+    Integrator integrator(model);
 
     // Check if initial state is within bounds
     if (geometry.containsPoint(state)) {

@@ -7,14 +7,12 @@
 #include <iomanip>
 #include "state_c_api.h"
 
-namespace metada {
-namespace backends {
-namespace interfaces {
+namespace metada::backends::lorenz63 {
 
 /**
  * @brief C++ wrapper for the Lorenz63 Fortran State class
  */
-class Lorenz63State {
+class State {
 public:
     /**
      * @brief Construct a new Lorenz63State with given initial values
@@ -23,7 +21,7 @@ public:
      * @param y Initial y value
      * @param z Initial z value
      */
-    Lorenz63State(float x = 0.0f, float y = 0.0f, float z = 0.0f) 
+    State(float x = 0.0f, float y = 0.0f, float z = 0.0f) 
         : ptr_(state_create(x, y, z), state_deleter) {
         if (!ptr_) {
             throw std::runtime_error("Failed to create Lorenz63 state");
@@ -99,7 +97,7 @@ public:
      * @param other Another Lorenz63State
      * @return float Euclidean distance
      */
-    float distance(const Lorenz63State& other) const {
+    float distance(const State& other) const {
         return state_distance(ptr_.get(), other.ptr_.get());
     }
 
@@ -115,7 +113,7 @@ public:
     /**
      * @brief Friend declaration for the stream output operator
      */
-    friend std::ostream& operator<<(std::ostream& os, const Lorenz63State& state);
+    friend std::ostream& operator<<(std::ostream& os, const State& state);
 
 private:
     // Custom deleter for Fortran state
@@ -130,20 +128,18 @@ private:
 };
 
 /**
- * @brief Stream output operator for Lorenz63State
+ * @brief Stream output operator for State
  * 
  * @param os Output stream
- * @param state Lorenz63State to print
+ * @param state State to print
  * @return std::ostream& Reference to the output stream
  */
-inline std::ostream& operator<<(std::ostream& os, const Lorenz63State& state) {
-    os << "Lorenz63State(" 
+inline std::ostream& operator<<(std::ostream& os, const State& state) {
+    os << "State(" 
        << std::fixed << std::setprecision(6) << state.getX() << ", " 
        << std::fixed << std::setprecision(6) << state.getY() << ", " 
        << std::fixed << std::setprecision(6) << state.getZ() << ")";
     return os;
 }
 
-} // namespace interfaces
-} // namespace backends
-} // namespace metada 
+} // namespace metada::backends::lorenz63 

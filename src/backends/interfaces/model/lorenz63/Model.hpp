@@ -6,14 +6,12 @@
 #include "model_c_api.h"
 #include "../../state/lorenz63/State.hpp"
 
-namespace metada {
-namespace backends {
-namespace interfaces {
+namespace metada::backends::lorenz63 {
 
 /**
  * @brief C++ wrapper for the Lorenz63 Fortran Model class
  */
-class Lorenz63Model {
+class Model {
 public:
     /**
      * @brief Construct a new Lorenz63Model with given parameters
@@ -23,7 +21,7 @@ public:
      * @param beta Geometric factor (default 8/3)
      * @param dt Time step (default 0.01)
      */
-    Lorenz63Model(float sigma = 10.0f, float rho = 28.0f, float beta = 8.0f/3.0f, float dt = 0.01f)
+    Model(float sigma = 10.0f, float rho = 28.0f, float beta = 8.0f/3.0f, float dt = 0.01f)
         : ptr_(lorenz63_model_create(sigma, rho, beta, dt), model_deleter) {
         if (!ptr_) {
             throw std::runtime_error("Failed to create Lorenz63 model");
@@ -78,14 +76,14 @@ private:
 /**
  * @brief C++ wrapper for the Lorenz63 Fortran RK4 Integrator class
  */
-class Lorenz63Integrator {
+class Integrator {
 public:
     /**
-     * @brief Construct a new Lorenz63Integrator with given model
+     * @brief Construct a new Integrator with given model
      * 
-     * @param model Reference to Lorenz63Model
+     * @param model Reference to Model
      */
-    Lorenz63Integrator(const Lorenz63Model& model)
+    Integrator(const Model& model)
         : ptr_(rk4_integrator_create(model.getPtr()), integrator_deleter) {
         if (!ptr_) {
             throw std::runtime_error("Failed to create RK4 integrator");
@@ -97,7 +95,7 @@ public:
      * 
      * @param state Lorenz63State to update
      */
-    void step(Lorenz63State& state) {
+    void step(State& state) {
         rk4_integrator_step(ptr_.get(), state.getPtr());
     }
 
@@ -107,7 +105,7 @@ public:
      * @param state Lorenz63State to update
      * @param numSteps Number of steps to run
      */
-    void run(Lorenz63State& state, int numSteps) {
+    void run(State& state, int numSteps) {
         for (int i = 0; i < numSteps; ++i) {
             step(state);
         }
@@ -125,6 +123,4 @@ private:
     std::shared_ptr<void> ptr_;
 };
 
-} // namespace interfaces
-} // namespace backends
-} // namespace metada 
+} // namespace metada::backends::lorenz63 

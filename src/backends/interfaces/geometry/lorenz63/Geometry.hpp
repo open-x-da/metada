@@ -6,18 +6,16 @@
 #include "geometry_c_api.h"
 #include "../../state/lorenz63/State.hpp"
 
-namespace metada {
-namespace backends {
-namespace interfaces {
+namespace metada::backends::lorenz63 {
 
 /**
  * @brief C++ wrapper for the Lorenz63 Fortran Geometry class
  * This class defines the boundaries of the phase space for the Lorenz63 system
  */
-class Lorenz63Geometry {
+class Geometry {
 public:
     /**
-     * @brief Construct a new Lorenz63Geometry with given boundaries
+     * @brief Construct a new Geometry with given boundaries
      * 
      * @param x_min Minimum x value
      * @param x_max Maximum x value
@@ -26,7 +24,7 @@ public:
      * @param z_min Minimum z value
      * @param z_max Maximum z value
      */
-    Lorenz63Geometry(float x_min = -30.0f, float x_max = 30.0f, 
+    Geometry(float x_min = -30.0f, float x_max = 30.0f, 
                      float y_min = -30.0f, float y_max = 30.0f, 
                      float z_min = 0.0f, float z_max = 60.0f)
         : ptr_(geometry_create(x_min, x_max, y_min, y_max, z_min, z_max), geometry_deleter) {
@@ -41,7 +39,7 @@ public:
      * @param state The state to check
      * @return bool True if the state is within boundaries, false otherwise
      */
-    bool containsPoint(const Lorenz63State& state) const {
+    bool containsPoint(const State& state) const {
         return geometry_contains_point(ptr_.get(), state.getPtr()) != 0;
     }
 
@@ -87,7 +85,7 @@ public:
     /**
      * @brief Friend declaration for the stream output operator
      */
-    friend std::ostream& operator<<(std::ostream& os, const Lorenz63Geometry& geometry);
+    friend std::ostream& operator<<(std::ostream& os, const Geometry& geometry);
 
 private:
     // Custom deleter for Fortran geometry
@@ -102,24 +100,22 @@ private:
 };
 
 /**
- * @brief Stream output operator for Lorenz63Geometry
+ * @brief Stream output operator for Geometry
  * 
  * @param os Output stream
- * @param geometry Lorenz63Geometry to print
+ * @param geometry Geometry to print
  * @return std::ostream& Reference to the output stream
  */
-inline std::ostream& operator<<(std::ostream& os, const Lorenz63Geometry& geometry) {
+inline std::ostream& operator<<(std::ostream& os, const Geometry& geometry) {
     float x_min, x_max, y_min, y_max, z_min, z_max;
     geometry.getXRange(x_min, x_max);
     geometry.getYRange(y_min, y_max);
     geometry.getZRange(z_min, z_max);
     
-    os << "Lorenz63Geometry(X:[" << x_min << ", " << x_max << "], "
+    os << "Geometry(X:[" << x_min << ", " << x_max << "], "
        << "Y:[" << y_min << ", " << y_max << "], "
        << "Z:[" << z_min << ", " << z_max << "])";
     return os;
 }
 
-} // namespace interfaces
-} // namespace backends
-} // namespace metada 
+} // namespace metada::backends::lorenz63 
