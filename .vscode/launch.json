@@ -60,7 +60,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/src/backends/interfaces/apps/lorenz63/lorenz63_cpp_example",
-            "args": [],
+            "args": ["${workspaceFolder}/src/backends/interfaces/apps/lorenz63/config.json"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [

@@ -115,9 +115,30 @@ class Config : public NonCopyable {
   }
 
   /**
+   * @brief Get a value from the configuration with a default fallback (const
+   * version)
+   */
+  ConfigValue Get(const std::string& key,
+                  const ConfigValue& default_value = ConfigValue()) const {
+    try {
+      return backend_.Get(key);
+    } catch (...) {
+      return default_value;
+    }
+  }
+
+  /**
    * @brief Get a value from the configuration without catching exceptions
    */
   ConfigValue GetUnsafe(const std::string& key) { return backend_.Get(key); }
+
+  /**
+   * @brief Get a value from the configuration without catching exceptions
+   * (const version)
+   */
+  ConfigValue GetUnsafe(const std::string& key) const {
+    return backend_.Get(key);
+  }
 
   /**
    * @brief Set a value in the configuration

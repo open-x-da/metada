@@ -231,7 +231,7 @@ ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
   } else if (j.is_number_integer()) {
     return j.get<int>();
   } else if (j.is_number_float()) {
-    return j.get<double>();
+    return j.get<float>();
   } else if (j.is_string()) {
     return j.get<std::string>();
   } else if (j.is_array()) {
@@ -243,7 +243,7 @@ ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
     } else if (j[0].is_number_integer()) {
       return j.get<std::vector<int>>();
     } else if (j[0].is_number_float()) {
-      return j.get<std::vector<double>>();
+      return j.get<std::vector<float>>();
     } else {
       return j.get<std::vector<std::string>>();
     }

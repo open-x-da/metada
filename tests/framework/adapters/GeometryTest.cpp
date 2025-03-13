@@ -128,10 +128,10 @@ class GeometryTest : public ::testing::Test {
       std::string max_key = "geometry.max_bounds." + std::to_string(i);
 
       ON_CALL(config.backend(), Get(min_key))
-          .WillByDefault(Return(static_cast<double>(default_min_bounds_[i])));
+          .WillByDefault(Return(static_cast<float>(default_min_bounds_[i])));
 
       ON_CALL(config.backend(), Get(max_key))
-          .WillByDefault(Return(static_cast<double>(default_max_bounds_[i])));
+          .WillByDefault(Return(static_cast<float>(default_max_bounds_[i])));
     }
 
     // Create mock backends for the Geometry adapter

@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
     try {
       ensemble_size = std::get<int>(config.Get("letkf.ensemble_size", 32));
       inflation_factor =
-          std::get<double>(config.Get("letkf.inflation_factor", 1.1));
+          std::get<float>(config.Get("letkf.inflation_factor", 1.1f));
       state_variables = std::get<std::vector<std::string>>(config.Get(
           "letkf.state_variables",
           std::vector<std::string>{"temperature", "pressure", "humidity"}));

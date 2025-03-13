@@ -21,3 +21,5 @@ target_include_directories(lorenz63_geometry
 # Add library alias
 add_library(metada::backends::lorenz63::geometry
   ALIAS lorenz63_geometry)
+
+AddFormatTarget(lorenz63_geometry ${CMAKE_CURRENT_SOURCE_DIR})

@@ -21,3 +21,5 @@ target_include_directories(lorenz63_model
 # Add library alias
 add_library(metada::backends::lorenz63::model
   ALIAS lorenz63_model)
+
+AddFormatTarget(lorenz63_model ${CMAKE_CURRENT_SOURCE_DIR})

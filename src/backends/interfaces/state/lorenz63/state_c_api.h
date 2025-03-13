@@ -17,4 +17,4 @@ float state_distance(void* state_ptr1, void* state_ptr2);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

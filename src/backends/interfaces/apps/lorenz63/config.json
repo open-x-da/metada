@@ -1,0 +1,27 @@
+{
+  "model": {
+    "state_variables": [
+      "x",
+      "y",
+      "z"
+    ],
+
+    "initial_conditions": {
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+
+    "parameters": {
+      "sigma": 10.0,
+      "rho": 28.0,
+      "beta": 2.6667
+    },
+
+    "integrator": {
+      "type": "rk4",
+      "dt": 0.01,
+      "num_steps": 1000
+    }
+  }
+} 

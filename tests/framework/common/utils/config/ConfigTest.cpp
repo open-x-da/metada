@@ -83,9 +83,9 @@ TEST_F(ConfigTest, GetInt) {
  * @brief Test Get() method with double values
  */
 TEST_F(ConfigTest, GetDouble) {
-  ConfigValue value = 3.14;
+  ConfigValue value = 3.14f;
   EXPECT_CALL(config.backend(), Get("key")).WillOnce(Return(value));
-  EXPECT_DOUBLE_EQ(std::get<double>(config.Get("key")), 3.14);
+  EXPECT_FLOAT_EQ(std::get<float>(config.Get("key")), 3.14f);
 }
 
 /**
@@ -121,10 +121,10 @@ TEST_F(ConfigTest, GetIntArray) {
  * @brief Test Get() method with double arrays
  */
 TEST_F(ConfigTest, GetDoubleArray) {
-  ConfigValue value = std::vector<double>{1.1, 2.2, 3.3};
+  ConfigValue value = std::vector<float>{1.1f, 2.2f, 3.3f};
   EXPECT_CALL(config.backend(), Get("key")).WillOnce(Return(value));
-  auto result = std::get<std::vector<double>>(config.Get("key"));
-  EXPECT_THAT(result, ::testing::ElementsAre(1.1, 2.2, 3.3));
+  auto result = std::get<std::vector<float>>(config.Get("key"));
+  EXPECT_THAT(result, ::testing::ElementsAre(1.1f, 2.2f, 3.3f));
 }
 
 /**
@@ -160,7 +160,7 @@ TEST_F(ConfigTest, SetInt) {
  * @brief Test Set() method with double values
  */
 TEST_F(ConfigTest, SetDouble) {
-  ConfigValue value = 3.14;
+  ConfigValue value = 3.14f;
   EXPECT_CALL(config.backend(), Set("key", value));
   config.Set("key", value);
 }
@@ -196,7 +196,7 @@ TEST_F(ConfigTest, SetIntArray) {
  * @brief Test Set() method with double arrays
  */
 TEST_F(ConfigTest, SetDoubleArray) {
-  ConfigValue value = std::vector<double>{1.1, 2.2, 3.3};
+  ConfigValue value = std::vector<float>{1.1f, 2.2f, 3.3f};
   EXPECT_CALL(config.backend(), Set("key", value));
   config.Set("key", value);
 }

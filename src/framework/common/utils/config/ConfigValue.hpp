@@ -23,8 +23,8 @@ namespace metada::framework {
  * - std::vector<double>: Arrays of floating point numbers
  * - std::vector<std::string>: Arrays of text strings
  */
-using ConfigValue = std::variant<bool, int, double, std::string,
+using ConfigValue = std::variant<bool, int, float, std::string,
                                  std::vector<bool>, std::vector<int>,
-                                 std::vector<double>, std::vector<std::string>>;
+                                 std::vector<float>, std::vector<std::string>>;
 
 }  // namespace metada::framework
