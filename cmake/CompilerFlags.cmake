@@ -1,5 +1,16 @@
 # Configure default compiler flags based on compiler ID
 function(configure_compiler_flags)
+    # Configure C++20 as the project standard
+    set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ standard to use" FORCE)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ standard to be supported" FORCE)
+    set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Disable compiler-specific extensions" FORCE)
+    
+    # Add compile feature requirement for C++20
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=c++20>")
+    
+    # Log C++ standard being used
+    message(STATUS "Using C++ standard: C++20")
+
     if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra" 
             CACHE STRING "C compiler flags" FORCE)
@@ -8,18 +19,16 @@ function(configure_compiler_flags)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra" 
             CACHE STRING "C++ compiler flags" FORCE)
         
-        # Add C++20 specific flags
+        # Add C++20 specific flags if needed
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-            # GCC needs specific flags for concepts before GCC 10
+            # Check for C++20 support
             if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
-                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts" 
-                    CACHE STRING "C++ compiler flags" FORCE)
+                message(WARNING "GCC ${CMAKE_CXX_COMPILER_VERSION} has limited support for C++20. GCC 10 or later required for full C++20 support.")
             endif()
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-            # Clang may need specific flags for concepts
+            # Check for C++20 support
             if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
-                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts-ts" 
-                    CACHE STRING "C++ compiler flags" FORCE)
+                message(WARNING "Clang ${CMAKE_CXX_COMPILER_VERSION} has limited support for C++20. Clang 10 or later required for full C++20 support.")
             endif()
         endif()
         
@@ -27,23 +36,6 @@ function(configure_compiler_flags)
             CACHE STRING "Fortran compiler flags" FORCE)
     endif()
     
-    # MSVC specific flags for C++20 concepts
-    if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-        # MSVC requires version 19.23 or later for C++20 concepts
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.23)
-            message(WARNING "MSVC version ${CMAKE_CXX_COMPILER_VERSION} may not fully support C++20 concepts. Consider upgrading to MSVC 19.23 or later.")
-        endif()
-        
-        # Add any MSVC-specific flags
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /permissive-" 
-            CACHE STRING "C++ compiler flags" FORCE)
-    endif()
-    
-    # Print compiler information
-    message(STATUS "C++ Compiler ID: ${CMAKE_CXX_COMPILER_ID}")
-    message(STATUS "C++ Compiler Version: ${CMAKE_CXX_COMPILER_VERSION}")
-    message(STATUS "C++ Flags: ${CMAKE_CXX_FLAGS}")
-    message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 endfunction()
 
 configure_compiler_flags()

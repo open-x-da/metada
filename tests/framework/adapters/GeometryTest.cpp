@@ -1,7 +1,6 @@
 /**
  * @file GeometryTest.cpp
- * @brief Unit tests for the Geometry adapter and IGeometry interface (with
- * C++20 modules)
+ * @brief Unit tests for the Geometry adapter and IGeometry interface
  * @ingroup tests
  * @author Metada Framework Team
  *
@@ -31,14 +30,6 @@
  * @see MockGeometry
  */
 
-// Import C++20 modules
-import metada.framework.interfaces.geometry;
-import metada.framework.interfaces.geometry.iterator;
-import metada.framework.adapters.geometry;
-import metada.framework.adapters.geometry.iterator;
-import metada.framework.adapters.geometry.point_iterator;
-import metada.tests.mock.geometry;
-
 // Standard C++ includes
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -48,7 +39,15 @@ import metada.tests.mock.geometry;
 #include <string>
 #include <vector>
 
-// Legacy includes (to be migrated to modules)
+// Framework includes
+#include "Geometry.hpp"
+#include "GeometryIterator.hpp"
+#include "GeometryPointIterator.hpp"
+#include "IGeometry.hpp"
+#include "IGeometryIterator.hpp"
+#include "MockGeometry.hpp"
+
+// Legacy includes
 #include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
 #include "MockConfig.hpp"
@@ -171,9 +170,9 @@ class GeometryTest : public ::testing::Test {
 
     // Create the geometry objects
     geometry1_ =
-        std::make_unique<Geometry<Traits::GeometryType>>(*mock_backend1_);
+        std::make_unique<Geometry<Traits::GeometryType>>(mock_backend1_.get());
     geometry2_ =
-        std::make_unique<Geometry<Traits::GeometryType>>(*mock_backend2_);
+        std::make_unique<Geometry<Traits::GeometryType>>(mock_backend2_.get());
 
     // Create a separate mock geometry for direct interface testing
     direct_mock_geometry_ = std::make_unique<Traits::GeometryType>();
@@ -247,7 +246,7 @@ TEST_F(GeometryTest, AdapterDelegation) {
   EXPECT_CALL(*mockBackend, getGridSpacing()).WillOnce(Return(testSpacing));
 
   // Create a Geometry adapter with the mock backend
-  Geometry<Traits::GeometryType> geometry(*mockBackend);
+  Geometry<Traits::GeometryType> geometry(mockBackend.get());
 
   // Verify adapter delegates to the backend
   EXPECT_EQ(geometry.getDimensions(), 3);

@@ -36,9 +36,6 @@ metada_find_package(Glog OPTIONAL QUIET)
 # Configure CUDA support
 include(CUDA)
 
-# Add C++20 modules support
-include(ModulesSupport)
-
 # Add core components
 add_subdirectory(src)
 add_subdirectory(applications)

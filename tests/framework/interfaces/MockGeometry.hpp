@@ -22,15 +22,23 @@
 
 #pragma once
 
-#include <gmock/gmock.h>
-
+// Include dependencies
+#include "GeometryIterator.hpp"
 #include "IGeometry.hpp"
 #include "IGeometryIterator.hpp"
-#include "utils/config/Config.hpp"
+
+// Standard library includes
+#include <gmock/gmock.h>
+
+#include <array>
+#include <memory>
+#include <vector>
 
 namespace metada::tests {
 
-using framework::Config;
+using ::testing::_;
+using ::testing::Return;
+
 using framework::GeometryIterator;
 using framework::IConfig;
 using framework::IGeometry;
@@ -149,7 +157,7 @@ class MockGeometry : public IGeometry {
    */
   void setTestDimensions(size_t dimensions) {
     dimensions_ = dimensions;
-    ON_CALL(*this, getDimensions()).WillByDefault(testing::Return(dimensions));
+    ON_CALL(*this, getDimensions()).WillByDefault(Return(dimensions));
 
     // Make sure iterators have the right size
     current_position_.resize(dimensions_, 0);
@@ -162,15 +170,14 @@ class MockGeometry : public IGeometry {
    */
   void setTestResolution(const std::vector<size_t>& resolution) {
     resolution_ = resolution;
-    ON_CALL(*this, getResolution()).WillByDefault(testing::Return(resolution));
+    ON_CALL(*this, getResolution()).WillByDefault(Return(resolution));
 
     // Set the total points based on dimensions and resolution
     total_points_ = 1;
     for (auto r : resolution) {
       total_points_ *= r;
     }
-    ON_CALL(*this, getTotalPoints())
-        .WillByDefault(testing::Return(total_points_));
+    ON_CALL(*this, getTotalPoints()).WillByDefault(Return(total_points_));
   }
 
   /**
@@ -194,8 +201,7 @@ class MockGeometry : public IGeometry {
       }
     }
 
-    ON_CALL(*this, getGridSpacing())
-        .WillByDefault(testing::Return(grid_spacing_));
+    ON_CALL(*this, getGridSpacing()).WillByDefault(Return(grid_spacing_));
   }
 
   /**
@@ -204,7 +210,7 @@ class MockGeometry : public IGeometry {
    */
   void setTestGridSpacing(const std::vector<double>& spacing) {
     grid_spacing_ = spacing;
-    ON_CALL(*this, getGridSpacing()).WillByDefault(testing::Return(spacing));
+    ON_CALL(*this, getGridSpacing()).WillByDefault(Return(spacing));
   }
 
   /**
@@ -220,8 +226,7 @@ class MockGeometry : public IGeometry {
     }
 
     std::array<double, 2> bounds = {min_val, max_val};
-    ON_CALL(*this, getDomainBounds(dimension))
-        .WillByDefault(testing::Return(bounds));
+    ON_CALL(*this, getDomainBounds(dimension)).WillByDefault(Return(bounds));
 
     // Update grid spacing for this dimension
     if (dimension < grid_spacing_.size()) {

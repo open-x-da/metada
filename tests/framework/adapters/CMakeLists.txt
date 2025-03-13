@@ -18,29 +18,7 @@ function(setup_test_executable target source)
             ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
     )
     
-    # Set C++20 properties
-    set_target_properties(${target} PROPERTIES
-        CXX_STANDARD 20
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF
-    )
-    
-    # Add compiler-specific flags for C++20 modules
-    add_module_compiler_flags(${target})
-    
-    # Add compiler-specific flags for C++20 concepts
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
-            target_compile_options(${target} PRIVATE -fconcepts)
-        endif()
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
-            target_compile_options(${target} PRIVATE -fconcepts-ts)
-        endif()
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-        target_compile_options(${target} PRIVATE /Zc:__cplusplus /permissive-)
-    endif()
-    
+  
     # Add test with coverage
     metada_add_test_with_coverage(${target})
 endfunction()

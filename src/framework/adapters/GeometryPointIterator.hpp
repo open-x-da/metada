@@ -1,32 +1,31 @@
 /**
  * @file GeometryPointIterator.hpp
- * @brief Implementation of GeometryIterator for coordinates
+ * @brief Point iterator implementation for Geometry adapter
  * @ingroup adapters
  *
  * @details
- * This header provides a concrete implementation of the IGeometryIterator
- * specialized for use with the Geometry adapter.
+ * This header extends the GeometryIterator to provide specific functionality
+ * for iterating over grid points in a Geometry, with proper coordinate updates.
  */
 
 #pragma once
 
-#include <functional>
-#include <memory>
-#include <vector>
-
+// Include dependencies
 #include "GeometryIterator.hpp"
 
+// Standard library includes
+#include <functional>
+#include <vector>
+
+// Forward declaration of Geometry class
 namespace metada::framework {
 
-// Forward declaration
 template <typename Backend>
 class Geometry;
 
 /**
- * @brief Implementation of the GeometryIterator for coordinates
- *
- * This specialization works with Geometry adapter to provide iteration
- * over grid points with correct coordinate updates.
+ * @brief Extended iterator implementation for traversing geometry grid points
+ * with coordinate updates
  *
  * @tparam T Type of the coordinate value (typically double)
  */
@@ -75,9 +74,9 @@ class GeometryPointIterator : public GeometryIterator<T> {
 
     // Update coordinates after incrementing position
     if (geometry_ && !GeometryIterator<T>::isDone()) {
-      auto& pos = GeometryIterator<T>::position_;
+      auto& pos = GeometryIterator<T>::getPosition();
       auto coords = get_coordinates_(pos);
-      GeometryIterator<T>::value_ = coords;
+      GeometryIterator<T>::coordinates_ = coords;
     }
 
     return *this;
@@ -93,8 +92,7 @@ class GeometryPointIterator : public GeometryIterator<T> {
 
  private:
   void* geometry_ = nullptr;  ///< Generic pointer to any Geometry<Backend>
-  std::function<std::vector<T>(const std::vector<size_t>&)>
-      get_coordinates_;  ///< Function to call getCoordinates
+  std::function<std::vector<T>(const std::vector<size_t>&)> get_coordinates_;
 };
 
 }  // namespace metada::framework

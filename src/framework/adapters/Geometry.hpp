@@ -4,13 +4,18 @@
  * @ingroup adapters
  *
  * @details
- * This file provides a concrete implementation of a Geometry adapter.
+ * This header provides a concrete implementation of a Geometry adapter.
  * It represents the grid structure and physical domain used in numerical
  * models and supports traversal of all grid points via iterators.
  */
 
 #pragma once
 
+// Include dependencies
+#include "GeometryPointIterator.hpp"
+#include "IGeometry.hpp"
+
+// Standard library includes
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -22,15 +27,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "GeometryPointIterator.hpp"
-#include "IGeometry.hpp"
-#include "utils/config/IConfig.hpp"
-
 namespace metada::framework {
 
 // Forward declarations
-template <typename Backend>
-class Geometry;
+class IConfig;
 
 /**
  * @brief Concrete implementation of a Geometry adapter
@@ -49,14 +49,38 @@ class Geometry {
    * @brief Default constructor creates geometry with a default backend
    * @note Backend must be default constructible
    */
-  Geometry() : backend_() {}
+  Geometry() : backend_ptr_(std::make_unique<Backend>()) {}
 
   /**
    * @brief Construct a geometry with a specific backend instance
    *
    * @param backend Backend implementation
    */
-  explicit Geometry(const Backend& backend) : backend_(backend) {}
+  explicit Geometry(const Backend& backend)
+      : backend_ptr_(std::make_unique<Backend>()) {
+    // Instead of copying, use backend methods to get properties and set them
+    if (backend.getDimensions() > 0) {
+      // Copy dimensions
+      std::vector<size_t> resolution = backend.getResolution();
+      backend_ptr_->setDimensions(backend.getDimensions());
+      backend_ptr_->setResolution(resolution);
+
+      // Copy domain bounds
+      for (size_t i = 0; i < backend.getDimensions(); ++i) {
+        auto bounds = backend.getDomainBounds(i);
+        backend_ptr_->setDomainBounds(i, bounds[0], bounds[1]);
+      }
+    }
+  }
+
+  /**
+   * @brief Construct a geometry with a specific backend pointer
+   *
+   * @param backend_ptr Raw pointer to backend implementation (ownership is
+   * taken)
+   */
+  explicit Geometry(Backend* backend_ptr)
+      : backend_ptr_(backend_ptr ? backend_ptr : new Backend()) {}
 
   /**
    * @brief Construct a geometry with specified dimensions and resolution
@@ -64,9 +88,10 @@ class Geometry {
    * @param dimensions Number of spatial dimensions
    * @param resolution Vector of grid points along each dimension
    */
-  Geometry(size_t dimensions, const std::vector<size_t>& resolution) {
-    backend_.setDimensions(dimensions);
-    backend_.setResolution(resolution);
+  Geometry(size_t dimensions, const std::vector<size_t>& resolution)
+      : backend_ptr_(std::make_unique<Backend>()) {
+    backend_ptr_->setDimensions(dimensions);
+    backend_ptr_->setResolution(resolution);
   }
 
   /**
@@ -79,13 +104,14 @@ class Geometry {
    */
   Geometry(size_t dimensions, const std::vector<size_t>& resolution,
            const std::vector<double>& min_bounds,
-           const std::vector<double>& max_bounds) {
-    backend_.setDimensions(dimensions);
-    backend_.setResolution(resolution);
+           const std::vector<double>& max_bounds)
+      : backend_ptr_(std::make_unique<Backend>()) {
+    backend_ptr_->setDimensions(dimensions);
+    backend_ptr_->setResolution(resolution);
 
     // Set domain bounds for each dimension
     for (size_t i = 0; i < dimensions; ++i) {
-      backend_.setDomainBounds(i, min_bounds[i], max_bounds[i]);
+      backend_ptr_->setDomainBounds(i, min_bounds[i], max_bounds[i]);
     }
   }
 
@@ -94,7 +120,10 @@ class Geometry {
    *
    * @param config Configuration object
    */
-  explicit Geometry(const IConfig& config) { initialize(config); }
+  explicit Geometry(const IConfig& config)
+      : backend_ptr_(std::make_unique<Backend>()) {
+    initialize(config);
+  }
 
   /**
    * @brief Destructor
@@ -106,28 +135,30 @@ class Geometry {
    *
    * @param config Configuration object containing geometry parameters
    */
-  void initialize(const IConfig& config) { backend_.initialize(config); }
+  void initialize(const IConfig& config) { backend_ptr_->initialize(config); }
 
   /**
    * @brief Get the number of dimensions
    *
    * @return Number of spatial dimensions
    */
-  size_t getDimensions() const { return backend_.getDimensions(); }
+  size_t getDimensions() const { return backend_ptr_->getDimensions(); }
 
   /**
    * @brief Get resolution along each dimension
    *
    * @return Vector containing number of grid points along each dimension
    */
-  std::vector<size_t> getResolution() const { return backend_.getResolution(); }
+  std::vector<size_t> getResolution() const {
+    return backend_ptr_->getResolution();
+  }
 
   /**
    * @brief Get total number of grid points
    *
    * @return Total grid point count
    */
-  size_t getTotalPoints() const { return backend_.getTotalPoints(); }
+  size_t getTotalPoints() const { return backend_ptr_->getTotalPoints(); }
 
   /**
    * @brief Check if a point is within the domain
@@ -136,7 +167,7 @@ class Geometry {
    * @return True if point is within domain, false otherwise
    */
   bool containsPoint(const std::vector<double>& coordinates) const {
-    return backend_.containsPoint(coordinates);
+    return backend_ptr_->containsPoint(coordinates);
   }
 
   /**
@@ -146,7 +177,7 @@ class Geometry {
    * @return Array containing min and max values for the dimension
    */
   std::array<double, 2> getDomainBounds(size_t dimension) const {
-    return backend_.getDomainBounds(dimension);
+    return backend_ptr_->getDomainBounds(dimension);
   }
 
   /**
@@ -157,7 +188,7 @@ class Geometry {
    * @param max_value Maximum value
    */
   void setDomainBounds(size_t dimension, double min_value, double max_value) {
-    backend_.setDomainBounds(dimension, min_value, max_value);
+    backend_ptr_->setDomainBounds(dimension, min_value, max_value);
   }
 
   /**
@@ -166,7 +197,7 @@ class Geometry {
    * @return Vector containing grid spacing for each dimension
    */
   std::vector<double> getGridSpacing() const {
-    return backend_.getGridSpacing();
+    return backend_ptr_->getGridSpacing();
   }
 
   /**
@@ -175,7 +206,7 @@ class Geometry {
    * @param resolution Vector containing new resolution for each dimension
    */
   void setResolution(const std::vector<size_t>& resolution) {
-    backend_.setResolution(resolution);
+    backend_ptr_->setResolution(resolution);
   }
 
   /**
@@ -185,7 +216,7 @@ class Geometry {
    * @return Vector of physical coordinates
    */
   std::vector<double> getCoordinates(const std::vector<size_t>& indices) const {
-    return backend_.getCoordinates(indices);
+    return backend_ptr_->getCoordinates(indices);
   }
 
   /**
@@ -195,7 +226,7 @@ class Geometry {
    * @return Vector of grid indices
    */
   std::vector<size_t> getIndices(const std::vector<double>& coordinates) const {
-    return backend_.getIndices(coordinates);
+    return backend_ptr_->getIndices(coordinates);
   }
 
   /**
@@ -204,15 +235,12 @@ class Geometry {
    * @return Iterator pointing to the first grid point
    */
   std::unique_ptr<IGeometryIterator<double>> begin() const {
-    if (getDimensions() == 0 || getTotalPoints() == 0) {
-      return end();
-    }
-
-    std::vector<size_t> position(getDimensions(), 0);
-    std::vector<double> coordinates = getCoordinates(position);
+    auto dimensions = getDimensions();
+    std::vector<size_t> start_position(dimensions, 0);
+    std::vector<double> start_coordinates = getCoordinates(start_position);
 
     return std::make_unique<GeometryPointIterator<double>>(
-        position, getResolution(), coordinates, this);
+        start_position, getResolution(), start_coordinates, this);
   }
 
   /**
@@ -221,7 +249,7 @@ class Geometry {
    * @return Iterator pointing past the last grid point
    */
   std::unique_ptr<IGeometryIterator<double>> end() const {
-    return std::make_unique<GeometryIterator<double>>();
+    return std::make_unique<GeometryPointIterator<double>>();
   }
 
   /**
@@ -229,48 +257,27 @@ class Geometry {
    *
    * @return Unique pointer to a new geometry instance
    */
-  std::unique_ptr<IGeometry> clone() const {
-    return std::make_unique<Geometry<Backend>>(backend_);
-  }
-
-  /**
-   * @brief Check if this geometry is compatible with another geometry adapter
-   *
-   * @param other Geometry adapter to compare with
-   * @return True if geometries are compatible, false otherwise
-   */
-  template <typename OtherBackend>
-  bool isCompatible(const Geometry<OtherBackend>& other) const {
-    return backend_.isCompatible(other.backend());
+  std::unique_ptr<Geometry<Backend>> clone() const {
+    auto backend_clone = backend_ptr_->clone();
+    Backend* typed_backend = static_cast<Backend*>(backend_clone.release());
+    return std::make_unique<Geometry<Backend>>(typed_backend);
   }
 
   /**
    * @brief Check if this geometry is compatible with another geometry
    *
-   * @param other Reference to IGeometry to compare with
+   * @param other Geometry to compare with
    * @return True if geometries are compatible, false otherwise
    */
-  bool isCompatible(const IGeometry& other) const {
-    // Delegate to the backend to handle compatibility check
-    return backend_.isCompatible(other);
+  bool isCompatible(const Geometry<Backend>& other) const {
+    return backend_ptr_->isCompatible(*other.backend_ptr_);
   }
 
-  /**
-   * @brief Access to the underlying backend implementation
-   *
-   * @return Reference to the backend implementation
-   */
-  Backend& backend() { return backend_; }
-
-  /**
-   * @brief Const access to the underlying backend implementation
-   *
-   * @return Const reference to the backend implementation
-   */
-  const Backend& backend() const { return backend_; }
-
  private:
-  Backend backend_{};  ///< Backend implementation
+  /**
+   * @brief Backend implementation
+   */
+  std::unique_ptr<Backend> backend_ptr_;
 };
 
 }  // namespace metada::framework

@@ -10,11 +10,13 @@
 
 #pragma once
 
+// Include dependencies
+#include "IGeometryIterator.hpp"
+
+// Standard library includes
 #include <iterator>
 #include <memory>
 #include <vector>
-
-#include "IGeometryIterator.hpp"
 
 namespace metada::framework {
 
@@ -45,9 +47,8 @@ class GeometryIterator : public IGeometryIterator<T> {
                    const std::vector<T>& coordinates)
       : position_(position),
         dimensions_(dimensions),
-        value_(),
-        valid_(true),
-        coordinates_(coordinates) {}
+        coordinates_(coordinates),
+        valid_(true) {}
 
   /**
    * @brief Copy constructor
@@ -55,9 +56,8 @@ class GeometryIterator : public IGeometryIterator<T> {
   GeometryIterator(const GeometryIterator& other)
       : position_(other.position_),
         dimensions_(other.dimensions_),
-        value_(other.value_),
-        valid_(other.valid_),
-        coordinates_(other.coordinates_) {}
+        coordinates_(other.coordinates_),
+        valid_(other.valid_) {}
 
   /**
    * @brief Dereference operator returns current point coordinates
@@ -145,11 +145,8 @@ class GeometryIterator : public IGeometryIterator<T> {
  protected:
   std::vector<size_t> position_;    ///< Current position indices
   std::vector<size_t> dimensions_;  ///< Grid dimensions
-  std::vector<T> value_;  ///< Physical coordinates at current position
-  bool valid_ = false;    ///< Iterator validity flag
-
- private:
-  std::vector<T> coordinates_;  ///< Copy of coordinates for this position
+  std::vector<T> coordinates_;      ///< Current coordinates
+  bool valid_ = false;              ///< Iterator validity flag
 };
 
 }  // namespace metada::framework
