@@ -15,7 +15,7 @@ using namespace metada::framework::runs;
 using namespace metada::backends::logger;
 using namespace metada::backends::config;
 
-using Traits = AppTraits<GoogleLogger, JsonConfig>;
+using Traits = AppTraits<GoogleLogger, JsonConfig, State>;
 
 int main() {
   // Create the application context

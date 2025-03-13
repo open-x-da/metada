@@ -21,6 +21,7 @@ target_link_libraries(lorenz63_cpp_example
     PRIVATE
         metada::framework::runs
         metada::framework::traits
+        metada::framework::interfaces
         metada::framework::common
         metada::framework::common::utils::logger
         metada::backends::common::utils::logger
