@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 
     // Create the Lorenz63 model with standard parameters
     // sigma = 10.0, rho = 28.0, beta = 8/3, dt = 0.01
-    // Model model(config.getParameters());
+    // Model model(config);
 
     // Define the phase space bounds (typical values for the Lorenz attractor)
     // Geometry geometry(config.getPhaseSpaceBounds());

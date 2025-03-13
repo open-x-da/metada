@@ -19,17 +19,7 @@ namespace metada::backends::lorenz63 {
 class State : public framework::IState {
  public:
   /**
-   * @brief Default constructor required by IState
-   */
-  State() : ptr_(state_create(0.0f, 0.0f, 0.0f), state_deleter) {
-    if (!ptr_) {
-      throw std::runtime_error("Failed to create Lorenz63 state");
-    }
-    initializeVariableNames();
-  }
-
-  /**
-   * @brief Construct a new Lorenz63State with given initial values from config
+   * @brief Construct a new Lorenz63State from config
    *
    * @param config Configuration object with initial values
    */
