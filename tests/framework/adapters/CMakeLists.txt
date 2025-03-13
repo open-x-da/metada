@@ -25,6 +25,9 @@ function(setup_test_executable target source)
         CXX_EXTENSIONS OFF
     )
     
+    # Add compiler-specific flags for C++20 modules
+    add_module_compiler_flags(${target})
+    
     # Add compiler-specific flags for C++20 concepts
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)

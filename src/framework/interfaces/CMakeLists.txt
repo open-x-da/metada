@@ -23,13 +23,22 @@ target_sources(interfaces
         ${CMAKE_CURRENT_SOURCE_DIR}/IHardwareAccelerator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometry.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometryIterator.hpp
+        # C++20 Module interfaces
+        ${CMAKE_CURRENT_SOURCE_DIR}/IGeometry.ixx
+        ${CMAKE_CURRENT_SOURCE_DIR}/IGeometryIterator.ixx
 )
+
+# Set module file properties
+set_module_file_properties("${CMAKE_CURRENT_SOURCE_DIR}/IGeometry.ixx;${CMAKE_CURRENT_SOURCE_DIR}/IGeometryIterator.ixx")
 
 # Set C++20 properties for the target
 target_compile_features(interfaces INTERFACE cxx_std_20)
 
 # For INTERFACE libraries, we need different property setting approach
 set_property(TARGET interfaces PROPERTY INTERFACE_COMPILE_FEATURES cxx_std_20)
+
+# Add compiler-specific flags for C++20 modules
+add_module_compiler_flags(interfaces)
 
 # Add compiler-specific flags for C++20 concepts via generator expressions
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")

@@ -26,10 +26,20 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/model/AIPredictorImpl.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/BatchProcessorImpl.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/HardwareAcceleratorImpl.hpp
+        # C++20 Module implementations
+        ${CMAKE_CURRENT_SOURCE_DIR}/Geometry.ixx
+        ${CMAKE_CURRENT_SOURCE_DIR}/GeometryIterator.ixx
+        ${CMAKE_CURRENT_SOURCE_DIR}/GeometryPointIterator.ixx
 )
+
+# Set module file properties
+set_module_file_properties("${CMAKE_CURRENT_SOURCE_DIR}/Geometry.ixx;${CMAKE_CURRENT_SOURCE_DIR}/GeometryIterator.ixx;${CMAKE_CURRENT_SOURCE_DIR}/GeometryPointIterator.ixx")
 
 # Set C++20 properties for the target
 target_compile_features(adapters INTERFACE cxx_std_20)
+
+# Add compiler-specific flags for C++20 modules
+add_module_compiler_flags(adapters)
 
 # Add compiler-specific flags for C++20 concepts via generator expressions
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
