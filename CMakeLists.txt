@@ -48,10 +48,10 @@ add_subdirectory(tests)
 add_subdirectory(docs)
 
 # Enable precompiled headers for all targets
-include(EnablePrecompiledHeaders)
+#include(EnablePrecompiledHeaders)
 
 # Enable unity builds for all targets
-include(EnableUnityBuild)
+#include(EnableUnityBuild)
 
 # Show final configuration
 metada_project_summary()

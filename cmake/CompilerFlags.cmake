@@ -4,9 +4,9 @@ function(configure_compiler_flags)
     set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ standard to use" FORCE)
     set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ standard to be supported" FORCE)
     set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Disable compiler-specific extensions" FORCE)
-    
-    # Add compile feature requirement for C++20
-    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=c++20>")
+       
+    # Add module support for C++20
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-fmodules-ts>")
     
     # Log C++ standard being used
     message(STATUS "Using C++ standard: C++20")
