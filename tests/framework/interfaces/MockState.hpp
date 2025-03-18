@@ -25,7 +25,6 @@
 #include <gmock/gmock.h>
 
 #include "IState.hpp"
-#include "utils/config/Config.hpp"
 
 namespace metada::tests {
 
@@ -67,72 +66,48 @@ using framework::IState;
  * setting expectations and verifying calls.
  */
 class MockState : public IState {
- private:
-  const Config<MockConfig>& config_;
-
  public:
   // Disable default constructor
   MockState() = delete;
 
-  // Constructor that initializes state from config
-  MockState(const Config<MockConfig>& config) : config_(config) {
-    initialize(config.backend());
-  }
+  // Destructor
+  ~MockState() override = default;
 
   // Copy constructor
-  MockState(const MockState& other) : config_(other.config_) {
-    // We don't call copyFrom here because it would create a circular dependency
-    // in tests where expectations are set on copyFrom itself
-    // The test should set appropriate expectations for copyFrom if needed
-  }
+  MockState(const MockState& other) = delete;
 
   // Copy assignment operator
-  MockState& operator=([[maybe_unused]] const MockState& other) {
-    // We don't call copyFrom here for the same reason as in the copy
-    // constructor Just keep the reference to the config
-    return *this;
-  }
+  MockState& operator=(const MockState& other) = delete;
 
   // Move constructor
-  MockState(MockState&& other) noexcept : config_(other.config_) {
-    // We don't call moveFrom here because it would create a circular dependency
-    // in tests where expectations are set on moveFrom itself
-    // The test should set appropriate expectations for moveFrom if needed
-  }
+  MockState(MockState&& other) noexcept = default;
 
   // Move assignment operator
-  MockState& operator=([[maybe_unused]] MockState&& other) noexcept {
-    // We don't call moveFrom here for the same reason as in the move
-    // constructor Just keep the reference to the config
-    return *this;
-  }
+  MockState& operator=(MockState&& other) = default;
+
+  // Constructor that initializes state from config
+  explicit MockState(const IConfig& config) : config_(config) { initialize(); }
+
+  // Clone operation
+  MOCK_METHOD(std::unique_ptr<IState>, clone, (), (const, override));
 
   // Core state operations
-  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
-  MOCK_METHOD(void, reset, (), (override));
-  MOCK_METHOD(void, validate, (), (const, override));
+  MOCK_METHOD(void, initialize, (), (override));
   MOCK_METHOD(void, zero, (), (override));
 
-  // Copy operations
-  MOCK_METHOD(void, copyFrom, (const IState& other), (override));
-  MOCK_METHOD(void, moveFrom, (IState && other), (override));
+  // Compare operations
   MOCK_METHOD(bool, equals, (const IState& other), (const, override));
 
   // Data access
   MOCK_METHOD(void*, getData, (), (override));
   MOCK_METHOD(const void*, getData, (), (const, override));
 
-  // Metadata operations
-  MOCK_METHOD(void, setMetadata,
-              (const std::string& key, const std::string& value), (override));
-  MOCK_METHOD(std::string, getMetadata, (const std::string& key),
-              (const, override));
-
   // State information queries
   MOCK_METHOD(const std::vector<std::string>&, getVariableNames, (),
               (const, override));
   MOCK_METHOD(bool, hasVariable, (const std::string& name), (const, override));
-  MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
+  MOCK_METHOD(const std::vector<size_t>&, getDimensions,
+              (const std::string& name), (const, override));
 
   // Arithmetic operations
   MOCK_METHOD(void, add, (const IState& other), (override));
@@ -142,7 +117,10 @@ class MockState : public IState {
   MOCK_METHOD(double, norm, (), (const, override));
 
   // Get the config
-  const Config<MockConfig>& config() const { return config_; }
+  const IConfig& config() const { return config_; }
+
+ private:
+  const IConfig& config_;
 };
 
 }  // namespace metada::tests

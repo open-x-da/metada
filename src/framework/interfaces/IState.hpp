@@ -26,8 +26,6 @@
 
 namespace metada::framework {
 
-class IConfig;  // Forward declaration
-
 /**
  * @brief Abstract interface for state implementations
  *
@@ -54,10 +52,47 @@ class IConfig;  // Forward declaration
 class IState {
  public:
   /**
+   * @brief Default constructor
+   * @details Constructs an empty state
+   */
+  IState() = default;
+
+  /**
    * @brief Virtual destructor for proper cleanup
    * @details Ensures proper cleanup of derived class resources
    */
   virtual ~IState() = default;
+
+  /**
+   * @brief Copy constructor
+   * @details Allows copying of IState-derived objects
+   */
+  IState(const IState&) = delete;
+
+  /**
+   * @brief Copy assignment operator
+   * @details Allows copy assignment of IState-derived objects
+   */
+  IState& operator=(const IState&) = delete;
+
+  /**
+   * @brief Move constructor
+   * @details Allows moving of IState-derived objects
+   */
+  IState(IState&&) = delete;
+
+  /**
+   * @brief Move assignment operator
+   * @details Allows move assignment of IState-derived objects
+   */
+  IState& operator=(IState&&) = delete;
+
+  /**
+   * @brief Clone the state
+   * @return Pointer to a new IState object
+   * @details Creates a deep copy of the current state
+   */
+  virtual std::unique_ptr<IState> clone() const = 0;
 
   /**
    * @brief Initialize state from configuration
@@ -66,43 +101,13 @@ class IState {
    * @details Implementations should validate configuration parameters and
    * initialize internal state accordingly
    */
-  virtual void initialize(const IConfig& config) = 0;
-
-  /**
-   * @brief Reset the state to initial values
-   * @throws std::runtime_error If reset operation fails
-   * @details Restores state to initial values defined during initialization
-   */
-  virtual void reset() = 0;
+  virtual void initialize() = 0;
 
   /**
    * @brief Set all values to zero
    * @return Reference to this state
    */
   virtual void zero() = 0;
-
-  /**
-   * @brief Validate the state consistency
-   * @throws std::runtime_error If validation fails
-   * @details Verifies internal state consistency and validity of all values
-   */
-  virtual void validate() const = 0;
-
-  /**
-   * @brief Copy state data from another instance
-   * @param other Source state to copy from
-   * @throws std::runtime_error If copy operation fails
-   * @details Performs deep copy of state data and metadata
-   */
-  virtual void copyFrom(const IState& other) = 0;
-
-  /**
-   * @brief Move state data from another instance
-   * @param other Source state to move from
-   * @throws std::runtime_error If move operation fails
-   * @details Transfers ownership of state data efficiently
-   */
-  virtual void moveFrom(IState&& other) = 0;
 
   /**
    * @brief Compare equality with another state
@@ -129,25 +134,6 @@ class IState {
   virtual const void* getData() const = 0;
 
   /**
-   * @brief Set metadata value for given key
-   * @param key Metadata key to set
-   * @param value Metadata value to associate with key
-   * @throws std::runtime_error If metadata operation fails
-   * @details Associates metadata value with specified key
-   */
-  virtual void setMetadata(const std::string& key,
-                           const std::string& value) = 0;
-
-  /**
-   * @brief Get metadata value for given key
-   * @param key Metadata key to retrieve
-   * @return Metadata value associated with key
-   * @throws std::out_of_range If key does not exist
-   * @details Retrieves metadata value for specified key
-   */
-  virtual std::string getMetadata(const std::string& key) const = 0;
-
-  /**
    * @brief Get names of state variables
    * @return Const reference to vector containing variable names
    * @details Returns ordered list of state variable identifiers
@@ -167,7 +153,8 @@ class IState {
    * @return Const reference to vector containing dimension sizes
    * @details Returns ordered list of dimension sizes for state space
    */
-  virtual const std::vector<size_t>& getDimensions() const = 0;
+  virtual const std::vector<size_t>& getDimensions(
+      const std::string& name) const = 0;
 
   /**
    * @brief Add another state to this one

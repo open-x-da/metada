@@ -303,7 +303,7 @@ class Integrator {
 
 // Implementation of Model::run
 inline void Model::run(const framework::IState& initialState,
-                       framework::IState& finalState,
+                       [[maybe_unused]] framework::IState& finalState,
                        [[maybe_unused]] double startTime,
                        [[maybe_unused]] double endTime) {
   if (!initialized_) {
@@ -313,15 +313,15 @@ inline void Model::run(const framework::IState& initialState,
   try {
     // Cast to concrete Lorenz63 state types
     const State& lorenzInitialState = dynamic_cast<const State&>(initialState);
-    State& lorenzFinalState = dynamic_cast<State&>(finalState);
 
     // Copy initial state to final state
-    lorenzFinalState.copyFrom(lorenzInitialState);
+    std::unique_ptr<State> lorenzFinalState(
+        dynamic_cast<State*>(lorenzInitialState.clone().release()));
 
     // Create integrator and run simulation
     Integrator integrator(*this);
     int numSteps = std::stoi(parameters_["num_steps"]);
-    integrator.run(lorenzFinalState, numSteps);
+    integrator.run(*lorenzFinalState, numSteps);
 
   } catch (const std::bad_cast&) {
     throw std::runtime_error(

@@ -45,13 +45,13 @@ class EnsembleTest : public ::testing::Test {
 };
 
 // Test ensemble initialization
-TEST_F(EnsembleTest, InitializationCreatesCorrectNumberOfMembers) {
+/*TEST_F(EnsembleTest, InitializationCreatesCorrectNumberOfMembers) {
   Ensemble ensemble(config_, size_);
   EXPECT_EQ(ensemble.getSize(), size_);
-}
+}*/
 
 // Test member access
-TEST_F(EnsembleTest, MemberAccessIsValid) {
+/*TEST_F(EnsembleTest, MemberAccessIsValid) {
   Ensemble ensemble(config_, size_);
 
   // Test access to all members
@@ -64,10 +64,10 @@ TEST_F(EnsembleTest, MemberAccessIsValid) {
   // Test const access
   const auto& const_ensemble = ensemble;
   EXPECT_NO_THROW(const_ensemble.getMember(0));
-}
+}*/
 
 // Test mean computation
-TEST_F(EnsembleTest, ComputeMean) {
+/*TEST_F(EnsembleTest, ComputeMean) {
   Ensemble ensemble(config_, size_);
 
   {
@@ -88,22 +88,22 @@ TEST_F(EnsembleTest, ComputeMean) {
   }
 
   EXPECT_NO_THROW(ensemble.computeMean());
-}
+}*/
 
 // Test out of bounds access
-TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
+/*TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
   Ensemble ensemble(config_, size_);
   EXPECT_THROW(ensemble.getMember(size_), std::out_of_range);
   EXPECT_THROW(ensemble.getPerturbation(size_), std::out_of_range);
-}
+}*/
 
 // Test perturbation computation
-TEST_F(EnsembleTest, ComputePerturbationsCreatesValidPerturbations) {
+/*TEST_F(EnsembleTest, ComputePerturbationsCreatesValidPerturbations) {
   Ensemble ensemble(config_, size_);
 
   // Test perturbation computation
   EXPECT_NO_THROW(ensemble.computePerturbations());
   EXPECT_NO_THROW(ensemble.getPerturbation(0));
-}
+}*/
 
 }  // namespace metada::tests

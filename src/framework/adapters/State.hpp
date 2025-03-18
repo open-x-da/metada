@@ -64,13 +64,12 @@ class Config;
  */
 template <typename Backend>
 class State {
- private:
-  Backend backend_;          ///< Instance of the state backend
-  bool initialized_{false};  ///< Initialization flag
-
  public:
   // Constructors
   State() = delete;  // Disable default constructor since we need a backend
+
+  // Destructor
+  ~State() = default;
 
   /**
    * @brief Constructor that initializes state with configuration
@@ -81,20 +80,49 @@ class State {
    */
   template <typename T>
   explicit State(const Config<T>& config)
-      : backend_(config), initialized_(true) {}
+      : backend_(config.backend()), initialized_(true) {}
 
   /**
-   * @brief Copy constructor
-   * @param other State instance to copy from
+   * @brief Move constructor
+   * @param other State instance to move from
    */
-  State(const State& other) : backend_(other.backend_.config()) {
-    backend_.copyFrom(other.backend_);
+  State(State&& other) noexcept {
+    // Move the backend state
+    backend_(std::move(other.backend_));
+
+    // Transfer initialization state
     initialized_ = other.initialized_;
+
+    // Reset the moved-from object's state
+    other.initialized_ = false;
   }
 
+  /**
+   * @brief Move assignment operator
+   * @param other State instance to move from
+   * @return Reference to this instance
+   */
+  State& operator=(State&& other) noexcept {
+    if (this != &other) {
+      // Move the backend state
+      backend_ = std::move(other.backend_);
+
+      // Transfer initialization state
+      initialized_ = other.initialized_;
+
+      // Reset the moved-from object's state
+      other.initialized_ = false;
+    }
+    return *this;
+  }
+
+  /**
+   * @brief Clone the state
+   * @return A new state with the same configuration
+   */
+  State clone() const { return State(backend_.clone()); }
+
   // Core state operations
-  void reset() { backend_.reset(); }
-  void validate() const { backend_.validate(); }
   bool isInitialized() const { return initialized_; }
 
   /**
@@ -118,48 +146,6 @@ class State {
    * @return L2 norm value
    */
   double norm() const { return backend_.norm(); }
-
-  /**
-   * @brief Move constructor
-   * @param other State instance to move from
-   */
-  State(State&& other) noexcept : backend_(other.backend_.config()) {
-    backend_.moveFrom(std::move(other.backend_));
-    initialized_ = other.initialized_;
-    other.initialized_ = false;  // Reset the moved-from object's state
-  }
-
-  /**
-   * @brief Copy assignment operator
-   * @param other State instance to copy from
-   * @return Reference to this instance
-   */
-  State& operator=(const State& other) {
-    if (this != &other) {
-      backend_.copyFrom(other.backend_);
-      initialized_ = other.initialized_;
-    }
-    return *this;
-  }
-
-  /**
-   * @brief Move assignment operator
-   * @param other State instance to move from
-   * @return Reference to this instance
-   */
-  State& operator=(State&& other) noexcept {
-    if (this != &other) {
-      // Move the backend state
-      backend_.moveFrom(std::move(other.backend_));
-
-      // Transfer initialization state
-      initialized_ = other.initialized_;
-
-      // Reset the moved-from object's state
-      other.initialized_ = false;
-    }
-    return *this;
-  }
 
   /**
    * @brief Equality operator
@@ -197,25 +183,6 @@ class State {
   template <typename T>
   const T& getData() const {
     return *static_cast<const T*>(backend_.getData());
-  }
-
-  // Metadata operations
-  /**
-   * @brief Set metadata value for given key
-   * @param key Metadata key
-   * @param value Value to set
-   */
-  void setMetadata(const std::string& key, const std::string& value) {
-    backend_.setMetadata(key, value);
-  }
-
-  /**
-   * @brief Get metadata value for given key
-   * @param key Metadata key
-   * @return Value associated with key
-   */
-  std::string getMetadata(const std::string& key) const {
-    return backend_.getMetadata(key);
   }
 
   // State information
@@ -352,6 +319,14 @@ class State {
    */
   template <typename IncrementType>
   State& applyIncrement(const IncrementType& increment);
+
+ private:
+  // Private constructor to be used internally by clone
+  explicit State(Backend&& backend)
+      : backend_(std::move(backend)), initialized_(true) {}
+
+  Backend backend_;          ///< Instance of the state backend
+  bool initialized_{false};  ///< Initialization flag
 };
 
 }  // namespace metada::framework

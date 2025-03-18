@@ -9,6 +9,7 @@
 
 #include "IState.hpp"
 #include "state_c_api.h"
+#include "utils/config/IConfig.hpp"
 
 namespace metada::backends::lorenz63 {
 
@@ -18,14 +19,32 @@ namespace metada::backends::lorenz63 {
  */
 class State : public framework::IState {
  public:
+  // Disable default constructor
+  State() = delete;
+
+  // Destructor
+  ~State() override = default;
+
+  // Copy constructor
+  State(const State& other) = delete;
+
+  // Copy assignment operator
+  State& operator=(const State& other) = delete;
+
+  // Move constructor
+  State(State&& other) noexcept = default;
+
+  // Move assignment operator
+  State& operator=(State&& other) = default;
+
   /**
    * @brief Construct a new Lorenz63State from config
    *
    * @param config Configuration object with initial values
    */
-  template <typename T>
-  State(const metada::framework::Config<T>& config)
-      : ptr_(state_create(
+  explicit State(const framework::IConfig& config)
+      : config_(config),
+        ptr_(state_create(
                  std::get<float>(config.Get("model.initial_conditions.x")),
                  std::get<float>(config.Get("model.initial_conditions.y")),
                  std::get<float>(config.Get("model.initial_conditions.z"))),
@@ -34,6 +53,12 @@ class State : public framework::IState {
       throw std::runtime_error("Failed to create Lorenz63 state");
     }
     initializeVariableNames();
+    initialize();
+  }
+
+  // Clone operation
+  std::unique_ptr<IState> clone() const override {
+    return std::make_unique<State>(config_);
   }
 
   /**
@@ -109,19 +134,10 @@ class State : public framework::IState {
    * @param config Configuration object containing initialization parameters
    * @throws std::runtime_error If initialization fails
    */
-  void initialize(
-      [[maybe_unused]] const metada::framework::IConfig& config) override {
+  void initialize() override {
     // Extract x, y, z from config and initialize
     // This is a placeholder implementation; actual config parsing would depend
     // on IConfig's API For now, just reset to default values
-    reset();
-  }
-
-  /**
-   * @brief Reset the state to initial values (0,0,0)
-   * @throws std::runtime_error If reset operation fails
-   */
-  void reset() override {
     setX(0.0f);
     setY(0.0f);
     setZ(0.0f);
@@ -134,57 +150,6 @@ class State : public framework::IState {
     setX(0.0f);
     setY(0.0f);
     setZ(0.0f);
-  }
-
-  /**
-   * @brief Validate the state consistency
-   * @throws std::runtime_error If validation fails
-   */
-  void validate() const override {
-    // For Lorenz63, all real values are valid
-    // Could implement checks for NaN or Inf if needed
-    if (std::isnan(getX()) || std::isnan(getY()) || std::isnan(getZ()) ||
-        std::isinf(getX()) || std::isinf(getY()) || std::isinf(getZ())) {
-      throw std::runtime_error("Invalid state: contains NaN or Inf values");
-    }
-  }
-
-  /**
-   * @brief Copy state data from another instance
-   * @param other Source state to copy from
-   * @throws std::runtime_error If copy operation fails
-   */
-  void copyFrom(const IState& other) override {
-    try {
-      const State& otherState = dynamic_cast<const State&>(other);
-      setX(otherState.getX());
-      setY(otherState.getY());
-      setZ(otherState.getZ());
-
-      // Copy metadata
-      metadata_ = otherState.metadata_;
-    } catch (const std::bad_cast&) {
-      throw std::runtime_error("Cannot copy from incompatible state type");
-    }
-  }
-
-  /**
-   * @brief Move state data from another instance
-   * @param other Source state to move from
-   * @throws std::runtime_error If move operation fails
-   */
-  void moveFrom(IState&& other) override {
-    try {
-      State&& otherState = dynamic_cast<State&&>(other);
-      setX(otherState.getX());
-      setY(otherState.getY());
-      setZ(otherState.getZ());
-
-      // Move metadata
-      metadata_ = std::move(otherState.metadata_);
-    } catch (const std::bad_cast&) {
-      throw std::runtime_error("Cannot move from incompatible state type");
-    }
   }
 
   /**
@@ -217,29 +182,6 @@ class State : public framework::IState {
   const void* getData() const override { return ptr_.get(); }
 
   /**
-   * @brief Set metadata value for given key
-   * @param key Metadata key to set
-   * @param value Metadata value to associate with key
-   */
-  void setMetadata(const std::string& key, const std::string& value) override {
-    metadata_[key] = value;
-  }
-
-  /**
-   * @brief Get metadata value for given key
-   * @param key Metadata key to retrieve
-   * @return Metadata value associated with key
-   * @throws std::out_of_range If key does not exist
-   */
-  std::string getMetadata(const std::string& key) const override {
-    auto it = metadata_.find(key);
-    if (it == metadata_.end()) {
-      throw std::out_of_range("Metadata key not found: " + key);
-    }
-    return it->second;
-  }
-
-  /**
    * @brief Get names of state variables
    * @return Const reference to vector containing variable names
    */
@@ -265,7 +207,8 @@ class State : public framework::IState {
    * @brief Get dimensions of state space
    * @return Const reference to vector containing dimension sizes
    */
-  const std::vector<size_t>& getDimensions() const override {
+  const std::vector<size_t>& getDimensions(
+      [[maybe_unused]] const std::string& variableName) const override {
     return dimensions_;
   }
 
@@ -356,6 +299,9 @@ class State : public framework::IState {
       state_destroy(ptr);
     }
   }
+
+  // Configuration object
+  const framework::IConfig& config_;
 
   // Smart pointer to manage Fortran state
   std::shared_ptr<void> ptr_;
