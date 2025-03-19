@@ -85,7 +85,7 @@ class MockState : public IState {
   }
 
   // Move assignment operator
-  MockState& operator=(MockState&& other) {
+  MockState& operator=([[maybe_unused]] MockState&& other) {
     // Explicit Move Assignment (Even Without Data Members)
     return *this;
   }
