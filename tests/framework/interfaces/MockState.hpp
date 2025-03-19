@@ -80,10 +80,19 @@ class MockState : public IState {
   MockState& operator=(const MockState& other) = delete;
 
   // Move constructor
-  MockState(MockState&& other) noexcept = default;
+  MockState(MockState&& other) noexcept {
+    // Explicit Move Constructor (Even Without Data Members)
+    config_ = std::move(other.config_);
+  }
 
   // Move assignment operator
-  MockState& operator=(MockState&& other) = default;
+  MockState& operator=(MockState&& other) {
+    // Explicit Move Assignment (Even Without Data Members)
+    if (this != &other) {
+      config_ = std::move(other.config_);
+    }
+    return *this;
+  };
 
   // Constructor that initializes state from config
   explicit MockState(const IConfig& config) : config_(config) { initialize(); }
@@ -120,7 +129,7 @@ class MockState : public IState {
   const IConfig& config() const { return config_; }
 
  private:
-  const IConfig& config_;
+  IConfig config_;
 };
 
 }  // namespace metada::tests

@@ -11,14 +11,14 @@
  *
  * Core functionality:
  * - Initialization and construction
- * - State operations (reset, validate)
+ * - State operations (zero, dot, norm)
  * - Data access and type safety
  *
  * Advanced features:
- * - Metadata management
  * - State information queries
  * - Copy/move semantics
  * - Equality comparison
+ * - Arithmetic operations
  *
  * The test suite uses Google Test/Mock framework for mocking and assertions.
  *
@@ -100,7 +100,7 @@ class StateTest : public ::testing::Test {
         .WillByDefault(Return(test_data_.data()));
     ON_CALL(state1_->backend(), getVariableNames())
         .WillByDefault(ReturnRef(variable_names_));
-    ON_CALL(state1_->backend(), getDimensions(variable_names_[0]))
+    ON_CALL(state1_->backend(), getDimensions(testing::Ref(variable_names_[0])))
         .WillByDefault(ReturnRef(dimensions_));
   }
 
@@ -140,77 +140,42 @@ class StateTest : public ::testing::Test {
 };
 
 /**
- * @brief Test all available constructors
- *
- * @details
- * Verifies proper initialization and state transfer for:
- * - Configuration constructor
- * - Copy constructor with state validation
- * - Move constructor with proper state transfer
+ * @brief Test construction and initialization
  */
-/*
-TEST_F(StateTest, ConstructorTests) {
+TEST_F(StateTest, Construction) {
   // Test configuration constructor - use the helper method
   auto state = createState();
   EXPECT_TRUE(state.isInitialized());
+}
 
-  // For the copy constructor test, we need to use ON_CALL instead of
-  // EXPECT_CALL because we can't set expectations on state_copy.backend()
-  // before it exists
-  ON_CALL(state.backend(), copyFrom(_)).WillByDefault(Return());
+/**
+ * @brief Test copy and move operations
+ */
+TEST_F(StateTest, CopyAndMove) {
+  // Test clone method
+  auto mock_clone = std::make_unique<MockState>();
+  ON_CALL(state1_->backend(), clone())
+      .WillByDefault(Return(std::move(*mock_clone)));
+  auto state_clone = state1_->clone();
+  EXPECT_TRUE(state_clone.isInitialized());
 
-  // Test copy constructor
-  State<Traits::StateType> state_copy(state);
-  EXPECT_CALL(state_copy.backend(), equals(_)).WillOnce(Return(true));
-  EXPECT_TRUE(state_copy == state);
-  EXPECT_TRUE(
-      state_copy.isInitialized());  // Copy should preserve initialization state
-
-  // For the move constructor test, we need to use ON_CALL
-  ON_CALL(state_copy.backend(), moveFrom(_)).WillByDefault(Return());
-
-  // Test move constructor
-  State<Traits::StateType> state_moved(std::move(state_copy));
-  // Verify the moved-from state is no longer initialized
-  EXPECT_FALSE(state_copy.isInitialized());
+  // Test move construction
+  State<Traits::StateType> state_moved(std::move(state_clone));
   EXPECT_TRUE(state_moved.isInitialized());
-}
+  EXPECT_FALSE(state_clone.isInitialized());
 
-TEST_F(StateTest, CoreStateOperations) {
-  // Use the pre-created state object
-  EXPECT_CALL(state1_->backend(), reset()).Times(1);
-  state1_->reset();
-
-  EXPECT_CALL(state1_->backend(), validate()).Times(1);
-  state1_->validate();
-}
-
-TEST_F(StateTest, CopyAssignment) {
-  // Use the pre-created state objects
-  EXPECT_CALL(state2_->backend(), copyFrom(testing::Ref(state1_->backend())))
-      .Times(1);
-  *state2_ = *state1_;
-
-  // Verify initialization state is preserved
-  EXPECT_TRUE(state2_->isInitialized());
-}
-
-TEST_F(StateTest, MoveAssignment) {
-  // Create a new state for move testing
+  // Test move assignment
   auto temp_state = createState();
   EXPECT_TRUE(temp_state.isInitialized());
 
-  // Set up expectations for move assignment
-  EXPECT_CALL(state1_->backend(), moveFrom(_)).Times(1);
-
-  // Test move assignment
-  *state1_ = std::move(temp_state);
-
-  // Verify states after move
+  State<Traits::StateType> state_assigned = std::move(temp_state);
+  EXPECT_TRUE(state_assigned.isInitialized());
   EXPECT_FALSE(temp_state.isInitialized());
-  EXPECT_TRUE(state1_->isInitialized());
 }
 
+/**
+ * @brief Test equality comparison
+ */
 TEST_F(StateTest, EqualityComparison) {
   EXPECT_CALL(state1_->backend(), equals(testing::Ref(state2_->backend())))
       .WillOnce(Return(true))
@@ -225,40 +190,74 @@ TEST_F(StateTest, EqualityComparison) {
   EXPECT_TRUE(*state1_ != *state2_);
 }
 
-TEST_F(StateTest, GetDataReturnsTypedPointer) {
+/**
+ * @brief Test data access
+ */
+TEST_F(StateTest, DataAccess) {
   // We've already set up the default behavior in SetUp()
   double* data = &state1_->getData<double>();
   EXPECT_EQ(data, test_data_.data());
 }
 
-TEST_F(StateTest, MetadataOperations) {
-  EXPECT_CALL(state1_->backend(), setMetadata("key1", "value1")).Times(1);
-  EXPECT_CALL(state1_->backend(), getMetadata("key1"))
-      .WillOnce(Return("value1"));
-
-  state1_->setMetadata("key1", "value1");
-  EXPECT_EQ(state1_->getMetadata("key1"), "value1");
-}
-
+/**
+ * @brief Test state information methods
+ */
 TEST_F(StateTest, StateInformation) {
   // We've already set up the default behavior in SetUp()
   EXPECT_EQ(state1_->getVariableNames(), variable_names_);
   EXPECT_EQ(state1_->getDimensions(), dimensions_);
 
   // Test hasVariable method
+  EXPECT_CALL(state1_->backend(), getVariableNames())
+      .WillRepeatedly(ReturnRef(variable_names_));
   EXPECT_TRUE(state1_->hasVariable("temperature"));
   EXPECT_TRUE(state1_->hasVariable("pressure"));
   EXPECT_FALSE(state1_->hasVariable("nonexistent_variable"));
 }
 
+/**
+ * @brief Test state operations (zero, dot, norm)
+ */
+TEST_F(StateTest, StateOperations) {
+  // Test zero operation
+  EXPECT_CALL(state1_->backend(), zero()).Times(1);
+  State<Traits::StateType>& result = state1_->zero();
+  EXPECT_EQ(&result, state1_.get());
+
+  // Test dot product
+  EXPECT_CALL(state1_->backend(), dot(testing::Ref(state2_->backend())))
+      .WillOnce(Return(42.0));
+  double dot_product = state1_->dot(*state2_);
+  EXPECT_DOUBLE_EQ(dot_product, 42.0);
+
+  // Test norm calculation
+  EXPECT_CALL(state1_->backend(), norm()).WillOnce(Return(10.0));
+  double norm = state1_->norm();
+  EXPECT_DOUBLE_EQ(norm, 10.0);
+}
+
+/**
+ * @brief Test arithmetic operations
+ */
 TEST_F(StateTest, ArithmeticOperations) {
   // Create a result state for testing
   auto result = createState();
 
-  EXPECT_NO_THROW(result = *state1_ + *state2_);
-  EXPECT_NO_THROW(auto result1 = *state1_ + *state2_);
-  EXPECT_NO_THROW(result = *state1_ - *state2_);
-  EXPECT_NO_THROW(auto result2 = *state1_ - *state2_);
+  // Test addition operator
+  auto mock_clone = std::make_unique<MockState>();
+  ON_CALL(state1_->backend(), clone())
+      .WillByDefault(Return(std::move(*mock_clone)));
+  EXPECT_CALL(state1_->backend(), add(testing::Ref(state2_->backend())))
+      .Times(1);
+  result = *state1_ + *state2_;
+
+  // Test subtraction operator
+  auto mock_clone2 = std::make_unique<MockState>();
+  ON_CALL(state1_->backend(), clone())
+      .WillByDefault(Return(std::move(*mock_clone2)));
+  EXPECT_CALL(state1_->backend(), subtract(testing::Ref(state2_->backend())))
+      .Times(1);
+  result = *state1_ - *state2_;
 
   // Test addition assignment
   EXPECT_CALL(state1_->backend(), add(testing::Ref(state2_->backend())))
@@ -270,15 +269,28 @@ TEST_F(StateTest, ArithmeticOperations) {
       .Times(1);
   *state1_ -= *state2_;
 
-  // Test multiplication
-  EXPECT_NO_THROW(result = *state1_ * 2.0);
-  EXPECT_NO_THROW(result = 2.0 * *state1_);
+  // Test multiplication by scalar
+  auto mock_clone3 = std::make_unique<MockState>();
+  ON_CALL(state1_->backend(), clone())
+      .WillByDefault(Return(std::move(*mock_clone3)));
+  EXPECT_CALL(state1_->backend(), multiply(2.0)).Times(1);
+  result = *state1_ * 2.0;
+
+  // Test scalar * state multiplication
+  auto mock_clone4 = std::make_unique<MockState>();
+  ON_CALL(state1_->backend(), clone())
+      .WillByDefault(Return(std::move(*mock_clone4)));
+  EXPECT_CALL(state1_->backend(), multiply(3.0)).Times(1);
+  result = 3.0 * *state1_;
 
   // Test multiplication assignment
   EXPECT_CALL(state1_->backend(), multiply(2.0)).Times(1);
   *state1_ *= 2.0;
 }
 
+/**
+ * @brief Test arithmetic error handling
+ */
 TEST_F(StateTest, ArithmeticErrors) {
   // Test addition with incompatible states
   EXPECT_CALL(state1_->backend(), add(testing::Ref(state2_->backend())))
@@ -291,42 +303,29 @@ TEST_F(StateTest, ArithmeticErrors) {
   EXPECT_THROW(*state1_ -= *state2_, std::runtime_error);
 }
 
-TEST_F(StateTest, MockStateCopyAndMove) {
-  // Get a reference to the backend of state1_
-  auto& mockState1 = state1_->backend();
+/**
+ * @brief Test increment creation and application
+ */
+TEST_F(StateTest, IncrementOperations) {
+  // We need a mock increment type for testing
+  struct MockIncrement {
+    static MockIncrement createFromDifference(
+        const State<Traits::StateType>& a, const State<Traits::StateType>& b) {
+      return MockIncrement{};
+    }
 
-  // Test copy construction of MockState
-  MockState mockState2(mockState1);
+    void applyTo(State<Traits::StateType>& state) const {
+      // Call some method on state to verify the call
+      state.zero();
+    }
+  };
 
-  // Test copy assignment of MockState
-  MockState mockState3(getConfig());
-  mockState3 = mockState1;
+  // Test creating an increment
+  auto increment = state1_->createIncrementTo<MockIncrement>(*state2_);
 
-  // Test move construction of MockState
-  MockState mockState4(std::move(mockState3));
-
-  // Test move assignment of MockState
-  MockState mockState5(getConfig());
-  mockState5 = std::move(mockState4);
-
-  // Verify that all operations completed without errors
-  // Note: We don't need to verify specific behavior since the mock
-  // implementation doesn't actually copy/move data, just maintains
-  // the reference to the config
-  SUCCEED() << "MockState copy and move operations completed successfully";
+  // Test applying the increment
+  EXPECT_CALL(state1_->backend(), zero()).Times(1);
+  state1_->applyIncrement(increment);
 }
-
-TEST_F(StateTest, ZeroMethod) {
-  // Create a test state
-  auto state = createState();
-
-  // Expect the zero method to be called
-  EXPECT_CALL(state.backend(), zero()).Times(1);
-
-  // Call the zero method and verify it returns reference to self
-  State<Traits::StateType>& result = state.zero();
-  EXPECT_EQ(&result, &state);
-}
-*/
 
 }  // namespace metada::tests
