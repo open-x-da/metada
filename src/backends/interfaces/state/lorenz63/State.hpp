@@ -32,22 +32,36 @@ class State : public framework::IState {
   State& operator=(const State& other) = delete;
 
   // Move constructor
-  State(State&& other) noexcept = default;
+  State(State&& other) noexcept : config_(other.config_) {
+    ptr_ = other.ptr_;
+    other.ptr_ = nullptr;
+    variableNames_ = std::move(other.variableNames_);
+    dimensions_ = std::move(other.dimensions_);
+  }
 
   // Move assignment operator
-  State& operator=(State&& other) = default;
+  State& operator=(State&& other) {
+    if (this != &other) {
+      config_ = other.config_;
+      ptr_ = other.ptr_;
+      other.ptr_ = nullptr;
+      variableNames_ = std::move(other.variableNames_);
+      dimensions_ = std::move(other.dimensions_);
+    }
+    return *this;
+  }
 
   /**
    * @brief Construct a new Lorenz63State from config
    *
    * @param config Configuration object with initial values
    */
-  explicit State(const framework::IConfig& config)
+  explicit State(const std::shared_ptr<framework::IConfig>& config)
       : config_(config),
         ptr_(state_create(
-                 std::get<float>(config.Get("model.initial_conditions.x")),
-                 std::get<float>(config.Get("model.initial_conditions.y")),
-                 std::get<float>(config.Get("model.initial_conditions.z"))),
+                 std::get<float>(config_->Get("model.initial_conditions.x")),
+                 std::get<float>(config_->Get("model.initial_conditions.y")),
+                 std::get<float>(config_->Get("model.initial_conditions.z"))),
              state_deleter) {
     if (!ptr_) {
       throw std::runtime_error("Failed to create Lorenz63 state");
@@ -301,7 +315,7 @@ class State : public framework::IState {
   }
 
   // Configuration object
-  const framework::IConfig& config_;
+  std::shared_ptr<framework::IConfig> config_;
 
   // Smart pointer to manage Fortran state
   std::shared_ptr<void> ptr_;
@@ -309,9 +323,6 @@ class State : public framework::IState {
   // Store variable names and dimensions
   std::vector<std::string> variableNames_;
   std::vector<size_t> dimensions_;
-
-  // Metadata storage
-  std::unordered_map<std::string, std::string> metadata_;
 };
 
 /**

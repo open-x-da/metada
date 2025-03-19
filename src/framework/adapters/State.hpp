@@ -80,7 +80,7 @@ class State {
    */
   template <typename T>
   explicit State(const Config<T>& config)
-      : backend_(config.backend()), initialized_(true) {}
+      : backend_(std::make_shared<T>(config.backend())), initialized_(true) {}
 
   /**
    * @brief Move constructor
@@ -209,8 +209,8 @@ class State {
    * @brief Get dimensions of state space
    * @return Const reference to vector of dimension sizes
    */
-  const std::vector<size_t>& getDimensions() const {
-    return backend_.getDimensions();
+  const std::vector<size_t>& getDimensions(const std::string& name) const {
+    return backend_.getDimensions(name);
   }
 
   /**

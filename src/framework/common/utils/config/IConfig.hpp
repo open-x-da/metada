@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "ConfigValue.hpp"
-#include "utils/NonCopyable.hpp"
 
 namespace metada::framework {
 
@@ -35,7 +34,7 @@ namespace metada::framework {
  * @see ConfigValue Type-safe variant for configuration values
  * @see Config Main configuration class template using this interface
  */
-class IConfig : public NonCopyable {
+class IConfig {
  public:
   /**
    * @brief Virtual destructor for proper cleanup of derived classes
