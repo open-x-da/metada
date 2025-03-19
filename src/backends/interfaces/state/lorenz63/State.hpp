@@ -42,7 +42,6 @@ class State : public framework::IState {
   // Move assignment operator
   State& operator=(State&& other) {
     if (this != &other) {
-      config_ = other.config_;
       ptr_ = other.ptr_;
       other.ptr_ = nullptr;
       variableNames_ = std::move(other.variableNames_);
@@ -56,12 +55,12 @@ class State : public framework::IState {
    *
    * @param config Configuration object with initial values
    */
-  explicit State(const std::shared_ptr<framework::IConfig>& config)
+  explicit State(const framework::IConfig& config)
       : config_(config),
         ptr_(state_create(
-                 std::get<float>(config_->Get("model.initial_conditions.x")),
-                 std::get<float>(config_->Get("model.initial_conditions.y")),
-                 std::get<float>(config_->Get("model.initial_conditions.z"))),
+                 std::get<float>(config.Get("model.initial_conditions.x")),
+                 std::get<float>(config.Get("model.initial_conditions.y")),
+                 std::get<float>(config.Get("model.initial_conditions.z"))),
              state_deleter) {
     if (!ptr_) {
       throw std::runtime_error("Failed to create Lorenz63 state");
@@ -315,7 +314,7 @@ class State : public framework::IState {
   }
 
   // Configuration object
-  std::shared_ptr<framework::IConfig> config_;
+  const framework::IConfig& config_;
 
   // Smart pointer to manage Fortran state
   std::shared_ptr<void> ptr_;

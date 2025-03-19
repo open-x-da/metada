@@ -87,16 +87,11 @@ class MockState : public IState {
   // Move assignment operator
   MockState& operator=(MockState&& other) {
     // Explicit Move Assignment (Even Without Data Members)
-    if (this != &other) {
-      config_ = other.config_;
-    }
     return *this;
-  };
+  }
 
   // Constructor that initializes state from config
-  explicit MockState(const std::shared_ptr<IConfig>& config) : config_(config) {
-    initialize();
-  }
+  explicit MockState(const IConfig& config) : config_(config) { initialize(); }
 
   // Clone operation
   MOCK_METHOD(std::unique_ptr<IState>, clone, (), (const, override));
@@ -127,10 +122,10 @@ class MockState : public IState {
   MOCK_METHOD(double, norm, (), (const, override));
 
   // Get the config
-  const std::shared_ptr<IConfig>& config() const { return config_; }
+  const IConfig& config() const { return config_; }
 
  private:
-  std::shared_ptr<IConfig> config_;
+  const IConfig& config_;
 };
 
 }  // namespace metada::tests

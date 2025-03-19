@@ -80,7 +80,7 @@ class State {
    */
   template <typename T>
   explicit State(const Config<T>& config)
-      : backend_(std::make_shared<T>(config.backend())), initialized_(true) {}
+      : backend_(config.backend()), initialized_(true) {}
 
   /**
    * @brief Move constructor
