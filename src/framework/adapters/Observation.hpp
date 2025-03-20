@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "IObservation.hpp"
+#include "utils/NonCopyable.hpp"
 #include "utils/config/Config.hpp"
 
 namespace metada::framework {
@@ -31,14 +32,13 @@ namespace metada::framework {
  * @tparam Backend The backend implementation type
  */
 template <typename Backend>
-class Observation {
- private:
-  Backend backend_;          ///< Backend implementation instance
-  bool initialized_{false};  ///< Initialization flag
-
+class Observation : private NonCopyable {
  public:
   /** @brief Default constructor is deleted since we need a backend */
   Observation() = delete;
+
+  /** @brief Destructor */
+  ~Observation() = default;
 
   /**
    * @brief Constructor that initializes observation with configuration
@@ -48,7 +48,7 @@ class Observation {
    */
   template <typename T>
   explicit Observation(const Config<T>& config)
-      : backend_(config), initialized_(true) {}
+      : backend_(config.backend()), initialized_(true) {}
 
   /**
    * @brief Constructor with backend rvalue reference
@@ -313,6 +313,10 @@ class Observation {
   const std::vector<double>& getConfidenceValues() const {
     return backend_.getConfidenceValues();
   }
+
+ private:
+  Backend backend_;          ///< Backend implementation instance
+  bool initialized_{false};  ///< Initialization flag
 };
 
 // Free function for scalar multiplication

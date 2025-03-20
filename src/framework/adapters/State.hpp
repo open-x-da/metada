@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 
+#include "utils/NonCopyable.hpp"
+
 namespace metada::framework {
 
 // Forward declaration
@@ -63,7 +65,7 @@ class Config;
  * @see IState
  */
 template <typename Backend>
-class State {
+class State : private NonCopyable {
  public:
   // Constructors
   State() = delete;  // Disable default constructor since we need a backend

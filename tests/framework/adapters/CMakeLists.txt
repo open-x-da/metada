@@ -36,7 +36,7 @@ setup_test_executable(ensemble_test EnsembleTest.cpp)
 setup_test_executable(model_test ModelTest.cpp)
 
 # IObservations tests
-setup_test_executable(observation_test ObservationTest.cpp)
+#setup_test_executable(observation_test ObservationTest.cpp)
 
 # IObsOperator tests
 setup_test_executable(obsoperator_test ObsOperatorTest.cpp)

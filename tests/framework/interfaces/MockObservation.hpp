@@ -93,9 +93,6 @@ using metada::framework::IObservation;
  * setting expectations and verifying calls.
  */
 class MockObservation : public IObservation {
- private:
-  const Config<MockConfig>& config_;
-
  public:
   // Disable default constructor
   MockObservation() = delete;
@@ -104,7 +101,7 @@ class MockObservation : public IObservation {
    * @brief Constructor that initializes observation from config
    */
   explicit MockObservation(const Config<MockConfig>& config) : config_(config) {
-    initialize(config.backend());
+    initialize();
   }
 
   /**
@@ -133,61 +130,21 @@ class MockObservation : public IObservation {
   }
 
   // Lifecycle management
-  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
-  MOCK_METHOD(void, reset, (), (override));
-  MOCK_METHOD(void, validate, (), (const, override));
-  MOCK_METHOD(bool, isInitialized, (), (const, override));
+  MOCK_METHOD(void, initialize, (), (override));
 
-  // Copy/Move operations
-  MOCK_METHOD(void, copyFrom, (const IObservation& other), (override));
-  MOCK_METHOD(void, moveFrom, (IObservation && other), (override));
+  MOCK_METHOD(void, applyQC, (), (override));
   MOCK_METHOD(bool, equals, (const IObservation& other), (const, override));
-
-  // Data access
-  MOCK_METHOD(void*, getData, (), (override));
-  MOCK_METHOD(const void*, getData, (), (const, override));
-  MOCK_METHOD(void*, getUncertainty, (), (override));
-  MOCK_METHOD(const void*, getUncertainty, (), (const, override));
-  MOCK_METHOD(size_t, getSize, (), (const, override));
-
-  // Metadata operations
-  MOCK_METHOD(void, setMetadata,
-              (const std::string& key, const std::string& value), (override));
-  MOCK_METHOD(std::string, getMetadata, (const std::string& key),
-              (const, override));
-  MOCK_METHOD(bool, hasMetadata, (const std::string& key), (const, override));
-
-  // Observation information
-  MOCK_METHOD(const std::vector<std::string>&, getVariableNames, (),
-              (const, override));
-  MOCK_METHOD(bool, hasVariable, (const std::string& name), (const, override));
-  MOCK_METHOD(const std::vector<size_t>&, getDimensions, (), (const, override));
-
-  // Spatiotemporal metadata
-  MOCK_METHOD(void, setLocations,
-              (const std::vector<std::vector<double>>& locations), (override));
-  MOCK_METHOD(void, setTimes, (const std::vector<double>& timestamps),
-              (override));
-  MOCK_METHOD(const std::vector<std::vector<double>>&, getLocations, (),
-              (const, override));
-  MOCK_METHOD(const std::vector<double>&, getTimes, (), (const, override));
 
   // Arithmetic operations
   MOCK_METHOD(void, add, (const IObservation& other), (override));
   MOCK_METHOD(void, subtract, (const IObservation& other), (override));
   MOCK_METHOD(void, multiply, (double scalar), (override));
 
-  // Quality control
-  MOCK_METHOD(void, setQualityFlags, (const std::vector<int>& flags),
-              (override));
-  MOCK_METHOD(const std::vector<int>&, getQualityFlags, (), (const, override));
-  MOCK_METHOD(void, setConfidenceValues, (const std::vector<double>& values),
-              (override));
-  MOCK_METHOD(const std::vector<double>&, getConfidenceValues, (),
-              (const, override));
-
   // Get the config
   const Config<MockConfig>& config() const { return config_; }
+
+ private:
+  const Config<MockConfig>& config_;
 };
 
 }  // namespace metada::tests
