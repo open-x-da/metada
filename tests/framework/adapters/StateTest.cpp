@@ -163,7 +163,6 @@ TEST_F(StateTest, Clone) {
 /**
  * @brief Test move operations
  */
-/*
 TEST_F(StateTest, MoveOperations) {
   // First create two separate states to test with
   auto state_source = createState();
@@ -187,7 +186,7 @@ TEST_F(StateTest, MoveOperations) {
   EXPECT_TRUE(state_target.isInitialized());
   EXPECT_FALSE(
       state_source2.isInitialized());  // Source should be in moved-from state
-}*/
+}
 
 /**
  * @brief Test equality comparison

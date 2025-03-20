@@ -86,13 +86,8 @@ class State {
    * @brief Move constructor
    * @param other State instance to move from
    */
-  State(State&& other) noexcept {
-    // Move the backend state
-    backend_ = std::move(other.backend_);
-
-    // Transfer initialization state
-    initialized_ = other.initialized_;
-
+  State(State&& other) noexcept
+      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
     // Reset the moved-from object's state
     other.initialized_ = false;
   }
