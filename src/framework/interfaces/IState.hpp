@@ -10,10 +10,10 @@
  *
  * The interface includes:
  * - Initialization and validation of state
- * - Data access and manipulation through type-safe methods
- * - Metadata management for storing state properties
+ * - Core mathematical operations (zero, add, subtract, multiply)
+ * - Vector operations (dot product, norm)
+ * - Data access and metadata queries
  * - State information queries for dimensions and variables
- * - Copy/move semantics for state transfer
  *
  * Implementations must provide thread-safe access to state data and proper
  * exception handling for all operations.
@@ -35,19 +35,18 @@ namespace metada::framework {
  * models.
  *
  * The interface is designed to support:
- * - Flexible state initialization from configuration
- * - Core state operations (reset, validate) with proper error handling
- * - Copy/move semantics for efficient state transfer
- * - Type-safe raw data access with const correctness
- * - Extensible metadata management through key-value pairs
- * - Comprehensive state information queries
+ * - State initialization
+ * - Core mathematical operations (zero, add, subtract, multiply)
+ * - Vector operations (dot product, norm)
+ * - Data access with const correctness
+ * - State information queries for dimensions and variables
  *
  * Implementations should ensure:
  * - Thread safety for all operations
  * - Proper exception handling and error reporting
  * - Efficient memory management
  * - Type safety for data access
- * - Consistent state validation
+ * - Consistent behavior across operations
  */
 class IState {
  public:
@@ -88,17 +87,15 @@ class IState {
   IState& operator=(IState&&) = delete;
 
   /**
-   * @brief Initialize state from configuration
-   * @param config Configuration object containing initialization parameters
+   * @brief Initialize the state
    * @throws std::runtime_error If initialization fails
-   * @details Implementations should validate configuration parameters and
-   * initialize internal state accordingly
+   * @details Implementations should initialize internal state
    */
   virtual void initialize() = 0;
 
   /**
    * @brief Set all values to zero
-   * @return Reference to this state
+   * @details Resets all state values to zero
    */
   virtual void zero() = 0;
 
@@ -106,7 +103,7 @@ class IState {
    * @brief Compare equality with another state
    * @param other State to compare with
    * @return true if states are equal, false otherwise
-   * @details Performs deep comparison of state data and metadata
+   * @details Performs deep comparison of state data
    */
   virtual bool equals(const IState& other) const = 0;
 
@@ -142,9 +139,10 @@ class IState {
   virtual bool hasVariable(const std::string& name) const = 0;
 
   /**
-   * @brief Get dimensions of state space
+   * @brief Get dimensions of a specific variable
+   * @param name Name of the variable
    * @return Const reference to vector containing dimension sizes
-   * @details Returns ordered list of dimension sizes for state space
+   * @details Returns ordered list of dimension sizes for the specified variable
    */
   virtual const std::vector<size_t>& getDimensions(
       const std::string& name) const = 0;
@@ -153,6 +151,7 @@ class IState {
    * @brief Add another state to this one
    * @param other State to add
    * @throws std::runtime_error If states are incompatible
+   * @details Performs element-wise addition with the other state
    */
   virtual void add(const IState& other) = 0;
 
@@ -160,6 +159,7 @@ class IState {
    * @brief Subtract another state from this one
    * @param other State to subtract
    * @throws std::runtime_error If states are incompatible
+   * @details Performs element-wise subtraction with the other state
    */
   virtual void subtract(const IState& other) = 0;
 
@@ -167,6 +167,7 @@ class IState {
    * @brief Multiply this state by a scalar
    * @param scalar Value to multiply by
    * @throws std::runtime_error If multiplication fails
+   * @details Performs scalar multiplication on all elements
    */
   virtual void multiply(double scalar) = 0;
 
@@ -175,6 +176,7 @@ class IState {
    * @param other State to calculate dot product with
    * @return Resulting dot product value
    * @throws std::runtime_error If dot product operation fails
+   * @details Computes the inner product between two states
    */
   virtual double dot(const IState& other) const = 0;
 
@@ -182,6 +184,7 @@ class IState {
    * @brief Calculate the norm of this state
    * @return Resulting norm value
    * @throws std::runtime_error If norm operation fails
+   * @details Computes the L2 norm (Euclidean length) of the state
    */
   virtual double norm() const = 0;
 };
