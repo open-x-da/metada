@@ -88,7 +88,7 @@ class State {
    */
   State(State&& other) noexcept {
     // Move the backend state
-    backend_(std::move(other.backend_));
+    backend_ = std::move(other.backend_);
 
     // Transfer initialization state
     initialized_ = other.initialized_;
@@ -120,7 +120,7 @@ class State {
    * @brief Clone the state
    * @return A new state with the same configuration
    */
-  State clone() const { return State(backend_.clone()); }
+  State clone() const { return State(std::move(*backend_.clone())); }
 
   // Core state operations
   bool isInitialized() const { return initialized_; }
@@ -231,7 +231,7 @@ class State {
    * @return New state containing the sum
    */
   State operator+(const State& other) const {
-    State result(*this);  // Create copy of this state
+    State result(std::move(*backend_.clone()));  // Create copy of this state
     result.backend_.add(other.backend_);
     return std::move(result);  // Explicitly mark for move
   }
@@ -242,7 +242,7 @@ class State {
    * @return New state containing the difference
    */
   State operator-(const State& other) const {
-    State result(*this);  // Create copy of this state
+    State result(std::move(*backend_.clone()));  // Create copy of this state
     result.backend_.subtract(other.backend_);
     return std::move(result);  // Explicitly mark for move
   }
@@ -273,7 +273,7 @@ class State {
    * @return New state containing the product
    */
   State operator*(double scalar) const {
-    State result(*this);  // Create copy of this state
+    State result(std::move(*backend_.clone()));  // Create copy of this state
     result.backend_.multiply(scalar);
     return std::move(result);  // Explicitly mark for move
   }

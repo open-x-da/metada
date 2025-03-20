@@ -88,13 +88,6 @@ class IState {
   IState& operator=(IState&&) = delete;
 
   /**
-   * @brief Clone the state
-   * @return Pointer to a new IState object
-   * @details Creates a deep copy of the current state
-   */
-  virtual std::unique_ptr<IState> clone() const = 0;
-
-  /**
    * @brief Initialize state from configuration
    * @param config Configuration object containing initialization parameters
    * @throws std::runtime_error If initialization fails

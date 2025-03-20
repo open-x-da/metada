@@ -94,7 +94,10 @@ class MockState : public IState {
   explicit MockState(const IConfig& config) : config_(config) { initialize(); }
 
   // Clone operation
-  MOCK_METHOD(std::unique_ptr<IState>, clone, (), (const, override));
+  std::unique_ptr<MockState> clone() const {
+    auto cloned = std::make_unique<MockState>(config_);
+    return cloned;
+  }
 
   // Core state operations
   MOCK_METHOD(void, initialize, (), (override));

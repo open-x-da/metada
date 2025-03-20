@@ -70,8 +70,12 @@ class State : public framework::IState {
   }
 
   // Clone operation
-  std::unique_ptr<IState> clone() const override {
-    return std::make_unique<State>(config_);
+  std::unique_ptr<State> clone() const {
+    auto cloned = std::make_unique<State>(config_);
+    cloned->ptr_ = ptr_;
+    cloned->variableNames_ = variableNames_;
+    cloned->dimensions_ = dimensions_;
+    return cloned;
   }
 
   /**
