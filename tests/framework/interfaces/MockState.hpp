@@ -129,11 +129,11 @@ class MockState : public IState {
     return dimensions_.at(name);
   }
 
+  // Test helper methods
   void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
     dimensions_[name] = dims;
   }
 
-  // Test helper methods
   void setVariables(const std::vector<std::string>& variables) {
     variableNames_ = variables;
   }

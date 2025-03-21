@@ -120,23 +120,14 @@ class Observation : private NonCopyable {
   }
 
   /**
-   * @brief Check if this observation equals another
-   *
-   * @param other The observation to compare with
-   * @return True if the observations have equal data, false otherwise
-   */
-  bool equals(const Observation& other) const {
-    return backend_.equals(other.backend_);
-  }
-
-  /**
    * @brief Equality operator
    *
    * @param other The observation to compare with
    * @return bool True if the observations are equal, false otherwise
    */
   bool operator==(const Observation& other) const {
-    return equals(other) && initialized_ == other.initialized_;
+    return backend_.equals(other.backend_) &&
+           initialized_ == other.initialized_;
   }
 
   /**
@@ -195,8 +186,8 @@ class Observation : private NonCopyable {
    *
    * @return Const reference to vector of dimension sizes
    */
-  const std::vector<size_t>& getDimensions() const {
-    return backend_.getDimensions();
+  const std::vector<size_t>& getDimensions(const std::string& name) const {
+    return backend_.getDimensions(name);
   }
 
   /**

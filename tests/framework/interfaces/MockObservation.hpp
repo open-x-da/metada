@@ -172,6 +172,17 @@ class MockObservation : public IObservation {
     return dimensions_.at(name);
   }
 
+  // Test helper methods
+  void setVariables(const std::vector<std::string>& variables) {
+    variableNames_ = variables;
+  }
+
+  void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
+    dimensions_[name] = dims;
+  }
+
+  void setData(const std::vector<double>& data) { data_ = data; }
+
  private:
   const IConfig& config_;
   std::vector<std::string> variableNames_;

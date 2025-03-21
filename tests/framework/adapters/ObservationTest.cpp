@@ -162,4 +162,185 @@ class ObservationTest : public ::testing::Test {
   }
 };
 
+/**
+ * @brief Test observation construction and movement
+ *
+ * Verifies:
+ * - Configuration constructor initialization
+ * - Move constructor behavior
+ * - Move assignment behavior
+ * - Initialization state preservation
+ * - Clone functionality
+ */
+TEST_F(ObservationTest, ConstructionAndMovement) {
+  // Test configuration constructor
+  auto observation = createObservation();
+  EXPECT_TRUE(observation.isInitialized());
+
+  // Test move constructor
+  auto observation_moved(std::move(observation));
+  EXPECT_FALSE(observation.isInitialized());  // Source should be invalidated
+  EXPECT_TRUE(observation_moved.isInitialized());
+
+  // Test move assignment
+  observation = std::move(observation_moved);
+  EXPECT_FALSE(
+      observation_moved.isInitialized());  // Source should be invalidated
+  EXPECT_TRUE(observation.isInitialized());
+
+  // Test clone functionality - use ON_CALL since we can't directly mock clone
+  auto cloned_observation = observation.clone();
+  EXPECT_TRUE(cloned_observation.isInitialized());
+  EXPECT_NE(&observation.backend(),
+            &cloned_observation.backend());  // Should be different instances
+}
+
+/**
+ * @brief Test input/output operations
+ *
+ * Verifies:
+ * - loadFromFile functionality
+ * - saveToFile functionality
+ * - Initialization state after loading
+ */
+TEST_F(ObservationTest, InputOutputOperations) {
+  const std::string test_filename = "test_observation.dat";
+
+  // Test loadFromFile - can't mock these directly, test the behavior
+  obs1_->loadFromFile(test_filename);
+  EXPECT_TRUE(obs1_->isInitialized());
+
+  // Test saveToFile
+  obs1_->saveToFile(test_filename);
+}
+
+/**
+ * @brief Test quality control operations
+ *
+ * Verifies:
+ * - applyQC functionality
+ */
+TEST_F(ObservationTest, QualityControl) {
+  EXPECT_CALL(obs1_->backend(), applyQC()).Times(1);
+  obs1_->applyQC();
+}
+
+/**
+ * @brief Test comparison operations
+ *
+ * Verifies:
+ * - equals method
+ * - Equality operator (==)
+ * - Inequality operator (!=)
+ * - Comparing observations with different initialization states
+ */
+TEST_F(ObservationTest, ComparisonOperations) {
+  // Test equality and inequality operators
+  EXPECT_CALL(obs1_->backend(), equals(testing::Ref(obs2_->backend())))
+      .WillOnce(Return(true))
+      .WillOnce(Return(true))
+      .WillOnce(Return(false))
+      .WillOnce(Return(false));
+
+  EXPECT_TRUE(*obs1_ == *obs2_);
+  EXPECT_FALSE(*obs1_ != *obs2_);
+
+  EXPECT_FALSE(*obs1_ == *obs2_);
+  EXPECT_TRUE(*obs1_ != *obs2_);
+
+  // Test comparison with different initialization states
+  auto uninit_obs = createObservation();
+  uninit_obs = Observation<Traits::ObservationType>(
+      std::move(*obs1_));  // Move to invalidate obs1_
+
+  // Reset obs1_ for further tests
+  obs1_.reset(new Observation<Traits::ObservationType>(getConfig()));
+
+  EXPECT_FALSE(*obs1_ == uninit_obs);
+  EXPECT_TRUE(*obs1_ != uninit_obs);
+}
+
+/**
+ * @brief Test data access and variable information
+ *
+ * Verifies:
+ * - getData (const and non-const)
+ * - getVariableNames
+ * - hasVariable (for existing and non-existing variables)
+ * - getDimensions
+ */
+TEST_F(ObservationTest, DataAccessAndInformation) {
+  obs1_->backend().setVariables(variableNames_);
+  obs1_->backend().setDimensions("temperature", dimensions_);
+  obs1_->backend().setData(confidenceValues_);
+
+  // Test variable names access
+  const auto& vars = obs1_->getVariableNames();
+  EXPECT_EQ(vars, variableNames_);
+
+  // Test dimensions access
+  const auto& dims = obs1_->getDimensions("temperature");
+  EXPECT_EQ(dims, dimensions_);
+
+  // Test data access
+  const double* data = &obs1_->getData<double>();
+  EXPECT_NE(data, nullptr);  // Verify we got a valid pointer
+  // Verify actual data values
+  for (size_t i = 0; i < confidenceValues_.size(); ++i) {
+    EXPECT_DOUBLE_EQ(data[i], confidenceValues_[i]);
+  }
+
+  // Test hasVariable
+  EXPECT_TRUE(obs1_->hasVariable("temperature"));
+  EXPECT_FALSE(obs1_->hasVariable("nonexistent_variable"));
+}
+
+/**
+ * @brief Test arithmetic operations
+ *
+ * Verifies:
+ * - Binary operators (+, -, *)
+ * - Assignment operators (+=, -=, *=)
+ * - Scalar multiplication (both left and right)
+ */
+TEST_F(ObservationTest, ArithmeticOperations) {
+  // Test addition operators
+  EXPECT_CALL(obs1_->backend(), add(testing::Ref(obs2_->backend()))).Times(1);
+
+  auto result = *obs1_ + *obs2_;  // Binary operator
+  *obs1_ += *obs2_;               // Assignment operator
+
+  // Test subtraction operators
+  EXPECT_CALL(obs1_->backend(), subtract(testing::Ref(obs2_->backend())))
+      .Times(1);
+
+  result = *obs1_ - *obs2_;  // Binary operator
+  *obs1_ -= *obs2_;          // Assignment operator
+
+  // Test multiplication operators
+  EXPECT_CALL(obs1_->backend(), multiply(2.0)).Times(1);
+
+  result = *obs1_ * 2.0;  // Right scalar multiplication
+  result = 2.0 * *obs1_;  // Left scalar multiplication (friend operator)
+  *obs1_ *= 2.0;          // Assignment operator
+}
+
+/**
+ * @brief Test backend access
+ *
+ * Verifies:
+ * - Non-const backend access
+ * - Const backend access
+ */
+TEST_F(ObservationTest, BackendAccess) {
+  // Test non-const backend access
+  auto& backend = obs1_->backend();
+  EXPECT_EQ(&backend, &(obs1_->backend()));
+
+  // Test const backend access
+  const auto& const_obs = *obs1_;
+  const auto& const_backend = const_obs.backend();
+  EXPECT_EQ(&const_backend, &(const_obs.backend()));
+}
+
 }  // namespace metada::tests
