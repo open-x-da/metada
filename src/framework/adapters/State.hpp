@@ -13,14 +13,16 @@
  * The State class template is designed to:
  * - Provide a generic interface to different state backend implementations
  * - Support initialization from configuration objects
- * - Enable core state operations (reset, validate, etc)
- * - Implement proper copy/move semantics
+ * - Enable core state operations (zero, dot, norm, etc.)
+ * - Implement proper move semantics (non-copyable)
  * - Ensure type-safe data access
- * - Support metadata management
+ * - Support arithmetic operations (+, -, *, etc.)
  * - Allow state information queries
+ * - Support increment creation and application
  *
  * @see IState
  * @see Config
+ * @see Increment
  */
 
 #pragma once
@@ -76,8 +78,10 @@ concept StateBackend = HasClone<T> && HasGetData<T> && HasGetVariableNames<T> &&
  * type-safe interface for all state operations. It delegates operations to
  * the backend while adding:
  * - Type safety through templates
- * - Proper copy/move semantics
+ * - Proper move semantics (non-copyable)
  * - Consistent interface across different backends
+ * - Support for arithmetic operations
+ * - Integration with increment operations
  *
  * The backend must implement the IState interface to provide the core
  * functionality, while this wrapper adds type safety and convenience.
@@ -86,13 +90,14 @@ concept StateBackend = HasClone<T> && HasGetData<T> && HasGetVariableNames<T> &&
  * @code
  * Config<T> config;
  * State<Backend> state(config);
- * state.reset();
+ * state.zero();
  * auto& data = state.getData<double>();
  * @endcode
  *
  * @tparam Backend The state backend type that implements IState interface
  *
  * @see IState
+ * @see Increment
  */
 template <typename Backend>
   requires StateBackend<Backend>
@@ -151,6 +156,10 @@ class State : private NonCopyable {
   State clone() const { return State(std::move(*backend_.clone())); }
 
   // Core state operations
+  /**
+   * @brief Check if the state is initialized
+   * @return true if initialized, false otherwise
+   */
   bool isInitialized() const { return initialized_; }
 
   /**
@@ -235,6 +244,7 @@ class State : private NonCopyable {
 
   /**
    * @brief Get dimensions of state space
+   * @param name Name of the variable to get dimensions for
    * @return Const reference to vector of dimension sizes
    */
   const std::vector<size_t>& getDimensions(const std::string& name) const {
@@ -349,7 +359,10 @@ class State : private NonCopyable {
   State& applyIncrement(const IncrementType& increment);
 
  private:
-  // Private constructor to be used internally by clone
+  /**
+   * @brief Private constructor to be used internally by clone
+   * @param backend Backend instance to move from
+   */
   explicit State(Backend&& backend)
       : backend_(std::move(backend)), initialized_(true) {}
 
