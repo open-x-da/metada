@@ -12,6 +12,35 @@
 
 namespace metada::framework {
 
+// Concepts to check backend requirements
+template <typename T>
+concept HasClone = requires(const T& t) {
+  { t.clone() } -> std::convertible_to<std::unique_ptr<T>>;
+};
+
+template <typename T>
+concept HasGetData = requires(T& t, const T& ct) {
+  { t.getData() } -> std::same_as<void*>;
+  { ct.getData() } -> std::same_as<const void*>;
+};
+
+template <typename T>
+concept HasGetVariableNames = requires(const T& t) {
+  { t.getVariableNames() } -> std::same_as<const std::vector<std::string>&>;
+};
+
+template <typename T>
+concept HasGetDimensions = requires(const T& t) {
+  {
+    t.getDimensions(std::string{})
+  } -> std::same_as<const std::vector<size_t>&>;
+};
+
+// Combined concept for all backend requirements
+template <typename T>
+concept ObservationBackend = HasClone<T> && HasGetData<T> &&
+                             HasGetVariableNames<T> && HasGetDimensions<T>;
+
 /**
  * @brief Adapter class for observation implementations in data assimilation
  * systems
@@ -35,6 +64,7 @@ namespace metada::framework {
  * @tparam Backend The backend implementation type
  */
 template <typename Backend>
+  requires ObservationBackend<Backend>
 class Observation : private NonCopyable {
  public:
   /** @brief Default constructor is deleted since we need a backend */
