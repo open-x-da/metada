@@ -108,46 +108,6 @@ class IState {
   virtual bool equals(const IState& other) const = 0;
 
   /**
-   * @brief Get raw pointer to underlying data
-   * @return Void pointer to data
-   * @throws std::runtime_error If data access fails
-   * @details Provides direct access to underlying state data
-   */
-  virtual void* getData() = 0;
-
-  /**
-   * @brief Get const raw pointer to underlying data
-   * @return Const void pointer to data
-   * @throws std::runtime_error If data access fails
-   * @details Provides read-only access to underlying state data
-   */
-  virtual const void* getData() const = 0;
-
-  /**
-   * @brief Get names of state variables
-   * @return Const reference to vector containing variable names
-   * @details Returns ordered list of state variable identifiers
-   */
-  virtual const std::vector<std::string>& getVariableNames() const = 0;
-
-  /**
-   * @brief Check if the state contains a specific variable
-   * @param name Name of the variable to check
-   * @return true if the variable exists in the state, false otherwise
-   * @details Verifies if a named variable is present in the state
-   */
-  virtual bool hasVariable(const std::string& name) const = 0;
-
-  /**
-   * @brief Get dimensions of a specific variable
-   * @param name Name of the variable
-   * @return Const reference to vector containing dimension sizes
-   * @details Returns ordered list of dimension sizes for the specified variable
-   */
-  virtual const std::vector<size_t>& getDimensions(
-      const std::string& name) const = 0;
-
-  /**
    * @brief Add another state to this one
    * @param other State to add
    * @throws std::runtime_error If states are incompatible

@@ -190,19 +190,19 @@ class State : public framework::IState {
    * @brief Get raw pointer to underlying data
    * @return Void pointer to data
    */
-  void* getData() override { return ptr_.get(); }
+  void* getData() { return ptr_.get(); }
 
   /**
    * @brief Get const raw pointer to underlying data
    * @return Const void pointer to data
    */
-  const void* getData() const override { return ptr_.get(); }
+  const void* getData() const { return ptr_.get(); }
 
   /**
    * @brief Get names of state variables
    * @return Const reference to vector containing variable names
    */
-  const std::vector<std::string>& getVariableNames() const override {
+  const std::vector<std::string>& getVariableNames() const {
     return variableNames_;
   }
 
@@ -211,7 +211,7 @@ class State : public framework::IState {
    * @param name Name of the variable to check
    * @return true if the variable exists in the state, false otherwise
    */
-  bool hasVariable(const std::string& name) const override {
+  bool hasVariable(const std::string& name) const {
     for (const auto& varName : variableNames_) {
       if (varName == name) {
         return true;
@@ -225,7 +225,7 @@ class State : public framework::IState {
    * @return Const reference to vector containing dimension sizes
    */
   const std::vector<size_t>& getDimensions(
-      [[maybe_unused]] const std::string& variableName) const override {
+      [[maybe_unused]] const std::string& variableName) const {
     return dimensions_;
   }
 

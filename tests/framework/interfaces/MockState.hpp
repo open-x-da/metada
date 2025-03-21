@@ -24,11 +24,12 @@
 
 #include <gmock/gmock.h>
 
+#include <unordered_map>
+
 #include "IState.hpp"
 
 namespace metada::tests {
 
-using framework::Config;
 using framework::IConfig;
 using framework::IState;
 
@@ -41,26 +42,26 @@ using framework::IState;
  *
  * @par Core Operations
  * - initialize() - Initialize state from configuration
- * - reset() - Reset state to initial values
- * - validate() - Validate state consistency
- * - isInitialized() - Check initialization status
+ * - zero() - Set all values to zero
  *
- * @par Copy/Move Operations
- * - copyFrom() - Copy state from another instance
- * - moveFrom() - Move state from another instance
+ * @par Comparison Operations
  * - equals() - Compare equality with another state
+ *
+ * @par Arithmetic Operations
+ * - add() - Add another state to this one
+ * - subtract() - Subtract another state from this one
+ * - multiply() - Multiply this state by a scalar
+ * - dot() - Calculate dot product with another state
+ * - norm() - Calculate the norm of this state
  *
  * @par Data Access
  * - getData() - Get raw pointer to data
  * - getData() const - Get const raw pointer to data
  *
- * @par Metadata Operations
- * - setMetadata() - Set metadata key-value pair
- * - getMetadata() - Get metadata value by key
- *
  * @par State Information
  * - getVariableNames() - Get names of state variables
- * - getDimensions() - Get dimensions of state space
+ * - hasVariable() - Check if state contains a specific variable
+ * - getDimensions() - Get dimensions of state space for a variable
  *
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
@@ -106,17 +107,6 @@ class MockState : public IState {
   // Compare operations
   MOCK_METHOD(bool, equals, (const IState& other), (const, override));
 
-  // Data access
-  MOCK_METHOD(void*, getData, (), (override));
-  MOCK_METHOD(const void*, getData, (), (const, override));
-
-  // State information queries
-  MOCK_METHOD(const std::vector<std::string>&, getVariableNames, (),
-              (const, override));
-  MOCK_METHOD(bool, hasVariable, (const std::string& name), (const, override));
-  MOCK_METHOD(const std::vector<size_t>&, getDimensions,
-              (const std::string& name), (const, override));
-
   // Arithmetic operations
   MOCK_METHOD(void, add, (const IState& other), (override));
   MOCK_METHOD(void, subtract, (const IState& other), (override));
@@ -124,11 +114,55 @@ class MockState : public IState {
   MOCK_METHOD(double, dot, (const IState& other), (const, override));
   MOCK_METHOD(double, norm, (), (const, override));
 
+  // Data access
+
+  void* getData() { return data_.empty() ? nullptr : data_.data(); }
+
+  const void* getData() const { return data_.empty() ? nullptr : data_.data(); }
+
+  // State information queries
+  const std::vector<std::string>& getVariableNames() const {
+    return variableNames_;
+  }
+
+  bool hasVariable(const std::string& name) const {
+    return std::find(variableNames_.begin(), variableNames_.end(), name) !=
+           variableNames_.end();
+  }
+
+  const std::vector<size_t>& getDimensions(const std::string& name) const {
+    auto it = dimensions_.find(name);
+    if (it == dimensions_.end()) {
+      throw std::runtime_error("Variable " + name +
+                               " not found in state dimensions");
+    }
+    return it->second;
+  }
+
+  // Helper method to set dimensions for a variable
+  void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
+    if (!hasVariable(name)) {
+      throw std::runtime_error(
+          "Cannot set dimensions for non-existent variable: " + name);
+    }
+    dimensions_[name] = dims;
+  }
+
+  // Test helper methods
+  void setVariables(const std::vector<std::string>& variables) {
+    variableNames_ = variables;
+  }
+
+  void setData(const std::vector<double>& data) { data_ = data; }
+
   // Get the config
   const IConfig& config() const { return config_; }
 
  private:
   const IConfig& config_;
+  std::vector<std::string> variableNames_;
+  std::unordered_map<std::string, std::vector<size_t>> dimensions_;
+  std::vector<double> data_;
 };
 
 }  // namespace metada::tests

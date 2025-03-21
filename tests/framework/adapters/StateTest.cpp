@@ -64,9 +64,6 @@ class StateTest : public ::testing::Test {
  protected:
   std::unique_ptr<ApplicationContext<Traits>>
       context_;  ///< Application context for testing
-  std::vector<std::string> variable_names_;  ///< Test variable names
-  std::vector<size_t> dimensions_;           ///< Test dimensions
-  std::vector<double> test_data_;            ///< Test data array
 
   // Common State objects for tests
   std::unique_ptr<State<Traits::StateType>> state1_;  ///< First test state
@@ -86,23 +83,9 @@ class StateTest : public ::testing::Test {
     // Create a new application context for testing
     context_ = std::make_unique<ApplicationContext<Traits>>("StateTest");
 
-    // Setup common test data
-    variable_names_ = {"temperature", "pressure"};
-    dimensions_ = {10, 20};
-    test_data_.resize(10);  // Example data
-    for (int i = 0; i < 10; i++) test_data_[i] = i;
-
     // Create common State objects
     state1_ = std::make_unique<State<Traits::StateType>>(getConfig());
     state2_ = std::make_unique<State<Traits::StateType>>(getConfig());
-
-    // Setup common expectations for test data access
-    ON_CALL(state1_->backend(), getData())
-        .WillByDefault(Return(test_data_.data()));
-    ON_CALL(state1_->backend(), getVariableNames())
-        .WillByDefault(ReturnRef(variable_names_));
-    ON_CALL(state1_->backend(), getDimensions(testing::Ref(variable_names_[0])))
-        .WillByDefault(ReturnRef(dimensions_));
   }
 
   /**
@@ -114,9 +97,6 @@ class StateTest : public ::testing::Test {
     state2_.reset();
 
     // Then clean up other resources
-    test_data_.clear();
-    dimensions_.clear();
-    variable_names_.clear();
     context_.reset();
   }
 
@@ -209,41 +189,91 @@ TEST_F(StateTest, EqualityComparison) {
  * @brief Test data access
  */
 TEST_F(StateTest, DataAccess) {
-  // We've already set up the default behavior in SetUp()
+  // Initialize test data in the state
+  std::vector<double> expected_data = {1.0, 2.0, 3.0, 4.0, 5.0};
+  state1_->backend().setData(expected_data);
+
+  // Test non-const data access
   double* data = &state1_->getData<double>();
-  EXPECT_EQ(data, test_data_.data());
+  EXPECT_NE(data, nullptr);  // Verify we got a valid pointer
+  // Verify actual data values
+  for (size_t i = 0; i < expected_data.size(); ++i) {
+    EXPECT_DOUBLE_EQ(data[i], expected_data[i]);
+  }
+
+  // Test const data access
+  const auto& const_state = *state1_;
+  const double* const_data = &const_state.getData<double>();
+  EXPECT_NE(const_data, nullptr);  // Verify we got a valid pointer
+  // Verify actual data values
+  for (size_t i = 0; i < expected_data.size(); ++i) {
+    EXPECT_DOUBLE_EQ(const_data[i], expected_data[i]);
+  }
+
+  // Test data modification through non-const access
+  data[0] = 10.0;
+  EXPECT_DOUBLE_EQ(state1_->getData<double>(), 10.0);
+  EXPECT_DOUBLE_EQ(data[0], 10.0);  // Verify both access paths show the change
+
+  // Test empty data case
+  state1_->backend().setData({});
+  EXPECT_EQ(&state1_->getData<double>(), nullptr);
 }
 
 /**
  * @brief Test state information methods
  */
 TEST_F(StateTest, StateInformation) {
-  // Setup expectations for getVariableNames
-  EXPECT_CALL(state1_->backend(), getVariableNames())
-      .WillRepeatedly(ReturnRef(variable_names_));
+  // Setup test variables and dimensions
+  std::vector<std::string> expected_vars = {"temperature", "pressure",
+                                            "humidity"};
+  state1_->backend().setVariables(expected_vars);
 
-  // Test getVariableNames method
+  // Test getVariableNames
   const auto& vars = state1_->getVariableNames();
-  EXPECT_EQ(vars, variable_names_);
-  EXPECT_EQ(vars.size(), 2);
+  EXPECT_EQ(vars, expected_vars);
+  EXPECT_EQ(vars.size(), 3);
   EXPECT_EQ(vars[0], "temperature");
   EXPECT_EQ(vars[1], "pressure");
+  EXPECT_EQ(vars[2], "humidity");
 
-  // Setup expectations for getDimensions
-  EXPECT_CALL(state1_->backend(), getDimensions("temperature"))
-      .WillRepeatedly(ReturnRef(dimensions_));
+  // Setup and test dimensions for different variables
+  std::vector<size_t> temp_dims = {10, 20, 30};  // 3D temperature field
+  std::vector<size_t> pressure_dims = {10, 20};  // 2D pressure field
+  std::vector<size_t> humidity_dims = {100};     // 1D humidity field
 
-  // Test getDimensions method
-  const auto& dims = state1_->getDimensions("temperature");
-  EXPECT_EQ(dims, dimensions_);
-  EXPECT_EQ(dims.size(), 2);
-  EXPECT_EQ(dims[0], 10);
-  EXPECT_EQ(dims[1], 20);
+  state1_->backend().setDimensions("temperature", temp_dims);
+  state1_->backend().setDimensions("pressure", pressure_dims);
+  state1_->backend().setDimensions("humidity", humidity_dims);
 
-  // Test hasVariable method
+  // Test getDimensions for each variable
+  const auto& temp_dimensions = state1_->getDimensions("temperature");
+  EXPECT_EQ(temp_dimensions, temp_dims);
+  EXPECT_EQ(temp_dimensions.size(), 3);
+  EXPECT_EQ(temp_dimensions[0], 10);
+  EXPECT_EQ(temp_dimensions[1], 20);
+  EXPECT_EQ(temp_dimensions[2], 30);
+
+  const auto& pressure_dimensions = state1_->getDimensions("pressure");
+  EXPECT_EQ(pressure_dimensions, pressure_dims);
+  EXPECT_EQ(pressure_dimensions.size(), 2);
+
+  const auto& humidity_dimensions = state1_->getDimensions("humidity");
+  EXPECT_EQ(humidity_dimensions, humidity_dims);
+  EXPECT_EQ(humidity_dimensions.size(), 1);
+
+  // Test hasVariable
   EXPECT_TRUE(state1_->hasVariable("temperature"));
   EXPECT_TRUE(state1_->hasVariable("pressure"));
+  EXPECT_TRUE(state1_->hasVariable("humidity"));
   EXPECT_FALSE(state1_->hasVariable("nonexistent_variable"));
+
+  // Test error cases
+  EXPECT_THROW(state1_->getDimensions("nonexistent_variable"),
+               std::runtime_error);
+  EXPECT_THROW(
+      state1_->backend().setDimensions("nonexistent_variable", {1, 2, 3}),
+      std::runtime_error);
 }
 
 /**
