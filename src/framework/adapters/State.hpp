@@ -252,18 +252,6 @@ class State : private NonCopyable {
   }
 
   /**
-   * @brief Get direct access to the backend instance
-   * @return Reference to backend implementation
-   */
-  Backend& backend() { return backend_; }
-
-  /**
-   * @brief Get const access to the backend instance
-   * @return Const reference to backend implementation
-   */
-  const Backend& backend() const { return backend_; }
-
-  /**
    * @brief Addition operator
    * @param other State to add
    * @return New state containing the sum
@@ -271,18 +259,7 @@ class State : private NonCopyable {
   State operator+(const State& other) const {
     State result(std::move(*backend_.clone()));  // Create copy of this state
     result.backend_.add(other.backend_);
-    return std::move(result);  // Explicitly mark for move
-  }
-
-  /**
-   * @brief Subtraction operator
-   * @param other State to subtract
-   * @return New state containing the difference
-   */
-  State operator-(const State& other) const {
-    State result(std::move(*backend_.clone()));  // Create copy of this state
-    result.backend_.subtract(other.backend_);
-    return std::move(result);  // Explicitly mark for move
+    return result;  // NRVO will handle this
   }
 
   /**
@@ -293,6 +270,17 @@ class State : private NonCopyable {
   State& operator+=(const State& other) {
     backend_.add(other.backend_);
     return *this;
+  }
+
+  /**
+   * @brief Subtraction operator
+   * @param other State to subtract
+   * @return New state containing the difference
+   */
+  State operator-(const State& other) const {
+    State result(std::move(*backend_.clone()));  // Create copy of this state
+    result.backend_.subtract(other.backend_);
+    return result;  // NRVO will handle this
   }
 
   /**
@@ -313,7 +301,7 @@ class State : private NonCopyable {
   State operator*(double scalar) const {
     State result(std::move(*backend_.clone()));  // Create copy of this state
     result.backend_.multiply(scalar);
-    return std::move(result);  // Explicitly mark for move
+    return result;  // NRVO will handle this
   }
 
   /**
@@ -357,6 +345,18 @@ class State : private NonCopyable {
    */
   template <typename IncrementType>
   State& applyIncrement(const IncrementType& increment);
+
+  /**
+   * @brief Get direct access to the backend instance
+   * @return Reference to backend implementation
+   */
+  Backend& backend() { return backend_; }
+
+  /**
+   * @brief Get const access to the backend instance
+   * @return Const reference to backend implementation
+   */
+  const Backend& backend() const { return backend_; }
 
  private:
   /**

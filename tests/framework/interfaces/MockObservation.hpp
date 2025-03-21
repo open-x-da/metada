@@ -28,11 +28,9 @@
 #include <vector>
 
 #include "IObservation.hpp"
-#include "utils/config/Config.hpp"
 
 namespace metada::tests {
 
-using metada::framework::Config;
 using metada::framework::IConfig;
 using metada::framework::IObservation;
 
@@ -97,28 +95,29 @@ class MockObservation : public IObservation {
   // Disable default constructor
   MockObservation() = delete;
 
+  // Destructor
+  ~MockObservation() override = default;
+
+  // Copy constructor
+  MockObservation(const MockObservation& other) = delete;
+
   /**
    * @brief Constructor that initializes observation from config
    */
-  explicit MockObservation(const Config<MockConfig>& config) : config_(config) {
+  explicit MockObservation(const IConfig& config) : config_(config) {
     initialize();
   }
 
   /**
-   * @brief Copy constructor
+   * @brief Copy assignment operator
    */
-  MockObservation(const MockObservation& other) : config_(other.config_) {}
+  MockObservation& operator=(const MockObservation& other) = delete;
 
   /**
    * @brief Move constructor
    */
-  MockObservation(MockObservation&& other) noexcept : config_(other.config_) {}
-
-  /**
-   * @brief Copy assignment operator
-   */
-  MockObservation& operator=([[maybe_unused]] const MockObservation& other) {
-    return *this;
+  MockObservation(MockObservation&& other) noexcept : config_(other.config_) {
+    // Explicit Move Constructor (Even Without Data Members)
   }
 
   /**
@@ -126,7 +125,14 @@ class MockObservation : public IObservation {
    */
   MockObservation& operator=(
       [[maybe_unused]] MockObservation&& other) noexcept {
+    // Explicit Move Assignment (Even Without Data Members)
     return *this;
+  }
+
+  // Clone operation
+  std::unique_ptr<MockObservation> clone() const {
+    auto cloned = std::make_unique<MockObservation>(config_);
+    return cloned;
   }
 
   // Lifecycle management
@@ -140,11 +146,37 @@ class MockObservation : public IObservation {
   MOCK_METHOD(void, subtract, (const IObservation& other), (override));
   MOCK_METHOD(void, multiply, (double scalar), (override));
 
+  void loadFromFile([[maybe_unused]] const std::string& filename) {
+    // TODO: Implement
+  }
+
+  void saveToFile([[maybe_unused]] const std::string& filename) const {
+    // TODO: Implement
+  }
+
   // Get the config
-  const Config<MockConfig>& config() const { return config_; }
+  const IConfig& config() const { return config_; }
+
+  // Get the data
+  void* getData() { return data_.empty() ? nullptr : data_.data(); }
+
+  const void* getData() const { return data_.empty() ? nullptr : data_.data(); }
+
+  // Get the variable names
+  const std::vector<std::string>& getVariableNames() const {
+    return variableNames_;
+  }
+
+  // Get the dimensions
+  const std::vector<size_t>& getDimensions(const std::string& name) const {
+    return dimensions_.at(name);
+  }
 
  private:
-  const Config<MockConfig>& config_;
+  const IConfig& config_;
+  std::vector<std::string> variableNames_;
+  std::unordered_map<std::string, std::vector<size_t>> dimensions_;
+  std::vector<double> data_;
 };
 
 }  // namespace metada::tests

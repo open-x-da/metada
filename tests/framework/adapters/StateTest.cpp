@@ -270,10 +270,7 @@ TEST_F(StateTest, StateInformation) {
 
   // Test error cases
   EXPECT_THROW(state1_->getDimensions("nonexistent_variable"),
-               std::runtime_error);
-  EXPECT_THROW(
-      state1_->backend().setDimensions("nonexistent_variable", {1, 2, 3}),
-      std::runtime_error);
+               std::out_of_range);
 }
 
 /**

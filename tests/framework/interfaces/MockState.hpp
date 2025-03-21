@@ -126,21 +126,10 @@ class MockState : public IState {
   }
 
   const std::vector<size_t>& getDimensions(const std::string& name) const {
-    auto it = dimensions_.find(name);
-    if (it == dimensions_.end()) {
-      throw std::runtime_error("Variable " + name +
-                               " not found in state dimensions");
-    }
-    return it->second;
+    return dimensions_.at(name);
   }
 
-  // Helper method to set dimensions for a variable
   void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
-    if (std::find(variableNames_.begin(), variableNames_.end(), name) ==
-        variableNames_.end()) {
-      throw std::runtime_error(
-          "Cannot set dimensions for non-existent variable: " + name);
-    }
     dimensions_[name] = dims;
   }
 

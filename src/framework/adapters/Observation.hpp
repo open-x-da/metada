@@ -19,8 +19,9 @@ namespace metada::framework {
  * This template class provides a type-safe interface for handling observational
  * data using a backend that implements the IObservation interface.
  *
- * Unlike the previous design, observations are now copyable to allow for
- * operations like ensemble generation, observation perturbation, and
+ * The Observation class inherits from NonCopyable to prevent unintended
+ * copying, but provides explicit clone functionality for when copies are needed
+ * in operations like ensemble generation, observation perturbation, and
  * observation-space calculations in data assimilation algorithms.
  *
  * Features:
@@ -28,6 +29,8 @@ namespace metada::framework {
  * - Delegation to backend implementation
  * - Comprehensive error handling
  * - Arithmetic operations for observation-space calculations
+ * - Explicit cloning mechanism for controlled copying
+ * - Move semantics for efficient resource management
  *
  * @tparam Backend The backend implementation type
  */
@@ -51,131 +54,79 @@ class Observation : private NonCopyable {
       : backend_(config.backend()), initialized_(true) {}
 
   /**
-   * @brief Constructor with backend rvalue reference
-   *
-   * This constructor takes ownership of the backend instance.
-   * Note: The backend must be already initialized with a config.
-   */
-  explicit Observation(Backend&& backend)
-      : backend_(std::move(backend)), initialized_(true) {}
-
-  /**
-   * @brief Constructor with backend lvalue reference
-   *
-   * This constructor is particularly useful for shared_ptr backends or
-   * when working with mock objects that can't be moved.
-   * Note: The backend must be already initialized with a config.
-   */
-  explicit Observation(Backend& backend)
-      : backend_(backend), initialized_(true) {}
-
-  /**
-   * @brief Copy constructor
-   */
-  Observation(const Observation& other) : backend_(other.backend_.config()) {
-    backend_.copyFrom(other.backend_);
-    initialized_ = other.initialized_;
-  }
-
-  /**
    * @brief Move constructor
+   *
+   * Transfers ownership of the backend from another observation
+   * and updates initialization state.
    */
   Observation(Observation&& other) noexcept
-      : backend_(other.backend_.config()) {
-    backend_.moveFrom(std::move(other.backend_));
-    initialized_ = other.initialized_;
+      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
     other.initialized_ = false;
   }
 
   /**
-   * @brief Copy assignment operator
-   */
-  Observation& operator=(const Observation& other) {
-    if (this != &other) {
-      backend_.copyFrom(other.backend_);
-      initialized_ = other.initialized_;
-    }
-    return *this;
-  }
-
-  /**
    * @brief Move assignment operator
+   *
+   * Transfers ownership of the backend from another observation
+   * and updates initialization state.
+   *
+   * @return Reference to this observation after assignment
    */
   Observation& operator=(Observation&& other) noexcept {
     if (this != &other) {
-      backend_.moveFrom(std::move(other.backend_));
+      backend_ = std::move(other.backend_);
       initialized_ = other.initialized_;
       other.initialized_ = false;
     }
     return *this;
   }
 
-  /** @brief Access to backend instance */
-  Backend& backend() { return backend_; }
-  const Backend& backend() const { return backend_; }
-
-  // Lifecycle management
-  Observation& reset() {
-    backend_.reset();
-    return *this;
+  /**
+   * @brief Clone the observation
+   * @return A new observation with the same data and configuration
+   */
+  Observation clone() const {
+    return Observation(std::move(*backend_.clone()));
   }
 
-  void validate() const { backend_.validate(); }
-
+  /**
+   * @brief Check if the observation is properly initialized
+   * @return True if initialized, false otherwise
+   */
   bool isInitialized() const { return initialized_; }
 
-  // Copy/Move operations
-  Observation& copyFrom(const Observation& other) {
-    backend_.copyFrom(other.backend_);
-    initialized_ = other.initialized_;
-    return *this;
+  /**
+   * @brief Apply quality control procedures to the observation
+   */
+  void applyQC() { backend_.applyQC(); }
+
+  /**
+   * @brief Load observation data from a file
+   *
+   * @param filename Path to the file containing observation data
+   */
+  void loadFromFile(const std::string& filename) {
+    backend_.loadFromFile(filename);
+    initialized_ = true;
   }
 
-  Observation& moveFrom(Observation&& other) {
-    backend_.moveFrom(std::move(other.backend_));
-    initialized_ = other.initialized_;
-    other.initialized_ = false;
-    return *this;
+  /**
+   * @brief Save observation data to a file
+   *
+   * @param filename Path where observation data will be saved
+   */
+  void saveToFile(const std::string& filename) const {
+    backend_.saveToFile(filename);
   }
 
+  /**
+   * @brief Check if this observation equals another
+   *
+   * @param other The observation to compare with
+   * @return True if the observations have equal data, false otherwise
+   */
   bool equals(const Observation& other) const {
     return backend_.equals(other.backend_);
-  }
-
-  /**
-   * @brief Addition assignment operator
-   *
-   * @param other The observation to add to this one
-   * @return Observation& Reference to this observation after addition
-   * @throws std::runtime_error If either observation is invalid
-   */
-  Observation& operator+=(const Observation& other) {
-    backend_.add(other.backend_);
-    return *this;
-  }
-
-  /**
-   * @brief Subtraction assignment operator
-   *
-   * @param other The observation to subtract from this one
-   * @return Observation& Reference to this observation after subtraction
-   * @throws std::runtime_error If either observation is invalid
-   */
-  Observation& operator-=(const Observation& other) {
-    backend_.subtract(other.backend_);
-    return *this;
-  }
-
-  /**
-   * @brief Multiplication assignment operator
-   *
-   * @param scalar The scalar value to multiply this observation by
-   * @return Observation& Reference to this observation after multiplication
-   * @throws std::runtime_error If the observation is invalid
-   */
-  Observation& operator*=(double scalar) {
-    backend_.multiply(scalar);
-    return *this;
   }
 
   /**
@@ -184,7 +135,9 @@ class Observation : private NonCopyable {
    * @param other The observation to compare with
    * @return bool True if the observations are equal, false otherwise
    */
-  bool operator==(const Observation& other) const { return equals(other); }
+  bool operator==(const Observation& other) const {
+    return equals(other) && initialized_ == other.initialized_;
+  }
 
   /**
    * @brief Inequality operator
@@ -192,137 +145,158 @@ class Observation : private NonCopyable {
    * @param other The observation to compare with
    * @return bool True if the observations are not equal, false otherwise
    */
-  bool operator!=(const Observation& other) const { return !equals(other); }
+  bool operator!=(const Observation& other) const { return !(*this == other); }
 
-  // Type-safe data access
+  /**
+   * @brief Get typed access to the underlying data
+   *
+   * @tparam T The expected data type
+   * @return Reference to the data cast to the specified type
+   */
   template <typename T>
   T& getData() {
     return *static_cast<T*>(backend_.getData());
   }
 
+  /**
+   * @brief Get const typed access to the underlying data
+   *
+   * @tparam T The expected data type
+   * @return Const reference to the data cast to the specified type
+   */
   template <typename T>
   const T& getData() const {
     return *static_cast<const T*>(backend_.getData());
   }
 
-  template <typename T>
-  T& getUncertainty() {
-    return *static_cast<T*>(backend_.getUncertainty());
-  }
-
-  template <typename T>
-  const T& getUncertainty() const {
-    return *static_cast<const T*>(backend_.getUncertainty());
-  }
-
-  size_t getSize() const { return backend_.getSize(); }
-
-  // Metadata operations
-  Observation& setMetadata(const std::string& key, const std::string& value) {
-    backend_.setMetadata(key, value);
-    return *this;
-  }
-
-  std::string getMetadata(const std::string& key) const {
-    return backend_.getMetadata(key);
-  }
-
-  bool hasMetadata(const std::string& key) const {
-    return backend_.hasMetadata(key);
-  }
-
-  // Observation information
+  /**
+   * @brief Get the names of variables in this observation
+   *
+   * @return Const reference to vector of variable names
+   */
   const std::vector<std::string>& getVariableNames() const {
     return backend_.getVariableNames();
   }
 
+  /**
+   * @brief Check if a specific variable exists in this observation
+   *
+   * @param name Name of the variable to check
+   * @return True if the variable exists, false otherwise
+   */
   bool hasVariable(const std::string& name) const {
-    return backend_.hasVariable(name);
+    const auto& variables = getVariableNames();
+    return std::find(variables.begin(), variables.end(), name) !=
+           variables.end();
   }
 
+  /**
+   * @brief Get the dimensions of this observation
+   *
+   * @return Const reference to vector of dimension sizes
+   */
   const std::vector<size_t>& getDimensions() const {
     return backend_.getDimensions();
   }
 
-  // Spatiotemporal metadata
-  Observation& setLocations(const std::vector<std::vector<double>>& locations) {
-    backend_.setLocations(locations);
-    return *this;
+  /**
+   * @brief Addition operator
+   * @param other The observation to add to this one
+   * @return Observation The result of the addition
+   */
+  Observation operator+(const Observation& other) const {
+    Observation result(std::move(*backend_.clone()));
+    result.backend_.add(other.backend_);
+    return result;
   }
 
-  Observation& setTimes(const std::vector<double>& timestamps) {
-    backend_.setTimes(timestamps);
-    return *this;
-  }
-
-  const std::vector<std::vector<double>>& getLocations() const {
-    return backend_.getLocations();
-  }
-
-  const std::vector<double>& getTimes() const { return backend_.getTimes(); }
-
-  // Arithmetic operations
-  Observation& add(const Observation& other) {
+  /**
+   * @brief Compound addition operator
+   *
+   * @param other The observation to add to this one
+   * @return Reference to this observation after addition
+   */
+  Observation& operator+=(const Observation& other) {
     backend_.add(other.backend_);
     return *this;
   }
 
-  Observation& subtract(const Observation& other) {
+  /**
+   * @brief Subtraction operator
+   * @param other The observation to subtract from this one
+   * @return Observation The result of the subtraction
+   */
+  Observation operator-(const Observation& other) const {
+    Observation result(std::move(*backend_.clone()));
+    result.backend_.subtract(other.backend_);
+    return result;
+  }
+
+  /**
+   * @brief Compound subtraction operator
+   *
+   * @param other The observation to subtract from this one
+   * @return Reference to this observation after subtraction
+   */
+  Observation& operator-=(const Observation& other) {
     backend_.subtract(other.backend_);
     return *this;
   }
 
-  Observation& multiply(double scalar) {
+  /**
+   * @brief Multiplication operator
+   * @param scalar The scalar value to multiply this observation by
+   * @return Observation The result of the multiplication
+   */
+  Observation operator*(double scalar) const {
+    Observation result(std::move(*backend_.clone()));
+    result.backend_.multiply(scalar);
+    return result;
+  }
+
+  /**
+   * @brief Compound multiplication operator
+   *
+   * @param scalar The scalar value to multiply this observation by
+   * @return Reference to this observation after multiplication
+   */
+  Observation& operator*=(double scalar) {
     backend_.multiply(scalar);
     return *this;
   }
 
-  Observation operator+(const Observation& other) const {
-    Observation result(*this);
-    result.add(other);
-    return result;
+  /**
+   * @brief Multiplication operator with scalar
+   * @param scalar The scalar value to multiply this observation by
+   * @param obs The observation to multiply
+   * @return Observation The result of the multiplication
+   */
+  friend Observation operator*(double scalar, const Observation& obs) {
+    return obs * scalar;
   }
 
-  Observation operator-(const Observation& other) const {
-    Observation result(*this);
-    result.subtract(other);
-    return result;
-  }
+  /**
+   * @brief Access to backend instance
+   * @return Backend& Reference to the backend instance
+   */
+  Backend& backend() { return backend_; }
 
-  Observation operator*(double scalar) const {
-    Observation result(*this);
-    result.multiply(scalar);
-    return result;
-  }
-
-  // Quality control
-  Observation& setQualityFlags(const std::vector<int>& flags) {
-    backend_.setQualityFlags(flags);
-    return *this;
-  }
-
-  const std::vector<int>& getQualityFlags() const {
-    return backend_.getQualityFlags();
-  }
-
-  Observation& setConfidenceValues(const std::vector<double>& values) {
-    backend_.setConfidenceValues(values);
-    return *this;
-  }
-
-  const std::vector<double>& getConfidenceValues() const {
-    return backend_.getConfidenceValues();
-  }
+  /**
+   * @brief Access to backend instance
+   * @return const Backend& Reference to the backend instance
+   */
+  const Backend& backend() const { return backend_; }
 
  private:
+  /**
+   * @brief Private constructor to be used internally by clone
+   * @param backend Backend instance to move from
+   */
+  explicit Observation(Backend&& backend)
+      : backend_(std::move(backend)), initialized_(true) {}
+
   Backend backend_;          ///< Backend implementation instance
   bool initialized_{false};  ///< Initialization flag
 };
-
-// Free function for scalar multiplication
-template <typename Backend>
-Observation<Backend> operator*(double scalar, const Observation<Backend>& obs) {
-  return obs * scalar;
-}
 
 }  // namespace metada::framework
