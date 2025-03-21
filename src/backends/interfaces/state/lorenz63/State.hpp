@@ -207,20 +207,6 @@ class State : public framework::IState {
   }
 
   /**
-   * @brief Check if the state contains a specific variable
-   * @param name Name of the variable to check
-   * @return true if the variable exists in the state, false otherwise
-   */
-  bool hasVariable(const std::string& name) const {
-    for (const auto& varName : variableNames_) {
-      if (varName == name) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * @brief Get dimensions of state space
    * @return Const reference to vector containing dimension sizes
    */

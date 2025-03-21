@@ -125,11 +125,6 @@ class MockState : public IState {
     return variableNames_;
   }
 
-  bool hasVariable(const std::string& name) const {
-    return std::find(variableNames_.begin(), variableNames_.end(), name) !=
-           variableNames_.end();
-  }
-
   const std::vector<size_t>& getDimensions(const std::string& name) const {
     auto it = dimensions_.find(name);
     if (it == dimensions_.end()) {
@@ -141,7 +136,8 @@ class MockState : public IState {
 
   // Helper method to set dimensions for a variable
   void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
-    if (!hasVariable(name)) {
+    if (std::find(variableNames_.begin(), variableNames_.end(), name) ==
+        variableNames_.end()) {
       throw std::runtime_error(
           "Cannot set dimensions for non-existent variable: " + name);
     }
