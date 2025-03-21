@@ -23,6 +23,7 @@
 #include "../interfaces/IBatchProcessor.hpp"
 #include "../interfaces/IHardwareAccelerator.hpp"
 #include "../interfaces/ITimeStepper.hpp"
+#include "State.hpp"
 #include "model/AIPredictorImpl.hpp"
 #include "model/BatchProcessorImpl.hpp"
 #include "model/HardwareAcceleratorImpl.hpp"
@@ -33,9 +34,6 @@ namespace metada::framework {
 // Forward declarations
 template <typename T>
 class Config;
-
-template <typename T>
-class State;
 
 // C++20 concepts for capability detection
 template <typename T>

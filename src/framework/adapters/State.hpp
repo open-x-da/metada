@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <memory>
 #include <string>
 #include <vector>
@@ -36,6 +37,35 @@ namespace metada::framework {
 // Forward declaration
 template <typename T>
 class Config;
+
+// Concepts to check backend requirements
+template <typename T>
+concept HasClone = requires(const T& t) {
+  { t.clone() } -> std::convertible_to<std::unique_ptr<T>>;
+};
+
+template <typename T>
+concept HasGetData = requires(T& t, const T& ct) {
+  { t.getData() } -> std::same_as<void*>;
+  { ct.getData() } -> std::same_as<const void*>;
+};
+
+template <typename T>
+concept HasGetVariableNames = requires(const T& t) {
+  { t.getVariableNames() } -> std::same_as<const std::vector<std::string>&>;
+};
+
+template <typename T>
+concept HasGetDimensions = requires(const T& t) {
+  {
+    t.getDimensions(std::string{})
+  } -> std::same_as<const std::vector<size_t>&>;
+};
+
+// Combined concept for all backend requirements
+template <typename T>
+concept StateBackend = HasClone<T> && HasGetData<T> && HasGetVariableNames<T> &&
+                       HasGetDimensions<T>;
 
 /**
  * @brief Main state class template providing a generic interface to state
@@ -65,6 +95,7 @@ class Config;
  * @see IState
  */
 template <typename Backend>
+  requires StateBackend<Backend>
 class State : private NonCopyable {
  public:
   // Constructors
@@ -336,6 +367,7 @@ namespace metada::framework {
 
 // Implementation of methods that depend on Increment
 template <typename Backend>
+  requires StateBackend<Backend>
 template <typename IncrementType>
 IncrementType State<Backend>::createIncrementTo(const State& other) const {
   // Use the factory method in Increment
@@ -343,6 +375,7 @@ IncrementType State<Backend>::createIncrementTo(const State& other) const {
 }
 
 template <typename Backend>
+  requires StateBackend<Backend>
 template <typename IncrementType>
 State<Backend>& State<Backend>::applyIncrement(const IncrementType& increment) {
   // Use the applyTo method in Increment
