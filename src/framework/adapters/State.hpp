@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 
+#include "BackendTraits.hpp"
 #include "utils/NonCopyable.hpp"
 
 namespace metada::framework {
@@ -103,6 +104,11 @@ template <typename Backend>
   requires StateBackend<Backend>
 class State : private NonCopyable {
  public:
+  using MyTraits = traits::BackendTraits<Backend>;
+  // using ConfigBackend = typename MyTraits::ConfigBackend;
+  // using LoggerBackend = typename MyTraits::LoggerBackend;
+  // using StateBackend = typename MyTraits::StateBackend;
+
   // Constructors
   State() = delete;  // Disable default constructor since we need a backend
 

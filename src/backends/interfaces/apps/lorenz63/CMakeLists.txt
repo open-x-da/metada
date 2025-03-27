@@ -19,6 +19,7 @@ add_executable(lorenz63_cpp_example lorenz63_cpp_example.cpp)
 # Link to required libraries
 target_link_libraries(lorenz63_cpp_example
     PRIVATE
+        metada::traits
         metada::framework::runs
         metada::framework::traits
         metada::framework::interfaces

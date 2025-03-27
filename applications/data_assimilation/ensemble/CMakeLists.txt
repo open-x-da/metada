@@ -4,6 +4,7 @@ add_executable(letkf letkf.cpp)
 # Link with required backend libraries for logging and configuration
 target_link_libraries(letkf
     PRIVATE
+        metada::traits
         metada::framework::common
         metada::framework::runs
         metada::framework::traits
