@@ -1,2 +1,2 @@
 # Applications for Lorenz 63 model
-add_subdirectory(lorenz63) 
+#add_subdirectory(lorenz63) 

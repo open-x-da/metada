@@ -20,24 +20,12 @@
  * Chaos: A Local Ensemble Transform Kalman Filter"
  */
 
-#include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
-#include "GoogleLogger.hpp"
-#include "JsonConfig.hpp"
+#include "L63BackendTraits.hpp"
 
 using namespace metada::framework;
 using namespace metada::framework::runs;
-using namespace metada::backends::config;
-using namespace metada::backends::logger;
-
-/**
- * @brief Application traits definition for LETKF
- *
- * Defines the backend services used by the LETKF application:
- * - GoogleLogger: Provides structured logging capabilities
- * - JsonConfig: Handles JSON configuration file parsing
- */
-using Traits = AppTraits<GoogleLogger, JsonConfig>;
+using namespace metada::traits;
 
 /**
  * @brief Main entry point for LETKF application
@@ -71,7 +59,7 @@ using Traits = AppTraits<GoogleLogger, JsonConfig>;
  * @throws std::runtime_error For critical errors during execution
  */
 int main(int argc, char* argv[]) {
-  auto context = ApplicationContext<Traits>("letkf_app", argv[1]);
+  auto context = ApplicationContext<L63BackendTag>("letkf_app", argv[1]);
   auto& logger = context.getLogger();
   auto& config = context.getConfig();
 

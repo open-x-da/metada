@@ -6,6 +6,7 @@
 #include "ApplicationContext.hpp"
 #include "GoogleLogger.hpp"
 #include "JsonConfig.hpp"
+#include "L63BackendTraits.hpp"
 #include "State.hpp"
 #include "geometry/lorenz63/Geometry.hpp"
 #include "model/lorenz63/Model.hpp"
@@ -31,7 +32,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Create the application context
-  auto app = ApplicationContext<Traits>("Lorenz63", argv[1]);
+  auto app = ApplicationContext<traits::L63BackendTag>("Lorenz63", argv[1]);
 
   // Get the logger and config from the application context
   auto& logger = app.getLogger();

@@ -10,6 +10,8 @@
 
 namespace metada::traits {
 
+struct MockBackendTag {};
+
 template<>
 struct BackendTraits<MockBackendTag> {
   using ConfigBackend       = MockConfigBackend;

@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "BackendTraits.hpp"
 #include "utils/config/Config.hpp"
 #include "utils/logger/Logger.hpp"
 
@@ -61,47 +62,13 @@ namespace metada::framework::runs {
  * @note Services are initialized in order: Logger -> Config -> Future Services
  * @note Cleanup occurs automatically in reverse order on destruction
  */
-template <typename Traits>
+template <typename BackendTag>
 class ApplicationContext {
- private:
-  Logger<typename Traits::LoggerType> logger_;
-  Config<typename Traits::ConfigType> config_;
-  // Timer timer_;  // To be implemented
-
-  /**
-   * @brief Initialize the logging service
-   * @param app_name Application name for logger identification
-   */
-  void initLogger(const std::string& app_name) {
-    logger_.backend().Init(app_name);
-  }
-
-  /**
-   * @brief Shutdown the logging service cleanly
-   */
-  void shutdownLogger() { logger_.backend().Shutdown(); }
-
-  /**
-   * @brief Load configuration from specified file
-   * @param config_file Path to configuration file
-   * @throws std::runtime_error If configuration loading fails
-   */
-  void loadConfig(const std::string& config_file) {
-    try {
-      if (!config_.LoadFromFile(config_file)) {
-        logger_.Error() << "Failed to load configuration from: " << config_file;
-        throw std::runtime_error("Failed to load configuration from: " +
-                                 config_file);
-      }
-      logger_.Info() << "Loaded configuration from: " << config_file;
-    } catch (const std::exception& e) {
-      logger_.Error() << "Error loading configuration: " << e.what();
-      throw std::runtime_error("Error loading configuration: " +
-                               std::string(e.what()));
-    }
-  }
-
  public:
+  using MyTraits = metada::traits::BackendTraits<BackendTag>;
+  using ConfigBackend = typename MyTraits::ConfigBackend;
+  using LoggerBackend = typename MyTraits::LoggerBackend;
+
   /**
    * @brief Constructs and initializes the application context
    *
@@ -149,16 +116,54 @@ class ApplicationContext {
    * @brief Get reference to the logging service
    * @return Reference to the logger instance
    */
-  Logger<typename Traits::LoggerType>& getLogger() { return logger_; }
+  Logger<LoggerBackend>& getLogger() { return logger_; }
 
   /**
    * @brief Get reference to the configuration service
    * @return Reference to the config instance
    */
-  Config<typename Traits::ConfigType>& getConfig() { return config_; }
+  Config<ConfigBackend>& getConfig() { return config_; }
 
   // Timer access will be added later
   // Timer& getTimer() { return timer_; }
+
+ private:
+  Logger<LoggerBackend> logger_;
+  Config<ConfigBackend> config_;
+  // Timer timer_;  // To be implemented
+
+  /**
+   * @brief Initialize the logging service
+   * @param app_name Application name for logger identification
+   */
+  void initLogger(const std::string& app_name) {
+    logger_.backend().Init(app_name);
+  }
+
+  /**
+   * @brief Shutdown the logging service cleanly
+   */
+  void shutdownLogger() { logger_.backend().Shutdown(); }
+
+  /**
+   * @brief Load configuration from specified file
+   * @param config_file Path to configuration file
+   * @throws std::runtime_error If configuration loading fails
+   */
+  void loadConfig(const std::string& config_file) {
+    try {
+      if (!config_.LoadFromFile(config_file)) {
+        logger_.Error() << "Failed to load configuration from: " << config_file;
+        throw std::runtime_error("Failed to load configuration from: " +
+                                 config_file);
+      }
+      logger_.Info() << "Loaded configuration from: " << config_file;
+    } catch (const std::exception& e) {
+      logger_.Error() << "Error loading configuration: " << e.what();
+      throw std::runtime_error("Error loading configuration: " +
+                               std::string(e.what()));
+    }
+  }
 };
 
 }  // namespace metada::framework::runs
