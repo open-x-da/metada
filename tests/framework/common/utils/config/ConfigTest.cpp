@@ -18,7 +18,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "MockConfig.hpp"
+#include "MockBackendTraits.hpp"
 #include "utils/config/Config.hpp"
 
 namespace metada::tests {
@@ -34,7 +34,7 @@ using framework::Config;
 class ConfigTest : public ::testing::Test {
  protected:
   /** @brief Config instance with mock backend */
-  Config<MockConfig> config;
+  Config<MockBackendTag> config;
 };
 
 /**
@@ -319,7 +319,7 @@ TEST_F(ConfigTest, MoveSemantics) {
   EXPECT_EQ(std::get<std::string>(result), "original");
 
   // Test move construction
-  Config<MockConfig> moved_config(std::move(config));
+  Config<MockBackendTag> moved_config(std::move(config));
 
   // Setup expectations for the moved config
   EXPECT_CALL(moved_config.backend(), Get("key"))
@@ -328,14 +328,14 @@ TEST_F(ConfigTest, MoveSemantics) {
   EXPECT_EQ(std::get<std::string>(result), "moved");
 
   // Create a new config for move assignment test
-  Config<MockConfig> another_config;
+  Config<MockBackendTag> another_config;
   EXPECT_CALL(another_config.backend(), Get("key"))
       .WillOnce(Return(ConfigValue("another")));
   result = another_config.Get("key");
   EXPECT_EQ(std::get<std::string>(result), "another");
 
   // Test move assignment
-  Config<MockConfig> assigned_config;
+  Config<MockBackendTag> assigned_config;
   assigned_config = std::move(another_config);
 
   // Setup expectations for the assigned config
@@ -345,8 +345,8 @@ TEST_F(ConfigTest, MoveSemantics) {
   EXPECT_EQ(std::get<std::string>(result), "assigned");
 
   // Note: The following would not compile due to deleted copy operations:
-  // Config<MockConfig> copy_config(config); // Copy construction - deleted
-  // Config<MockConfig> assign_config;
+  // Config<MockBackendTag> copy_config(config); // Copy construction - deleted
+  // Config<MockBackendTag> assign_config;
   // assign_config = config; // Copy assignment - deleted
 }
 

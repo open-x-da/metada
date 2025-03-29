@@ -122,14 +122,14 @@ class ApplicationContext {
    * @brief Get reference to the configuration service
    * @return Reference to the config instance
    */
-  Config<ConfigBackend>& getConfig() { return config_; }
+  Config<BackendTag>& getConfig() { return config_; }
 
   // Timer access will be added later
   // Timer& getTimer() { return timer_; }
 
  private:
   Logger<LoggerBackend> logger_;
-  Config<ConfigBackend> config_;
+  Config<BackendTag> config_;
   // Timer timer_;  // To be implemented
 
   /**

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../NonCopyable.hpp"
+#include "BackendTraits.hpp"
 #include "ConfigValue.hpp"
 #include "IConfig.hpp"
 
@@ -46,12 +47,12 @@ namespace metada::framework {
  * @tparam Backend The configuration backend type that implements IConfig
  * @see IConfig Base interface class for configuration backends
  */
-template <typename Backend>
+template <typename BackendTag>
 class Config : public NonCopyable {
- private:
-  Backend backend_;  ///< Instance of the configuration backend
-
  public:
+  using Traits = metada::traits::BackendTraits<BackendTag>;
+  using ConfigBackend = typename Traits::ConfigBackend;
+
   /** @brief Default constructor */
   Config() = default;
 
@@ -76,13 +77,13 @@ class Config : public NonCopyable {
    * @brief Get direct access to the backend instance
    * @return Reference to the backend instance
    */
-  Backend& backend() { return backend_; }
+  ConfigBackend& backend() { return backend_; }
 
   /**
    * @brief Get const access to the backend instance
    * @return Const reference to the backend instance
    */
-  const Backend& backend() const { return backend_; }
+  const ConfigBackend& backend() const { return backend_; }
 
   /**
    * @brief Load configuration from a file
@@ -171,6 +172,9 @@ class Config : public NonCopyable {
 
   /** @brief Clear all configuration data */
   void Clear() { backend_.Clear(); }
+
+ private:
+  ConfigBackend backend_;  ///< Instance of the configuration backend
 };
 
 }  // namespace metada::framework

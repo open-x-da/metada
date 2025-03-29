@@ -5,6 +5,7 @@ add_executable(config_test
 # Link config library and setup testing
 target_link_libraries(config_test
     PRIVATE
+        metada::traits
         metada::framework::common)
 
 # Use the AddTests macro to handle GTest/GMock setup and coverage

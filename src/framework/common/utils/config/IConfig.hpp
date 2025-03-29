@@ -37,14 +37,48 @@ namespace metada::framework {
 class IConfig {
  public:
   /**
+   * @brief Default constructor
+   */
+  IConfig() = default;
+
+  /**
    * @brief Virtual destructor for proper cleanup of derived classes
    */
   virtual ~IConfig() = default;
 
   /**
-   * @brief Default constructor
+   * @brief Deleted copy constructor to prevent copying of configuration objects
+   *
+   * Configuration objects are not meant to be copied as they often manage
+   * resources and state that should not be duplicated.
    */
-  IConfig() = default;
+  IConfig(const IConfig&) = delete;
+
+  /**
+   * @brief Deleted copy assignment operator to prevent copying of configuration
+   * objects
+   *
+   * Configuration objects are not meant to be copied as they often manage
+   * resources and state that should not be duplicated.
+   */
+  IConfig& operator=(const IConfig&) = delete;
+
+  /**
+   * @brief Deleted move constructor to prevent moving of configuration objects
+   *
+   * Configuration objects are not meant to be moved as they often manage
+   * resources and state that should not be transferred.
+   */
+  IConfig(const IConfig&&) = delete;
+
+  /**
+   * @brief Deleted move assignment operator to prevent moving of configuration
+   * objects
+   *
+   * Configuration objects are not meant to be moved as they often manage
+   * resources and state that should not be transferred.
+   */
+  IConfig& operator=(const IConfig&&) = delete;
 
   /**
    * @brief Load configuration from a file
