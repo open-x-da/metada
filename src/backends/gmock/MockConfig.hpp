@@ -5,7 +5,7 @@
 #include "utils/config/ConfigValue.hpp"
 #include "utils/config/IConfig.hpp"
 
-namespace metada::tests {
+namespace metada::backends::gmock {
 
 using framework::ConfigValue;
 using framework::IConfig;
@@ -43,4 +43,4 @@ class MockConfig : public IConfig {
   MOCK_METHOD(void, Clear, (), (override));
 };
 
-}  // namespace metada::tests
+}  // namespace metada::backends::gmock

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "BackendTraits.hpp"
-#include "MockConfig.hpp"
+#include "../backends/gmock/MockConfig.hpp"
 // #include "MockLogger.hpp"
 //#include "mock_logger_backend.hpp"
 //#include "mock_model_backend.hpp"
@@ -14,8 +14,8 @@ struct MockBackendTag {};
 
 template<>
 struct BackendTraits<MockBackendTag> {
-  using ConfigBackend       = MockConfig;
-  using LoggerBackend       = MockLogger;
+  using ConfigBackend       = backends::gmock::MockConfig;
+  //using LoggerBackend       = MockLogger;
   //using StateBackend        = MockStateBackend;
   //using ModelBackend        = MockModelBackend;
   //using GeometryBackend     = MockGeometryBackend;

@@ -28,13 +28,14 @@ using ::testing::Return;
 using ::testing::Throw;
 
 using framework::Config;
+using framework::ConfigValue;
 /**
  * @brief Test fixture for Config class tests
  */
 class ConfigTest : public ::testing::Test {
  protected:
   /** @brief Config instance with mock backend */
-  Config<MockBackendTag> config;
+  Config<traits::MockBackendTag> config;
 };
 
 /**
@@ -319,7 +320,7 @@ TEST_F(ConfigTest, MoveSemantics) {
   EXPECT_EQ(std::get<std::string>(result), "original");
 
   // Test move construction
-  Config<MockBackendTag> moved_config(std::move(config));
+  Config<traits::MockBackendTag> moved_config(std::move(config));
 
   // Setup expectations for the moved config
   EXPECT_CALL(moved_config.backend(), Get("key"))
@@ -328,14 +329,14 @@ TEST_F(ConfigTest, MoveSemantics) {
   EXPECT_EQ(std::get<std::string>(result), "moved");
 
   // Create a new config for move assignment test
-  Config<MockBackendTag> another_config;
+  Config<traits::MockBackendTag> another_config;
   EXPECT_CALL(another_config.backend(), Get("key"))
       .WillOnce(Return(ConfigValue("another")));
   result = another_config.Get("key");
   EXPECT_EQ(std::get<std::string>(result), "another");
 
   // Test move assignment
-  Config<MockBackendTag> assigned_config;
+  Config<traits::MockBackendTag> assigned_config;
   assigned_config = std::move(another_config);
 
   // Setup expectations for the assigned config
