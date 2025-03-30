@@ -4,14 +4,10 @@
 #include <string>
 #include <utility>
 
-#include "NonCopyable.hpp"
+#include "LogLevel.hpp"
+#include "LoggerConcepts.hpp"
 
 namespace metada::framework {
-
-/**
- * @brief Enumeration of log severity levels
- */
-enum class LogLevel { Debug, Info, Warning, Error };
 
 /**
  * @brief Stream-like class for logging that supports the << operator
@@ -31,10 +27,10 @@ enum class LogLevel { Debug, Info, Warning, Error };
  * error_message;
  * @endcode
  *
- * @tparam Backend The logger backend type that implements the LogMessage method
+ * @tparam Backend The logger backend type that implements the LoggerBackend concept
  */
-template <typename Backend>
-class LogStream : public NonCopyable {
+template <LoggerBackend Backend>
+class LogStream {
  public:
   /**
    * @brief Constructor that associates the stream with a logger and level
@@ -47,6 +43,12 @@ class LogStream : public NonCopyable {
 
   /**
    * @brief Move constructor
+   * 
+   * Transfers ownership of the stream content from another LogStream object.
+   * Sets the moved_ flag on the source object to prevent it from flushing
+   * in its destructor.
+   * 
+   * @param other The LogStream to move from
    */
   LogStream(LogStream&& other) noexcept
       : logger_(other.logger_),
@@ -58,6 +60,10 @@ class LogStream : public NonCopyable {
 
   /**
    * @brief Destructor that flushes the stream if it hasn't been moved
+   * 
+   * If this LogStream still owns its content (hasn't been moved from),
+   * the destructor will automatically flush the accumulated message to
+   * the logger backend.
    */
   ~LogStream() {
     if (!moved_) {
@@ -74,8 +80,9 @@ class LogStream : public NonCopyable {
   /**
    * @brief Flush the stream content to the logger
    *
-   * Sends the accumulated stream content to the appropriate logger method
-   * based on the log level.
+   * Sends the accumulated stream content to the logger backend using the
+   * LogMessage method with the appropriate log level. After flushing,
+   * the internal stream is cleared for potential reuse.
    */
   void Flush() {
     const std::string message = stream_.str();
@@ -107,7 +114,7 @@ class LogStream : public NonCopyable {
   Backend& logger_;            ///< Reference to the logger backend
   LogLevel level_;             ///< Log level for this stream
   std::ostringstream stream_;  ///< Internal stream that accumulates the message
-  bool moved_;  ///< Flag to indicate if this object has been moved from
+  bool moved_;                 ///< Flag to indicate if this object has been moved from
 };
 
 }  // namespace metada::framework

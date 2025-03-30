@@ -3,8 +3,9 @@
 #include <string>
 
 #include "BackendTraits.hpp"
+#include "LogStream.hpp"
+#include "LoggerConcepts.hpp"
 #include "NonCopyable.hpp"
-#include "common/utils/logger/LogStream.hpp"
 
 namespace metada::framework {
 
@@ -41,6 +42,11 @@ namespace metada::framework {
  * @see LogStream
  */
 template <typename BackendTag>
+  requires requires {
+    typename traits::BackendTraits<BackendTag>::LoggerBackend;
+    requires LoggerBackend<
+        typename traits::BackendTraits<BackendTag>::LoggerBackend>;
+  }
 class Logger : public NonCopyable {
  public:
   using LoggerBackend =
