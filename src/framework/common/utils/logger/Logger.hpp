@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "BackendTraits.hpp"
 #include "utils/NonCopyable.hpp"
 #include "utils/logger/LogStream.hpp"
 
@@ -40,9 +41,12 @@ namespace metada::framework {
  * @see NonCopyable
  * @see LogStream
  */
-template <typename Backend>
+template <typename BackendTag>
 class Logger : public NonCopyable {
  public:
+  using LoggerBackend =
+      typename traits::BackendTraits<BackendTag>::LoggerBackend;
+
   /**
    * @brief Default constructor
    *
@@ -108,11 +112,11 @@ class Logger : public NonCopyable {
    *
    * @return Reference to the backend logger implementation
    */
-  Backend& backend() { return backend_; }
+  LoggerBackend& backend() { return backend_; }
 
  private:
-  Backend backend_;  ///< The underlying logger backend instance that performs
-                     ///< actual logging
+  LoggerBackend backend_;  ///< The underlying logger backend instance that
+                           ///< performs actual logging
 };
 
 }  // namespace metada::framework

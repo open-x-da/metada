@@ -27,6 +27,9 @@ endfunction()
 # Config tests
 setup_test_executable(config_test ConfigTest.cpp)
 
+# Logger tests
+setup_test_executable(logger_test LoggerTest.cpp)
+
 # State tests
 #setup_test_executable(state_test StateTest.cpp)
 
@@ -49,6 +52,7 @@ setup_test_executable(config_test ConfigTest.cpp)
 #setup_test_executable(geometry_test GeometryTest.cpp)
 
 AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(logger_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})

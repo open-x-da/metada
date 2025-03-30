@@ -20,7 +20,7 @@
 #include <sstream>
 #include <string>
 
-#include "MockLogger.hpp"
+#include "MockBackendTraits.hpp"
 #include "utils/logger/LogStream.hpp"
 #include "utils/logger/Logger.hpp"
 
@@ -30,6 +30,7 @@ using ::testing::_;
 using ::testing::Return;
 
 using framework::Logger;
+using framework::LogLevel;
 
 /**
  * @brief Test fixture for Logger class tests
@@ -40,11 +41,15 @@ using framework::Logger;
 class LoggerTest : public ::testing::Test {
  protected:
   /** @brief Logger instance with mock backend */
-  Logger<MockLogger> logger;
+  Logger<traits::MockBackendTag> logger;
 
-  void SetUp() override { MockLogger::Init("test"); }
+  void SetUp() override {
+    traits::BackendTraits<traits::MockBackendTag>::LoggerBackend::Init("test");
+  }
 
-  void TearDown() override { MockLogger::Shutdown(); }
+  void TearDown() override {
+    traits::BackendTraits<traits::MockBackendTag>::LoggerBackend::Shutdown();
+  }
 };
 
 /**
@@ -122,7 +127,7 @@ TEST_F(LoggerTest, MoveSemantics) {
   logger.Info() << "original logger";
 
   // Test move construction
-  Logger<MockLogger> moved_logger(std::move(logger));
+  Logger<traits::MockBackendTag> moved_logger(std::move(logger));
 
   // Setup expectations for the moved logger
   EXPECT_CALL(moved_logger.backend(),
@@ -131,14 +136,14 @@ TEST_F(LoggerTest, MoveSemantics) {
   moved_logger.Info() << "moved logger";
 
   // Create a new logger for move assignment test
-  Logger<MockLogger> another_logger;
+  Logger<traits::MockBackendTag> another_logger;
   EXPECT_CALL(another_logger.backend(),
               LogMessage(LogLevel::Info, "another logger"))
       .Times(1);
   another_logger.Info() << "another logger";
 
   // Test move assignment
-  Logger<MockLogger> assigned_logger;
+  Logger<traits::MockBackendTag> assigned_logger;
   assigned_logger = std::move(another_logger);
 
   // Setup expectations for the assigned logger

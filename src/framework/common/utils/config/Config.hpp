@@ -50,8 +50,8 @@ namespace metada::framework {
 template <typename BackendTag>
 class Config : public NonCopyable {
  public:
-  using Traits = metada::traits::BackendTraits<BackendTag>;
-  using ConfigBackend = typename Traits::ConfigBackend;
+  using ConfigBackend =
+      typename traits::BackendTraits<BackendTag>::ConfigBackend;
 
   /** @brief Default constructor */
   Config() = default;

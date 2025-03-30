@@ -7,7 +7,7 @@
 #include "utils/logger/ILogger.hpp"
 #include "utils/logger/LogStream.hpp"
 
-namespace metada::tests {
+namespace metada::backends::gmock {
 
 using framework::ILogger;
 using framework::LogLevel;
@@ -79,4 +79,4 @@ class MockLogger : public ILogger {
   static void Shutdown() {}
 };
 
-}  // namespace metada::tests
+}  // namespace metada::backends::gmock

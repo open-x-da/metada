@@ -65,9 +65,10 @@ namespace metada::framework::runs {
 template <typename BackendTag>
 class ApplicationContext {
  public:
-  using MyTraits = metada::traits::BackendTraits<BackendTag>;
-  using ConfigBackend = typename MyTraits::ConfigBackend;
-  using LoggerBackend = typename MyTraits::LoggerBackend;
+  using ConfigBackend =
+      typename metada::traits::BackendTraits<BackendTag>::ConfigBackend;
+  using LoggerBackend =
+      typename metada::traits::BackendTraits<BackendTag>::LoggerBackend;
 
   /**
    * @brief Constructs and initializes the application context
@@ -116,7 +117,7 @@ class ApplicationContext {
    * @brief Get reference to the logging service
    * @return Reference to the logger instance
    */
-  Logger<LoggerBackend>& getLogger() { return logger_; }
+  Logger<BackendTag>& getLogger() { return logger_; }
 
   /**
    * @brief Get reference to the configuration service
@@ -128,7 +129,7 @@ class ApplicationContext {
   // Timer& getTimer() { return timer_; }
 
  private:
-  Logger<LoggerBackend> logger_;
+  Logger<BackendTag> logger_;
   Config<BackendTag> config_;
   // Timer timer_;  // To be implemented
 
