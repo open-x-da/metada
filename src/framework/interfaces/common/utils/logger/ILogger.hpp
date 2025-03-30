@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "utils/NonCopyable.hpp"
+#include "NonCopyable.hpp"
 
 namespace metada::framework {
 

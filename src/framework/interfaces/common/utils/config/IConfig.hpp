@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "ConfigValue.hpp"
+#include "common/utils/config/ConfigValue.hpp"
 
 namespace metada::framework {
 

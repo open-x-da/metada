@@ -3,8 +3,8 @@
 #include <string>
 
 #include "BackendTraits.hpp"
-#include "utils/NonCopyable.hpp"
-#include "utils/logger/LogStream.hpp"
+#include "NonCopyable.hpp"
+#include "common/utils/logger/LogStream.hpp"
 
 namespace metada::framework {
 
@@ -13,7 +13,7 @@ namespace metada::framework {
  *
  * This class template provides a generic logging interface that forwards
  * logging calls to a concrete backend implementation. The backend type is
- * specified as a template parameter and must implement the ILogger interface.
+ * specified as a template parameter and must implement the LogMessage method.
  *
  * The Logger class supports different logging levels (Info, Warning, Error,
  * Debug) and delegates all logging operations to the backend implementation.
@@ -33,11 +33,10 @@ namespace metada::framework {
  * logger.Error() << "Failed to connect to " << server << ": " << error_msg;
  * @endcode
  *
- * @tparam Backend The concrete logger backend type that implements the ILogger
- *                 interface
+ * @tparam BackendTag The backend tag type that provides the LoggerBackend type
+ *                    through BackendTraits
  *
- * @see ILogger
- * @see LoggerTraits
+ * @see BackendTraits
  * @see NonCopyable
  * @see LogStream
  */
@@ -81,28 +80,36 @@ class Logger : public NonCopyable {
    *
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream Info() { return LogStream(backend_, LogLevel::Info); }
+  LogStream<LoggerBackend> Info() {
+    return LogStream<LoggerBackend>(backend_, LogLevel::Info);
+  }
 
   /**
    * @brief Create a stream for warning-level logging
    *
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream Warning() { return LogStream(backend_, LogLevel::Warning); }
+  LogStream<LoggerBackend> Warning() {
+    return LogStream<LoggerBackend>(backend_, LogLevel::Warning);
+  }
 
   /**
    * @brief Create a stream for error-level logging
    *
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream Error() { return LogStream(backend_, LogLevel::Error); }
+  LogStream<LoggerBackend> Error() {
+    return LogStream<LoggerBackend>(backend_, LogLevel::Error);
+  }
 
   /**
    * @brief Create a stream for debug-level logging
    *
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream Debug() { return LogStream(backend_, LogLevel::Debug); }
+  LogStream<LoggerBackend> Debug() {
+    return LogStream<LoggerBackend>(backend_, LogLevel::Debug);
+  }
 
   /**
    * @brief Get reference to the underlying backend

@@ -2,12 +2,10 @@
 
 #include <iostream>
 
-#include "utils/logger/ILogger.hpp"
 #include "utils/logger/LogStream.hpp"
 
 namespace metada::backends::logger {
 
-using framework::ILogger;
 using framework::LogLevel;
 
 /**
@@ -53,7 +51,7 @@ using framework::LogLevel;
  *
  * @see ILogger Base interface class
  */
-class ConsoleLogger : public ILogger {
+class ConsoleLogger {
  public:
   /**
    * @brief Default constructor
@@ -70,7 +68,7 @@ class ConsoleLogger : public ILogger {
    * @param level The severity level of the message
    * @param message The message to log
    */
-  void LogMessage(LogLevel level, const std::string& message) override {
+  void LogMessage(LogLevel level, const std::string& message) {
     switch (level) {
       case LogLevel::Info:
         std::cout << "[INFO] " << message << std::endl;

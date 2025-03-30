@@ -3,8 +3,8 @@
 #include <string>
 
 #include "BackendTraits.hpp"
-#include "utils/config/Config.hpp"
-#include "utils/logger/Logger.hpp"
+#include "common/utils/config/Config.hpp"
+#include "common/utils/logger/Logger.hpp"
 
 namespace metada::framework::runs {
 

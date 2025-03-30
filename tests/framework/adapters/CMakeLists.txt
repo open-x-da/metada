@@ -10,15 +10,8 @@ function(setup_test_executable target source)
             metada::framework::interfaces::test
             metada::framework::runs
             metada::framework::traits
-            metada::framework::common::utils::logger
-    )
-    
-    target_include_directories(${target}
-        PRIVATE
-            ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/config
-            ${CMAKE_SOURCE_DIR}/tests/framework/common/utils/logger
-    )
-    
+            metada::framework::core
+    ) 
   
     # Add test with coverage
     metada_add_test_with_coverage(${target})

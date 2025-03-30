@@ -2,12 +2,10 @@
 
 #include <glog/logging.h>
 
-#include "utils/logger/ILogger.hpp"
-#include "utils/logger/LogStream.hpp"
+#include "common/utils/logger/LogStream.hpp"
 
 namespace metada::backends::logger {
 
-using framework::ILogger;
 using framework::LogLevel;
 
 /**
@@ -47,7 +45,7 @@ using framework::LogLevel;
  * @note For debug logging to work in release builds, you may need to set
  * appropriate glog verbosity flags.
  */
-class GoogleLogger : public ILogger {
+class GoogleLogger {
  public:
   /**
    * @brief Default constructor
@@ -63,7 +61,7 @@ class GoogleLogger : public ILogger {
    * @param level The severity level of the message
    * @param message The message to log
    */
-  void LogMessage(LogLevel level, const std::string& message) override {
+  void LogMessage(LogLevel level, const std::string& message) {
     switch (level) {
       case LogLevel::Info:
         LOG(INFO) << message;

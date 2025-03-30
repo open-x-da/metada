@@ -4,8 +4,8 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-#include "utils/config/ConfigValue.hpp"
-#include "utils/config/IConfig.hpp"
+#include "common/utils/config/ConfigValue.hpp"
+#include "common/utils/config/IConfig.hpp"
 
 namespace metada::backends::config {
 

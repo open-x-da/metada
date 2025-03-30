@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../NonCopyable.hpp"
 #include "BackendTraits.hpp"
-#include "ConfigValue.hpp"
-#include "IConfig.hpp"
+#include "NonCopyable.hpp"
+#include "common/utils/config/ConfigValue.hpp"
+#include "common/utils/config/IConfig.hpp"
 
 namespace metada::framework {
 

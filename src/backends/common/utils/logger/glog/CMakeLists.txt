@@ -12,7 +12,7 @@ target_include_directories(logger_glog
 # Link dependencies
 target_link_libraries(logger_glog
     INTERFACE
-        metada::framework::common
+        metada::framework::adapters
         glog::glog)
 
 # Add format target

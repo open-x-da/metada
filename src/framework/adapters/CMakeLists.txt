@@ -22,6 +22,10 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/Geometry.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/GeometryPointIterator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/GeometryIterator.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/Config.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/ConfigValue.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger/Logger.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger/LogStream.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/TimeStepperImpl.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/AIPredictorImpl.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/model/BatchProcessorImpl.hpp

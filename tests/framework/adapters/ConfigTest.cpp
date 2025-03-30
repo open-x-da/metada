@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "MockBackendTraits.hpp"
-#include "utils/config/Config.hpp"
+#include "common/utils/config/Config.hpp"
 
 namespace metada::tests {
 

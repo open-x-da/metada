@@ -4,19 +4,17 @@
 
 #include <string>
 
-#include "utils/logger/ILogger.hpp"
-#include "utils/logger/LogStream.hpp"
+#include "common/utils/logger/LogStream.hpp"
 
 namespace metada::backends::gmock {
 
-using framework::ILogger;
 using framework::LogLevel;
 using framework::LogStream;
 
 /**
- * @brief Mock implementation of ILogger for testing purposes
+ * @brief Mock implementation of logger for testing purposes
  *
- * This class provides a mock implementation of the ILogger interface using
+ * This class provides a mock implementation of the logger interface using
  * Google Mock. It can be used to verify that logging calls are made with the
  * expected parameters and at the expected severity levels during tests.
  *
@@ -40,7 +38,7 @@ using framework::LogStream;
  * TestFunction(mock_logger);
  * @endcode
  */
-class MockLogger : public ILogger {
+class MockLogger {
  public:
   /**
    * @brief Default constructor
@@ -58,15 +56,7 @@ class MockLogger : public ILogger {
   MockLogger& operator=(MockLogger&&) noexcept { return *this; }
 
   // Mock the LogMessage method
-  MOCK_METHOD(void, LogMessage, (LogLevel level, const std::string& message),
-              (override));
-
-  // Use base class implementation for stream methods
-  // These will ultimately call our mocked LogMessage method
-  using ILogger::DebugStream;
-  using ILogger::ErrorStream;
-  using ILogger::InfoStream;
-  using ILogger::WarningStream;
+  MOCK_METHOD(void, LogMessage, (LogLevel level, const std::string& message));
 
   /**
    * @brief No-op initialization for testing

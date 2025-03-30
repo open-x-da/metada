@@ -21,8 +21,8 @@
 #include <string>
 
 #include "MockBackendTraits.hpp"
-#include "utils/logger/LogStream.hpp"
-#include "utils/logger/Logger.hpp"
+#include "common/utils/logger/LogStream.hpp"
+#include "common/utils/logger/Logger.hpp"
 
 namespace metada::tests {
 

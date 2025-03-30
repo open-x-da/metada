@@ -4,12 +4,9 @@
 #include <string>
 #include <utility>
 
-#include "utils/NonCopyable.hpp"
+#include "NonCopyable.hpp"
 
 namespace metada::framework {
-
-// Forward declaration
-class ILogger;
 
 /**
  * @brief Enumeration of log severity levels
@@ -33,7 +30,10 @@ enum class LogLevel { Debug, Info, Warning, Error };
  * logger.Error() << "Failed to process request: " << error_code << " - " <<
  * error_message;
  * @endcode
+ *
+ * @tparam Backend The logger backend type that implements the LogMessage method
  */
+template <typename Backend>
 class LogStream : public NonCopyable {
  public:
   /**
@@ -42,7 +42,7 @@ class LogStream : public NonCopyable {
    * @param logger Reference to the logger that will receive the message
    * @param level The severity level for this log message
    */
-  LogStream(ILogger& logger, LogLevel level)
+  LogStream(Backend& logger, LogLevel level)
       : logger_(logger), level_(level), moved_(false) {}
 
   /**
@@ -77,7 +77,16 @@ class LogStream : public NonCopyable {
    * Sends the accumulated stream content to the appropriate logger method
    * based on the log level.
    */
-  void Flush();
+  void Flush() {
+    const std::string message = stream_.str();
+
+    // Use the unified LogMessage method instead of individual severity methods
+    logger_.LogMessage(level_, message);
+
+    // Clear the stream for potential reuse
+    stream_.str("");
+    stream_.clear();
+  }
 
   /**
    * @brief Generic stream insertion operator
@@ -95,7 +104,7 @@ class LogStream : public NonCopyable {
   }
 
  private:
-  ILogger& logger_;            ///< Reference to the logger backend
+  Backend& logger_;            ///< Reference to the logger backend
   LogLevel level_;             ///< Log level for this stream
   std::ostringstream stream_;  ///< Internal stream that accumulates the message
   bool moved_;  ///< Flag to indicate if this object has been moved from

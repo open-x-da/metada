@@ -2,8 +2,8 @@
 
 #include <gmock/gmock.h>
 
-#include "utils/config/ConfigValue.hpp"
-#include "utils/config/IConfig.hpp"
+#include "common/utils/config/ConfigValue.hpp"
+#include "common/utils/config/IConfig.hpp"
 
 namespace metada::backends::gmock {
 
