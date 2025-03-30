@@ -24,6 +24,9 @@ function(setup_test_executable target source)
     metada_add_test_with_coverage(${target})
 endfunction()
 
+# Config tests
+setup_test_executable(config_test ConfigTest.cpp)
+
 # State tests
 #setup_test_executable(state_test StateTest.cpp)
 
@@ -45,6 +48,7 @@ endfunction()
 # Geometry tests
 #setup_test_executable(geometry_test GeometryTest.cpp)
 
+AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
