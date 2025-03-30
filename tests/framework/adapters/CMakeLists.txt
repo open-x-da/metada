@@ -9,7 +9,6 @@ function(setup_test_executable target source)
             metada::framework::adapters
             metada::framework::interfaces::test
             metada::framework::runs
-            metada::framework::traits
             metada::framework::core
     ) 
   
