@@ -41,9 +41,23 @@ using framework::LogStream;
 class MockLogger {
  public:
   /**
-   * @brief Default constructor
+   * @brief Disabled default constructor
    */
   MockLogger() = default;
+
+  /**
+   * @brief Default destructor
+   */
+  ~MockLogger() = default;
+  /**
+   * @brief Copy constructor (no-op for mock)
+   */
+  MockLogger(const MockLogger&) = delete;
+
+  /**
+   * @brief Copy assignment (no-op for mock)
+   */
+  MockLogger& operator=(const MockLogger&) = delete;
 
   /**
    * @brief Move constructor (no-op for mock)
@@ -55,7 +69,11 @@ class MockLogger {
    */
   MockLogger& operator=(MockLogger&&) noexcept { return *this; }
 
-  // Mock the LogMessage method
+    /**
+   * @brief Mock method for logging messages
+   * @param[in] level Log level
+   * @param[in] message Log message
+   */
   MOCK_METHOD(void, LogMessage, (LogLevel level, const std::string& message));
 
   /**

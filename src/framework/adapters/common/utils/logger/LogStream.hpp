@@ -27,7 +27,8 @@ namespace metada::framework {
  * error_message;
  * @endcode
  *
- * @tparam Backend The logger backend type that implements the LoggerBackend concept
+ * @tparam Backend The logger backend type that implements the LoggerBackend
+ * concept
  */
 template <LoggerBackend Backend>
 class LogStream {
@@ -43,11 +44,11 @@ class LogStream {
 
   /**
    * @brief Move constructor
-   * 
+   *
    * Transfers ownership of the stream content from another LogStream object.
    * Sets the moved_ flag on the source object to prevent it from flushing
    * in its destructor.
-   * 
+   *
    * @param other The LogStream to move from
    */
   LogStream(LogStream&& other) noexcept
@@ -60,7 +61,7 @@ class LogStream {
 
   /**
    * @brief Destructor that flushes the stream if it hasn't been moved
-   * 
+   *
    * If this LogStream still owns its content (hasn't been moved from),
    * the destructor will automatically flush the accumulated message to
    * the logger backend.
@@ -114,7 +115,7 @@ class LogStream {
   Backend& logger_;            ///< Reference to the logger backend
   LogLevel level_;             ///< Log level for this stream
   std::ostringstream stream_;  ///< Internal stream that accumulates the message
-  bool moved_;                 ///< Flag to indicate if this object has been moved from
+  bool moved_;  ///< Flag to indicate if this object has been moved from
 };
 
 }  // namespace metada::framework

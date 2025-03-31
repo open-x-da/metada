@@ -12,6 +12,7 @@ namespace metada::framework {
 /**
  * @brief Generic logger class that delegates to a backend implementation
  *
+ * @details
  * This class template provides a generic logging interface that forwards
  * logging calls to a concrete backend implementation. The backend type is
  * specified as a template parameter and must implement the LogMessage method.
@@ -26,7 +27,7 @@ namespace metada::framework {
  * behavior. However, it supports move semantics to allow transferring ownership
  * when needed.
  *
- * Example usage with stream-based logging:
+ * @par Example usage with stream-based logging:
  * @code
  * ConsoleLogger backend;
  * Logger<ConsoleLogger> logger;
@@ -51,23 +52,30 @@ class Logger : public NonCopyable {
  public:
   using LoggerBackend =
       typename traits::BackendTraits<BackendTag>::LoggerBackend;
+  using ConfigBackend =
+      typename traits::BackendTraits<BackendTag>::ConfigBackend;
 
   /**
-   * @brief Default constructor
-   *
-   * Creates a new Logger instance with a default-constructed backend
+   * @brief Disabled default constructor
    */
   Logger() = default;
 
   /**
-   * @brief Move constructor - explicitly defined for compatibility with mock
-   * objects
+   * @brief Default destructor
+   */
+  ~Logger() = default;
+
+  /**
+   * @brief Move constructor
+   * @param[in] other The logger instance to move from
    */
   Logger(Logger&& other) noexcept : backend_(std::move(other.backend_)) {}
 
   /**
-   * @brief Move assignment - explicitly defined for compatibility with mock
-   * objects
+   * @brief Move assignment operator
+   * @details Explicitly defined for compatibility with mock objects
+   * @param[in] other The logger instance to move from
+   * @return Reference to this logger instance
    */
   Logger& operator=(Logger&& other) noexcept {
     if (this != &other) {
@@ -77,13 +85,7 @@ class Logger : public NonCopyable {
   }
 
   /**
-   * @brief Default destructor
-   */
-  ~Logger() = default;
-
-  /**
    * @brief Create a stream for info-level logging
-   *
    * @return A LogStream object for stream-style logging with << operator
    */
   LogStream<LoggerBackend> Info() {
@@ -92,7 +94,6 @@ class Logger : public NonCopyable {
 
   /**
    * @brief Create a stream for warning-level logging
-   *
    * @return A LogStream object for stream-style logging with << operator
    */
   LogStream<LoggerBackend> Warning() {
@@ -101,7 +102,6 @@ class Logger : public NonCopyable {
 
   /**
    * @brief Create a stream for error-level logging
-   *
    * @return A LogStream object for stream-style logging with << operator
    */
   LogStream<LoggerBackend> Error() {
@@ -110,7 +110,6 @@ class Logger : public NonCopyable {
 
   /**
    * @brief Create a stream for debug-level logging
-   *
    * @return A LogStream object for stream-style logging with << operator
    */
   LogStream<LoggerBackend> Debug() {
@@ -119,10 +118,8 @@ class Logger : public NonCopyable {
 
   /**
    * @brief Get reference to the underlying backend
-   *
-   * Provides access to the concrete logger backend instance. This can be
-   * useful for backend-specific configuration or testing purposes.
-   *
+   * @details Provides access to the concrete logger backend instance. This can
+   * be useful for backend-specific configuration or testing purposes.
    * @return Reference to the backend logger implementation
    */
   LoggerBackend& backend() { return backend_; }

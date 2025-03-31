@@ -129,8 +129,8 @@ class ApplicationContext {
   // Timer& getTimer() { return timer_; }
 
  private:
-  Logger<BackendTag> logger_;
   Config<BackendTag> config_;
+  Logger<BackendTag> logger_;
   // Timer timer_;  // To be implemented
 
   /**
