@@ -3,7 +3,6 @@
 #include "BackendTraits.hpp"
 #include "NonCopyable.hpp"
 #include "common/utils/config/ConfigValue.hpp"
-#include "common/utils/config/IConfig.hpp"
 
 namespace metada::framework {
 
@@ -53,14 +52,24 @@ class Config : public NonCopyable {
   using ConfigBackend =
       typename traits::BackendTraits<BackendTag>::ConfigBackend;
 
-  /** @brief Default constructor */
-  Config() = default;
+  /** @brief Disabled default constructor */
+  Config() = delete;
+
+  /** @brief Default destructor */
+  ~Config() = default;
+
+  /** @brief Disabled copy constructor */
+  Config(const Config&) = delete;
+
+  /** @brief Disabled copy assignment */
+  Config& operator=(const Config&) = delete;
 
   /**
    * @brief Move constructor - explicitly defined for compatibility with mock
    * objects
    */
-  Config(Config&& other) noexcept : backend_(std::move(other.backend_)) {}
+  explicit Config(Config&& other) noexcept
+      : backend_(std::move(other.backend_)) {}
 
   /**
    * @brief Move assignment - explicitly defined for compatibility with mock
@@ -74,6 +83,18 @@ class Config : public NonCopyable {
   }
 
   /**
+   * @brief Constructor that loads configuration from a file
+   * @param filename Path to the configuration file
+   * @throws std::runtime_error If loading fails
+   */
+  explicit Config(const std::string& filename) {
+    if (!backend_.LoadFromFile(filename)) {
+      throw std::runtime_error("Failed to load configuration from file: " +
+                               filename);
+    }
+  }
+
+  /**
    * @brief Get direct access to the backend instance
    * @return Reference to the backend instance
    */
@@ -84,24 +105,6 @@ class Config : public NonCopyable {
    * @return Const reference to the backend instance
    */
   const ConfigBackend& backend() const { return backend_; }
-
-  /**
-   * @brief Load configuration from a file
-   * @param filename Path to the configuration file
-   * @return true if loading was successful, false otherwise
-   */
-  bool LoadFromFile(const std::string& filename) {
-    return backend_.LoadFromFile(filename);
-  }
-
-  /**
-   * @brief Load configuration from a string
-   * @param content String containing configuration data
-   * @return true if loading was successful, false otherwise
-   */
-  bool LoadFromString(const std::string& content) {
-    return backend_.LoadFromString(content);
-  }
 
   /**
    * @brief Get a value from the configuration with a default fallback
@@ -126,19 +129,6 @@ class Config : public NonCopyable {
     } catch (...) {
       return default_value;
     }
-  }
-
-  /**
-   * @brief Get a value from the configuration without catching exceptions
-   */
-  ConfigValue GetUnsafe(const std::string& key) { return backend_.Get(key); }
-
-  /**
-   * @brief Get a value from the configuration without catching exceptions
-   * (const version)
-   */
-  ConfigValue GetUnsafe(const std::string& key) const {
-    return backend_.Get(key);
   }
 
   /**

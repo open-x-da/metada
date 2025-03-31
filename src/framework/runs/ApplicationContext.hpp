@@ -83,11 +83,9 @@ class ApplicationContext {
    * 3. Logs successful initialization
    */
   ApplicationContext(const std::string& app_name,
-                     const std::string& config_file = "") {
+                     const std::string& config_file)
+      : config_(config_file) {
     initLogger(app_name);
-    if (!config_file.empty()) {
-      loadConfig(config_file);
-    }
 
     logger_.Info() << "Application context initialized: " << app_name;
   }
@@ -145,26 +143,6 @@ class ApplicationContext {
    * @brief Shutdown the logging service cleanly
    */
   void shutdownLogger() { logger_.backend().Shutdown(); }
-
-  /**
-   * @brief Load configuration from specified file
-   * @param config_file Path to configuration file
-   * @throws std::runtime_error If configuration loading fails
-   */
-  void loadConfig(const std::string& config_file) {
-    try {
-      if (!config_.LoadFromFile(config_file)) {
-        logger_.Error() << "Failed to load configuration from: " << config_file;
-        throw std::runtime_error("Failed to load configuration from: " +
-                                 config_file);
-      }
-      logger_.Info() << "Loaded configuration from: " << config_file;
-    } catch (const std::exception& e) {
-      logger_.Error() << "Error loading configuration: " << e.what();
-      throw std::runtime_error("Error loading configuration: " +
-                               std::string(e.what()));
-    }
-  }
 };
 
 }  // namespace metada::framework::runs

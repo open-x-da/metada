@@ -7,4 +7,4 @@ namespace metada::framework {
  */
 enum class LogLevel { Debug, Info, Warning, Error };
 
-}  // namespace metada::framework 
+}  // namespace metada::framework
