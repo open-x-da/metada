@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gmock/gmock.h>
+#include <filesystem>
 
 #include "common/utils/config/ConfigValue.hpp"
 #include "common/utils/config/IConfig.hpp"
@@ -21,7 +22,13 @@ class MockConfig : public IConfig {
   /**
    * @brief Default constructor
    */
-  MockConfig() = default;
+  MockConfig() {
+    // Set up default behavior for LoadFromFile to check if file exists
+    ON_CALL(*this, LoadFromFile(::testing::_))
+        .WillByDefault(::testing::Invoke([](const std::string& filename) {
+          return std::filesystem::exists(filename);
+        }));
+  }
 
   /**
    * @brief Move constructor - explicitly defined for Google Mock compatibility

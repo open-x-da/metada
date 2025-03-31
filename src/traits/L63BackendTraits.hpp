@@ -1,8 +1,8 @@
 #pragma once
 
 #include "BackendTraits.hpp"
-#include "GoogleLogger.hpp"
-#include "JsonConfig.hpp"
+#include "../backends/common/utils/config/json/JsonConfig.hpp"
+#include "../backends/common/utils/logger/glog/GoogleLogger.hpp"
 
 namespace metada::traits {
 
