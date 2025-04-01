@@ -10,6 +10,10 @@ namespace metada::framework {
 
 /**
  * @brief Concept defining requirements for a configuration backend
+ *
+ * This concept enforces the contract that any configuration backend must
+ * implement. It provides compile-time validation of the required methods and
+ * their signatures.
  */
 template <typename T>
 concept ConfigBackendType =
@@ -31,8 +35,8 @@ concept ConfigBackendType =
  *
  * This class template provides a static interface for loading, accessing,
  * modifying and saving configuration data using a backend specified by the
- * ConfigBackend template parameter. The backend must implement the IConfig
- * interface.
+ * ConfigBackend template parameter. The backend must satisfy the
+ * ConfigBackendType concept.
  *
  * The configuration data is stored in a hierarchical structure where keys use
  * dot notation to access nested values. For example, "database.host" would
@@ -52,7 +56,7 @@ concept ConfigBackendType =
  * - Hierarchical configuration structure using dot notation
  * - Type-safe value access with default fallbacks
  * - File and string-based loading/saving
- * - Backend-agnostic interface
+ * - Backend-agnostic interface using C++20 concepts
  * - Exception safety through Get() vs GetUnsafe()
  *
  * Supported value types:
@@ -62,8 +66,8 @@ concept ConfigBackendType =
  * - String
  * - Arrays of the above types
  *
- * @tparam Backend The configuration backend type that implements IConfig
- * @see IConfig Base interface class for configuration backends
+ * @tparam Backend The configuration backend type that satisfies
+ * ConfigBackendType
  */
 template <typename BackendTag>
   requires ConfigBackendType<

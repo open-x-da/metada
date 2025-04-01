@@ -18,9 +18,6 @@ endfunction()
 
 # Config tests
 setup_test_executable(config_test ConfigTest.cpp)
-# Copy test configuration file to build directory
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test_config.yaml
-     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # Logger tests
 setup_test_executable(logger_test LoggerTest.cpp)

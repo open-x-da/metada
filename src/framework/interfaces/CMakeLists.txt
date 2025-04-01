@@ -23,7 +23,6 @@ target_sources(interfaces
         ${CMAKE_CURRENT_SOURCE_DIR}/IHardwareAccelerator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometry.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometryIterator.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/IConfig.hpp
 )
 
 AddFormatTarget(interfaces ${CMAKE_CURRENT_SOURCE_DIR})

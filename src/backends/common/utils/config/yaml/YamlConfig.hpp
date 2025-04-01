@@ -5,18 +5,16 @@
 #include <memory>
 #include <string>
 
-#include "utils/config/ConfigValue.hpp"
-#include "utils/config/IConfig.hpp"
+#include "common/utils/config/ConfigValue.hpp"
 
 namespace metada::backends::config {
 
 using framework::ConfigValue;
-using framework::IConfig;
 
 /**
  * @brief YAML configuration backend implementation
  * 
- * This class implements the IConfig interface using yaml-cpp as the
+ * This class implements the configuration backend contract using yaml-cpp as the
  * underlying storage format. It provides functionality to load, access, modify
  * and save configuration data in YAML format.
  *
@@ -47,16 +45,15 @@ using framework::IConfig;
  * - String
  * - Arrays of the above types
  *
- * @see IConfig Base interface class
  * @see YAML::Node YAML-CPP library used for implementation
  */
-class YamlConfig : public IConfig {
+class YamlConfig {
  public:
   /** @brief Default constructor creating an empty configuration */
   YamlConfig() = default;
 
-  /** @brief Virtual destructor */
-  ~YamlConfig() override = default;
+  /** @brief Default destructor */
+  ~YamlConfig() = default;
 
   /**
    * @brief Load configuration from a YAML file
@@ -65,7 +62,7 @@ class YamlConfig : public IConfig {
    * @throws std::runtime_error if file cannot be opened or contains invalid
    * YAML
    */
-  bool LoadFromFile(const std::string& filename) override;
+  bool LoadFromFile(const std::string& filename);
 
   /**
    * @brief Load configuration from a YAML string
@@ -73,7 +70,7 @@ class YamlConfig : public IConfig {
    * @return true if loading was successful, false otherwise
    * @throws std::runtime_error if content contains invalid YAML
    */
-  bool LoadFromString(const std::string& content) override;
+  bool LoadFromString(const std::string& content);
 
   /**
    * @brief Get a value from the configuration
@@ -83,8 +80,7 @@ class YamlConfig : public IConfig {
    * @throws std::runtime_error if the key doesn't exist or value type is not
    * supported
    */
-  ConfigValue Get(
-      const std::string& key) const override;
+  ConfigValue Get(const std::string& key) const;
 
   /**
    * @brief Set a value in the configuration
@@ -94,15 +90,14 @@ class YamlConfig : public IConfig {
    * @throws std::runtime_error if the key path is invalid or value type is not
    * supported
    */
-  void Set(const std::string& key,
-          const ConfigValue& value) override;
+  void Set(const std::string& key, const ConfigValue& value);
 
   /**
    * @brief Check if a key exists in the configuration
    * @param key Dot-separated path to check (e.g. "database.password")
    * @return true if the key exists, false otherwise
    */
-  bool HasKey(const std::string& key) const override;
+  bool HasKey(const std::string& key) const;
 
   /**
    * @brief Save configuration to a YAML file
@@ -110,20 +105,20 @@ class YamlConfig : public IConfig {
    * @return true if saving was successful, false otherwise
    * @throws std::runtime_error if file cannot be created or written to
    */
-  bool SaveToFile(const std::string& filename) const override;
+  bool SaveToFile(const std::string& filename) const;
 
   /**
    * @brief Get configuration as a YAML string
    * @return String containing the YAML representation of the configuration
    * @throws std::runtime_error if serialization fails
    */
-  std::string ToString() const override;
+  std::string ToString() const;
 
   /**
    * @brief Clear all configuration data
    * Resets the configuration to an empty state
    */
-  void Clear() override;
+  void Clear();
 
  private:
   /** @brief Root YAML node storing the configuration data */
@@ -144,8 +139,7 @@ class YamlConfig : public IConfig {
    * @return ConfigValue containing the converted value
    * @throws std::runtime_error if node type is not supported
    */
-  static ConfigValue NodeToConfigValue(
-      const YAML::Node& node);
+  static ConfigValue NodeToConfigValue(const YAML::Node& node);
 
   /**
    * @brief Convert a ConfigValue to a YAML node
@@ -153,8 +147,7 @@ class YamlConfig : public IConfig {
    * @return YAML node containing the converted value
    * @throws std::runtime_error if value type is not supported
    */
-  static YAML::Node ConfigValueToNode(
-      const ConfigValue& value);
+  static YAML::Node ConfigValueToNode(const ConfigValue& value);
 };
 
 }  // namespace metada::backends::config

@@ -4,20 +4,19 @@
 #include <filesystem>
 
 #include "common/utils/config/ConfigValue.hpp"
-#include "common/utils/config/IConfig.hpp"
 
 namespace metada::backends::gmock {
 
 using framework::ConfigValue;
-using framework::IConfig;
 
 /**
  * @brief Mock configuration backend for testing
  *
- * Implements IConfig interface using Google Mock to provide mock configuration
- * methods. Used to verify Config's interaction with its backend implementation.
+ * Implements the configuration backend contract using Google Mock to provide mock
+ * configuration methods. Used to verify Config's interaction with its backend
+ * implementation.
  */
-class MockConfig : public IConfig {
+class MockConfig {
  public:
   /**
    * @brief Default constructor
@@ -40,14 +39,14 @@ class MockConfig : public IConfig {
    */
   MockConfig& operator=(MockConfig&&) noexcept { return *this; }
 
-  MOCK_METHOD(bool, LoadFromFile, (const std::string&), (override));
-  MOCK_METHOD(bool, LoadFromString, (const std::string&), (override));
-  MOCK_METHOD(ConfigValue, Get, (const std::string&), (const, override));
-  MOCK_METHOD(void, Set, (const std::string&, const ConfigValue&), (override));
-  MOCK_METHOD(bool, HasKey, (const std::string&), (const, override));
-  MOCK_METHOD(bool, SaveToFile, (const std::string&), (const, override));
-  MOCK_METHOD(std::string, ToString, (), (const, override));
-  MOCK_METHOD(void, Clear, (), (override));
+  MOCK_METHOD(bool, LoadFromFile, (const std::string&));
+  MOCK_METHOD(bool, LoadFromString, (const std::string&));
+  MOCK_METHOD(ConfigValue, Get, (const std::string&), (const));
+  MOCK_METHOD(void, Set, (const std::string&, const ConfigValue&));
+  MOCK_METHOD(bool, HasKey, (const std::string&), (const));
+  MOCK_METHOD(bool, SaveToFile, (const std::string&), (const));
+  MOCK_METHOD(std::string, ToString, (), (const));
+  MOCK_METHOD(void, Clear, ());
 };
 
 }  // namespace metada::backends::gmock
