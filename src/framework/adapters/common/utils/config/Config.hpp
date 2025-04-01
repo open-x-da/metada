@@ -1,10 +1,29 @@
 #pragma once
 
+#include <concepts>
+
 #include "BackendTraits.hpp"
 #include "NonCopyable.hpp"
 #include "common/utils/config/ConfigValue.hpp"
 
 namespace metada::framework {
+
+/**
+ * @brief Concept defining requirements for a configuration backend
+ */
+template <typename T>
+concept ConfigBackendType =
+    requires(T t, const std::string& filename, const ConfigValue& value) {
+      // Required methods
+      { t.LoadFromFile(filename) } -> std::same_as<bool>;
+      { t.LoadFromString(filename) } -> std::same_as<bool>;
+      { t.Get(filename) } -> std::same_as<ConfigValue>;
+      { t.Set(filename, value) } -> std::same_as<void>;
+      { t.HasKey(filename) } -> std::same_as<bool>;
+      { t.SaveToFile(filename) } -> std::same_as<bool>;
+      { t.ToString() } -> std::same_as<std::string>;
+      { t.Clear() } -> std::same_as<void>;
+    };
 
 /**
  * @brief Main configuration class template providing a generic interface to
@@ -47,6 +66,8 @@ namespace metada::framework {
  * @see IConfig Base interface class for configuration backends
  */
 template <typename BackendTag>
+  requires ConfigBackendType<
+      typename traits::BackendTraits<BackendTag>::ConfigBackend>
 class Config : public NonCopyable {
  public:
   using ConfigBackend =
