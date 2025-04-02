@@ -6,12 +6,10 @@
 #include <iomanip>
 
 #include "utils/logger/LogStream.hpp"
-#include "common/utils/config/Config.hpp"
 
 namespace metada::backends::logger {
 
 using framework::LogLevel;
-using framework::Config;
 
 /**
  * @file ConsoleLogger.hpp

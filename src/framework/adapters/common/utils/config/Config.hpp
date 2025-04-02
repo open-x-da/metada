@@ -19,6 +19,8 @@ namespace metada::framework {
 template <typename T>
 concept ConfigBackendType =
     requires(T t, const std::string& filename, const ConfigValue& value) {
+      // Required constructor
+      { T(filename) } -> std::same_as<T>;
       // Required methods
       { t.LoadFromFile(filename) } -> std::same_as<bool>;
       { t.LoadFromString(filename) } -> std::same_as<bool>;
