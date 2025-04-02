@@ -29,8 +29,10 @@ namespace metada::framework {
  *
  * @tparam Backend The logger backend type that implements the LoggerBackend
  * concept
+ * @tparam ConfigBackend The configuration backend type required by the logger
  */
-template <LoggerBackend Backend>
+template <typename Backend, typename ConfigBackend>
+  requires LoggerBackend<Backend, ConfigBackend>
 class LogStream {
  public:
   /**

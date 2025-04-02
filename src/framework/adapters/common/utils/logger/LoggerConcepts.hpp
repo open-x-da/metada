@@ -22,6 +22,14 @@ concept HasConfigBackend =
     requires { typename traits::BackendTraits<T>::ConfigBackend; };
 
 /**
+ * @brief Concept that checks if a type has a constructor taking a ConfigBackend
+ */
+template <typename T, typename ConfigBackend>
+concept HasConfigConstructor = requires(const ConfigBackend& config) {
+  { T(config) } -> std::same_as<T>;
+};
+
+/**
  * @brief Concept that checks if a type has a LogMessage method
  */
 template <typename T>
@@ -46,9 +54,9 @@ concept HasStaticLifecycle = requires() {
  * string message. It may optionally have static Init and Shutdown methods for
  * lifecycle management.
  */
-template <typename T>
+template <typename T, typename ConfigBackend>
 concept LoggerBackend =
-    HasLogMessage<T> &&
+    HasLogMessage<T> && HasConfigConstructor<T, ConfigBackend> &&
     (HasStaticLifecycle<T> || true);  // Static lifecycle methods are optional
 
 /**
@@ -60,6 +68,7 @@ concept LoggerBackend =
 template <typename T>
 concept LoggerBackendTag =
     HasLoggerBackend<T> && HasConfigBackend<T> &&
-    LoggerBackend<typename traits::BackendTraits<T>::LoggerBackend>;
+    LoggerBackend<typename traits::BackendTraits<T>::LoggerBackend,
+                  typename traits::BackendTraits<T>::ConfigBackend>;
 
 }  // namespace metada::framework

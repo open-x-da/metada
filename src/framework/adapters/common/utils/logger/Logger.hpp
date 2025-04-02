@@ -112,32 +112,32 @@ class Logger : public NonCopyable {
    * @brief Create a stream for info-level logging
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream<LoggerBackend> Info() {
-    return LogStream<LoggerBackend>(backend_, LogLevel::Info);
+  LogStream<LoggerBackend, ConfigBackend> Info() {
+    return LogStream<LoggerBackend, ConfigBackend>(backend_, LogLevel::Info);
   }
 
   /**
    * @brief Create a stream for warning-level logging
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream<LoggerBackend> Warning() {
-    return LogStream<LoggerBackend>(backend_, LogLevel::Warning);
+  LogStream<LoggerBackend, ConfigBackend> Warning() {
+    return LogStream<LoggerBackend, ConfigBackend>(backend_, LogLevel::Warning);
   }
 
   /**
    * @brief Create a stream for error-level logging
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream<LoggerBackend> Error() {
-    return LogStream<LoggerBackend>(backend_, LogLevel::Error);
+  LogStream<LoggerBackend, ConfigBackend> Error() {
+    return LogStream<LoggerBackend, ConfigBackend>(backend_, LogLevel::Error);
   }
 
   /**
    * @brief Create a stream for debug-level logging
    * @return A LogStream object for stream-style logging with << operator
    */
-  LogStream<LoggerBackend> Debug() {
-    return LogStream<LoggerBackend>(backend_, LogLevel::Debug);
+  LogStream<LoggerBackend, ConfigBackend> Debug() {
+    return LogStream<LoggerBackend, ConfigBackend>(backend_, LogLevel::Debug);
   }
 
   /**
