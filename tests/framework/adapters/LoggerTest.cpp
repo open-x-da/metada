@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <filesystem>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -43,12 +44,15 @@ using framework::LogLevel;
  */
 class LoggerTest : public ::testing::Test {
  protected:
+  std::string config_file_;
   std::unique_ptr<Config<traits::MockBackendTag>> config_;
   std::unique_ptr<Logger<traits::MockBackendTag>> logger;
 
   void SetUp() override {
-    config_ =
-        std::make_unique<Config<traits::MockBackendTag>>("test_config.json");
+    // Get the directory where the test file is located
+    auto test_dir = std::filesystem::path(__FILE__).parent_path();
+    config_file_ = (test_dir / "test_config.yaml").string();
+    config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
     logger = std::make_unique<Logger<traits::MockBackendTag>>(*config_);
     traits::BackendTraits<traits::MockBackendTag>::LoggerBackend::Init("test");
   }
@@ -142,7 +146,7 @@ TEST_F(LoggerTest, MoveSemantics) {
   moved_logger.Info() << "moved logger";
 
   // Create a new logger for move assignment test
-  Config<traits::MockBackendTag> another_config("test_config.json");
+  Config<traits::MockBackendTag> another_config(config_file_);
   Logger<traits::MockBackendTag> another_logger(another_config);
   EXPECT_CALL(another_logger.backend(),
               LogMessage(LogLevel::Info, "another logger"))
@@ -150,7 +154,7 @@ TEST_F(LoggerTest, MoveSemantics) {
   another_logger.Info() << "another logger";
 
   // Test move assignment
-  Config<traits::MockBackendTag> assigned_config("test_config.json");
+  Config<traits::MockBackendTag> assigned_config(config_file_);
   Logger<traits::MockBackendTag> assigned_logger(assigned_config);
   assigned_logger = std::move(moved_logger);
 
