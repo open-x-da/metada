@@ -11,7 +11,7 @@ struct L63BackendTag {};
 template<>
 struct BackendTraits<L63BackendTag> {
   using ConfigBackend = backends::config::JsonConfig;
-  using LoggerBackend = backends::logger::GoogleLogger;
+  using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>;
 };
 
 } // namespace metada::traits

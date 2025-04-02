@@ -10,6 +10,14 @@
 namespace metada::framework {
 
 /**
+ * @brief Forward declaration of Config class
+ */
+template <typename BackendTag>
+  requires ConfigBackendType<
+      typename traits::BackendTraits<BackendTag>::ConfigBackend>
+class Config;
+
+/**
  * @brief Generic logger class that delegates to a backend implementation
  *
  * @details
@@ -42,12 +50,7 @@ namespace metada::framework {
  * @see NonCopyable
  * @see LogStream
  */
-template <typename BackendTag>
-  requires requires {
-    typename traits::BackendTraits<BackendTag>::LoggerBackend;
-    requires LoggerBackend<
-        typename traits::BackendTraits<BackendTag>::LoggerBackend>;
-  }
+template <LoggerBackendTag BackendTag>
 class Logger : public NonCopyable {
  public:
   using LoggerBackend =
@@ -58,12 +61,25 @@ class Logger : public NonCopyable {
   /**
    * @brief Disabled default constructor
    */
-  Logger() = default;
+  Logger() = delete;
 
   /**
    * @brief Default destructor
    */
   ~Logger() = default;
+
+  /**
+   * @brief Disabled copy constructor
+   * @param[in] other The logger instance to copy from
+   */
+  Logger(const Logger& other) = delete;
+
+  /**
+   * @brief Disabled copy assignment operator
+   * @param[in] other The logger instance to copy from
+   * @return Reference to this logger instance
+   */
+  Logger& operator=(const Logger& other) = delete;
 
   /**
    * @brief Move constructor
@@ -83,6 +99,14 @@ class Logger : public NonCopyable {
     }
     return *this;
   }
+
+  /**
+   * @brief Constructor that takes a config
+   * @param[in] config The config to use for logging
+   */
+  Logger(const Config<BackendTag>& config)
+      : backend_(typename traits::BackendTraits<BackendTag>::LoggerBackend(
+            config.backend())) {}
 
   /**
    * @brief Create a stream for info-level logging

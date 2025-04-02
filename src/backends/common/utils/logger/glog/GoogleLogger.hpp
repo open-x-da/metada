@@ -27,10 +27,10 @@ using framework::LogLevel;
  * Example usage with stream interface:
  * @code
  * // Initialize glog with application name
- * GoogleLogger::Init("MyApp");
+ * GoogleLogger<ConfigBackend>::Init("MyApp");
  *
  * // Create logger instance
- * GoogleLogger logger;
+ * GoogleLogger<ConfigBackend> logger;
  *
  * // Log at different levels
  * logger.Info() << "Application started with version " << version;
@@ -39,18 +39,52 @@ using framework::LogLevel;
  * logger.Debug() << "Connection details: " << details;
  *
  * // Clean up at shutdown
- * GoogleLogger::Shutdown();
+ * GoogleLogger<ConfigBackend>::Shutdown();
  * @endcode
  *
  * @note For debug logging to work in release builds, you may need to set
  * appropriate glog verbosity flags.
  */
+template <typename ConfigBackend>
 class GoogleLogger {
  public:
   /**
-   * @brief Default constructor
+   * @brief Disabled default constructor
    */
-  GoogleLogger() = default;
+  GoogleLogger() = delete;
+
+  /**
+   * @brief Default destructor
+   */
+  ~GoogleLogger() = default;
+
+  /**
+   * @brief Disabled copy constructor
+   */
+  GoogleLogger(const GoogleLogger&) = delete;
+
+  /**
+   * @brief Disabled copy assignment operator
+   */
+  GoogleLogger& operator=(const GoogleLogger&) = delete;
+
+  /**
+   * @brief Move constructor
+   */
+  GoogleLogger(GoogleLogger&&) noexcept = default;
+
+  /**
+   * @brief move assignment operator
+   */
+  GoogleLogger& operator=(GoogleLogger&&) noexcept = default;
+
+  /**
+   * @brief Constructor that takes a config
+   * @param[in] config The config to use for logging
+   */
+  explicit GoogleLogger(const ConfigBackend& config) : config_(config) {
+    Init("GoogleLogger");
+  }
 
   /**
    * @brief Log a message at the specified level
@@ -103,6 +137,9 @@ class GoogleLogger {
    * Performs proper cleanup of Google's logging library
    */
   static void Shutdown() { google::ShutdownGoogleLogging(); }
+
+ private:
+  const ConfigBackend& config_;  ///< Configuration backend instance
 };
 
 }  // namespace metada::backends::logger

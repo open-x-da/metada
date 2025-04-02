@@ -1,12 +1,17 @@
 #pragma once
 
 #include <iostream>
+#include <chrono>
+#include <sstream>
+#include <iomanip>
 
 #include "utils/logger/LogStream.hpp"
+#include "common/utils/config/Config.hpp"
 
 namespace metada::backends::logger {
 
 using framework::LogLevel;
+using framework::Config;
 
 /**
  * @file ConsoleLogger.hpp
@@ -34,10 +39,10 @@ using framework::LogLevel;
  * Example usage with stream-based API:
  * @code
  * // Initialize logging
- * ConsoleLogger::Init("MyApp");
+ * ConsoleLogger<ConfigBackend>::Init("MyApp");
  *
  * // Create logger instance
- * ConsoleLogger logger;
+ * ConsoleLogger<ConfigBackend> logger;
  *
  * // Log at different levels using stream interface
  * logger.Info() << "Application started with version " << app_version;
@@ -46,17 +51,57 @@ using framework::LogLevel;
  * logger.Debug() << "Connection params: " << host << ":" << port;
  *
  * // Cleanup on shutdown
- * ConsoleLogger::Shutdown();
+ * ConsoleLogger<ConfigBackend>::Shutdown();
  * @endcode
  *
  * @see ILogger Base interface class
  */
+template <typename ConfigBackend>
 class ConsoleLogger {
  public:
   /**
-   * @brief Default constructor
+   * @brief Disabled default constructor
    */
-  ConsoleLogger() = default;
+  ConsoleLogger() = delete;
+
+  /**
+   * @brief Default destructor
+   */
+  ~ConsoleLogger() = default;
+
+  /**
+   * @brief Disabled copy constructor
+   */
+  ConsoleLogger(const ConsoleLogger&) = delete;
+
+  /**
+   * @brief Disabled copy assignment operator
+   */
+  ConsoleLogger& operator=(const ConsoleLogger&) = delete;
+
+  /**
+   * @brief Move constructor
+   */
+  ConsoleLogger(ConsoleLogger&&) noexcept = default;
+
+  /**
+   * @brief move assignment operator
+   */
+  ConsoleLogger& operator=(ConsoleLogger&&) noexcept = default;
+
+  /**
+   * @brief Constructor that takes a config
+   * @param[in] config The config to use for logging
+   */
+  explicit ConsoleLogger(const ConfigBackend& config) : config_(config) {
+    // Extract configuration values with defaults
+    std::string app_name = config.Get("logger.app_name", "ConsoleLogger").AsString();
+    bool use_colors = config.Get("logger.use_colors", true).AsBool();
+    bool show_timestamp = config.Get("logger.show_timestamp", true).AsBool();
+    
+    // Initialize with config values
+    Init(app_name);
+  }
 
   /**
    * @brief Log a message at the specified level
@@ -69,18 +114,32 @@ class ConsoleLogger {
    * @param message The message to log
    */
   void LogMessage(LogLevel level, const std::string& message) {
+    // Get formatting settings from config
+    bool use_colors = config_.Get("logger.use_colors", true).AsBool();
+    bool show_timestamp = config_.Get("logger.show_timestamp", true).AsBool();
+    
+    std::string prefix;
+    if (show_timestamp) {
+      // Add timestamp if enabled
+      auto now = std::chrono::system_clock::now();
+      auto time = std::chrono::system_clock::to_time_t(now);
+      std::stringstream ss;
+      ss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
+      prefix = "[" + ss.str() + "] ";
+    }
+    
     switch (level) {
       case LogLevel::Info:
-        std::cout << "[INFO] " << message << std::endl;
+        std::cout << prefix << "[INFO] " << message << std::endl;
         break;
       case LogLevel::Warning:
-        std::cout << "[WARNING] " << message << std::endl;
+        std::cout << prefix << "[WARNING] " << message << std::endl;
         break;
       case LogLevel::Error:
-        std::cerr << "[ERROR] " << message << std::endl;
+        std::cerr << prefix << "[ERROR] " << message << std::endl;
         break;
       case LogLevel::Debug:
-        std::cout << "[DEBUG] " << message << std::endl;
+        std::cout << prefix << "[DEBUG] " << message << std::endl;
         break;
     }
   }
@@ -115,6 +174,9 @@ class ConsoleLogger {
     // Simple cleanup for default logger
     std::cout << "[INFO] " << "Console logger shutdown" << std::endl;
   }
+
+ private:
+  const ConfigBackend& config_;  ///< Configuration backend instance
 };
 
 }  // namespace metada::backends::logger

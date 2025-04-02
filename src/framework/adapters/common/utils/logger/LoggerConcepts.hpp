@@ -8,6 +8,20 @@
 namespace metada::framework {
 
 /**
+ * @brief Concept that checks if a type has a LoggerBackend type member
+ */
+template <typename T>
+concept HasLoggerBackend =
+    requires { typename traits::BackendTraits<T>::LoggerBackend; };
+
+/**
+ * @brief Concept that checks if a type has a ConfigBackend type member
+ */
+template <typename T>
+concept HasConfigBackend =
+    requires { typename traits::BackendTraits<T>::ConfigBackend; };
+
+/**
  * @brief Concept that checks if a type has a LogMessage method
  */
 template <typename T>
@@ -36,5 +50,16 @@ template <typename T>
 concept LoggerBackend =
     HasLogMessage<T> &&
     (HasStaticLifecycle<T> || true);  // Static lifecycle methods are optional
+
+/**
+ * @brief Concept that defines the requirements for a logger backend tag
+ *
+ * A logger backend tag must provide a LoggerBackend type through BackendTraits
+ * that satisfies the LoggerBackend concept.
+ */
+template <typename T>
+concept LoggerBackendTag =
+    HasLoggerBackend<T> && HasConfigBackend<T> &&
+    LoggerBackend<typename traits::BackendTraits<T>::LoggerBackend>;
 
 }  // namespace metada::framework

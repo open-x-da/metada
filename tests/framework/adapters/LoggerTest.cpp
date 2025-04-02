@@ -17,10 +17,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <sstream>
 #include <string>
 
 #include "MockBackendTraits.hpp"
+#include "common/utils/config/Config.hpp"
 #include "common/utils/logger/LogStream.hpp"
 #include "common/utils/logger/Logger.hpp"
 
@@ -29,6 +31,7 @@ namespace metada::tests {
 using ::testing::_;
 using ::testing::Return;
 
+using framework::Config;
 using framework::Logger;
 using framework::LogLevel;
 
@@ -40,10 +43,13 @@ using framework::LogLevel;
  */
 class LoggerTest : public ::testing::Test {
  protected:
-  /** @brief Logger instance with mock backend */
-  Logger<traits::MockBackendTag> logger;
+  std::unique_ptr<Config<traits::MockBackendTag>> config_;
+  std::unique_ptr<Logger<traits::MockBackendTag>> logger;
 
   void SetUp() override {
+    config_ =
+        std::make_unique<Config<traits::MockBackendTag>>("test_config.json");
+    logger = std::make_unique<Logger<traits::MockBackendTag>>(*config_);
     traits::BackendTraits<traits::MockBackendTag>::LoggerBackend::Init("test");
   }
 
@@ -62,9 +68,9 @@ class LoggerTest : public ::testing::Test {
  * - Single invocation per call
  */
 TEST_F(LoggerTest, InfoStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Info, "test message"))
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Info, "test message"))
       .Times(1);
-  logger.Info() << "test message";
+  logger->Info() << "test message";
 }
 
 /**
@@ -77,9 +83,9 @@ TEST_F(LoggerTest, InfoStreamCallsUnderlyingImplementation) {
  * - Single invocation per call
  */
 TEST_F(LoggerTest, WarningStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Warning, "test message"))
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Warning, "test message"))
       .Times(1);
-  logger.Warning() << "test message";
+  logger->Warning() << "test message";
 }
 
 /**
@@ -92,9 +98,9 @@ TEST_F(LoggerTest, WarningStreamCallsUnderlyingImplementation) {
  * - Single invocation per call
  */
 TEST_F(LoggerTest, ErrorStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Error, "test message"))
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Error, "test message"))
       .Times(1);
-  logger.Error() << "test message";
+  logger->Error() << "test message";
 }
 
 /**
@@ -107,9 +113,9 @@ TEST_F(LoggerTest, ErrorStreamCallsUnderlyingImplementation) {
  * - Single invocation per call
  */
 TEST_F(LoggerTest, DebugStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Debug, "test message"))
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Debug, "test message"))
       .Times(1);
-  logger.Debug() << "test message";
+  logger->Debug() << "test message";
 }
 
 /**
@@ -122,12 +128,12 @@ TEST_F(LoggerTest, DebugStreamCallsUnderlyingImplementation) {
  */
 TEST_F(LoggerTest, MoveSemantics) {
   // Setup expectations for the original logger
-  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Info, "original logger"))
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Info, "original logger"))
       .Times(1);
-  logger.Info() << "original logger";
+  logger->Info() << "original logger";
 
   // Test move construction
-  Logger<traits::MockBackendTag> moved_logger(std::move(logger));
+  Logger<traits::MockBackendTag> moved_logger(std::move(*logger));
 
   // Setup expectations for the moved logger
   EXPECT_CALL(moved_logger.backend(),
@@ -136,15 +142,17 @@ TEST_F(LoggerTest, MoveSemantics) {
   moved_logger.Info() << "moved logger";
 
   // Create a new logger for move assignment test
-  Logger<traits::MockBackendTag> another_logger;
+  Config<traits::MockBackendTag> another_config("test_config.json");
+  Logger<traits::MockBackendTag> another_logger(another_config);
   EXPECT_CALL(another_logger.backend(),
               LogMessage(LogLevel::Info, "another logger"))
       .Times(1);
   another_logger.Info() << "another logger";
 
   // Test move assignment
-  Logger<traits::MockBackendTag> assigned_logger;
-  assigned_logger = std::move(another_logger);
+  Config<traits::MockBackendTag> assigned_config("test_config.json");
+  Logger<traits::MockBackendTag> assigned_logger(assigned_config);
+  assigned_logger = std::move(moved_logger);
 
   // Setup expectations for the assigned logger
   EXPECT_CALL(assigned_logger.backend(),
@@ -166,11 +174,11 @@ TEST_F(LoggerTest, MoveSemantics) {
  */
 TEST_F(LoggerTest, StreamBasedLoggingWithMultipleTypes) {
   // The backend's LogMessage method should be called with the composed message
-  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Info, "test 42 message"))
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Info, "test 42 message"))
       .Times(1);
 
   // Use the stream-based API to compose a message
-  logger.Info() << "test " << 42 << " message";
+  logger->Info() << "test " << 42 << " message";
 }
 
 /**
@@ -181,21 +189,21 @@ TEST_F(LoggerTest, StreamBasedLoggingWithMultipleTypes) {
  */
 TEST_F(LoggerTest, StreamBasedLoggingWithVariableTypes) {
   // Test with different types
-  EXPECT_CALL(logger.backend(),
+  EXPECT_CALL(logger->backend(),
               LogMessage(LogLevel::Warning, "warning 3.14 value"))
       .Times(1);
-  logger.Warning() << "warning " << 3.14 << " value";
+  logger->Warning() << "warning " << 3.14 << " value";
 
-  EXPECT_CALL(logger.backend(), LogMessage(LogLevel::Error, "error: value=1"))
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Error, "error: value=1"))
       .Times(1);
-  logger.Error() << "error: value=" << true;
+  logger->Error() << "error: value=" << true;
 
-  EXPECT_CALL(logger.backend(),
+  EXPECT_CALL(logger->backend(),
               LogMessage(LogLevel::Debug, "debug complex = (1,2)"))
       .Times(1);
   std::stringstream ss;
   ss << "(" << 1 << "," << 2 << ")";
-  logger.Debug() << "debug complex = " << ss.str();
+  logger->Debug() << "debug complex = " << ss.str();
 }
 
 }  // namespace metada::tests

@@ -23,7 +23,7 @@ using framework::LogStream;
  *
  * Example usage:
  * @code
- * MockLogger mock_logger;
+ * MockLogger<ConfigBackend> mock_logger;
  *
  * // Test message logging at different severity levels
  * EXPECT_CALL(mock_logger, LogMessage(LogLevel::Info, "Starting test"));
@@ -38,12 +38,13 @@ using framework::LogStream;
  * TestFunction(mock_logger);
  * @endcode
  */
+template <typename ConfigBackend>
 class MockLogger {
  public:
   /**
    * @brief Disabled default constructor
    */
-  MockLogger() = default;
+  MockLogger() = delete;
 
   /**
    * @brief Default destructor
@@ -69,7 +70,15 @@ class MockLogger {
    */
   MockLogger& operator=(MockLogger&&) noexcept { return *this; }
 
-    /**
+  /**
+   * @brief Constructor that takes a config
+   * @param[in] config The config to use for logging
+   */
+  explicit MockLogger([[maybe_unused]] const ConfigBackend& config) {
+    Init("MockLogger");
+  }
+
+  /**
    * @brief Mock method for logging messages
    * @param[in] level Log level
    * @param[in] message Log message

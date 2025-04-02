@@ -15,7 +15,7 @@ struct MockBackendTag {};
 template<>
 struct BackendTraits<MockBackendTag> {
   using ConfigBackend       = backends::gmock::MockConfig;
-  using LoggerBackend       = backends::gmock::MockLogger;
+  using LoggerBackend       = backends::gmock::MockLogger<ConfigBackend>;
   //using StateBackend        = MockStateBackend;
   //using ModelBackend        = MockModelBackend;
   //using GeometryBackend     = MockGeometryBackend;
