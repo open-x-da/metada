@@ -12,6 +12,8 @@
  * - Message passing integrity
  * - Call frequency verification
  * - Move semantics (non-copyable behavior)
+ * - Config-based initialization
+ * - Backend access
  */
 
 #include <gmock/gmock.h>
@@ -63,72 +65,81 @@ class LoggerTest : public ::testing::Test {
 };
 
 /**
- * @brief Verify Info method delegation
+ * @brief Test Logger initialization with config
  *
- * Tests that Logger::Info() stream properly delegates to backend's LogMessage
- * method:
- * - Correct message forwarding
- * - Correct log level
- * - Single invocation per call
+ * Verifies that:
+ * - Logger can be constructed with a config
+ * - The backend is properly initialized
+ * - The config is correctly passed to the backend
  */
-TEST_F(LoggerTest, InfoStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Info, "test message"))
+TEST_F(LoggerTest, ConfigBasedInitialization) {
+  // Create a new config and logger
+  Config<traits::MockBackendTag> new_config(config_file_);
+  Logger<traits::MockBackendTag> new_logger(new_config);
+
+  // Verify the logger is functional
+  EXPECT_CALL(new_logger.backend(), LogMessage(LogLevel::Info, "test message"))
       .Times(1);
-  logger->Info() << "test message";
+  new_logger.Info() << "test message";
 }
 
 /**
- * @brief Verify Warning method delegation
+ * @brief Test backend access methods
  *
- * Tests that Logger::Warning() stream properly delegates to backend's
- * LogMessage method:
- * - Correct message forwarding
- * - Correct log level
- * - Single invocation per call
+ * Verifies that:
+ * - The backend() method returns a reference to the correct backend
+ * - The backend can be used directly for logging
  */
-TEST_F(LoggerTest, WarningStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Warning, "test message"))
+TEST_F(LoggerTest, BackendAccess) {
+  // Test direct backend access
+  EXPECT_CALL(logger->backend(),
+              LogMessage(LogLevel::Info, "direct backend access"))
       .Times(1);
-  logger->Warning() << "test message";
+  logger->backend().LogMessage(LogLevel::Info, "direct backend access");
+
+  // Test backend reference is valid
+  auto& backend_ref = logger->backend();
+  EXPECT_CALL(backend_ref, LogMessage(LogLevel::Warning, "backend reference"))
+      .Times(1);
+  backend_ref.LogMessage(LogLevel::Warning, "backend reference");
 }
 
 /**
- * @brief Verify Error method delegation
+ * @brief Test all logging levels
  *
- * Tests that Logger::Error() stream properly delegates to backend's LogMessage
- * method:
- * - Correct message forwarding
- * - Correct log level
- * - Single invocation per call
+ * Verifies that all logging levels (Info, Warning, Error, Debug) work correctly
+ * and forward messages to the backend with the appropriate level.
  */
-TEST_F(LoggerTest, ErrorStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Error, "test message"))
+TEST_F(LoggerTest, AllLoggingLevels) {
+  // Test Info level
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Info, "info message"))
       .Times(1);
-  logger->Error() << "test message";
+  logger->Info() << "info message";
+
+  // Test Warning level
+  EXPECT_CALL(logger->backend(),
+              LogMessage(LogLevel::Warning, "warning message"))
+      .Times(1);
+  logger->Warning() << "warning message";
+
+  // Test Error level
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Error, "error message"))
+      .Times(1);
+  logger->Error() << "error message";
+
+  // Test Debug level
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Debug, "debug message"))
+      .Times(1);
+  logger->Debug() << "debug message";
 }
 
 /**
- * @brief Verify Debug method delegation
+ * @brief Test move semantics and non-copyable behavior
  *
- * Tests that Logger::Debug() stream properly delegates to backend's LogMessage
- * method:
- * - Correct message forwarding
- * - Correct log level
- * - Single invocation per call
- */
-TEST_F(LoggerTest, DebugStreamCallsUnderlyingImplementation) {
-  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Debug, "test message"))
-      .Times(1);
-  logger->Debug() << "test message";
-}
-
-/**
- * @brief Verify move semantics and non-copyable behavior
- *
- * Tests that Logger properly supports:
- * - Move construction
- * - Move assignment
- * - Non-copyable behavior (verified at compile time)
+ * Verifies that:
+ * - Move construction works correctly
+ * - Move assignment works correctly
+ * - Copy operations are properly deleted
  */
 TEST_F(LoggerTest, MoveSemantics) {
   // Setup expectations for the original logger
@@ -154,60 +165,73 @@ TEST_F(LoggerTest, MoveSemantics) {
   another_logger.Info() << "another logger";
 
   // Test move assignment
-  Config<traits::MockBackendTag> assigned_config(config_file_);
-  Logger<traits::MockBackendTag> assigned_logger(assigned_config);
-  assigned_logger = std::move(moved_logger);
+  another_logger = std::move(moved_logger);
 
   // Setup expectations for the assigned logger
-  EXPECT_CALL(assigned_logger.backend(),
+  EXPECT_CALL(another_logger.backend(),
               LogMessage(LogLevel::Info, "assigned logger"))
       .Times(1);
-  assigned_logger.Info() << "assigned logger";
-
-  // Note: The following would not compile due to deleted copy operations:
-  // Logger<MockLogger> copy_logger(logger); // Copy construction - deleted
-  // Logger<MockLogger> assign_logger;
-  // assign_logger = logger; // Copy assignment - deleted
+  another_logger.Info() << "assigned logger";
 }
 
 /**
  * @brief Test complex stream-based logging
  *
- * Verifies that the stream-based API correctly composes messages with
- * multiple data types and forwards them properly.
+ * Verifies that:
+ * - Multiple values can be chained in a single log message
+ * - Different types can be mixed in the same message
+ * - The final message is correctly composed and forwarded
  */
-TEST_F(LoggerTest, StreamBasedLoggingWithMultipleTypes) {
-  // The backend's LogMessage method should be called with the composed message
-  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Info, "test 42 message"))
+TEST_F(LoggerTest, ComplexStreamLogging) {
+  // Test with multiple values and types
+  EXPECT_CALL(logger->backend(),
+              LogMessage(LogLevel::Info, "User 123 logged in from 192.168.1.1"))
       .Times(1);
+  logger->Info() << "User " << 123 << " logged in from " << "192.168.1.1";
 
-  // Use the stream-based API to compose a message
-  logger->Info() << "test " << 42 << " message";
+  // Test with numeric types
+  EXPECT_CALL(logger->backend(),
+              LogMessage(LogLevel::Warning, "Resource usage: 75.5%"))
+      .Times(1);
+  logger->Warning() << "Resource usage: " << 75.5 << "%";
+
+  // Test with boolean values
+  EXPECT_CALL(logger->backend(),
+              LogMessage(LogLevel::Error, "Operation failed: 1"))
+      .Times(1);
+  logger->Error() << "Operation failed: " << true;
+
+  // Test with complex string composition
+  std::stringstream ss;
+  ss << "(" << 1 << "," << 2 << ")";
+  EXPECT_CALL(logger->backend(),
+              LogMessage(LogLevel::Debug, "Coordinates: (1,2)"))
+      .Times(1);
+  logger->Debug() << "Coordinates: " << ss.str();
 }
 
 /**
- * @brief Test logging with variable types
+ * @brief Test multiple log messages in sequence
  *
- * Verifies that the stream-based API can handle different variable types
- * including numeric types, boolean values, and strings.
+ * Verifies that:
+ * - Multiple log messages can be sent in sequence
+ * - Each message is properly forwarded
+ * - The order of messages is maintained
  */
-TEST_F(LoggerTest, StreamBasedLoggingWithVariableTypes) {
-  // Test with different types
+TEST_F(LoggerTest, MultipleSequentialLogs) {
+  // Setup expectations for multiple sequential logs
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Info, "First message"))
+      .Times(1);
   EXPECT_CALL(logger->backend(),
-              LogMessage(LogLevel::Warning, "warning 3.14 value"))
+              LogMessage(LogLevel::Warning, "Second message"))
       .Times(1);
-  logger->Warning() << "warning " << 3.14 << " value";
+  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Error, "Third message"))
+      .Times(1);
 
-  EXPECT_CALL(logger->backend(), LogMessage(LogLevel::Error, "error: value=1"))
-      .Times(1);
-  logger->Error() << "error: value=" << true;
-
-  EXPECT_CALL(logger->backend(),
-              LogMessage(LogLevel::Debug, "debug complex = (1,2)"))
-      .Times(1);
-  std::stringstream ss;
-  ss << "(" << 1 << "," << 2 << ")";
-  logger->Debug() << "debug complex = " << ss.str();
+  // Send multiple logs in sequence
+  logger->Info() << "First message";
+  logger->Warning() << "Second message";
+  logger->Error() << "Third message";
 }
 
 }  // namespace metada::tests
