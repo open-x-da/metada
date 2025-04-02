@@ -47,11 +47,41 @@ using framework::ConfigValue;
  */
 class JsonConfig {
  public:
-  /** @brief Default constructor creating an empty configuration */
-  JsonConfig() = default;
+  /** @brief Disable default constructor */
+  JsonConfig() = delete;
 
   /** @brief Default destructor */
   ~JsonConfig() = default;
+
+  /**
+   * @brief Disable copy constructor
+   */
+  JsonConfig(const JsonConfig&) = delete;
+
+  /**
+   * @brief Disable copy assignment operator
+   */
+  JsonConfig& operator=(const JsonConfig&) = delete;
+
+  /**
+   * @brief Move constructor
+   */
+  JsonConfig(JsonConfig&& other) noexcept : root_(std::move(other.root_)) {}
+
+  /**
+   * @brief Move assignment operator
+   */
+  JsonConfig& operator=(JsonConfig&& other) noexcept {
+    root_ = std::move(other.root_);
+    return *this;
+  }
+
+  /**
+   * @brief Constructor that loads configuration from a file
+   * @param filename Path to the JSON configuration file
+   * @throws std::runtime_error If loading fails
+   */
+  explicit JsonConfig(const std::string& filename) { LoadFromFile(filename); }
 
   /**
    * @brief Load configuration from a JSON file

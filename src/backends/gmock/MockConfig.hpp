@@ -19,15 +19,24 @@ using framework::ConfigValue;
 class MockConfig {
  public:
   /**
-   * @brief Default constructor
+   * @brief Disable default constructor
    */
-  MockConfig() {
-    // Set up default behavior for LoadFromFile to check if file exists
-    ON_CALL(*this, LoadFromFile(::testing::_))
-        .WillByDefault(::testing::Invoke([](const std::string& filename) {
-          return std::filesystem::exists(filename);
-        }));
-  }
+  MockConfig() = delete;
+
+  /**
+   * @brief Default destructor
+   */
+  ~MockConfig() = default;
+
+  /**
+   * @brief Disable copy constructor
+   */
+  MockConfig(const MockConfig&) = delete;
+
+  /**
+   * @brief Disable copy assignment operator
+   */
+  MockConfig& operator=(const MockConfig&) = delete;
 
   /**
    * @brief Move constructor - explicitly defined for Google Mock compatibility
@@ -38,6 +47,13 @@ class MockConfig {
    * @brief Move assignment - explicitly defined for Google Mock compatibility
    */
   MockConfig& operator=(MockConfig&&) noexcept { return *this; }
+
+  /**
+   * @brief Constructor that loads configuration from a file
+   * @param filename Path to the configuration file
+   * @throws std::runtime_error If loading fails
+   */
+  explicit MockConfig(const std::string& filename) { LoadFromFile(filename); }
 
   MOCK_METHOD(bool, LoadFromFile, (const std::string&));
   MOCK_METHOD(bool, LoadFromString, (const std::string&));

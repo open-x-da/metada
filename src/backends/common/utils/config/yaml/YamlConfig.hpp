@@ -49,11 +49,37 @@ using framework::ConfigValue;
  */
 class YamlConfig {
  public:
-  /** @brief Default constructor creating an empty configuration */
-  YamlConfig() = default;
+  /** @brief Disable default constructor */
+  YamlConfig() = delete;
 
-  /** @brief Default destructor */
+  /** @brief Disable default destructor */
   ~YamlConfig() = default;
+
+  /** @brief Disable copy constructor */
+  YamlConfig(const YamlConfig&) = delete;
+
+  /** @brief Disable copy assignment operator */
+  YamlConfig& operator=(const YamlConfig&) = delete;
+
+  /**
+   * @brief Move constructor
+   */
+  YamlConfig(YamlConfig&& other) noexcept : root_(std::move(other.root_)) {}
+
+  /**
+   * @brief Move assignment operator
+   */
+  YamlConfig& operator=(YamlConfig&& other) noexcept {
+    root_ = std::move(other.root_);
+    return *this;
+  }
+  
+  /**
+   * @brief Constructor that loads configuration from a file
+   * @param filename Path to the YAML configuration file
+   * @throws std::runtime_error If loading fails
+   */
+  explicit YamlConfig(const std::string& filename) { LoadFromFile(filename); }
 
   /**
    * @brief Load configuration from a YAML file

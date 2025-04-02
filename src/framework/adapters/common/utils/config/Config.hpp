@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <filesystem>
 
 #include "BackendTraits.hpp"
 #include "NonCopyable.hpp"
@@ -110,14 +111,16 @@ class Config : public NonCopyable {
   /**
    * @brief Constructor that loads configuration from a file
    * @param filename Path to the configuration file
-   * @throws std::runtime_error If loading fails
+   * @throws std::runtime_error If file doesn't exist or loading fails
    */
-  explicit Config(const std::string& filename) {
-    if (!backend_.LoadFromFile(filename)) {
-      throw std::runtime_error("Failed to load configuration from file: " +
-                               filename);
-    }
-  }
+  explicit Config(const std::string& filename)
+      : backend_([&filename]() {
+          if (!std::filesystem::exists(filename)) {
+            throw std::runtime_error("Configuration file does not exist: " +
+                                     filename);
+          }
+          return ConfigBackend(filename);
+        }()) {}
 
   /**
    * @brief Get direct access to the backend instance
