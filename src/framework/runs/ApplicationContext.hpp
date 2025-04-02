@@ -23,7 +23,8 @@ namespace metada::framework::runs {
  *
  * @par Managed Services
  * - Logging System: Application-wide logging and diagnostics
- * - Configuration: Reading and accessing application settings
+ * - Configuration: Reading and accessing application settings from YAML/JSON
+ * files
  * - Performance Monitoring: Tracking application metrics (planned)
  * - Resource Management: Managing system resources (planned)
  * - Runtime Environment: MPI and threading configuration (planned)
@@ -34,18 +35,19 @@ namespace metada::framework::runs {
  * - Move semantics support for RAII usage
  * - Non-copyable to maintain service uniqueness
  * - Centralized error handling and logging
+ * - Support for multiple backend implementations through traits
  *
  * @par Example Usage
  * @code{.cpp}
  * int main(int argc, char* argv[]) {
  *   // Create context with app name and config file
- *   auto context = ApplicationContext<Traits>("my_app", argv[1]);
+ *   auto context = ApplicationContext<L63BackendTag>("letkf_app", argv[1]);
  *
  *   // Access managed services
  *   auto& logger = context.getLogger();
  *   auto& config = context.getConfig();
  *
- *   logger.Info("Application started");
+ *   logger.Info() << "Application started";
  *
  *   // Use services...
  *
@@ -54,33 +56,28 @@ namespace metada::framework::runs {
  * }
  * @endcode
  *
- * @tparam Traits Configuration traits class defining service types:
- *         - LoggerType: The logging service implementation
- *         - ConfigType: The configuration service implementation
+ * @tparam BackendTag Tag type defining backend service implementations through
+
  *
  * @note The context should be instantiated exactly once at application startup
- * @note Services are initialized in order: Logger -> Config -> Future Services
+ * @note Services are initialized in order: Config -> Logger -> Future Services
  * @note Cleanup occurs automatically in reverse order on destruction
+ * @see metada::traits::BackendTraits for backend implementation details
  */
 template <typename BackendTag>
 class ApplicationContext {
  public:
-  using ConfigBackend =
-      typename metada::traits::BackendTraits<BackendTag>::ConfigBackend;
-  using LoggerBackend =
-      typename metada::traits::BackendTraits<BackendTag>::LoggerBackend;
-
   /**
    * @brief Constructs and initializes the application context
    *
    * @param app_name Name of the application used for logging and identification
-   * @param config_file Optional path to configuration file (empty for defaults)
+   * @param config_file Path to configuration file (JSON/YAML)
    * @throws std::runtime_error If initialization of any service fails
    *
    * @details Initializes services in the following order:
-   * 1. Logger initialization with application name
-   * 2. Configuration loading if config file specified
-   * 3. Logs successful initialization
+   * 1. Configuration loading from specified file
+   * 2. Logger initialization with configuration
+   * 3. Logs successful initialization with application name
    */
   ApplicationContext(const std::string& app_name,
                      const std::string& config_file)
@@ -93,8 +90,8 @@ class ApplicationContext {
    *
    * @details Services are cleaned up in reverse initialization order:
    * 1. Future services (when implemented)
-   * 2. Configuration
-   * 3. Logger
+   * 2. Logger
+   * 3. Configuration
    */
   ~ApplicationContext() {
     logger_.Info() << "Shutting down application context";

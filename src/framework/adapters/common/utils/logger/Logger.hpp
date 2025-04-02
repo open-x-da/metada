@@ -110,8 +110,7 @@ class Logger : public NonCopyable {
    * @param[in] config The config to use for initializing the logger backend
    */
   Logger(const Config<BackendTag>& config)
-      : backend_(typename traits::BackendTraits<BackendTag>::LoggerBackend(
-            config.backend())) {}
+      : backend_(LoggerBackend(config.backend())) {}
 
   /**
    * @brief Create a stream for info-level logging
