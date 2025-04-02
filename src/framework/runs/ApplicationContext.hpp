@@ -98,7 +98,6 @@ class ApplicationContext {
    */
   ~ApplicationContext() {
     logger_.Info() << "Shutting down application context";
-    shutdownLogger();
   }
 
   // Prevent copying to ensure single instance of services
@@ -128,19 +127,6 @@ class ApplicationContext {
   Config<BackendTag> config_;
   Logger<BackendTag> logger_;
   // Timer timer_;  // To be implemented
-
-  /**
-   * @brief Initialize the logging service
-   * @param app_name Application name for logger identification
-   */
-  void initLogger(const std::string& app_name) {
-    logger_.backend().Init(app_name);
-  }
-
-  /**
-   * @brief Shutdown the logging service cleanly
-   */
-  void shutdownLogger() { logger_.backend().Shutdown(); }
 };
 
 }  // namespace metada::framework::runs

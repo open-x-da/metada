@@ -56,7 +56,7 @@ class GoogleLogger {
   /**
    * @brief Default destructor
    */
-  ~GoogleLogger() = default;
+  ~GoogleLogger() { Shutdown(); }
 
   /**
    * @brief Disabled copy constructor

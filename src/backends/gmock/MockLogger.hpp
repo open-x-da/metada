@@ -49,7 +49,8 @@ class MockLogger {
   /**
    * @brief Default destructor
    */
-  ~MockLogger() = default;
+  ~MockLogger() { Shutdown(); }
+
   /**
    * @brief Copy constructor (no-op for mock)
    */

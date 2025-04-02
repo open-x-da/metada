@@ -65,7 +65,7 @@ class ConsoleLogger {
   /**
    * @brief Default destructor
    */
-  ~ConsoleLogger() = default;
+  ~ConsoleLogger() { Shutdown(); }
 
   /**
    * @brief Disabled copy constructor
