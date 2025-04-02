@@ -20,10 +20,17 @@ using framework::ConfigValue;
  * dot notation to access nested values. For example, "database.host" would
  * access the "host" field within the "database" object.
  *
+ * Features:
+ * - Loading from JSON files and strings
+ * - Saving to JSON files
+ * - Accessing nested values with dot notation
+ * - Type-safe value retrieval and storage
+ * - Support for all ConfigValue types
+ * - Thread-safe operations
+ *
  * Example usage:
  * @code
- * JsonConfig config;
- * config.LoadFromFile("config.json");
+ * JsonConfig config("config.json");
  *
  * // Get values
  * auto host = config.Get("database.host").AsString();
@@ -39,11 +46,17 @@ using framework::ConfigValue;
  * Supported value types:
  * - Boolean
  * - Integer
- * - Double
+ * - Float
  * - String
  * - Arrays of the above types
  *
+ * This implementation satisfies the ConfigBackendType concept required by
+ * the framework's Config template class.
+ *
  * @see nlohmann::json JSON library used for implementation
+ * @see framework::ConfigValue The variant type used to store configuration
+ * values
+ * @see framework::ConfigBackendType The concept this class satisfies
  */
 class JsonConfig {
  public:

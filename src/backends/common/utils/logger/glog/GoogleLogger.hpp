@@ -11,7 +11,7 @@ using framework::LogLevel;
 /**
  * @brief Google logging backend implementation
  *
- * This class provides a backend implementation of the ILogger interface
+ * This class provides a backend implementation of the logger interface
  * using Google's glog library. It maps the framework's logging levels to
  * glog severity levels and provides a clean integration with the logging
  * system.
@@ -29,8 +29,8 @@ using framework::LogLevel;
  * // Initialize glog with application name
  * GoogleLogger<ConfigBackend>::Init("MyApp");
  *
- * // Create logger instance
- * GoogleLogger<ConfigBackend> logger;
+ * // Create logger instance with configuration
+ * GoogleLogger<ConfigBackend> logger(config);
  *
  * // Log at different levels
  * logger.Info() << "Application started with version " << version;
@@ -44,43 +44,65 @@ using framework::LogLevel;
  *
  * @note For debug logging to work in release builds, you may need to set
  * appropriate glog verbosity flags.
+ *
+ * @tparam ConfigBackend The configuration backend type that satisfies the
+ * ConfigBackendType concept
  */
 template <typename ConfigBackend>
 class GoogleLogger {
  public:
   /**
    * @brief Disabled default constructor
+   *
+   * @details Logger backends should always be initialized with a configuration.
    */
   GoogleLogger() = delete;
 
   /**
    * @brief Default destructor
+   *
+   * @details Ensures proper cleanup by calling Shutdown when the logger is
+   * destroyed.
    */
   ~GoogleLogger() { Shutdown(); }
 
   /**
    * @brief Disabled copy constructor
+   *
+   * @details Logger backends are not intended to be copied.
    */
   GoogleLogger(const GoogleLogger&) = delete;
 
   /**
    * @brief Disabled copy assignment operator
+   *
+   * @details Logger backends are not intended to be copied.
    */
   GoogleLogger& operator=(const GoogleLogger&) = delete;
 
   /**
    * @brief Move constructor
+   *
+   * @details Allows for moving logger instances when needed.
    */
   GoogleLogger(GoogleLogger&&) noexcept = default;
 
   /**
-   * @brief move assignment operator
+   * @brief Move assignment operator
+   *
+   * @details Allows for moving logger instances when needed.
+   *
+   * @return Reference to this GoogleLogger instance
    */
   GoogleLogger& operator=(GoogleLogger&&) noexcept = default;
 
   /**
    * @brief Constructor that takes a config
-   * @param[in] config The config to use for logging
+   *
+   * @details Initializes the logger with the provided configuration and
+   * calls the static Init method with a default application name.
+   *
+   * @param[in] config The configuration backend instance
    */
   explicit GoogleLogger(const ConfigBackend& config) : config_(config) {
     Init("GoogleLogger");

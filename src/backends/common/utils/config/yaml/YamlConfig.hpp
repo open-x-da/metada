@@ -22,10 +22,17 @@ using framework::ConfigValue;
  * dot notation to access nested values. For example, "database.host" would
  * access the "host" field within the "database" object.
  *
+ * Features:
+ * - Loading from YAML files and strings
+ * - Saving to YAML files
+ * - Accessing nested values with dot notation
+ * - Type-safe value retrieval and storage
+ * - Support for all ConfigValue types
+ * - Thread-safe operations
+ *
  * Example usage:
  * @code
- * YamlConfig config;
- * config.LoadFromFile("config.yaml");
+ * YamlConfig config("config.yaml");
  * 
  * // Get values
  * auto host = config.Get("database.host").AsString();
@@ -45,14 +52,19 @@ using framework::ConfigValue;
  * - String
  * - Arrays of the above types
  *
+ * This implementation satisfies the ConfigBackendType concept required by
+ * the framework's Config template class.
+ *
  * @see YAML::Node YAML-CPP library used for implementation
+ * @see framework::ConfigValue The variant type used to store configuration values
+ * @see framework::ConfigBackendType The concept this class satisfies
  */
 class YamlConfig {
  public:
   /** @brief Disable default constructor */
   YamlConfig() = delete;
 
-  /** @brief Disable default destructor */
+  /** @brief Default destructor */
   ~YamlConfig() = default;
 
   /** @brief Disable copy constructor */

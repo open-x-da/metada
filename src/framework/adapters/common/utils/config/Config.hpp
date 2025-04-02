@@ -12,9 +12,14 @@ namespace metada::framework {
 /**
  * @brief Concept defining requirements for a configuration backend
  *
- * This concept enforces the contract that any configuration backend must
- * implement. It provides compile-time validation of the required methods and
- * their signatures.
+ * @details This concept enforces the contract that any configuration backend
+ * must implement. It provides compile-time validation of the required methods
+ * and their signatures, ensuring that backends can be properly used with the
+ * Config class.
+ *
+ * The concept requires specific method signatures for loading, accessing,
+ * modifying, and saving configuration data, as well as a constructor that takes
+ * a filename.
  */
 template <typename T>
 concept ConfigBackendType =
@@ -36,9 +41,9 @@ concept ConfigBackendType =
  * @brief Main configuration class template providing a generic interface to
  * configuration backends
  *
- * This class template provides a static interface for loading, accessing,
- * modifying and saving configuration data using a backend specified by the
- * ConfigBackend template parameter. The backend must satisfy the
+ * @details This class template provides a static interface for loading,
+ * accessing, modifying and saving configuration data using a backend specified
+ * by the BackendTag template parameter. The backend must satisfy the
  * ConfigBackendType concept.
  *
  * The configuration data is stored in a hierarchical structure where keys use
@@ -47,8 +52,7 @@ concept ConfigBackendType =
  *
  * Example usage:
  * @code
- * Config<YamlConfig> config;
- * config.LoadFromFile("config.yaml");
+ * Config<YamlConfig> config("config.yaml");
  * auto host = config.Get("database.host", "localhost");
  * auto port = config.Get("database.port", 5432);
  * config.Set("database.username", "admin");
@@ -60,17 +64,18 @@ concept ConfigBackendType =
  * - Type-safe value access with default fallbacks
  * - File and string-based loading/saving
  * - Backend-agnostic interface using C++20 concepts
- * - Exception safety through Get() vs GetUnsafe()
+ * - Exception safety through Get() with default fallbacks
  *
- * Supported value types:
+ * Supported value types are defined by the ConfigValue class and typically
+ * include:
  * - Boolean
  * - Integer
  * - Double
  * - String
  * - Arrays of the above types
  *
- * @tparam Backend The configuration backend type that satisfies
- * ConfigBackendType
+ * @tparam BackendTag The tag type that identifies the configuration backend via
+ * BackendTraits
  */
 template <typename BackendTag>
   requires ConfigBackendType<
@@ -80,28 +85,49 @@ class Config : public NonCopyable {
   using ConfigBackend =
       typename traits::BackendTraits<BackendTag>::ConfigBackend;
 
-  /** @brief Disabled default constructor */
+  /**
+   * @brief Disabled default constructor
+   *
+   * @details Configuration must be initialized with a source.
+   */
   Config() = delete;
 
   /** @brief Default destructor */
   ~Config() = default;
 
-  /** @brief Disabled copy constructor */
+  /**
+   * @brief Disabled copy constructor
+   *
+   * @details Configuration instances are not intended to be copied.
+   */
   Config(const Config&) = delete;
 
-  /** @brief Disabled copy assignment */
+  /**
+   * @brief Disabled copy assignment
+   *
+   * @details Configuration instances are not intended to be copied.
+   */
   Config& operator=(const Config&) = delete;
 
   /**
-   * @brief Move constructor - explicitly defined for compatibility with mock
-   * objects
+   * @brief Move constructor
+   *
+   * @details Explicitly defined for compatibility with mock objects and
+   * testing. Transfers ownership of the backend from another Config instance.
+   *
+   * @param other The Config instance to move from
    */
   explicit Config(Config&& other) noexcept
       : backend_(std::move(other.backend_)) {}
 
   /**
-   * @brief Move assignment - explicitly defined for compatibility with mock
-   * objects
+   * @brief Move assignment operator
+   *
+   * @details Explicitly defined for compatibility with mock objects and
+   * testing. Transfers ownership of the backend from another Config instance.
+   *
+   * @param other The Config instance to move from
+   * @return Reference to this Config instance
    */
   Config& operator=(Config&& other) noexcept {
     if (this != &other) {
@@ -112,6 +138,10 @@ class Config : public NonCopyable {
 
   /**
    * @brief Constructor that loads configuration from a file
+   *
+   * @details Initializes the configuration by loading from the specified file.
+   * Verifies that the file exists before attempting to load it.
+   *
    * @param filename Path to the configuration file
    * @throws std::runtime_error If file doesn't exist or loading fails
    */
@@ -126,18 +156,38 @@ class Config : public NonCopyable {
 
   /**
    * @brief Get direct access to the backend instance
+   *
+   * @details Provides mutable access to the underlying configuration backend.
+   * This can be used for backend-specific operations not exposed by the Config
+   * interface.
+   *
    * @return Reference to the backend instance
    */
   ConfigBackend& backend() { return backend_; }
 
   /**
    * @brief Get const access to the backend instance
+   *
+   * @details Provides read-only access to the underlying configuration backend.
+   * This can be used for backend-specific operations not exposed by the Config
+   * interface.
+   *
    * @return Const reference to the backend instance
    */
   const ConfigBackend& backend() const { return backend_; }
 
   /**
    * @brief Get a value from the configuration with a default fallback
+   *
+   * @details Retrieves a value from the configuration using the specified key.
+   * If the key doesn't exist or an error occurs, returns the provided default
+   * value. This method provides exception safety when accessing configuration
+   * values.
+   *
+   * @param key Dot-separated path to the configuration value
+   * @param default_value Value to return if the key doesn't exist or an error
+   * occurs
+   * @return The configuration value or the default value
    */
   ConfigValue Get(const std::string& key,
                   const ConfigValue& default_value = ConfigValue()) {
@@ -151,6 +201,16 @@ class Config : public NonCopyable {
   /**
    * @brief Get a value from the configuration with a default fallback (const
    * version)
+   *
+   * @details Retrieves a value from the configuration using the specified key.
+   * If the key doesn't exist or an error occurs, returns the provided default
+   * value. This method provides exception safety when accessing configuration
+   * values.
+   *
+   * @param key Dot-separated path to the configuration value
+   * @param default_value Value to return if the key doesn't exist or an error
+   * occurs
+   * @return The configuration value or the default value
    */
   ConfigValue Get(const std::string& key,
                   const ConfigValue& default_value = ConfigValue()) const {
@@ -163,6 +223,12 @@ class Config : public NonCopyable {
 
   /**
    * @brief Set a value in the configuration
+   *
+   * @details Updates or creates a configuration value at the specified key
+   * path. If intermediate nodes in the path don't exist, they will be created.
+   *
+   * @param key Dot-separated path where to set the value
+   * @param value The value to set
    */
   void Set(const std::string& key, const ConfigValue& value) {
     backend_.Set(key, value);
@@ -170,6 +236,10 @@ class Config : public NonCopyable {
 
   /**
    * @brief Check if a key exists in the configuration
+   *
+   * @details Verifies whether the specified key path exists in the
+   * configuration.
+   *
    * @param key Dot-separated path to check
    * @return true if the key exists, false otherwise
    */
@@ -177,6 +247,10 @@ class Config : public NonCopyable {
 
   /**
    * @brief Save configuration to a file
+   *
+   * @details Writes the current configuration state to the specified file.
+   * The format of the file depends on the backend implementation.
+   *
    * @param filename Path where to save the configuration
    * @return true if saving was successful, false otherwise
    */
@@ -186,11 +260,20 @@ class Config : public NonCopyable {
 
   /**
    * @brief Convert configuration to string representation
+   *
+   * @details Serializes the entire configuration to a string.
+   * The format of the string depends on the backend implementation.
+   *
    * @return String containing the configuration data
    */
   std::string ToString() const { return backend_.ToString(); }
 
-  /** @brief Clear all configuration data */
+  /**
+   * @brief Clear all configuration data
+   *
+   * @details Removes all key-value pairs from the configuration,
+   * resulting in an empty configuration state.
+   */
   void Clear() { backend_.Clear(); }
 
  private:

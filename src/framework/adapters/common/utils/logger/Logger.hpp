@@ -23,7 +23,8 @@ class Config;
  * @details
  * This class template provides a generic logging interface that forwards
  * logging calls to a concrete backend implementation. The backend type is
- * specified as a template parameter and must implement the LogMessage method.
+ * specified as a template parameter through a BackendTag, which is used with
+ * BackendTraits to determine the actual logger backend implementation.
  *
  * The Logger class supports different logging levels (Info, Warning, Error,
  * Debug) and delegates all logging operations to the backend implementation.
@@ -35,10 +36,13 @@ class Config;
  * behavior. However, it supports move semantics to allow transferring ownership
  * when needed.
  *
+ * Logger instances are typically initialized with a Config object that provides
+ * configuration settings for the logger backend.
+ *
  * @par Example usage with stream-based logging:
  * @code
- * ConsoleLogger backend;
- * Logger<ConsoleLogger> logger;
+ * Config<MyBackendTag> config("config.yaml");
+ * Logger<MyBackendTag> logger(config);
  * logger.Info() << "Application started with " << num_threads << " threads";
  * logger.Error() << "Failed to connect to " << server << ": " << error_msg;
  * @endcode
@@ -49,6 +53,7 @@ class Config;
  * @see BackendTraits
  * @see NonCopyable
  * @see LogStream
+ * @see Config
  */
 template <LoggerBackendTag BackendTag>
 class Logger : public NonCopyable {
@@ -102,7 +107,7 @@ class Logger : public NonCopyable {
 
   /**
    * @brief Constructor that takes a config
-   * @param[in] config The config to use for logging
+   * @param[in] config The config to use for initializing the logger backend
    */
   Logger(const Config<BackendTag>& config)
       : backend_(typename traits::BackendTraits<BackendTag>::LoggerBackend(

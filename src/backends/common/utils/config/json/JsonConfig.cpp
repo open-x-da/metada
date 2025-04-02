@@ -13,8 +13,8 @@ namespace metada::backends::config {
  * valid JSON syntax.
  *
  * @param filename Path to the JSON configuration file
- * @return true if loading was successful, false if file cannot be opened or
- * contains invalid JSON
+ * @return true if loading was successful, false otherwise
+ * @throws std::runtime_error if file cannot be opened or contains invalid JSON
  */
 bool JsonConfig::LoadFromFile(const std::string& filename) {
   try {
@@ -33,8 +33,8 @@ bool JsonConfig::LoadFromFile(const std::string& filename) {
  * Attempts to parse a string containing JSON configuration data.
  *
  * @param content String containing JSON configuration data
- * @return true if parsing was successful, false if content contains invalid
- * JSON
+ * @return true if parsing was successful, false otherwise
+ * @throws std::runtime_error if content contains invalid JSON
  */
 bool JsonConfig::LoadFromString(const std::string& content) {
   try {
@@ -52,17 +52,17 @@ bool JsonConfig::LoadFromString(const std::string& content) {
  * The value is returned as a ConfigValue variant that can contain:
  * - bool
  * - int
- * - double
+ * - float
  * - string
  * - vector<bool>
  * - vector<int>
- * - vector<double>
+ * - vector<float>
  * - vector<string>
  *
  * @param key Dot-separated path to the configuration value (e.g.
  * "database.host")
  * @return ConfigValue containing the requested value
- * @throw std::runtime_error if the key doesn't exist or value type is not
+ * @throws std::runtime_error if the key doesn't exist or value type is not
  * supported
  */
 ConfigValue JsonConfig::Get(const std::string& key) const {
@@ -81,16 +81,16 @@ ConfigValue JsonConfig::Get(const std::string& key) const {
  * Creates intermediate objects as needed. Supported value types are:
  * - bool
  * - int
- * - double
+ * - float
  * - string
  * - vector<bool>
  * - vector<int>
- * - vector<double>
+ * - vector<float>
  * - vector<string>
  *
  * @param key Dot-separated path where to store the value (e.g. "database.host")
  * @param value ConfigValue containing the value to store
- * @throw std::runtime_error if the key path is invalid or contains invalid
+ * @throws std::runtime_error if the key path is invalid or contains invalid
  * characters
  */
 void JsonConfig::Set(const std::string& key, const ConfigValue& value) {
@@ -122,7 +122,7 @@ bool JsonConfig::HasKey(const std::string& key) const {
  * pretty-printed with 2-space indentation for readability.
  *
  * @param filename Path where to save the configuration file
- * @return true if saving was successful, false if file cannot be written
+ * @return true if saving was successful, false otherwise
  */
 bool JsonConfig::SaveToFile(const std::string& filename) const {
   try {
@@ -167,7 +167,7 @@ void JsonConfig::Clear() {
  * @param j The JSON object to traverse
  * @param key Dot-separated path to the desired value (e.g. "database.host")
  * @return Reference to the JSON value at the specified path
- * @throw nlohmann::json::exception if the path is invalid or contains invalid
+ * @throws nlohmann::json::exception if the path is invalid or contains invalid
  * characters
  */
 nlohmann::json& JsonConfig::GetJsonRef(nlohmann::json& j,
@@ -191,7 +191,7 @@ nlohmann::json& JsonConfig::GetJsonRef(nlohmann::json& j,
  * @param j The JSON object to traverse
  * @param key Dot-separated path to the desired value (e.g. "database.host")
  * @return Const reference to the JSON value at the specified path
- * @throw nlohmann::json::exception if the path is invalid or value doesn't
+ * @throws nlohmann::json::exception if the path is invalid or value doesn't
  * exist
  */
 const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
@@ -213,7 +213,7 @@ const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
  * ConfigValue variant type. Supports conversion of:
  * - Boolean values to bool
  * - Integer numbers to int
- * - Floating point numbers to double
+ * - Floating point numbers to float
  * - Strings to string
  * - Arrays of the above types to corresponding vector types
  *
@@ -222,7 +222,7 @@ const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
  *
  * @param j The JSON value to convert
  * @return ConfigValue containing the converted value
- * @throw std::runtime_error if the JSON value type is not supported (e.g.
+ * @throws std::runtime_error if the JSON value type is not supported (e.g.
  * objects or null)
  */
 ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
@@ -259,7 +259,7 @@ ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
  * Uses std::visit to handle all possible types stored in the ConfigValue:
  * - bool -> JSON boolean
  * - int -> JSON integer
- * - double -> JSON number
+ * - float -> JSON number
  * - string -> JSON string
  * - vector<T> -> JSON array of corresponding type
  *

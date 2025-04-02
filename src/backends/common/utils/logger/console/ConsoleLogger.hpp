@@ -12,12 +12,11 @@ namespace metada::backends::logger {
 using framework::LogLevel;
 
 /**
- * @file ConsoleLogger.hpp
  * @brief Console logging backend implementation
  *
- * This header provides a simple console-based logging backend that implements
- * the ILogger interface. It writes log messages to standard output/error
- * streams with severity level prefixes and colorized output.
+ * This class provides a simple console-based logging backend that writes
+ * log messages to standard output/error streams with severity level prefixes
+ * and optional colorized output.
  *
  * Features:
  * - Simple logging to standard output/error streams
@@ -39,8 +38,8 @@ using framework::LogLevel;
  * // Initialize logging
  * ConsoleLogger<ConfigBackend>::Init("MyApp");
  *
- * // Create logger instance
- * ConsoleLogger<ConfigBackend> logger;
+ * // Create logger instance with configuration
+ * ConsoleLogger<ConfigBackend> logger(config);
  *
  * // Log at different levels using stream interface
  * logger.Info() << "Application started with version " << app_version;
@@ -52,44 +51,62 @@ using framework::LogLevel;
  * ConsoleLogger<ConfigBackend>::Shutdown();
  * @endcode
  *
- * @see ILogger Base interface class
+ * @tparam ConfigBackend The configuration backend type that satisfies the ConfigBackendType concept
  */
 template <typename ConfigBackend>
 class ConsoleLogger {
  public:
   /**
    * @brief Disabled default constructor
+   * 
+   * @details Logger backends should always be initialized with a configuration.
    */
   ConsoleLogger() = delete;
 
   /**
    * @brief Default destructor
+   * 
+   * @details Ensures proper cleanup by calling Shutdown when the logger is destroyed.
    */
   ~ConsoleLogger() { Shutdown(); }
 
   /**
    * @brief Disabled copy constructor
+   * 
+   * @details Logger backends are not intended to be copied.
    */
   ConsoleLogger(const ConsoleLogger&) = delete;
 
   /**
    * @brief Disabled copy assignment operator
+   * 
+   * @details Logger backends are not intended to be copied.
    */
   ConsoleLogger& operator=(const ConsoleLogger&) = delete;
 
   /**
    * @brief Move constructor
+   * 
+   * @details Allows for moving logger instances when needed.
    */
   ConsoleLogger(ConsoleLogger&&) noexcept = default;
 
   /**
-   * @brief move assignment operator
+   * @brief Move assignment operator
+   * 
+   * @details Allows for moving logger instances when needed.
+   * 
+   * @return Reference to this ConsoleLogger instance
    */
   ConsoleLogger& operator=(ConsoleLogger&&) noexcept = default;
 
   /**
    * @brief Constructor that takes a config
-   * @param[in] config The config to use for logging
+   * 
+   * @details Initializes the logger with the provided configuration and
+   * calls the static Init method with the application name from config.
+   * 
+   * @param[in] config The configuration backend instance
    */
   explicit ConsoleLogger(const ConfigBackend& config) : config_(config) {
     // Extract configuration values with defaults
@@ -104,9 +121,10 @@ class ConsoleLogger {
   /**
    * @brief Log a message at the specified level
    *
-   * Routes messages to the appropriate output stream with the corresponding
+   * @details Routes messages to the appropriate output stream with the corresponding
    * severity level prefix. Info, Warning, and Debug messages go to stdout,
-   * while Error messages go to stderr.
+   * while Error messages go to stderr. Formatting is controlled by configuration
+   * settings for timestamps and colors.
    *
    * @param level The severity level of the message
    * @param message The message to log
@@ -145,7 +163,7 @@ class ConsoleLogger {
   /**
    * @brief Initialize logger for application
    *
-   * Performs basic initialization of the console logger. Outputs an
+   * @details Performs basic initialization of the console logger. Outputs an
    * initialization message to stdout with the application name.
    *
    * @param app_name Name of application using the logger
@@ -161,7 +179,7 @@ class ConsoleLogger {
   /**
    * @brief Cleanup logger resources
    *
-   * Performs cleanup of the console logger. Outputs a shutdown message to
+   * @details Performs cleanup of the console logger. Outputs a shutdown message to
    * stdout. For this simple implementation, no actual cleanup is needed since
    * we only use standard streams.
    *

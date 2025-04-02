@@ -13,7 +13,7 @@ namespace metada::backends::config {
  * valid YAML syntax.
  *
  * @param filename Path to the YAML configuration file
- * @return true if loading was successful, false if file cannot be opened or contains invalid YAML
+ * @return true if loading was successful, false otherwise
  */
 bool YamlConfig::LoadFromFile(const std::string& filename) {
   try {
@@ -30,7 +30,7 @@ bool YamlConfig::LoadFromFile(const std::string& filename) {
  * Attempts to parse a string containing YAML configuration data.
  *
  * @param content String containing YAML configuration data
- * @return true if parsing was successful, false if content contains invalid YAML
+ * @return true if parsing was successful, false otherwise
  */
 bool YamlConfig::LoadFromString(const std::string& content) {
   try {
@@ -133,7 +133,7 @@ bool YamlConfig::HasKey(const std::string& key) const {
  * Creates the file if it doesn't exist, overwrites if it does.
  *
  * @param filename Path where to save the configuration file
- * @return true if saving was successful, false if file cannot be created or written
+ * @return true if saving was successful, false otherwise
  */
 bool YamlConfig::SaveToFile(const std::string& filename) const {
   try {
@@ -278,4 +278,4 @@ YAML::Node YamlConfig::ConfigValueToNode(
                     value);
 }
 
-}  // namespace metada::backends::common::utils::config::yaml
+}  // namespace metada::backends::config

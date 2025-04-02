@@ -77,6 +77,8 @@ class LogStream {
   /**
    * @brief Move assignment is deleted to prevent potential issues with stream
    * ownership
+   *
+   * @return LogStream& Reference to this LogStream
    */
   LogStream& operator=(LogStream&&) = delete;
 
@@ -105,7 +107,7 @@ class LogStream {
    *
    * @tparam T The type of value being inserted
    * @param value The value to insert into the log stream
-   * @return Reference to this LogStream for chaining
+   * @return LogStream& Reference to this LogStream for chaining
    */
   template <typename T>
   LogStream& operator<<(const T& value) {
