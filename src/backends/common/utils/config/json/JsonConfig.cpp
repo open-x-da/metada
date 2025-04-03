@@ -6,6 +6,9 @@
 
 namespace metada::backends::config {
 
+using framework::ConfigMap;
+using framework::ConfigValue;
+
 /**
  * @brief Load configuration from a JSON file
  *
@@ -18,12 +21,15 @@ namespace metada::backends::config {
  */
 bool JsonConfig::LoadFromFile(const std::string& filename) {
   try {
-    std::ifstream fin(filename);
-    if (!fin) return false;
-    fin >> root_;
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("Failed to open file: " + filename);
+    }
+    file >> root_;
     return true;
-  } catch (const nlohmann::json::exception& e) {
-    return false;
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Failed to load JSON from file: " +
+                             std::string(e.what()));
   }
 }
 
@@ -40,8 +46,9 @@ bool JsonConfig::LoadFromString(const std::string& content) {
   try {
     root_ = nlohmann::json::parse(content);
     return true;
-  } catch (const nlohmann::json::exception& e) {
-    return false;
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Failed to parse JSON string: " +
+                             std::string(e.what()));
   }
 }
 
@@ -67,10 +74,11 @@ bool JsonConfig::LoadFromString(const std::string& content) {
  */
 ConfigValue JsonConfig::Get(const std::string& key) const {
   try {
-    const auto& j = GetJsonRef(root_, key);
-    return JsonToConfigValue(j);
+    const auto& value = GetJsonRef(root_, key);
+    return JsonToConfigValue(value);
   } catch (const std::exception& e) {
-    throw std::runtime_error("Key not found: " + key);
+    throw std::runtime_error("Failed to get value for key '" + key +
+                             "': " + std::string(e.what()));
   }
 }
 
@@ -94,8 +102,13 @@ ConfigValue JsonConfig::Get(const std::string& key) const {
  * characters
  */
 void JsonConfig::Set(const std::string& key, const ConfigValue& value) {
-  auto& target = GetJsonRef(root_, key);
-  target = ConfigValueToJson(value);
+  try {
+    auto& target = GetJsonRef(root_, key);
+    target = ConfigValueToJson(value);
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Failed to set value for key '" + key +
+                             "': " + std::string(e.what()));
+  }
 }
 
 /**
@@ -110,7 +123,7 @@ bool JsonConfig::HasKey(const std::string& key) const {
   try {
     GetJsonRef(root_, key);
     return true;
-  } catch (...) {
+  } catch (const std::exception&) {
     return false;
   }
 }
@@ -126,12 +139,15 @@ bool JsonConfig::HasKey(const std::string& key) const {
  */
 bool JsonConfig::SaveToFile(const std::string& filename) const {
   try {
-    std::ofstream fout(filename);
-    if (!fout) return false;
-    fout << root_.dump(2);  // Pretty print with indent=2
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("Failed to open file for writing: " + filename);
+    }
+    file << std::setw(2) << root_ << std::endl;
     return true;
   } catch (const std::exception& e) {
-    return false;
+    throw std::runtime_error("Failed to save JSON to file: " +
+                             std::string(e.what()));
   }
 }
 
@@ -144,7 +160,12 @@ bool JsonConfig::SaveToFile(const std::string& filename) const {
  * @return Pretty-printed JSON string representation of the configuration
  */
 std::string JsonConfig::ToString() const {
-  return root_.dump(2);  // Pretty print with indent=2
+  try {
+    return root_.dump(2);
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Failed to convert JSON to string: " +
+                             std::string(e.what()));
+  }
 }
 
 /**
@@ -154,7 +175,29 @@ std::string JsonConfig::ToString() const {
  * an empty state.
  */
 void JsonConfig::Clear() {
-  root_.clear();
+  root_ = nlohmann::json::object();
+}
+
+std::vector<std::string> JsonConfig::SplitKey(const std::string& key) const {
+  std::vector<std::string> parts;
+  std::string current;
+
+  for (char c : key) {
+    if (c == '.') {
+      if (!current.empty()) {
+        parts.push_back(current);
+        current.clear();
+      }
+    } else {
+      current += c;
+    }
+  }
+
+  if (!current.empty()) {
+    parts.push_back(current);
+  }
+
+  return parts;
 }
 
 /**
@@ -172,14 +215,21 @@ void JsonConfig::Clear() {
  */
 nlohmann::json& JsonConfig::GetJsonRef(nlohmann::json& j,
                                        const std::string& key) {
-  std::istringstream key_stream(key);
-  std::string part;
-  nlohmann::json* current = &j;
+  auto parts = SplitKey(key);
+  auto* current = &j;
 
-  while (std::getline(key_stream, part, '.')) {
-    current = &((*current)[part]);
+  for (size_t i = 0; i < parts.size() - 1; ++i) {
+    if (!current->contains(parts[i])) {
+      (*current)[parts[i]] = nlohmann::json::object();
+    }
+    current = &(*current)[parts[i]];
+    if (!current->is_object()) {
+      throw std::runtime_error(
+          "Invalid path: intermediate node is not an object");
+    }
   }
-  return *current;
+
+  return (*current)[parts.back()];
 }
 
 /**
@@ -195,15 +245,26 @@ nlohmann::json& JsonConfig::GetJsonRef(nlohmann::json& j,
  * exist
  */
 const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
-                                             const std::string& key) {
-  std::istringstream key_stream(key);
-  std::string part;
+                                             const std::string& key) const {
+  auto parts = SplitKey(key);
   const nlohmann::json* current = &j;
 
-  while (std::getline(key_stream, part, '.')) {
-    current = &((*current)[part]);
+  for (size_t i = 0; i < parts.size() - 1; ++i) {
+    if (!current->contains(parts[i])) {
+      throw std::runtime_error("Key not found: " + key);
+    }
+    current = &(*current)[parts[i]];
+    if (!current->is_object()) {
+      throw std::runtime_error(
+          "Invalid path: intermediate node is not an object");
+    }
   }
-  return *current;
+
+  if (!current->contains(parts.back())) {
+    throw std::runtime_error("Key not found: " + key);
+  }
+
+  return (*current)[parts.back()];
 }
 
 /**
@@ -226,30 +287,56 @@ const nlohmann::json& JsonConfig::GetJsonRef(const nlohmann::json& j,
  * objects or null)
  */
 ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
-  if (j.is_boolean()) {
-    return j.get<bool>();
+  if (j.is_null()) {
+    return ConfigValue();
+  } else if (j.is_boolean()) {
+    return ConfigValue(j.get<bool>());
   } else if (j.is_number_integer()) {
-    return j.get<int>();
+    return ConfigValue(j.get<int>());
   } else if (j.is_number_float()) {
-    return j.get<float>();
+    return ConfigValue(j.get<float>());
   } else if (j.is_string()) {
-    return j.get<std::string>();
+    return ConfigValue(j.get<std::string>());
   } else if (j.is_array()) {
-    if (j.empty()) return std::vector<std::string>();
-
-    // Try to determine array type from first element
-    if (j[0].is_boolean()) {
-      return j.get<std::vector<bool>>();
-    } else if (j[0].is_number_integer()) {
-      return j.get<std::vector<int>>();
-    } else if (j[0].is_number_float()) {
-      return j.get<std::vector<float>>();
-    } else {
-      return j.get<std::vector<std::string>>();
+    if (j.empty()) {
+      return ConfigValue(std::vector<std::string>());
     }
+
+    // Determine array type based on first element
+    if (j[0].is_boolean()) {
+      std::vector<bool> vec;
+      for (const auto& item : j) {
+        vec.push_back(item.get<bool>());
+      }
+      return ConfigValue(vec);
+    } else if (j[0].is_number_integer()) {
+      std::vector<int> vec;
+      for (const auto& item : j) {
+        vec.push_back(item.get<int>());
+      }
+      return ConfigValue(vec);
+    } else if (j[0].is_number_float()) {
+      std::vector<float> vec;
+      for (const auto& item : j) {
+        vec.push_back(item.get<float>());
+      }
+      return ConfigValue(vec);
+    } else if (j[0].is_string()) {
+      std::vector<std::string> vec;
+      for (const auto& item : j) {
+        vec.push_back(item.get<std::string>());
+      }
+      return ConfigValue(vec);
+    }
+  } else if (j.is_object()) {
+    ConfigMap map;
+    for (const auto& [key, value] : j.items()) {
+      map[key] = JsonToConfigValue(value);
+    }
+    return ConfigValue(map);
   }
 
-  throw std::runtime_error("Unsupported JSON type");
+  throw std::runtime_error("Unsupported JSON value type");
 }
 
 /**
@@ -267,8 +354,32 @@ ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
  * @return nlohmann::json containing the converted value
  */
 nlohmann::json JsonConfig::ConfigValueToJson(const ConfigValue& value) {
-  return std::visit(
-      [](const auto& v) -> nlohmann::json { return nlohmann::json(v); }, value);
+  if (value.isNull()) {
+    return nlohmann::json();
+  } else if (value.isBool()) {
+    return nlohmann::json(value.asBool());
+  } else if (value.isInt()) {
+    return nlohmann::json(value.asInt());
+  } else if (value.isFloat()) {
+    return nlohmann::json(value.asFloat());
+  } else if (value.isString()) {
+    return nlohmann::json(value.asString());
+  } else if (value.isVectorBool()) {
+    return nlohmann::json(value.asVectorBool());
+  } else if (value.isVectorInt()) {
+    return nlohmann::json(value.asVectorInt());
+  } else if (value.isVectorFloat()) {
+    return nlohmann::json(value.asVectorFloat());
+  } else if (value.isVectorString()) {
+    return nlohmann::json(value.asVectorString());
+  } else if (value.isMap()) {
+    nlohmann::json result = nlohmann::json::object();
+    for (const auto& [key, val] : value.asMap()) {
+      result[key] = ConfigValueToJson(val);
+    }
+    return result;
+  }
+  throw std::runtime_error("Unsupported ConfigValue type");
 }
 
 }  // namespace metada::backends::config

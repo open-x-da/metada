@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
 
 #include "common/utils/config/ConfigValue.hpp"
 
@@ -60,8 +61,8 @@ using framework::ConfigValue;
  */
 class JsonConfig {
  public:
-  /** @brief Disable default constructor */
-  JsonConfig() = delete;
+  /** @brief Default constructor */
+  JsonConfig() : root_(nlohmann::json::object()) {}
 
   /** @brief Default destructor */
   ~JsonConfig() = default;
@@ -161,30 +162,49 @@ class JsonConfig {
    */
   void Clear();
 
+  /**
+   * @brief Create a new JsonConfig object representing a subsection
+   *
+   * @param key Dot-separated path to the subsection
+   * @return A new JsonConfig object representing the subsection
+   */
+  JsonConfig CreateSubsection(const std::string& key) const {
+    JsonConfig subsection;
+    subsection.root_ = GetJsonRef(root_, key);
+    return subsection;
+  }
+
+  /**
+   * @brief Split a key into its components
+   * @param key Dot-separated path to the configuration value
+   * @return Vector of key components
+   */
+  std::vector<std::string> SplitKey(const std::string& key) const;
+
  private:
   /** @brief Root JSON node storing the configuration data */
   nlohmann::json root_;
 
   /**
-   * @brief Get a JSON value at the specified path
+   * @brief Get a reference to a JSON value at the specified path
    * @param j The JSON object to traverse
-   * @param key Dot-separated path to the desired value (e.g. "database.host")
+   * @param key Dot-separated path to the desired value
    * @return Reference to the JSON value at the specified path
-   * @throw nlohmann::json::exception if the path is invalid or contains invalid
+   * @throws std::runtime_error if the path is invalid or contains invalid
    * characters
    */
-  static nlohmann::json& GetJsonRef(nlohmann::json& j, const std::string& key);
+  nlohmann::json& GetJsonRef(nlohmann::json& j, const std::string& key);
 
   /**
    * @brief Get a const reference to a JSON value at the specified path
    * @param j The JSON object to traverse
-   * @param key Dot-separated path to the desired value (e.g. "database.host")
+   * @param key Dot-separated path to the desired value
    * @return Const reference to the JSON value at the specified path
-   * @throw nlohmann::json::exception if the path is invalid or value doesn't
+   * @throws std::runtime_error if the path is invalid or value doesn't
    * exist
    */
-  static const nlohmann::json& GetJsonRef(const nlohmann::json& j,
-                                          const std::string& key);
+  const nlohmann::json& GetJsonRef(const nlohmann::json& j,
+                                   const std::string& key) const;
 
   /**
    * @brief Convert a JSON value to a ConfigValue

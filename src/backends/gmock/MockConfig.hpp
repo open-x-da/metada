@@ -84,6 +84,18 @@ class MockConfig {
   MOCK_METHOD(bool, SaveToFile, (const std::string&), (const));
   MOCK_METHOD(std::string, ToString, (), (const));
   MOCK_METHOD(void, Clear, ());
+  
+  /**
+   * @brief Create a new MockConfig object representing a subsection
+   *
+   * @details This method creates a new MockConfig object that represents a subsection
+   * of the current configuration. In tests, the behavior of this method can be
+   * specified using EXPECT_CALL.
+   *
+   * @param key Dot-separated path to the subsection
+   * @return A new MockConfig object representing the subsection
+   */
+  MOCK_METHOD(MockConfig, CreateSubsection, (const std::string&), (const));
 };
 
 }  // namespace metada::backends::gmock

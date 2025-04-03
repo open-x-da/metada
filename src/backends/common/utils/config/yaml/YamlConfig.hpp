@@ -61,8 +61,8 @@ using framework::ConfigValue;
  */
 class YamlConfig {
  public:
-  /** @brief Disable default constructor */
-  YamlConfig() = delete;
+  /** @brief Default constructor */
+  YamlConfig() : root_(YAML::Node()) {}
 
   /** @brief Default destructor */
   ~YamlConfig() = default;
@@ -158,34 +158,56 @@ class YamlConfig {
    */
   void Clear();
 
+  /**
+   * @brief Create a new YamlConfig object representing a subsection
+   *
+   * @param key Dot-separated path to the subsection
+   * @return A new YamlConfig object representing the subsection
+   */
+  YamlConfig CreateSubsection(const std::string& key) const {
+    YamlConfig subsection;
+    subsection.root_ = GetYamlRef(root_, key);
+    return subsection;
+  }
+
  private:
   /** @brief Root YAML node storing the configuration data */
   YAML::Node root_;
 
   /**
-   * @brief Get a YAML node at the specified path
-   * @param node YAML node to search in
-   * @param key Dot-separated path to the node (e.g. "database.host")
-   * @return YAML node at the specified path
-   * @throws std::runtime_error if path is invalid or node doesn't exist
+   * @brief Get a YAML value at the specified path
+   * @param node The YAML node to traverse
+   * @param key Dot-separated path to the desired value (e.g. "database.host")
+   * @return Reference to the YAML value at the specified path
+   * @throw YAML::Exception if the path is invalid or contains invalid
+   * characters
    */
-  static YAML::Node GetNode(const YAML::Node& node, const std::string& key);
+  static YAML::Node& GetYamlRef(YAML::Node& node, const std::string& key);
 
   /**
-   * @brief Convert a YAML node to a ConfigValue
-   * @param node YAML node to convert
+   * @brief Get a const reference to a YAML value at the specified path
+   * @param node The YAML node to traverse
+   * @param key Dot-separated path to the desired value (e.g. "database.host")
+   * @return Const reference to the YAML value at the specified path
+   * @throw YAML::Exception if the path is invalid or value doesn't exist
+   */
+  static const YAML::Node& GetYamlRef(const YAML::Node& node,
+                                      const std::string& key);
+
+  /**
+   * @brief Convert a YAML value to a ConfigValue
+   * @param node The YAML value to convert
    * @return ConfigValue containing the converted value
-   * @throws std::runtime_error if node type is not supported
+   * @throw std::runtime_error if the YAML value type is not supported
    */
-  static ConfigValue NodeToConfigValue(const YAML::Node& node);
+  static ConfigValue YamlToConfigValue(const YAML::Node& node);
 
   /**
-   * @brief Convert a ConfigValue to a YAML node
-   * @param value ConfigValue to convert
-   * @return YAML node containing the converted value
-   * @throws std::runtime_error if value type is not supported
+   * @brief Convert a ConfigValue to a YAML value
+   * @param value The ConfigValue to convert
+   * @return YAML::Node containing the converted value
    */
-  static YAML::Node ConfigValueToNode(const ConfigValue& value);
+  static YAML::Node ConfigValueToYaml(const ConfigValue& value);
 };
 
 }  // namespace metada::backends::config

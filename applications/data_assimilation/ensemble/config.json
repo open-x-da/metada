@@ -33,6 +33,12 @@
       "compression_level": 4,
       "save_ensemble": true,
       "save_analysis_error": true
+    },
+
+    "logger": {
+      "level": "info",
+      "color": true,
+      "console": true
     }
   }
 } 

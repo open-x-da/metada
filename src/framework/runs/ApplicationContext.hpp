@@ -93,9 +93,7 @@ class ApplicationContext {
    * 2. Logger
    * 3. Configuration
    */
-  ~ApplicationContext() {
-    logger_.Info() << "Shutting down application context";
-  }
+  ~ApplicationContext() { logger_.Info() << "Application context destroyed"; }
 
   // Prevent copying to ensure single instance of services
   ApplicationContext(const ApplicationContext&) = delete;

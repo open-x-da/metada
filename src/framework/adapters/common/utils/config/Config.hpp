@@ -35,6 +35,7 @@ concept ConfigBackendType =
       { t.SaveToFile(filename) } -> std::same_as<bool>;
       { t.ToString() } -> std::same_as<std::string>;
       { t.Clear() } -> std::same_as<void>;
+      { t.CreateSubsection(filename) } -> std::same_as<T>;
     };
 
 /**
@@ -275,6 +276,50 @@ class Config : public NonCopyable {
    * resulting in an empty configuration state.
    */
   void Clear() { backend_.Clear(); }
+
+  /**
+   * @brief Get a subsection of the configuration as a new Config object
+   *
+   * @details Creates a new Config object that represents a subsection of the
+   * current configuration. The new Config object uses the same backend as the
+   * current one, but its root is set to the specified subsection.
+   *
+   * @param key Dot-separated path to the subsection
+   * @return A new Config object representing the subsection
+   * @throws std::runtime_error if the subsection doesn't exist
+   */
+  Config GetSubsection(const std::string& key) const {
+    // Create a new Config object with the same backend type
+    Config subsection;
+
+    // Get the subsection as a ConfigValue
+    ConfigValue subsectionValue = Get(key);
+
+    // Check if the subsection exists and is a map
+    if (!subsectionValue.isMap()) {
+      throw std::runtime_error("Subsection does not exist or is not a map: " +
+                               key);
+    }
+
+    // Set the subsection as the root of the new Config object
+    subsection.backend_ = backend_.CreateSubsection(key);
+
+    return subsection;
+  }
+
+  /**
+   * @brief Check if a subsection exists in the configuration
+   *
+   * @details Verifies whether the specified key path exists in the
+   * configuration and contains a map (object).
+   *
+   * @param key Dot-separated path to check
+   * @return true if the subsection exists and contains a map, false otherwise
+   */
+  bool HasSubsection(const std::string& key) const {
+    auto value = Get(key);
+    return value.isMap();
+  }
 
  private:
   ConfigBackend backend_;  ///< Instance of the configuration backend

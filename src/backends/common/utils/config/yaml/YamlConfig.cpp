@@ -20,7 +20,7 @@ bool YamlConfig::LoadFromFile(const std::string& filename) {
     root_ = YAML::LoadFile(filename);
     return true;
   } catch (const YAML::Exception& e) {
-    return false;
+    throw std::runtime_error("Failed to load YAML from file: " + std::string(e.what()));
   }
 }
 
@@ -37,7 +37,7 @@ bool YamlConfig::LoadFromString(const std::string& content) {
     root_ = YAML::Load(content);
     return true;
   } catch (const YAML::Exception& e) {
-    return false;
+    throw std::runtime_error("Failed to parse YAML string: " + std::string(e.what()));
   }
 }
 
@@ -60,11 +60,12 @@ bool YamlConfig::LoadFromString(const std::string& content) {
  * @throws std::runtime_error if the key doesn't exist or value type is not supported
  */
 ConfigValue YamlConfig::Get(const std::string& key) const {
-  auto node = GetNode(root_, key);
-  if (!node.IsDefined()) {
-    throw std::runtime_error("Key not found: " + key);
+  try {
+    const auto& node = GetYamlRef(root_, key);
+    return YamlToConfigValue(node);
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Failed to get value for key '" + key + "': " + std::string(e.what()));
   }
-  return NodeToConfigValue(node);
 }
 
 // Helper function to split string by delimiter
@@ -98,20 +99,12 @@ std::vector<std::string> SplitString(const std::string& str, char delim) {
  */
 void YamlConfig::Set(const std::string& key,
                      const ConfigValue& value) {
-  auto keys = SplitString(key, '.');
-  YAML::Node current = root_;
-
-  // Build the path, creating nodes as needed
-  for (size_t i = 0; i < keys.size() - 1; ++i) {
-    if (!current[keys[i]]) {
-      current[keys[i]] = YAML::Node(YAML::NodeType::Map);
-    }
-    current = current[keys[i]];
+  try {
+    auto& target = GetYamlRef(root_, key);
+    target = ConfigValueToYaml(value);
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Failed to set value for key '" + key + "': " + std::string(e.what()));
   }
-
-  // Set the final value
-  current[keys.back()] = ConfigValueToNode(value);
-  root_ = current;
 }
 
 /**
@@ -123,7 +116,12 @@ void YamlConfig::Set(const std::string& key,
  * @return true if the key exists and has a value, false otherwise
  */
 bool YamlConfig::HasKey(const std::string& key) const {
-  return GetNode(root_, key).IsDefined();
+  try {
+    GetYamlRef(root_, key);
+    return true;
+  } catch (const std::exception&) {
+    return false;
+  }
 }
 
 /**
@@ -137,12 +135,14 @@ bool YamlConfig::HasKey(const std::string& key) const {
  */
 bool YamlConfig::SaveToFile(const std::string& filename) const {
   try {
-    std::ofstream fout(filename);
-    if (!fout) return false;
-    fout << ToString();
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("Failed to open file for writing: " + filename);
+    }
+    file << root_;
     return true;
   } catch (const std::exception& e) {
-    return false;
+    throw std::runtime_error("Failed to save YAML to file: " + std::string(e.what()));
   }
 }
 
@@ -154,9 +154,13 @@ bool YamlConfig::SaveToFile(const std::string& filename) const {
  * @return String containing the YAML representation of the configuration
  */
 std::string YamlConfig::ToString() const {
-  std::stringstream ss;
-  ss << YAML::Dump(root_);
-  return ss.str();
+  try {
+    std::stringstream ss;
+    ss << root_;
+    return ss.str();
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Failed to convert YAML to string: " + std::string(e.what()));
+  }
 }
 
 /**
@@ -178,18 +182,42 @@ void YamlConfig::Clear() {
  * @param key Dot-separated path to the node (e.g. "database.host")
  * @return YAML::Node at the specified path, or undefined node if path doesn't exist
  */
-YAML::Node YamlConfig::GetNode(const YAML::Node& node, const std::string& key) {
-  auto keys = SplitString(key, '.');
-  YAML::Node current = node;
-
-  for (const auto& k : keys) {
-    if (!current[k].IsDefined()) {
-      return YAML::Node();
+YAML::Node& YamlConfig::GetYamlRef(YAML::Node& node, const std::string& key) {
+  auto parts = SplitKey(key);
+  YAML::Node* current = &node;
+  
+  for (size_t i = 0; i < parts.size() - 1; ++i) {
+    if (!(*current)[parts[i]]) {
+      (*current)[parts[i]] = YAML::Node();
     }
-    current = current[k];
+    current = &(*current)[parts[i]];
+    if (!current->IsMap()) {
+      throw std::runtime_error("Invalid path: intermediate node is not a map");
+    }
   }
+  
+  return (*current)[parts.back()];
+}
 
-  return current;
+const YAML::Node& YamlConfig::GetYamlRef(const YAML::Node& node, const std::string& key) {
+  auto parts = SplitKey(key);
+  const YAML::Node* current = &node;
+  
+  for (size_t i = 0; i < parts.size() - 1; ++i) {
+    if (!(*current)[parts[i]]) {
+      throw std::runtime_error("Key not found: " + key);
+    }
+    current = &(*current)[parts[i]];
+    if (!current->IsMap()) {
+      throw std::runtime_error("Invalid path: intermediate node is not a map");
+    }
+  }
+  
+  if (!(*current)[parts.back()]) {
+    throw std::runtime_error("Key not found: " + key);
+  }
+  
+  return (*current)[parts.back()];
 }
 
 /**
@@ -216,41 +244,71 @@ YAML::Node YamlConfig::GetNode(const YAML::Node& node, const std::string& key) {
  * @return ConfigValue containing the converted value
  * @throws std::runtime_error if node type is not supported
  */
-ConfigValue YamlConfig::NodeToConfigValue(const YAML::Node& node) {
-
-  if (node.IsScalar()) {
-    // Try to parse as different types
+ConfigValue YamlConfig::YamlToConfigValue(const YAML::Node& node) {
+  if (!node) {
+    return ConfigValue();
+  }
+  
+  if (node.IsNull()) {
+    return ConfigValue();
+  } else if (node.IsScalar()) {
     try {
-      if (node.IsNull()) return std::string("");
-      if (node.as<bool>()) return node.as<bool>();
-      return node.as<int>();
-    } catch (...) {
+      return ConfigValue(node.as<bool>());
+    } catch (const YAML::Exception&) {
       try {
-        return node.as<double>();
-      } catch (...) {
-        return node.as<std::string>();
-      }
-    }
-  } else if (node.IsSequence()) {
-    // Try to parse as vector of different types
-    if (node.size() == 0) return std::vector<std::string>();
-
-    try {
-      return node.as<std::vector<bool>>();
-    } catch (...) {
-      try {
-        return node.as<std::vector<int>>();
-      } catch (...) {
+        return ConfigValue(node.as<int>());
+      } catch (const YAML::Exception&) {
         try {
-          return node.as<std::vector<double>>();
-        } catch (...) {
-          return node.as<std::vector<std::string>>();
+          return ConfigValue(node.as<float>());
+        } catch (const YAML::Exception&) {
+          return ConfigValue(node.as<std::string>());
         }
       }
     }
+  } else if (node.IsSequence()) {
+    if (node.size() == 0) {
+      return ConfigValue(std::vector<std::string>());
+    }
+    
+    // Determine sequence type based on first element
+    try {
+      std::vector<bool> vec;
+      for (const auto& item : node) {
+        vec.push_back(item.as<bool>());
+      }
+      return ConfigValue(vec);
+    } catch (const YAML::Exception&) {
+      try {
+        std::vector<int> vec;
+        for (const auto& item : node) {
+          vec.push_back(item.as<int>());
+        }
+        return ConfigValue(vec);
+      } catch (const YAML::Exception&) {
+        try {
+          std::vector<float> vec;
+          for (const auto& item : node) {
+            vec.push_back(item.as<float>());
+          }
+          return ConfigValue(vec);
+        } catch (const YAML::Exception&) {
+          std::vector<std::string> vec;
+          for (const auto& item : node) {
+            vec.push_back(item.as<std::string>());
+          }
+          return ConfigValue(vec);
+        }
+      }
+    }
+  } else if (node.IsMap()) {
+    ConfigMap map;
+    for (const auto& it : node) {
+      map[it.first.as<std::string>()] = YamlToConfigValue(it.second);
+    }
+    return ConfigValue(map);
   }
-
-  throw std::runtime_error("Unsupported YAML node type");
+  
+  throw std::runtime_error("Unsupported YAML value type");
 }
 
 /**
@@ -272,10 +330,77 @@ ConfigValue YamlConfig::NodeToConfigValue(const YAML::Node& node) {
  * @param value The ConfigValue to convert
  * @return YAML::Node containing the converted value
  */
-YAML::Node YamlConfig::ConfigValueToNode(
-      const ConfigValue& value) {
-  return std::visit([](const auto& v) -> YAML::Node { return YAML::Node(v); },
-                    value);
+YAML::Node YamlConfig::ConfigValueToYaml(const ConfigValue& value) {
+  return std::visit(
+      [](const auto& v) -> YAML::Node {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+          return YAML::Node();
+        } else if constexpr (std::is_same_v<T, bool>) {
+          return YAML::Node(v);
+        } else if constexpr (std::is_same_v<T, int>) {
+          return YAML::Node(v);
+        } else if constexpr (std::is_same_v<T, float>) {
+          return YAML::Node(v);
+        } else if constexpr (std::is_same_v<T, std::string>) {
+          return YAML::Node(v);
+        } else if constexpr (std::is_same_v<T, std::vector<bool>>) {
+          YAML::Node node;
+          for (const auto& item : v) {
+            node.push_back(item);
+          }
+          return node;
+        } else if constexpr (std::is_same_v<T, std::vector<int>>) {
+          YAML::Node node;
+          for (const auto& item : v) {
+            node.push_back(item);
+          }
+          return node;
+        } else if constexpr (std::is_same_v<T, std::vector<float>>) {
+          YAML::Node node;
+          for (const auto& item : v) {
+            node.push_back(item);
+          }
+          return node;
+        } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
+          YAML::Node node;
+          for (const auto& item : v) {
+            node.push_back(item);
+          }
+          return node;
+        } else if constexpr (std::is_same_v<T, ConfigMap>) {
+          YAML::Node node;
+          for (const auto& [key, val] : v) {
+            node[key] = ConfigValueToYaml(val);
+          }
+          return node;
+        }
+      },
+      value);
 }
 
+std::vector<std::string> YamlConfig::SplitKey(const std::string& key) {
+  std::vector<std::string> parts;
+  std::string current;
+  
+  for (char c : key) {
+    if (c == '.') {
+      if (!current.empty()) {
+        parts.push_back(current);
+        current.clear();
+      }
+    } else {
+      current += c;
+    }
+  }
+  
+  if (!current.empty()) {
+    parts.push_back(current);
+  }
+  
+  return parts;
+}
+
+}  // namespace metada::backends::config
+}  // namespace metada::backends::config
 }  // namespace metada::backends::config

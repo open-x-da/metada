@@ -64,7 +64,7 @@ TEST_F(ConfigTest, ConstructorWithInvalidFile) {
 TEST_F(ConfigTest, GetString) {
   ConfigValue value = std::string("test");
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  EXPECT_EQ(std::get<std::string>(config_->Get("key")), "test");
+  EXPECT_EQ(config_->Get("key").asString(), "test");
 }
 
 /**
@@ -73,7 +73,7 @@ TEST_F(ConfigTest, GetString) {
 TEST_F(ConfigTest, GetInt) {
   ConfigValue value = 42;
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  EXPECT_EQ(std::get<int>(config_->Get("key")), 42);
+  EXPECT_EQ(config_->Get("key").asInt(), 42);
 }
 
 /**
@@ -82,7 +82,7 @@ TEST_F(ConfigTest, GetInt) {
 TEST_F(ConfigTest, GetDouble) {
   ConfigValue value = 3.14f;
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  EXPECT_FLOAT_EQ(std::get<float>(config_->Get("key")), 3.14f);
+  EXPECT_FLOAT_EQ(config_->Get("key").asFloat(), 3.14f);
 }
 
 /**
@@ -91,7 +91,7 @@ TEST_F(ConfigTest, GetDouble) {
 TEST_F(ConfigTest, GetBool) {
   ConfigValue value = true;
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  EXPECT_TRUE(std::get<bool>(config_->Get("key")));
+  EXPECT_TRUE(config_->Get("key").asBool());
 }
 
 /**
@@ -100,7 +100,7 @@ TEST_F(ConfigTest, GetBool) {
 TEST_F(ConfigTest, GetStringArray) {
   ConfigValue value = std::vector<std::string>{"a", "b", "c"};
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  auto result = std::get<std::vector<std::string>>(config_->Get("key"));
+  auto result = config_->Get("key").asVectorString();
   EXPECT_THAT(result, ::testing::ElementsAre("a", "b", "c"));
 }
 
@@ -110,7 +110,7 @@ TEST_F(ConfigTest, GetStringArray) {
 TEST_F(ConfigTest, GetIntArray) {
   ConfigValue value = std::vector<int>{1, 2, 3};
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  auto result = std::get<std::vector<int>>(config_->Get("key"));
+  auto result = config_->Get("key").asVectorInt();
   EXPECT_THAT(result, ::testing::ElementsAre(1, 2, 3));
 }
 
@@ -120,7 +120,7 @@ TEST_F(ConfigTest, GetIntArray) {
 TEST_F(ConfigTest, GetDoubleArray) {
   ConfigValue value = std::vector<float>{1.1f, 2.2f, 3.3f};
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  auto result = std::get<std::vector<float>>(config_->Get("key"));
+  auto result = config_->Get("key").asVectorFloat();
   EXPECT_THAT(result, ::testing::ElementsAre(1.1f, 2.2f, 3.3f));
 }
 
@@ -130,7 +130,7 @@ TEST_F(ConfigTest, GetDoubleArray) {
 TEST_F(ConfigTest, GetBoolArray) {
   ConfigValue value = std::vector<bool>{true, false, true};
   EXPECT_CALL(config_->backend(), Get("key")).WillOnce(Return(value));
-  auto result = std::get<std::vector<bool>>(config_->Get("key"));
+  auto result = config_->Get("key").asVectorBool();
   std::vector<bool> expected{true, false, true};
   EXPECT_EQ(result, expected);
 }
@@ -253,7 +253,7 @@ TEST_F(ConfigTest, GetDefaultValue) {
   EXPECT_CALL(config_->backend(), Get("nonexistent"))
       .WillOnce(Throw(std::runtime_error("Key not found")));
   auto result = config_->Get("nonexistent", defaultValue);
-  EXPECT_EQ(std::get<std::string>(result), "default");
+  EXPECT_EQ(result.asString(), "default");
 }
 
 /**
@@ -271,37 +271,35 @@ TEST_F(ConfigTest, GetSafeReturnsDefaultOnError) {
  * @brief Test move semantics
  */
 TEST_F(ConfigTest, MoveSemantics) {
-  // Setup expectations for the original config
+  ConfigValue value = std::string("original");
   EXPECT_CALL(config_->backend(), Get("key"))
       .WillOnce(Return(ConfigValue("original")));
   auto result = config_->Get("key");
-  EXPECT_EQ(std::get<std::string>(result), "original");
+  EXPECT_EQ(result.asString(), "original");
 
   // Test move construction
   Config<traits::MockBackendTag> moved_config(std::move(*config_));
 
-  // Setup expectations for the moved config
   EXPECT_CALL(moved_config.backend(), Get("key"))
       .WillOnce(Return(ConfigValue("moved")));
   result = moved_config.Get("key");
-  EXPECT_EQ(std::get<std::string>(result), "moved");
+  EXPECT_EQ(result.asString(), "moved");
 
   // Create a new config for move assignment test
   Config<traits::MockBackendTag> another_config(config_file_);
+
   EXPECT_CALL(another_config.backend(), Get("key"))
       .WillOnce(Return(ConfigValue("another")));
   result = another_config.Get("key");
-  EXPECT_EQ(std::get<std::string>(result), "another");
+  EXPECT_EQ(result.asString(), "another");
 
   // Test move assignment
   Config<traits::MockBackendTag> assigned_config(config_file_);
-  assigned_config = std::move(another_config);
 
-  // Setup expectations for the assigned config
   EXPECT_CALL(assigned_config.backend(), Get("key"))
       .WillOnce(Return(ConfigValue("assigned")));
   result = assigned_config.Get("key");
-  EXPECT_EQ(std::get<std::string>(result), "assigned");
+  EXPECT_EQ(result.asString(), "assigned");
 }
 
 }  // namespace metada::tests

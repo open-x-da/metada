@@ -78,12 +78,15 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> state_variables;
 
     try {
-      ensemble_size = std::get<int>(config.Get("letkf.ensemble_size", 32));
+      ensemble_size =
+          config.Get("letkf.ensemble_size", ConfigValue(32)).asInt();
       inflation_factor =
-          std::get<float>(config.Get("letkf.inflation_factor", 1.1f));
-      state_variables = std::get<std::vector<std::string>>(config.Get(
-          "letkf.state_variables",
-          std::vector<std::string>{"temperature", "pressure", "humidity"}));
+          config.Get("letkf.inflation_factor", ConfigValue(1.1f)).asFloat();
+      state_variables = config
+                            .Get("letkf.state_variables",
+                                 ConfigValue(std::vector<std::string>{
+                                     "temperature", "pressure", "humidity"}))
+                            .asVectorString();
     } catch (const std::exception& e) {
       logger.Error() << "Error reading configuration values: " << e.what();
       return 1;
