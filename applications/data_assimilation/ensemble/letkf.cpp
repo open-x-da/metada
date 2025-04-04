@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
     logger.Info() << "LETKF Configuration:";
     logger.Info() << "  - Ensemble Size: " << ensemble_size;
     logger.Info() << "  - Inflation Factor: " << inflation_factor;
-    logger.Info() << "  - State Variables:";
+    logger.Info() << "  - State Variables: " << state_variables.size();
     for (const auto& var : state_variables) {
       logger.Debug() << "    * " << var;
     }

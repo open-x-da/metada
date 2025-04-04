@@ -51,29 +51,42 @@ concept ConfigBackendType =
  * dot notation to access nested values. For example, "database.host" would
  * access the "host" field within the "database" object.
  *
- * Example usage:
+ * @par Example usage:
  * @code
- * Config<YamlConfig> config("config.yaml");
+ * // Create application context with configuration
+ * auto context = ApplicationContext<BackendTag>(argv[0], argv[1]);
+ * auto& config = context.getConfig();
+ *
+ * // Access configuration values with defaults
  * auto host = config.Get("database.host", "localhost");
  * auto port = config.Get("database.port", 5432);
+ *
+ * // Modify configuration
  * config.Set("database.username", "admin");
- * config.SaveToFile("config.yaml");
+ * config.SaveToFile("updated_config.yaml");
+ *
+ * // Work with subsections
+ * auto dbConfig = config.GetSubsection("database");
+ * auto timeout = dbConfig.Get("timeout", 30);
  * @endcode
  *
- * Key features:
+ * @par Key features:
  * - Hierarchical configuration structure using dot notation
  * - Type-safe value access with default fallbacks
  * - File and string-based loading/saving
  * - Backend-agnostic interface using C++20 concepts
  * - Exception safety through Get() with default fallbacks
+ * - Support for configuration subsections
  *
- * Supported value types are defined by the ConfigValue class and typically
- * include:
- * - Boolean
- * - Integer
- * - Double
- * - String
- * - Arrays of the above types
+ * @par Supported value types:
+ * The ConfigValue class supports various types including:
+ * - Boolean values (true/false)
+ * - Integer numbers
+ * - Floating-point numbers
+ * - Strings
+ * - Arrays/sequences of values
+ * - Maps/objects (nested configurations)
+ * - Null values
  *
  * @tparam BackendTag The tag type that identifies the configuration backend via
  * BackendTraits

@@ -11,6 +11,7 @@ using framework::LogLevel;
 /**
  * @brief Google logging backend implementation
  *
+ * @details
  * This class provides a backend implementation of the logger interface
  * using Google's glog library. It maps the framework's logging levels to
  * glog severity levels and provides a clean integration with the logging
@@ -22,28 +23,23 @@ using framework::LogLevel;
  * - Automatic log file creation and rotation
  * - Log levels mapped to glog severity levels
  * - Thread-safe logging operations
- * - Configurable through glog flags and command line
+ * - Configurable through configuration backend
  *
- * Example usage with stream interface:
+ * @par Example usage with framework Logger:
  * @code
- * // Initialize glog with application name
- * GoogleLogger<ConfigBackend>::Init("MyApp");
- *
- * // Create logger instance with configuration
- * GoogleLogger<ConfigBackend> logger(config);
+ * // Create application context with configuration
+ * auto context = ApplicationContext<BackendTag>(argv[0], argv[1]);
+ * auto& logger = context.getLogger();
  *
  * // Log at different levels
  * logger.Info() << "Application started with version " << version;
  * logger.Warning() << "Resource usage high: " << usage_percent << "%";
  * logger.Error() << "Failed to connect to " << host << ":" << port;
  * logger.Debug() << "Connection details: " << details;
- *
- * // Clean up at shutdown
- * GoogleLogger<ConfigBackend>::Shutdown();
  * @endcode
  *
  * @note For debug logging to work in release builds, you may need to set
- * appropriate glog verbosity flags.
+ * appropriate glog verbosity flags through the configuration.
  *
  * @tparam ConfigBackend The configuration backend type that satisfies the
  * ConfigBackendType concept
@@ -128,6 +124,7 @@ class GoogleLogger {
   /**
    * @brief Log a message at the specified level
    *
+   * @details
    * Maps the framework's log levels to glog severity levels and routes
    * the message to the appropriate glog logging macro.
    *
@@ -154,6 +151,7 @@ class GoogleLogger {
   /**
    * @brief Initialize glog for the application
    *
+   * @details
    * Sets up Google's logging library with the application name,
    * configuring log file names and initial settings.
    *
@@ -170,6 +168,7 @@ class GoogleLogger {
   /**
    * @brief Shutdown glog
    *
+   * @details
    * Performs proper cleanup of Google's logging library
    */
   static void Shutdown() { google::ShutdownGoogleLogging(); }

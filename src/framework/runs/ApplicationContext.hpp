@@ -41,7 +41,7 @@ namespace metada::framework::runs {
  * @code{.cpp}
  * int main(int argc, char* argv[]) {
  *   // Create context with app name and config file
- *   auto context = ApplicationContext<L63BackendTag>("letkf_app", argv[1]);
+ *   auto context = ApplicationContext<L63BackendTag>(argv[0], argv[1]);
  *
  *   // Access managed services
  *   auto& logger = context.getLogger();
@@ -57,7 +57,7 @@ namespace metada::framework::runs {
  * @endcode
  *
  * @tparam BackendTag Tag type defining backend service implementations through
-
+ * traits
  *
  * @note The context should be instantiated exactly once at application startup
  * @note Services are initialized in order: Config -> Logger -> Future Services
@@ -95,22 +95,56 @@ class ApplicationContext {
    */
   ~ApplicationContext() { logger_.Info() << "Application context destroyed"; }
 
-  // Prevent copying to ensure single instance of services
+  /**
+   * @brief Disabled copy constructor
+   *
+   * @details ApplicationContext instances are not intended to be copied
+   * to ensure single instance of services.
+   */
   ApplicationContext(const ApplicationContext&) = delete;
+
+  /**
+   * @brief Disabled copy assignment operator
+   *
+   * @details ApplicationContext instances are not intended to be copied
+   * to ensure single instance of services.
+   */
   ApplicationContext& operator=(const ApplicationContext&) = delete;
 
-  // Allow moving to support RAII
+  /**
+   * @brief Move constructor
+   *
+   * @details Allows for moving ApplicationContext instances when needed
+   * to support RAII pattern.
+   */
   ApplicationContext(ApplicationContext&&) = default;
+
+  /**
+   * @brief Move assignment operator
+   *
+   * @details Allows for moving ApplicationContext instances when needed
+   * to support RAII pattern.
+   *
+   * @return Reference to this ApplicationContext instance
+   */
   ApplicationContext& operator=(ApplicationContext&&) = default;
 
   /**
    * @brief Get reference to the logging service
+   *
+   * @details Provides access to the application's logging system for
+   * recording information, warnings, errors, and debug messages.
+   *
    * @return Reference to the logger instance
    */
   Logger<BackendTag>& getLogger() { return logger_; }
 
   /**
    * @brief Get reference to the configuration service
+   *
+   * @details Provides access to the application's configuration system
+   * for retrieving settings and parameters.
+   *
    * @return Reference to the config instance
    */
   Config<BackendTag>& getConfig() { return config_; }
@@ -119,8 +153,8 @@ class ApplicationContext {
   // Timer& getTimer() { return timer_; }
 
  private:
-  Config<BackendTag> config_;
-  Logger<BackendTag> logger_;
+  Config<BackendTag> config_;  ///< Configuration service instance
+  Logger<BackendTag> logger_;  ///< Logging service instance
   // Timer timer_;  // To be implemented
 };
 
