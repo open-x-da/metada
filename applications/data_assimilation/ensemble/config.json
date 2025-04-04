@@ -2,9 +2,8 @@
   "logger": {
     "app_name": "letkf",
     "level": "debug",
-    "color": true,
-    "console": true,
-    "show_timestamp": true
+    "color": false,
+    "console": true
   },
 
   "ensemble_size": 64,
