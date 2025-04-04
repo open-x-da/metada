@@ -1,7 +1,7 @@
 {
   "logger": {
     "app_name": "letkf",
-    "level": "info",
+    "level": "debug",
     "color": true,
     "console": true,
     "show_timestamp": true

@@ -109,7 +109,6 @@ class GoogleLogger {
     FLAGS_colorlogtostderr = config_.Get("color").asBool();
     FLAGS_logtostderr = config_.Get("console").asBool();
     auto level_str = config_.Get("level").asString();
-    // Convert level to lowercase for case-insensitive comparison
     std::transform(level_str.begin(), level_str.end(), level_str.begin(),
                    ::tolower);
     if (level_str == "info") {
@@ -119,6 +118,7 @@ class GoogleLogger {
     } else if (level_str == "error") {
       FLAGS_minloglevel = 2;  // ERROR
     } else if (level_str == "debug") {
+      FLAGS_v = 1;            // Enable VLOG level 1
       FLAGS_minloglevel = 0;  // INFO
     } else {
       FLAGS_minloglevel = 0;  // INFO
@@ -146,7 +146,7 @@ class GoogleLogger {
         LOG(ERROR) << message;
         break;
       case LogLevel::Debug:
-        DLOG(INFO) << message;
+        VLOG(1) << message;  // Using VLOG for debug level
         break;
     }
   }
