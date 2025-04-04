@@ -81,7 +81,7 @@ class ApplicationContext {
    */
   ApplicationContext(const std::string& app_name,
                      const std::string& config_file)
-      : config_(config_file), logger_(config_) {
+      : config_(config_file), logger_(config_.GetSubsection("logger")) {
     logger_.Info() << "Application context initialized: " << app_name;
   }
 

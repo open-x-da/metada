@@ -1,44 +1,44 @@
 {
-  "letkf": {
-    "ensemble_size": 64,
-    "inflation_factor": 1.15,
-    "localization_radius": 500.0,
+  "logger": {
+    "app_name": "letkf",
+    "level": "info",
+    "color": true,
+    "console": true,
+    "show_timestamp": true
+  },
 
-    "state_variables": [
-      "temperature",
-      "pressure",
-      "humidity",
-      "wind_u",
-      "wind_v"
-    ],
+  "ensemble_size": 64,
+  "inflation_factor": 1.15,
+  "localization_radius": 500.0,
 
-    "observations": {
-      "max_distance": 1000.0,
-      "error_threshold": 3.0,
-      "types": [
-        "satellite",
-        "radiosonde",
-        "surface"
-      ]
-    },
+  "state_variables": [
+    "temperature",
+    "pressure",
+    "humidity",
+    "wind_u",
+    "wind_v"
+  ],
 
-    "compute": {
-      "num_threads": 8,
-      "batch_size": 1000,
-      "use_gpu": true
-    },
+  "observations": {
+    "max_distance": 1000.0,
+    "error_threshold": 3.0,
+    "types": [
+      "satellite",
+      "radiosonde",
+      "surface"
+    ]
+  },
 
-    "output": {
-      "format": "netcdf4",
-      "compression_level": 4,
-      "save_ensemble": true,
-      "save_analysis_error": true
-    },
+  "compute": {
+    "num_threads": 8,
+    "batch_size": 1000,
+    "use_gpu": true
+  },
 
-    "logger": {
-      "level": "info",
-      "color": true,
-      "console": true
-    }
+  "output": {
+    "format": "netcdf4",
+    "compression_level": 4,
+    "save_ensemble": true,
+    "save_analysis_error": true
   }
 } 

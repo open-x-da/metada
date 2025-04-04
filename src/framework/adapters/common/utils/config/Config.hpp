@@ -156,6 +156,16 @@ class Config : public NonCopyable {
         }()) {}
 
   /**
+   * @brief Constructor that takes an existing backend
+   *
+   * @details Creates a Config object from an existing backend instance.
+   * This is used internally for creating subsections.
+   *
+   * @param backend The backend instance to use
+   */
+  explicit Config(ConfigBackend&& backend) : backend_(std::move(backend)) {}
+
+  /**
    * @brief Get direct access to the backend instance
    *
    * @details Provides mutable access to the underlying configuration backend.
@@ -289,9 +299,6 @@ class Config : public NonCopyable {
    * @throws std::runtime_error if the subsection doesn't exist
    */
   Config GetSubsection(const std::string& key) const {
-    // Create a new Config object with the same backend type
-    Config subsection;
-
     // Get the subsection as a ConfigValue
     ConfigValue subsectionValue = Get(key);
 
@@ -301,10 +308,8 @@ class Config : public NonCopyable {
                                key);
     }
 
-    // Set the subsection as the root of the new Config object
-    subsection.backend_ = backend_.CreateSubsection(key);
-
-    return subsection;
+    // Create a new Config object by moving the backend subsection
+    return Config(std::move(backend_.CreateSubsection(key)));
   }
 
   /**

@@ -105,7 +105,24 @@ class GoogleLogger {
    * @param[in] config The configuration backend instance
    */
   explicit GoogleLogger(const ConfigBackend& config) : config_(config) {
-    Init("GoogleLogger");
+    Init(config_.Get("app_name").asString());
+    FLAGS_colorlogtostderr = config_.Get("color").asBool();
+    FLAGS_logtostderr = config_.Get("console").asBool();
+    auto level_str = config_.Get("level").asString();
+    // Convert level to lowercase for case-insensitive comparison
+    std::transform(level_str.begin(), level_str.end(), level_str.begin(),
+                   ::tolower);
+    if (level_str == "info") {
+      FLAGS_minloglevel = 0;  // INFO
+    } else if (level_str == "warning") {
+      FLAGS_minloglevel = 1;  // WARNING
+    } else if (level_str == "error") {
+      FLAGS_minloglevel = 2;  // ERROR
+    } else if (level_str == "debug") {
+      FLAGS_minloglevel = 0;  // INFO
+    } else {
+      FLAGS_minloglevel = 0;  // INFO
+    }
   }
 
   /**
@@ -145,9 +162,6 @@ class GoogleLogger {
   static void Init(const std::string& app_name) {
     // Initialize glog with application name
     google::InitGoogleLogging(app_name.c_str());
-
-    // Configure standard settings
-    FLAGS_logtostderr = 1;  // Log to stderr by default
 
     // Log initialization message
     LOG(INFO) << "Google logger initialized for " << app_name;

@@ -110,9 +110,9 @@ class ConsoleLogger {
    */
   explicit ConsoleLogger(const ConfigBackend& config) : config_(config) {
     // Extract configuration values with defaults
-    std::string app_name = config.Get("logger.app_name", "ConsoleLogger").AsString();
-    bool use_colors = config.Get("logger.use_colors", true).AsBool();
-    bool show_timestamp = config.Get("logger.show_timestamp", true).AsBool();
+    std::string app_name = config.Get("app_name").AsString();
+    bool use_colors = config.Get("color").AsBool();
+    bool show_timestamp = config.Get("show_timestamp").AsBool();
     
     // Initialize with config values
     Init(app_name);
@@ -131,8 +131,8 @@ class ConsoleLogger {
    */
   void LogMessage(LogLevel level, const std::string& message) {
     // Get formatting settings from config
-    bool use_colors = config_.Get("logger.use_colors", true).AsBool();
-    bool show_timestamp = config_.Get("logger.show_timestamp", true).AsBool();
+    bool use_colors = config_.Get("color").AsBool();
+    bool show_timestamp = config_.Get("show_timestamp").AsBool();
     
     std::string prefix;
     if (show_timestamp) {

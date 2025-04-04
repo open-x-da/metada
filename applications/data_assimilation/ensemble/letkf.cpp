@@ -59,7 +59,7 @@ using namespace metada::traits;
  * @throws std::runtime_error For critical errors during execution
  */
 int main(int argc, char* argv[]) {
-  auto context = ApplicationContext<L63BackendTag>("letkf_app", argv[1]);
+  auto context = ApplicationContext<L63BackendTag>(argv[0], argv[1]);
   auto& logger = context.getLogger();
   auto& config = context.getConfig();
 
@@ -78,15 +78,9 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> state_variables;
 
     try {
-      ensemble_size =
-          config.Get("letkf.ensemble_size", ConfigValue(32)).asInt();
-      inflation_factor =
-          config.Get("letkf.inflation_factor", ConfigValue(1.1f)).asFloat();
-      state_variables = config
-                            .Get("letkf.state_variables",
-                                 ConfigValue(std::vector<std::string>{
-                                     "temperature", "pressure", "humidity"}))
-                            .asVectorString();
+      ensemble_size = config.Get("ensemble_size").asInt();
+      inflation_factor = config.Get("inflation_factor").asFloat();
+      state_variables = config.Get("state_variables").asVectorString();
     } catch (const std::exception& e) {
       logger.Error() << "Error reading configuration values: " << e.what();
       return 1;
@@ -98,7 +92,7 @@ int main(int argc, char* argv[]) {
     logger.Info() << "  - Inflation Factor: " << inflation_factor;
     logger.Info() << "  - State Variables:";
     for (const auto& var : state_variables) {
-      logger.Info() << "    * " << var;
+      logger.Debug() << "    * " << var;
     }
 
     // Add your LETKF implementation here
