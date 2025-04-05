@@ -1,8 +1,6 @@
 # Create JSON config backend library
 add_library(config_json
     JsonConfig.cpp)
-add_library(metada::backends::common::utils::config
-    ALIAS config_json)
 
 # Set include directories
 target_include_directories(config_json

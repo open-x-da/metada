@@ -32,7 +32,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/applications/data_assimilation/ensemble/letkf",
-            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.json"],
+            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.yaml"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
@@ -60,7 +60,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/src/backends/interfaces/apps/lorenz63/lorenz63_cpp_example",
-            "args": ["${workspaceFolder}/src/backends/interfaces/apps/lorenz63/config.json"],
+            "args": ["${workspaceFolder}/src/backends/interfaces/apps/lorenz63/config.yaml"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [

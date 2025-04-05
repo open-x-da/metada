@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "common/utils/config/ConfigValue.hpp"
 
@@ -13,10 +14,10 @@ using framework::ConfigValue;
 
 /**
  * @brief YAML configuration backend implementation
- * 
- * This class implements the configuration backend contract using yaml-cpp as the
- * underlying storage format. It provides functionality to load, access, modify
- * and save configuration data in YAML format.
+ *
+ * This class implements the configuration backend contract using yaml-cpp as
+ * the underlying storage format. It provides functionality to load, access,
+ * modify and save configuration data in YAML format.
  *
  * The configuration data is stored in a hierarchical structure where keys use
  * dot notation to access nested values. For example, "database.host" would
@@ -33,21 +34,21 @@ using framework::ConfigValue;
  * Example usage:
  * @code
  * YamlConfig config("config.yaml");
- * 
+ *
  * // Get values
  * auto host = config.Get("database.host").AsString();
  * auto port = config.Get("database.port").AsInt();
- * 
+ *
  * // Set values
  * config.Set("database.user", ConfigValue("admin"));
  * config.Set("database.timeout", ConfigValue(30));
- * 
+ *
  * config.SaveToFile("updated_config.yaml");
  * @endcode
  *
  * Supported value types:
  * - Boolean
- * - Integer 
+ * - Integer
  * - Double
  * - String
  * - Arrays of the above types
@@ -56,7 +57,8 @@ using framework::ConfigValue;
  * the framework's Config template class.
  *
  * @see YAML::Node YAML-CPP library used for implementation
- * @see framework::ConfigValue The variant type used to store configuration values
+ * @see framework::ConfigValue The variant type used to store configuration
+ * values
  * @see framework::ConfigBackendType The concept this class satisfies
  */
 class YamlConfig {
@@ -85,7 +87,7 @@ class YamlConfig {
     root_ = std::move(other.root_);
     return *this;
   }
-  
+
   /**
    * @brief Constructor that loads configuration from a file
    * @param filename Path to the YAML configuration file
@@ -173,6 +175,32 @@ class YamlConfig {
  private:
   /** @brief Root YAML node storing the configuration data */
   YAML::Node root_;
+
+  /**
+   * @brief Split a dot-separated key into its components
+   * @param key The dot-separated key to split
+   * @return Vector of key components
+   */
+  static std::vector<std::string> SplitKey(const std::string& key);
+
+  /**
+   * @brief Get a YAML node at the specified path
+   * @param node The YAML node to traverse
+   * @param key Dot-separated path to the desired value (e.g. "database.host")
+   * @return YAML node at the specified path
+   * @throw std::runtime_error if the path is invalid or value doesn't exist
+   */
+  static YAML::Node GetYamlNode(YAML::Node node, const std::string& key);
+
+  /**
+   * @brief Get a const YAML node at the specified path
+   * @param node The YAML node to traverse
+   * @param key Dot-separated path to the desired value (e.g. "database.host")
+   * @return Const YAML node at the specified path
+   * @throw std::runtime_error if the path is invalid or value doesn't exist
+   */
+  static const YAML::Node GetYamlNodeConst(const YAML::Node& node,
+                                           const std::string& key);
 
   /**
    * @brief Get a YAML value at the specified path

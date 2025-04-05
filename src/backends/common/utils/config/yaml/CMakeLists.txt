@@ -1,8 +1,6 @@
 # Create YAML config backend library
 add_library(config_yaml
     YamlConfig.cpp)
-add_library(metada::backends::common::utils::config
-    ALIAS config_yaml)
 
 # Set include directories
 target_include_directories(config_yaml
@@ -12,7 +10,8 @@ target_include_directories(config_yaml
 # Link dependencies
 target_link_libraries(config_yaml
     PUBLIC
-        metada::framework::common
+        metada::framework::adapters
+        metada::framework::interfaces
         yaml-cpp::yaml-cpp)
 
 # Add precompiled headers if enabled
