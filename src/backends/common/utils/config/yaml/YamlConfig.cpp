@@ -15,6 +15,7 @@ namespace metada::backends::config {
  *
  * @param filename Path to the YAML configuration file
  * @return true if loading was successful, false otherwise
+ * @throws std::runtime_error if file cannot be opened or contains invalid YAML
  */
 bool YamlConfig::LoadFromFile(const std::string& filename) {
   try {
@@ -33,6 +34,7 @@ bool YamlConfig::LoadFromFile(const std::string& filename) {
  *
  * @param content String containing YAML configuration data
  * @return true if parsing was successful, false otherwise
+ * @throws std::runtime_error if content contains invalid YAML
  */
 bool YamlConfig::LoadFromString(const std::string& content) {
   try {
@@ -51,12 +53,13 @@ bool YamlConfig::LoadFromString(const std::string& content) {
  * The value is returned as a ConfigValue variant that can contain:
  * - bool
  * - int
- * - double
+ * - float
  * - string
  * - vector<bool>
  * - vector<int>
- * - vector<double>
+ * - vector<float>
  * - vector<string>
+ * - ConfigMap (nested configuration)
  *
  * @param key Dot-separated path to the configuration value (e.g.
  * "database.host")
@@ -93,15 +96,18 @@ std::vector<std::string> SplitString(const std::string& str, char delim) {
  * Accepts ConfigValue variants containing:
  * - bool
  * - int
- * - double
+ * - float
  * - string
  * - vector<bool>
  * - vector<int>
- * - vector<double>
+ * - vector<float>
  * - vector<string>
+ * - ConfigMap (nested configuration)
  *
  * @param key Dot-separated path where to set the value (e.g. "database.host")
  * @param value ConfigValue containing the value to set
+ * @throws std::runtime_error if the key path is invalid or value type is not
+ * supported
  */
 void YamlConfig::Set(const std::string& key, const ConfigValue& value) {
   try {
@@ -161,6 +167,7 @@ bool YamlConfig::HasKey(const std::string& key) const {
  *
  * @param filename Path where to save the configuration file
  * @return true if saving was successful, false otherwise
+ * @throws std::runtime_error if file cannot be created or written to
  */
 bool YamlConfig::SaveToFile(const std::string& filename) const {
   try {
@@ -182,6 +189,7 @@ bool YamlConfig::SaveToFile(const std::string& filename) const {
  * Serializes the current configuration state to a YAML-formatted string.
  *
  * @return String containing the YAML representation of the configuration
+ * @throws std::runtime_error if serialization fails
  */
 std::string YamlConfig::ToString() const {
   try {
@@ -265,44 +273,6 @@ const YAML::Node YamlConfig::GetYamlNodeConst(const YAML::Node& node,
   return *current;
 }
 
-// Needed for header compatibility - this is deprecated, use GetYamlNodeConst
-// instead
-YAML::Node& YamlConfig::GetYamlRef(YAML::Node& node, const std::string& key) {
-  auto parts = SplitKey(key);
-
-  if (parts.empty()) {
-    return node;
-  }
-
-  YAML::Node* current = &node;
-  for (size_t i = 0; i < parts.size() - 1; ++i) {
-    if (!current->IsMap()) {
-      *current = YAML::Node(YAML::NodeType::Map);
-    }
-    if (!(*current)[parts[i]]) {
-      (*current)[parts[i]] = YAML::Node(YAML::NodeType::Map);
-    }
-    // Use a temporary variable to store the result
-    YAML::Node temp = (*current)[parts[i]];
-    current = &temp;
-  }
-
-  // Create and return a stored reference to the leaf node
-  YAML::Node temp = (*current)[parts.back()];
-  return temp;
-}
-
-// Needed for header compatibility - this is deprecated, use GetYamlNodeConst
-// instead
-const YAML::Node& YamlConfig::GetYamlRef(const YAML::Node& node,
-                                         const std::string& key) {
-  static thread_local YAML::Node
-      result;  // Use a static node to ensure its lifetime
-  result =
-      GetYamlNodeConst(node, key);  // Copy the result from GetYamlNodeConst
-  return result;                    // Return a reference to the static node
-}
-
 /**
  * @brief Convert a YAML node to a ConfigValue
  *
@@ -310,18 +280,21 @@ const YAML::Node& YamlConfig::GetYamlRef(const YAML::Node& node,
  * as different supported types in order of precedence.
  *
  * Supported scalar types (in order of precedence):
- * - null (converted to empty string)
+ * - null (converted to empty ConfigValue)
  * - boolean
  * - integer
- * - double
+ * - float
  * - string
  *
  * Supported sequence types (in order of precedence):
  * - empty sequence (converted to empty string vector)
  * - vector<bool>
  * - vector<int>
- * - vector<double>
+ * - vector<float>
  * - vector<string>
+ *
+ * Supported map type:
+ * - ConfigMap (nested configuration)
  *
  * @param node The YAML node to convert
  * @return ConfigValue containing the converted value

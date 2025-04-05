@@ -168,7 +168,7 @@ class YamlConfig {
    */
   YamlConfig CreateSubsection(const std::string& key) const {
     YamlConfig subsection;
-    subsection.root_ = GetYamlRef(root_, key);
+    subsection.root_ = GetYamlNodeConst(root_, key);
     return subsection;
   }
 
@@ -201,26 +201,6 @@ class YamlConfig {
    */
   static const YAML::Node GetYamlNodeConst(const YAML::Node& node,
                                            const std::string& key);
-
-  /**
-   * @brief Get a YAML value at the specified path
-   * @param node The YAML node to traverse
-   * @param key Dot-separated path to the desired value (e.g. "database.host")
-   * @return Reference to the YAML value at the specified path
-   * @throw YAML::Exception if the path is invalid or contains invalid
-   * characters
-   */
-  static YAML::Node& GetYamlRef(YAML::Node& node, const std::string& key);
-
-  /**
-   * @brief Get a const reference to a YAML value at the specified path
-   * @param node The YAML node to traverse
-   * @param key Dot-separated path to the desired value (e.g. "database.host")
-   * @return Const reference to the YAML value at the specified path
-   * @throw YAML::Exception if the path is invalid or value doesn't exist
-   */
-  static const YAML::Node& GetYamlRef(const YAML::Node& node,
-                                      const std::string& key);
 
   /**
    * @brief Convert a YAML value to a ConfigValue
