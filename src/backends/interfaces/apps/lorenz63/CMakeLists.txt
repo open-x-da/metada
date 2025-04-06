@@ -22,11 +22,8 @@ target_link_libraries(lorenz63_cpp_example
     PRIVATE
         metada::traits
         metada::framework::runs
-        metada::framework::traits
         metada::framework::interfaces
         metada::framework::adapters
-        metada::framework::common
-        metada::framework::common::utils::logger
         metada::backends::common::utils
         lorenz63_state
         lorenz63_geometry
