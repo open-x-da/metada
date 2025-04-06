@@ -19,6 +19,13 @@ endif()
 add_library(config_backend INTERFACE)
 add_library(metada::backends::common::utils::config ALIAS config_backend)
 
+# Include utils.hpp and other common headers
+target_include_directories(config_backend
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
+)
+
 # Add the selected backend as a dependency
 string(TOLOWER ${CONFIG_BACKEND} CONFIG_BACKEND_LOWER)
 add_subdirectory(${CONFIG_BACKEND_LOWER})

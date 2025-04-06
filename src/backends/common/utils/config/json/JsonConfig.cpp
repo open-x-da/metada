@@ -178,28 +178,6 @@ void JsonConfig::Clear() {
   root_ = nlohmann::json::object();
 }
 
-std::vector<std::string> JsonConfig::SplitKey(const std::string& key) const {
-  std::vector<std::string> parts;
-  std::string current;
-
-  for (char c : key) {
-    if (c == '.') {
-      if (!current.empty()) {
-        parts.push_back(current);
-        current.clear();
-      }
-    } else {
-      current += c;
-    }
-  }
-
-  if (!current.empty()) {
-    parts.push_back(current);
-  }
-
-  return parts;
-}
-
 /**
  * @brief Get a reference to a JSON value at the specified path
  *

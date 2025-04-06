@@ -77,17 +77,6 @@ ConfigValue YamlConfig::Get(const std::string& key) const {
   }
 }
 
-// Helper function to split string by delimiter
-std::vector<std::string> SplitString(const std::string& str, char delim) {
-  std::vector<std::string> tokens;
-  std::stringstream ss(str);
-  std::string token;
-  while (std::getline(ss, token, delim)) {
-    tokens.push_back(token);
-  }
-  return tokens;
-}
-
 /**
  * @brief Set a value in the configuration
  *
@@ -209,68 +198,6 @@ std::string YamlConfig::ToString() const {
  */
 void YamlConfig::Clear() {
   root_ = YAML::Node();
-}
-
-std::vector<std::string> YamlConfig::SplitKey(const std::string& key) {
-  std::vector<std::string> parts;
-  std::string current;
-
-  for (char c : key) {
-    if (c == '.') {
-      if (!current.empty()) {
-        parts.push_back(current);
-        current.clear();
-      }
-    } else {
-      current += c;
-    }
-  }
-
-  if (!current.empty()) {
-    parts.push_back(current);
-  }
-
-  return parts;
-}
-
-// Helper to get a YAML node at a path
-YAML::Node YamlConfig::GetYamlNode(YAML::Node node, const std::string& key) {
-  auto parts = SplitKey(key);
-
-  for (const auto& part : parts) {
-    if (!node.IsMap()) {
-      throw std::runtime_error("Invalid path: intermediate node is not a map");
-    }
-
-    node = node[part];
-    if (!node) {
-      throw std::runtime_error("Key not found: " + part);
-    }
-  }
-
-  return node;
-}
-
-// Helper to get a const YAML node at a path
-const YAML::Node YamlConfig::GetYamlNodeConst(const YAML::Node& node,
-                                              const std::string& key) {
-  auto parts = SplitKey(key);
-
-  const YAML::Node* current = &node;
-  for (const auto& part : parts) {
-    if (!current->IsMap()) {
-      throw std::runtime_error("Invalid path: intermediate node is not a map");
-    }
-
-    const YAML::Node& childNode = (*current)[part];
-    if (!childNode) {
-      throw std::runtime_error("Key not found: " + part);
-    }
-
-    current = &childNode;
-  }
-
-  return *current;
 }
 
 /**
@@ -460,6 +387,46 @@ YAML::Node YamlConfig::ConfigValueToYaml(const ConfigValue& value) {
 
   // Default case
   return YAML::Node();
+}
+
+// Helper to get a YAML node at a path
+YAML::Node YamlConfig::GetYamlNode(YAML::Node node, const std::string& key) {
+  auto parts = SplitKey(key);
+
+  for (const auto& part : parts) {
+    if (!node.IsMap()) {
+      throw std::runtime_error("Invalid path: intermediate node is not a map");
+    }
+
+    node = node[part];
+    if (!node) {
+      throw std::runtime_error("Key not found: " + part);
+    }
+  }
+
+  return node;
+}
+
+// Helper to get a const YAML node at a path
+const YAML::Node YamlConfig::GetYamlNodeConst(const YAML::Node& node,
+                                              const std::string& key) {
+  auto parts = SplitKey(key);
+
+  const YAML::Node* current = &node;
+  for (const auto& part : parts) {
+    if (!current->IsMap()) {
+      throw std::runtime_error("Invalid path: intermediate node is not a map");
+    }
+
+    const YAML::Node& childNode = (*current)[part];
+    if (!childNode) {
+      throw std::runtime_error("Key not found: " + part);
+    }
+
+    current = &childNode;
+  }
+
+  return *current;
 }
 
 }  // namespace metada::backends::config

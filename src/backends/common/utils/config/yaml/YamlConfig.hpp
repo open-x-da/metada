@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "../utils.hpp"
 #include "common/utils/config/ConfigValue.hpp"
 
 namespace metada::backends::config {
@@ -175,13 +176,6 @@ class YamlConfig {
  private:
   /** @brief Root YAML node storing the configuration data */
   YAML::Node root_;
-
-  /**
-   * @brief Split a dot-separated key into its components
-   * @param key The dot-separated key to split
-   * @return Vector of key components
-   */
-  static std::vector<std::string> SplitKey(const std::string& key);
 
   /**
    * @brief Get a YAML node at the specified path

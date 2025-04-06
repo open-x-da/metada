@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "utils.hpp"
 #include "common/utils/config/ConfigValue.hpp"
 
 namespace metada::backends::config {
@@ -173,13 +174,6 @@ class JsonConfig {
     subsection.root_ = GetJsonRef(root_, key);
     return subsection;
   }
-
-  /**
-   * @brief Split a key into its components
-   * @param key Dot-separated path to the configuration value
-   * @return Vector of key components
-   */
-  std::vector<std::string> SplitKey(const std::string& key) const;
 
  private:
   /** @brief Root JSON node storing the configuration data */
