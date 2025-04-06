@@ -15,9 +15,8 @@ else()
     message(FATAL_ERROR "No configuration backend available. Install yaml-cpp or nlohmann_json")
 endif()
 
-# Create the config library
+# Create the config library (internal implementation)
 add_library(config_backend INTERFACE)
-add_library(metada::backends::common::utils::config ALIAS config_backend)
 
 # Include utils.hpp and other common headers
 target_include_directories(config_backend

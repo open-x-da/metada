@@ -1,9 +1,6 @@
 # Create Console logger backend library
 add_library(logger_console INTERFACE)
 
-add_library(metada::backends::common::utils::logger
-    ALIAS logger_console)
-
 # Set include directories
 target_include_directories(logger_console
     INTERFACE

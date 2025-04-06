@@ -9,8 +9,7 @@ target_link_libraries(letkf
         metada::framework::core
         metada::framework::interfaces
         metada::framework::runs
-        metada::backends::common::utils::logger
-        metada::backends::common::utils::config
+        metada::backends::common::utils
 )
 
 # Add format target to ensure consistent code style across the project

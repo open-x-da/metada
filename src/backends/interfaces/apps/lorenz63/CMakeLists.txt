@@ -4,6 +4,7 @@ add_executable(lorenz63 main.f90)
 # Link to required libraries
 target_link_libraries(lorenz63
     PRIVATE
+        metada::backends::common::utils
         lorenz63_state
         lorenz63_geometry
         lorenz63_model)
@@ -26,8 +27,7 @@ target_link_libraries(lorenz63_cpp_example
         metada::framework::adapters
         metada::framework::common
         metada::framework::common::utils::logger
-        metada::backends::common::utils::logger
-        metada::backends::common::utils::config
+        metada::backends::common::utils
         lorenz63_state
         lorenz63_geometry
         lorenz63_model)
