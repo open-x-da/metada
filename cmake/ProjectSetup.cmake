@@ -20,6 +20,13 @@ function(metada_project_initialize)
     # Examples:
     #   cmake -DCONFIG_BACKEND=JSON -DLOGGER_BACKEND=CONSOLE ..
     #   cmake -DCONFIG_BACKEND=YAML -DLOGGER_BACKEND=GLOG ..
+    if(NOT DEFINED CONFIG_BACKEND)
+        set(CONFIG_BACKEND "YAML" CACHE STRING "Configuration backend to use (YAML|JSON)")
+    endif()
+
+    if(NOT DEFINED LOGGER_BACKEND)
+        set(LOGGER_BACKEND "GLOG" CACHE STRING "Logging backend to use (GLOG|CONSOLE)")
+    endif()
     
     # Option to control precompiled headers usage
     option(USE_PRECOMPILED_HEADERS "Enable precompiled headers for faster builds" OFF)

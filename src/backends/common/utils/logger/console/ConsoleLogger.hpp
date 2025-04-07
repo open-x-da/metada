@@ -11,6 +11,25 @@ namespace metada::backends::logger {
 
 using framework::LogLevel;
 
+// ANSI color code constants
+namespace color {
+// Foreground color codes
+constexpr const char* RESET = "\033[0m";
+constexpr const char* RED = "\033[31m";
+constexpr const char* GREEN = "\033[32m";
+constexpr const char* YELLOW = "\033[33m";
+constexpr const char* BLUE = "\033[34m";
+constexpr const char* MAGENTA = "\033[35m";
+constexpr const char* CYAN = "\033[36m";
+constexpr const char* WHITE = "\033[37m";
+
+// Bold/bright foreground colors
+constexpr const char* BRED = "\033[1;31m";
+constexpr const char* BGREEN = "\033[1;32m";
+constexpr const char* BYELLOW = "\033[1;33m";
+constexpr const char* BBLUE = "\033[1;34m";
+}  // namespace color
+
 /**
  * @brief Console logging backend implementation
  *
@@ -112,16 +131,15 @@ class ConsoleLogger {
    */
   explicit ConsoleLogger(const ConfigBackend& config) : config_(config) {
     // Extract configuration values with defaults
-    std::string app_name =
+    app_name_ =
         config.HasKey("app_name") ? config.Get("app_name").asString() : "";
-    bool use_colors =
-        config.HasKey("color") ? config.Get("color").asBool() : true;
-    bool show_timestamp = config.HasKey("show_timestamp")
-                              ? config.Get("show_timestamp").asBool()
-                              : true;
+    use_colors_ = config.HasKey("color") ? config.Get("color").asBool() : true;
+    show_timestamp_ = config.HasKey("show_timestamp")
+                          ? config.Get("show_timestamp").asBool()
+                          : true;
 
     // Initialize with config values
-    Init(app_name);
+    Init(app_name_);
   }
 
   /**
@@ -136,15 +154,8 @@ class ConsoleLogger {
    * @param message The message to log
    */
   void LogMessage(LogLevel level, const std::string& message) {
-    // Get formatting settings from config
-    bool use_colors =
-        config_.HasKey("color") ? config_.Get("color").asBool() : true;
-    bool show_timestamp = config_.HasKey("show_timestamp")
-                              ? config_.Get("show_timestamp").asBool()
-                              : true;
-
     std::string prefix;
-    if (show_timestamp) {
+    if (show_timestamp_) {
       // Add timestamp if enabled
       auto now = std::chrono::system_clock::now();
       auto time = std::chrono::system_clock::to_time_t(now);
@@ -153,18 +164,47 @@ class ConsoleLogger {
       prefix = "[" + ss.str() + "] ";
     }
 
+    // Define color variables to avoid repetition
+    const char* start_color = "";
+    const char* end_color = "";
+
+    // Apply colors if enabled
+    if (use_colors_) {
+      end_color = color::RESET;
+
+      switch (level) {
+        case LogLevel::Info:
+          start_color = color::GREEN;
+          break;
+        case LogLevel::Warning:
+          start_color = color::YELLOW;
+          break;
+        case LogLevel::Error:
+          start_color = color::BRED;  // Bold red for errors
+          break;
+        case LogLevel::Debug:
+          start_color = color::BLUE;
+          break;
+      }
+    }
+
+    // Output log message with appropriate colors and to the correct stream
     switch (level) {
       case LogLevel::Info:
-        std::cout << prefix << "[INFO] " << message << std::endl;
+        std::cout << prefix << start_color << "[INFO] " << message << end_color
+                  << std::endl;
         break;
       case LogLevel::Warning:
-        std::cout << prefix << "[WARNING] " << message << std::endl;
+        std::cout << prefix << start_color << "[WARNING] " << message
+                  << end_color << std::endl;
         break;
       case LogLevel::Error:
-        std::cerr << prefix << "[ERROR] " << message << std::endl;
+        std::cerr << prefix << start_color << "[ERROR] " << message << end_color
+                  << std::endl;
         break;
       case LogLevel::Debug:
-        std::cout << prefix << "[DEBUG] " << message << std::endl;
+        std::cout << prefix << start_color << "[DEBUG] " << message << end_color
+                  << std::endl;
         break;
     }
   }
@@ -202,6 +242,9 @@ class ConsoleLogger {
 
  private:
   const ConfigBackend& config_;  ///< Configuration backend instance
+  std::string app_name_;         ///< Application name
+  bool use_colors_;              ///< Whether to use colored output
+  bool show_timestamp_;          ///< Whether to show timestamps in log messages
 };
 
 }  // namespace metada::backends::logger
