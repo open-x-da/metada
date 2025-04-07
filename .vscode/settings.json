@@ -1,7 +1,7 @@
 {
     "cmake.generator": "Ninja",
     "cmake.configureSettings": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Release"
     },
     "cmake.configureArgs": [
         "-DLOGGER_BACKEND=CONSOLE",

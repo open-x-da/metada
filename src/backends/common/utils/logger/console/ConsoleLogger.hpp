@@ -33,9 +33,9 @@ constexpr const char* BBLUE = "\033[1;34m";
 /**
  * @brief Console logging backend implementation
  *
- * This class provides a simple console-based logging backend that writes
- * log messages to standard output/error streams with severity level prefixes
- * and optional colorized output.
+ * @details This class provides a simple console-based logging backend that
+ * writes log messages to standard output/error streams with severity level
+ * prefixes and optional colorized output.
  *
  * Features:
  * - Simple logging to standard output/error streams
@@ -126,6 +126,13 @@ class ConsoleLogger {
    *
    * @details Initializes the logger with the provided configuration and
    * calls the static Init method with the application name from config.
+   * Configuration options include:
+   * - app_name: The name of the application (string)
+   * - color: Whether to use colored output (bool, default: true)
+   * - show_timestamp: Whether to include timestamps in log messages (bool,
+   * default: true)
+   * - level: Minimum log level to display ("debug", "info", "warning", "error",
+   * default: "info")
    *
    * @param[in] config The configuration backend instance
    */
@@ -167,6 +174,11 @@ class ConsoleLogger {
    * corresponding severity level prefix. Info, Warning, and Debug messages go
    * to stdout, while Error messages go to stderr. Formatting is controlled by
    * configuration settings for timestamps and colors.
+   *
+   * Messages below the configured minimum log level will be silently discarded.
+   * When timestamps are enabled, each message is prefixed with the current date
+   * and time. When colors are enabled, each message is colored according to its
+   * severity level.
    *
    * @param level The severity level of the message
    * @param message The message to log
@@ -238,6 +250,10 @@ class ConsoleLogger {
    * @details Performs basic initialization of the console logger. Outputs an
    * initialization message to stdout with the application name.
    *
+   * This method should be called once at application startup before any logging
+   * operations are performed. It establishes the application context for all
+   * subsequent log messages.
+   *
    * @param app_name Name of application using the logger
    * @note This is a static method that should be called once at application
    * startup
@@ -254,6 +270,10 @@ class ConsoleLogger {
    * @details Performs cleanup of the console logger. Outputs a shutdown message
    * to stdout. For this simple implementation, no actual cleanup is needed
    * since we only use standard streams.
+   *
+   * This method should be called once at application shutdown to ensure proper
+   * cleanup of any logger resources. For the console logger, this primarily
+   * serves as a notification that logging is being terminated.
    *
    * @note This is a static method that should be called once at application
    * shutdown
