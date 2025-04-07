@@ -1,6 +1,6 @@
 logger:
   app_name: "letkf"
-  level: "debug"
+  level: "info"
   color: true
   console: true
 

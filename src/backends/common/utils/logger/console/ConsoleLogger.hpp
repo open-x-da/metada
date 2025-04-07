@@ -138,6 +138,24 @@ class ConsoleLogger {
                           ? config.Get("show_timestamp").asBool()
                           : true;
 
+    // Extract the minimum log level from config (default to Info)
+    std::string log_level =
+        config.HasKey("level") ? config.Get("level").asString() : "info";
+
+    // Convert string log level to enum
+    if (log_level == "debug") {
+      min_log_level_ = LogLevel::Debug;
+    } else if (log_level == "info") {
+      min_log_level_ = LogLevel::Info;
+    } else if (log_level == "warning") {
+      min_log_level_ = LogLevel::Warning;
+    } else if (log_level == "error") {
+      min_log_level_ = LogLevel::Error;
+    } else {
+      // Default to Info if unrecognized
+      min_log_level_ = LogLevel::Info;
+    }
+
     // Initialize with config values
     Init(app_name_);
   }
@@ -154,6 +172,11 @@ class ConsoleLogger {
    * @param message The message to log
    */
   void LogMessage(LogLevel level, const std::string& message) {
+    // Skip if message level is below the minimum configured level
+    if (level < min_log_level_) {
+      return;
+    }
+
     std::string prefix;
     if (show_timestamp_) {
       // Add timestamp if enabled
@@ -245,6 +268,7 @@ class ConsoleLogger {
   std::string app_name_;         ///< Application name
   bool use_colors_;              ///< Whether to use colored output
   bool show_timestamp_;          ///< Whether to show timestamps in log messages
+  LogLevel min_log_level_;       ///< Minimum log level to log
 };
 
 }  // namespace metada::backends::logger
