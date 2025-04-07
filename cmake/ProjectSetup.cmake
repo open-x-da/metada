@@ -16,14 +16,16 @@ function(metada_project_initialize)
         link_libraries(c++fs)
     endif()
 
-    # Add at the beginning of metada_project_initialize() function
-    option(USE_GLOG "Enable Google logging backend" ON)
+    # Backend selection options (these can be overridden via -D options)
+    # Examples:
+    #   cmake -DCONFIG_BACKEND=JSON -DLOGGER_BACKEND=CONSOLE ..
+    #   cmake -DCONFIG_BACKEND=YAML -DLOGGER_BACKEND=GLOG ..
     
     # Option to control precompiled headers usage
-    option(USE_PRECOMPILED_HEADERS "Enable precompiled headers for faster builds" ON)
+    option(USE_PRECOMPILED_HEADERS "Enable precompiled headers for faster builds" OFF)
     
     # Option to control unity builds
-    option(USE_UNITY_BUILD "Enable unity builds for faster compilation" ON)
+    option(USE_UNITY_BUILD "Enable unity builds for faster compilation" OFF)
     option(UNITY_BUILD_BATCH_SIZE "Number of source files to batch in each unity source" 8)
 
     # Include compiler flags configuration

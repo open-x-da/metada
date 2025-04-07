@@ -26,6 +26,7 @@ target_link_libraries(common_utils
         logger_backend
 )
 
-# Add a message indicating what backends are used
-message(STATUS "Using configuration backend: ${CONFIG_BACKEND}")
-message(STATUS "Using logger backend: ${LOGGER_BACKEND}") 
+# Add a message showing what backends are used with configuration details
+message(STATUS "Selected backend configurations:")
+message(STATUS "  - Config backend: ${CONFIG_BACKEND} (Configurable via -DCONFIG_BACKEND=<YAML|JSON>)")
+message(STATUS "  - Logger backend: ${LOGGER_BACKEND} (Configurable via -DLOGGER_BACKEND=<GLOG|CONSOLE>)")

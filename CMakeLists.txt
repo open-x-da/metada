@@ -29,6 +29,9 @@ metada_find_package(ClangFormat)
 metada_find_package(Lcov)
 
 # Find optional external dependencies
+# These are used for backend selection, which can be configured with:
+#   - CONFIG_BACKEND=YAML|JSON
+#   - LOGGER_BACKEND=GLOG|CONSOLE
 metada_find_package(yaml-cpp OPTIONAL QUIET)
 metada_find_package(nlohmann_json OPTIONAL QUIET)
 metada_find_package(Glog OPTIONAL QUIET)

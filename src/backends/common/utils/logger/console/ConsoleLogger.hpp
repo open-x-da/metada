@@ -1,11 +1,11 @@
 #pragma once
 
-#include <iostream>
 #include <chrono>
-#include <sstream>
 #include <iomanip>
+#include <iostream>
+#include <sstream>
 
-#include "utils/logger/LogStream.hpp"
+#include "common/utils/logger/LogStream.hpp"
 
 namespace metada::backends::logger {
 
@@ -51,69 +51,75 @@ using framework::LogLevel;
  * ConsoleLogger<ConfigBackend>::Shutdown();
  * @endcode
  *
- * @tparam ConfigBackend The configuration backend type that satisfies the ConfigBackendType concept
+ * @tparam ConfigBackend The configuration backend type that satisfies the
+ * ConfigBackendType concept
  */
 template <typename ConfigBackend>
 class ConsoleLogger {
  public:
   /**
    * @brief Disabled default constructor
-   * 
+   *
    * @details Logger backends should always be initialized with a configuration.
    */
   ConsoleLogger() = delete;
 
   /**
    * @brief Default destructor
-   * 
-   * @details Ensures proper cleanup by calling Shutdown when the logger is destroyed.
+   *
+   * @details Ensures proper cleanup by calling Shutdown when the logger is
+   * destroyed.
    */
   ~ConsoleLogger() { Shutdown(); }
 
   /**
    * @brief Disabled copy constructor
-   * 
+   *
    * @details Logger backends are not intended to be copied.
    */
   ConsoleLogger(const ConsoleLogger&) = delete;
 
   /**
    * @brief Disabled copy assignment operator
-   * 
+   *
    * @details Logger backends are not intended to be copied.
    */
   ConsoleLogger& operator=(const ConsoleLogger&) = delete;
 
   /**
    * @brief Move constructor
-   * 
+   *
    * @details Allows for moving logger instances when needed.
    */
   ConsoleLogger(ConsoleLogger&&) noexcept = default;
 
   /**
    * @brief Move assignment operator
-   * 
+   *
    * @details Allows for moving logger instances when needed.
-   * 
+   *
    * @return Reference to this ConsoleLogger instance
    */
   ConsoleLogger& operator=(ConsoleLogger&&) noexcept = default;
 
   /**
    * @brief Constructor that takes a config
-   * 
+   *
    * @details Initializes the logger with the provided configuration and
    * calls the static Init method with the application name from config.
-   * 
+   *
    * @param[in] config The configuration backend instance
    */
   explicit ConsoleLogger(const ConfigBackend& config) : config_(config) {
     // Extract configuration values with defaults
-    std::string app_name = config.Get("app_name").AsString();
-    bool use_colors = config.Get("color").AsBool();
-    bool show_timestamp = config.Get("show_timestamp").AsBool();
-    
+    std::string app_name =
+        config.HasKey("app_name") ? config.Get("app_name").asString() : "";
+    bool use_colors =
+        config.HasKey("color") ? config.Get("color").asBool() : true;
+    bool show_timestamp = config.HasKey("show_timestamp")
+                              ? config.Get("show_timestamp").asBool()
+                              : true;
+
     // Initialize with config values
     Init(app_name);
   }
@@ -121,19 +127,22 @@ class ConsoleLogger {
   /**
    * @brief Log a message at the specified level
    *
-   * @details Routes messages to the appropriate output stream with the corresponding
-   * severity level prefix. Info, Warning, and Debug messages go to stdout,
-   * while Error messages go to stderr. Formatting is controlled by configuration
-   * settings for timestamps and colors.
+   * @details Routes messages to the appropriate output stream with the
+   * corresponding severity level prefix. Info, Warning, and Debug messages go
+   * to stdout, while Error messages go to stderr. Formatting is controlled by
+   * configuration settings for timestamps and colors.
    *
    * @param level The severity level of the message
    * @param message The message to log
    */
   void LogMessage(LogLevel level, const std::string& message) {
     // Get formatting settings from config
-    bool use_colors = config_.Get("color").AsBool();
-    bool show_timestamp = config_.Get("show_timestamp").AsBool();
-    
+    bool use_colors =
+        config_.HasKey("color") ? config_.Get("color").asBool() : true;
+    bool show_timestamp = config_.HasKey("show_timestamp")
+                              ? config_.Get("show_timestamp").asBool()
+                              : true;
+
     std::string prefix;
     if (show_timestamp) {
       // Add timestamp if enabled
@@ -143,7 +152,7 @@ class ConsoleLogger {
       ss << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
       prefix = "[" + ss.str() + "] ";
     }
-    
+
     switch (level) {
       case LogLevel::Info:
         std::cout << prefix << "[INFO] " << message << std::endl;
@@ -179,9 +188,9 @@ class ConsoleLogger {
   /**
    * @brief Cleanup logger resources
    *
-   * @details Performs cleanup of the console logger. Outputs a shutdown message to
-   * stdout. For this simple implementation, no actual cleanup is needed since
-   * we only use standard streams.
+   * @details Performs cleanup of the console logger. Outputs a shutdown message
+   * to stdout. For this simple implementation, no actual cleanup is needed
+   * since we only use standard streams.
    *
    * @note This is a static method that should be called once at application
    * shutdown

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "utils.hpp"
+#include "../utils.hpp"
 #include "common/utils/config/ConfigValue.hpp"
 
 namespace metada::backends::config {

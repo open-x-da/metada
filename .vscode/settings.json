@@ -3,6 +3,10 @@
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "Debug"
     },
+    "cmake.configureArgs": [
+        "-DLOGGER_BACKEND=GLOG",
+        "-DCONFIG_BACKEND=JSON"
+    ],
     "cmake.buildDirectory": "${workspaceFolder}/build",
     "files.associations": {
         "any": "cpp",
