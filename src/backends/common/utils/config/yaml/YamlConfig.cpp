@@ -412,21 +412,39 @@ const YAML::Node YamlConfig::GetYamlNodeConst(const YAML::Node& node,
                                               const std::string& key) {
   auto parts = SplitKey(key);
 
-  const YAML::Node* current = &node;
-  for (const auto& part : parts) {
-    if (!current->IsMap()) {
-      throw std::runtime_error("Invalid path: intermediate node is not a map");
-    }
-
-    const YAML::Node& childNode = (*current)[part];
-    if (!childNode) {
-      throw std::runtime_error("Key not found: " + part);
-    }
-
-    current = &childNode;
+  if (parts.empty()) {
+    return node;
   }
 
-  return *current;
+  // Handle the first part
+  const auto& part = parts.front();
+
+  // Check if node is a map
+  if (!node.IsMap()) {
+    throw std::runtime_error("Invalid path: node is not a map");
+  }
+
+  // Get the child node (creates a copy)
+  YAML::Node child = node[part];
+
+  // Check if child exists
+  if (!child) {
+    throw std::runtime_error("Key not found: " + part);
+  }
+
+  // If we have more parts, recurse with the remaining parts
+  if (parts.size() > 1) {
+    // Create a new path with the remaining parts
+    std::string remaining;
+    for (size_t i = 1; i < parts.size(); ++i) {
+      if (i > 1) remaining += ".";
+      remaining += parts[i];
+    }
+    return GetYamlNodeConst(child, remaining);
+  }
+
+  // Return the child node (last part of the path)
+  return child;
 }
 
 }  // namespace metada::backends::config
