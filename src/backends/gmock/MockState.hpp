@@ -26,12 +26,7 @@
 
 #include <unordered_map>
 
-#include "IState.hpp"
-
-namespace metada::tests {
-
-using framework::IConfig;
-using framework::IState;
+namespace metada::backends::gmock {
 
 /**
  * @brief Mock implementation of IState for testing
@@ -66,13 +61,14 @@ using framework::IState;
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
-class MockState : public IState {
+template <typename ConfigBackend>
+class MockState {
  public:
   // Disable default constructor
   MockState() = delete;
 
   // Destructor
-  ~MockState() override = default;
+  ~MockState() = default;
 
   // Copy constructor
   MockState(const MockState& other) = delete;
@@ -92,7 +88,7 @@ class MockState : public IState {
   }
 
   // Constructor that initializes state from config
-  explicit MockState(const IConfig& config) : config_(config) { initialize(); }
+  explicit MockState(const ConfigBackend& config) : config_(config) { initialize(); }
 
   // Clone operation
   std::unique_ptr<MockState> clone() const {
@@ -101,18 +97,18 @@ class MockState : public IState {
   }
 
   // Core state operations
-  MOCK_METHOD(void, initialize, (), (override));
-  MOCK_METHOD(void, zero, (), (override));
+  MOCK_METHOD(void, initialize, ());
+  MOCK_METHOD(void, zero, ());
 
   // Compare operations
-  MOCK_METHOD(bool, equals, (const IState& other), (const, override));
+  MOCK_METHOD(bool, equals, (const MockState& other), (const));
 
   // Arithmetic operations
-  MOCK_METHOD(void, add, (const IState& other), (override));
-  MOCK_METHOD(void, subtract, (const IState& other), (override));
-  MOCK_METHOD(void, multiply, (double scalar), (override));
-  MOCK_METHOD(double, dot, (const IState& other), (const, override));
-  MOCK_METHOD(double, norm, (), (const, override));
+  MOCK_METHOD(void, add, (const MockState& other));
+  MOCK_METHOD(void, subtract, (const MockState& other));
+  MOCK_METHOD(void, multiply, (double scalar));
+  MOCK_METHOD(double, dot, (const MockState& other), (const));
+  MOCK_METHOD(double, norm, (), (const));
 
   // Data access
 
@@ -141,13 +137,13 @@ class MockState : public IState {
   void setData(const std::vector<double>& data) { data_ = data; }
 
   // Get the config
-  const IConfig& config() const { return config_; }
+  const ConfigBackend& config() const { return config_; }
 
  private:
-  const IConfig& config_;
+  const ConfigBackend& config_;
   std::vector<std::string> variableNames_;
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
   std::vector<double> data_;
 };
 
-}  // namespace metada::tests
+}  // namespace metada::backends::gmock

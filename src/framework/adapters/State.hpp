@@ -33,13 +33,19 @@
 #include <vector>
 
 #include "BackendTraits.hpp"
-#include "utils/NonCopyable.hpp"
+#include "NonCopyable.hpp"
+#include "common/utils/config/Config.hpp"
+#include "common/utils/logger/Logger.hpp"
 
 namespace metada::framework {
 
-// Forward declaration
-template <typename T>
-class Config;
+/**
+ * @brief Forward declaration of Config class
+ */
+// template <typename BackendTag>
+//   requires ConfigBackendType<
+//       typename traits::BackendTraits<BackendTag>::ConfigBackend>
+// class Config;
 
 // Concepts to check backend requirements
 template <typename T>
@@ -67,8 +73,8 @@ concept HasGetDimensions = requires(const T& t) {
 
 // Combined concept for all backend requirements
 template <typename T>
-concept StateBackend = HasClone<T> && HasGetData<T> && HasGetVariableNames<T> &&
-                       HasGetDimensions<T>;
+concept StateBackendType = HasClone<T> && HasGetData<T> &&
+                           HasGetVariableNames<T> && HasGetDimensions<T>;
 
 /**
  * @brief Main state class template providing a generic interface to state
@@ -100,14 +106,12 @@ concept StateBackend = HasClone<T> && HasGetData<T> && HasGetVariableNames<T> &&
  * @see IState
  * @see Increment
  */
-template <typename Backend>
-  requires StateBackend<Backend>
+template <typename BackendTag>
+  requires StateBackendType<
+      typename traits::BackendTraits<BackendTag>::StateBackend>
 class State : private NonCopyable {
  public:
-  using MyTraits = traits::BackendTraits<Backend>;
-  // using ConfigBackend = typename MyTraits::ConfigBackend;
-  // using LoggerBackend = typename MyTraits::LoggerBackend;
-  // using StateBackend = typename MyTraits::StateBackend;
+  using StateBackend = typename traits::BackendTraits<BackendTag>::StateBackend;
 
   // Constructors
   State() = delete;  // Disable default constructor since we need a backend
@@ -122,8 +126,7 @@ class State : private NonCopyable {
    * @param[in] config Configuration object containing initialization parameters
    * @throws std::runtime_error If backend initialization fails
    */
-  template <typename T>
-  explicit State(const Config<T>& config)
+  explicit State(const Config<BackendTag>& config)
       : backend_(config.backend()), initialized_(true) {}
 
   /**
@@ -356,23 +359,23 @@ class State : private NonCopyable {
    * @brief Get direct access to the backend instance
    * @return Reference to backend implementation
    */
-  Backend& backend() { return backend_; }
+  StateBackend& backend() { return backend_; }
 
   /**
    * @brief Get const access to the backend instance
    * @return Const reference to backend implementation
    */
-  const Backend& backend() const { return backend_; }
+  const StateBackend& backend() const { return backend_; }
 
  private:
   /**
    * @brief Private constructor to be used internally by clone
    * @param backend Backend instance to move from
    */
-  explicit State(Backend&& backend)
+  explicit State(StateBackend&& backend)
       : backend_(std::move(backend)), initialized_(true) {}
 
-  Backend backend_;          ///< Instance of the state backend
+  StateBackend backend_;     ///< Instance of the state backend
   bool initialized_{false};  ///< Initialization flag
 };
 
@@ -385,18 +388,21 @@ class State : private NonCopyable {
 namespace metada::framework {
 
 // Implementation of methods that depend on Increment
-template <typename Backend>
-  requires StateBackend<Backend>
+template <typename BackendTag>
+  requires StateBackendType<
+      typename traits::BackendTraits<BackendTag>::StateBackend>
 template <typename IncrementType>
-IncrementType State<Backend>::createIncrementTo(const State& other) const {
+IncrementType State<BackendTag>::createIncrementTo(const State& other) const {
   // Use the factory method in Increment
   return IncrementType::createFromDifference(*this, other);
 }
 
-template <typename Backend>
-  requires StateBackend<Backend>
+template <typename BackendTag>
+  requires StateBackendType<
+      typename traits::BackendTraits<BackendTag>::StateBackend>
 template <typename IncrementType>
-State<Backend>& State<Backend>::applyIncrement(const IncrementType& increment) {
+State<BackendTag>& State<BackendTag>::applyIncrement(
+    const IncrementType& increment) {
   // Use the applyTo method in Increment
   increment.applyTo(*this);
   return *this;

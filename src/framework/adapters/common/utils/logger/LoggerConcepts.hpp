@@ -101,7 +101,7 @@ concept LoggerBackend =
  * @see HasConfigBackend
  */
 template <typename T>
-concept LoggerBackendTag =
+concept LoggerBackendType =
     HasLoggerBackend<T> && HasConfigBackend<T> &&
     LoggerBackend<typename traits::BackendTraits<T>::LoggerBackend,
                   typename traits::BackendTraits<T>::ConfigBackend>;

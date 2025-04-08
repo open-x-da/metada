@@ -30,11 +30,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "AppTraits.hpp"
+#include <filesystem>
+
 #include "ApplicationContext.hpp"
-#include "MockConfig.hpp"
-#include "MockLogger.hpp"
-#include "MockState.hpp"
+#include "MockBackendTraits.hpp"
 #include "State.hpp"
 
 namespace metada::tests {
@@ -49,8 +48,6 @@ using framework::Logger;
 using framework::State;
 using framework::runs::ApplicationContext;
 
-using Traits = AppTraits<MockLogger, MockConfig, MockState>;
-
 /**
  * @brief Test fixture for State class tests
  *
@@ -61,13 +58,18 @@ using Traits = AppTraits<MockLogger, MockConfig, MockState>;
  * - Proper cleanup of allocated resources
  */
 class StateTest : public ::testing::Test {
+ public:
+  using StateBackend =
+      typename traits::BackendTraits<traits::MockBackendTag>::StateBackend;
+
  protected:
-  std::unique_ptr<ApplicationContext<Traits>>
-      context_;  ///< Application context for testing
+  std::string config_file_;
+  std::unique_ptr<Config<traits::MockBackendTag>> config_;
 
   // Common State objects for tests
-  std::unique_ptr<State<Traits::StateType>> state1_;  ///< First test state
-  std::unique_ptr<State<Traits::StateType>> state2_;  ///< Second test state
+  std::unique_ptr<State<traits::MockBackendTag>> state1_;  ///< First test state
+  std::unique_ptr<State<traits::MockBackendTag>>
+      state2_;  ///< Second test state
 
   /**
    * @brief Set up test data before each test
@@ -80,12 +82,14 @@ class StateTest : public ::testing::Test {
    * - Common State objects
    */
   void SetUp() override {
-    // Create a new application context for testing
-    context_ = std::make_unique<ApplicationContext<Traits>>("StateTest");
+    // Get the directory where the test file is located
+    auto test_dir = std::filesystem::path(__FILE__).parent_path();
+    config_file_ = (test_dir / "test_config.yaml").string();
+    config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
 
     // Create common State objects
-    state1_ = std::make_unique<State<Traits::StateType>>(getConfig());
-    state2_ = std::make_unique<State<Traits::StateType>>(getConfig());
+    state1_ = std::make_unique<State<traits::MockBackendTag>>(*config_);
+    state2_ = std::make_unique<State<traits::MockBackendTag>>(*config_);
   }
 
   /**
@@ -95,28 +99,15 @@ class StateTest : public ::testing::Test {
     // Clean up State objects first
     state1_.reset();
     state2_.reset();
-
-    // Then clean up other resources
-    context_.reset();
   }
-
-  /**
-   * @brief Get reference to the logger from context
-   */
-  Logger<Traits::LoggerType>& getLogger() { return context_->getLogger(); }
-
-  /**
-   * @brief Get reference to the config from context
-   */
-  Config<Traits::ConfigType>& getConfig() { return context_->getConfig(); }
 
   /**
    * @brief Create a fresh State object for tests that need a new instance
    * @return A new State object initialized with the test config
    */
-  State<Traits::StateType> createState() {
+  State<traits::MockBackendTag> createState() {
     // Since Config is non-copyable, we pass a reference to the config
-    return State<Traits::StateType>(getConfig());
+    return State<traits::MockBackendTag>(*config_);
   }
 };
 
@@ -149,7 +140,7 @@ TEST_F(StateTest, MoveOperations) {
   EXPECT_TRUE(state_source.isInitialized());
 
   // Test move construction
-  State<Traits::StateType> state_moved(std::move(state_source));
+  State<traits::MockBackendTag> state_moved(std::move(state_source));
   EXPECT_TRUE(state_moved.isInitialized());
   EXPECT_FALSE(
       state_source.isInitialized());  // Source should be in moved-from state
@@ -279,7 +270,7 @@ TEST_F(StateTest, StateInformation) {
 TEST_F(StateTest, StateOperations) {
   // Test zero operation
   EXPECT_CALL(state1_->backend(), zero()).Times(1);
-  State<Traits::StateType>& result = state1_->zero();
+  State<traits::MockBackendTag>& result = state1_->zero();
   EXPECT_EQ(&result, state1_.get());
 
   // Test dot product
@@ -358,15 +349,16 @@ TEST_F(StateTest, IncrementOperations) {
   // We need a mock increment type for testing
   struct MockIncrement {
     // Keep track of which states were used to create the increment
-    const State<Traits::StateType>* state_a;
-    const State<Traits::StateType>* state_b;
+    const State<traits::MockBackendTag>* state_a;
+    const State<traits::MockBackendTag>* state_b;
 
     static MockIncrement createFromDifference(
-        const State<Traits::StateType>& a, const State<Traits::StateType>& b) {
+        const State<traits::MockBackendTag>& a,
+        const State<traits::MockBackendTag>& b) {
       return MockIncrement{&a, &b};
     }
 
-    void applyTo(State<Traits::StateType>& state) const {
+    void applyTo(State<traits::MockBackendTag>& state) const {
       // Verify we got the expected states in createFromDifference
       EXPECT_NE(state_a, nullptr);
       EXPECT_NE(state_b, nullptr);

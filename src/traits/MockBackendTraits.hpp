@@ -3,7 +3,7 @@
 #include "BackendTraits.hpp"
 #include "../backends/gmock/MockConfig.hpp"
 #include "../backends/gmock/MockLogger.hpp"
-//#include "mock_logger_backend.hpp"
+#include "../backends/gmock/MockState.hpp"
 //#include "mock_model_backend.hpp"
 //#include "mock_geometry_backend.hpp"
 //#include "mock_observation_backend.hpp"
@@ -16,7 +16,7 @@ template<>
 struct BackendTraits<MockBackendTag> {
   using ConfigBackend       = backends::gmock::MockConfig;
   using LoggerBackend       = backends::gmock::MockLogger<ConfigBackend>;
-  //using StateBackend        = MockStateBackend;
+  using StateBackend        = backends::gmock::MockState<ConfigBackend>;
   //using ModelBackend        = MockModelBackend;
   //using GeometryBackend     = MockGeometryBackend;
   //using ObservationBackend  = MockObservationBackend;

@@ -55,7 +55,7 @@ class Config;
  * @see LogStream
  * @see Config
  */
-template <LoggerBackendTag BackendTag>
+template <LoggerBackendType BackendTag>
 class Logger : public NonCopyable {
  public:
   using LoggerBackend =
