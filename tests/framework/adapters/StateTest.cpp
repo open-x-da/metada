@@ -16,14 +16,15 @@
  *
  * Advanced features:
  * - State information queries
- * - Copy/move semantics
+ * - Move semantics
  * - Equality comparison
  * - Arithmetic operations
+ * - Increment operations
  *
  * The test suite uses Google Test/Mock framework for mocking and assertions.
  *
  * @see State
- * @see IState
+ * @see StateBackendType
  * @see MockState
  */
 
@@ -32,7 +33,6 @@
 
 #include <filesystem>
 
-#include "ApplicationContext.hpp"
 #include "MockBackendTraits.hpp"
 #include "State.hpp"
 
@@ -44,24 +44,19 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 
 using framework::Config;
-using framework::Logger;
 using framework::State;
-using framework::runs::ApplicationContext;
 
 /**
  * @brief Test fixture for State class tests
  *
  * @details
  * Provides common test data and setup/teardown for State tests:
- * - Variable names and dimensions
- * - Test data array
+ * - Configuration file path
+ * - Mock configuration object
+ * - Test state objects
  * - Proper cleanup of allocated resources
  */
 class StateTest : public ::testing::Test {
- public:
-  using StateBackend =
-      typename traits::BackendTraits<traits::MockBackendTag>::StateBackend;
-
  protected:
   std::string config_file_;
   std::unique_ptr<Config<traits::MockBackendTag>> config_;
@@ -75,11 +70,9 @@ class StateTest : public ::testing::Test {
    * @brief Set up test data before each test
    *
    * Initializes:
-   * - Application context
-   * - Variable names array
-   * - Dimensions array
-   * - Test data array with sequential values
-   * - Common State objects
+   * - Configuration file path
+   * - Mock configuration object
+   * - Common State objects for testing
    */
   void SetUp() override {
     // Get the directory where the test file is located

@@ -15,6 +15,9 @@
  * - Configuring return values and behaviors
  * - Verifying interaction patterns
  * - Testing error conditions
+ * - Clone operations
+ * - Move semantics
+ * - Data access and manipulation
  *
  * @see IState
  * @see testing::Mock
@@ -38,6 +41,7 @@ namespace metada::backends::gmock {
  * @par Core Operations
  * - initialize() - Initialize state from configuration
  * - zero() - Set all values to zero
+ * - clone() - Create a deep copy of the state
  *
  * @par Comparison Operations
  * - equals() - Compare equality with another state
@@ -52,11 +56,18 @@ namespace metada::backends::gmock {
  * @par Data Access
  * - getData() - Get raw pointer to data
  * - getData() const - Get const raw pointer to data
+ * - setData() - Set the internal data vector (helper method for testing)
  *
  * @par State Information
  * - getVariableNames() - Get names of state variables
  * - hasVariable() - Check if state contains a specific variable
  * - getDimensions() - Get dimensions of state space for a variable
+ * - setDimensions() - Set dimensions for a variable (helper method for testing)
+ * - setVariables() - Set variable names (helper method for testing)
+ *
+ * @par Memory Management
+ * - Move constructor and assignment operator
+ * - Deleted copy constructor and assignment operator (non-copyable)
  *
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
