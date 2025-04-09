@@ -35,17 +35,16 @@
 #include "BackendTraits.hpp"
 #include "NonCopyable.hpp"
 #include "common/utils/config/Config.hpp"
-#include "common/utils/logger/Logger.hpp"
 
 namespace metada::framework {
 
 /**
  * @brief Forward declaration of Config class
  */
-// template <typename BackendTag>
-//   requires ConfigBackendType<
-//       typename traits::BackendTraits<BackendTag>::ConfigBackend>
-// class Config;
+template <typename BackendTag>
+  requires ConfigBackendType<
+      typename traits::BackendTraits<BackendTag>::ConfigBackend>
+class Config;
 
 // Concepts to check backend requirements
 template <typename T>

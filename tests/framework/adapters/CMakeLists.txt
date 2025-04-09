@@ -43,8 +43,8 @@ setup_test_executable(state_test StateTest.cpp)
 # Geometry tests
 #setup_test_executable(geometry_test GeometryTest.cpp)
 
-AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR})
-AddFormatTarget(logger_test ${CMAKE_CURRENT_SOURCE_DIR})
+#AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR})
+#AddFormatTarget(logger_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})

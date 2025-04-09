@@ -4,7 +4,7 @@
 
 #include <string>
 
-#include "common/utils/logger/LogStream.hpp"
+#include "LogStream.hpp"
 
 namespace metada::backends::gmock {
 

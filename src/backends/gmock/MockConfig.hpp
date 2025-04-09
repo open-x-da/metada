@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 #include <filesystem>
 
-#include "common/utils/config/ConfigValue.hpp"
+#include "ConfigValue.hpp"
 
 namespace metada::backends::gmock {
 
