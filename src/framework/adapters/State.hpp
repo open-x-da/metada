@@ -72,7 +72,8 @@ class Config;
  * auto& data = state.getData<double>();
  * @endcode
  *
- * @tparam BackendTag The tag type that defines the state backend through BackendTraits
+ * @tparam BackendTag The tag type that defines the state backend through
+ * BackendTraits
  *
  * @see StateBackendType
  * @see Config

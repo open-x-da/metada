@@ -20,8 +20,8 @@
 
 #include <filesystem>
 
+#include "Config.hpp"
 #include "MockBackendTraits.hpp"
-#include "common/utils/config/Config.hpp"
 
 namespace metada::tests {
 

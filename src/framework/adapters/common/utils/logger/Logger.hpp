@@ -3,6 +3,7 @@
 #include <string>
 
 #include "BackendTraits.hpp"
+#include "ConfigConcepts.hpp"
 #include "LogStream.hpp"
 #include "LoggerConcepts.hpp"
 #include "NonCopyable.hpp"

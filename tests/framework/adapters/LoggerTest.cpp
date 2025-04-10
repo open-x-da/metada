@@ -24,10 +24,9 @@
 #include <sstream>
 #include <string>
 
+#include "Config.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
-#include "common/utils/config/Config.hpp"
-#include "common/utils/logger/LogStream.hpp"
-#include "common/utils/logger/Logger.hpp"
 
 namespace metada::tests {
 
