@@ -6,7 +6,9 @@
  *
  * @details
  * This file contains concept definitions that specify the requirements
- * for types to be used as model backends in the framework.
+ * for types to be used as model backends in the framework. These concepts
+ * ensure that model backends implement the necessary methods with the
+ * correct signatures to be compatible with the framework's Model class.
  */
 
 #pragma once
@@ -20,10 +22,29 @@ namespace metada::framework {
 // Individual concepts for model backend requirements
 
 /**
+ * @brief Concept to check if copy construction is deleted
+ *
+ * @details This concept verifies that a type cannot be copy-constructed,
+ * which is a requirement for model backends to prevent unintended copying.
+ */
+template <typename T>
+concept HasDeletedCopyConstructor = !std::is_copy_constructible_v<T>;
+
+/**
+ * @brief Concept to check if copy assignment is deleted
+ *
+ * @details This concept verifies that a type cannot be copy-assigned,
+ * which is a requirement for model backends to prevent unintended copying.
+ */
+template <typename T>
+concept HasDeletedCopyAssignment = !std::is_copy_assignable_v<T>;
+
+/**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend
  *
  * @details This concept verifies that a type T has a constructor that takes a
- * ConfigBackend parameter.
+ * ConfigBackend parameter, allowing models to be constructed from
+ * configuration.
  */
 template <typename T, typename ConfigBackend>
 concept HasConstructorFromConfig = requires(const ConfigBackend& config) {
@@ -31,19 +52,10 @@ concept HasConstructorFromConfig = requires(const ConfigBackend& config) {
 };
 
 /**
- * @brief Concept to check if copy construction is deleted
- */
-template <typename T>
-concept HasDeletedCopyConstructor = !std::is_copy_constructible_v<T>;
-
-/**
- * @brief Concept to check if copy assignment is deleted
- */
-template <typename T>
-concept HasDeletedCopyAssignment = !std::is_copy_assignable_v<T>;
-
-/**
  * @brief Concept requiring initialization capability
+ *
+ * @details Verifies that a model can be initialized with a configuration
+ * object, setting up its internal state before use.
  */
 template <typename T, typename ConfigBackend>
 concept HasInitialize = requires(T& model, const ConfigBackend& config) {
@@ -52,6 +64,9 @@ concept HasInitialize = requires(T& model, const ConfigBackend& config) {
 
 /**
  * @brief Concept requiring reset capability
+ *
+ * @details Ensures that a model can be reset to its initial state,
+ * allowing it to be reused without reconstruction.
  */
 template <typename T>
 concept HasReset = requires(T& model) {
@@ -60,6 +75,9 @@ concept HasReset = requires(T& model) {
 
 /**
  * @brief Concept requiring finalization capability
+ *
+ * @details Verifies that a model can properly clean up resources
+ * when it is no longer needed.
  */
 template <typename T>
 concept HasFinalize = requires(T& model) {
@@ -68,6 +86,9 @@ concept HasFinalize = requires(T& model) {
 
 /**
  * @brief Concept requiring parameter get capability
+ *
+ * @details Ensures that a model can retrieve parameter values by name,
+ * returning them as strings for generic parameter access.
  */
 template <typename T>
 concept HasGetParameter = requires(const T& model, const std::string& name) {
@@ -76,6 +97,9 @@ concept HasGetParameter = requires(const T& model, const std::string& name) {
 
 /**
  * @brief Concept requiring parameter set capability
+ *
+ * @details Verifies that a model can set parameter values by name,
+ * accepting string values for generic parameter modification.
  */
 template <typename T>
 concept HasSetParameter =
@@ -85,6 +109,9 @@ concept HasSetParameter =
 
 /**
  * @brief Concept requiring model run capability
+ *
+ * @details Ensures that a model can execute a simulation from a given
+ * initial state to produce a final state over a specified time interval.
  */
 template <typename T, typename StateBackend>
 concept HasRun =
@@ -103,7 +130,13 @@ concept HasRun =
  * by any type that will be used as a model backend. It includes initialization,
  * parameter access, execution, and resource management operations.
  *
+ * The concept provides compile-time validation of the required methods
+ * and their signatures, ensuring that backends can be properly used with the
+ * Model class.
+ *
  * @tparam T The type to check against the ModelBackendType requirements
+ * @tparam ConfigBackend The configuration backend type used for initialization
+ * @tparam StateBackend The state backend type used for model execution
  */
 template <typename T, typename ConfigBackend, typename StateBackend>
 concept ModelBackendType =
