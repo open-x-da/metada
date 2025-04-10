@@ -19,24 +19,15 @@ namespace metada::framework {
 // Individual concepts for model backend requirements
 
 /**
- * @brief Concept that checks if a type has a ModelBackend type member
+ * @brief Concept that checks if a type has a constructor from a ConfigBackend
  *
- * @details This concept verifies that a type T provides a ModelBackend type
- * through the BackendTraits specialization.
+ * @details This concept verifies that a type T has a constructor that takes a
+ * ConfigBackend parameter.
  */
-template <typename T>
-concept HasModelBackend =
-    requires { typename traits::BackendTraits<T>::ModelBackend; };
-
-/**
- * @brief Concept that checks if a type has a StateBackend type member
- *
- * @details This concept verifies that a type T provides a StateBackend type
- * through the BackendTraits specialization.
- */
-template <typename T>
-concept HasStateBackend =
-    requires { typename traits::BackendTraits<T>::StateBackend; };
+template <typename T, typename ConfigBackend>
+concept HasConstructorFromConfig = requires(const ConfigBackend& config) {
+  { T(config) } -> std::same_as<void>;
+};
 
 /**
  * @brief Concept requiring initialization capability
@@ -49,23 +40,23 @@ concept HasInitialize = requires(T& model, const ConfigBackend& config) {
 /**
  * @brief Concept requiring reset capability
  */
-template <typename T, typename ConfigBackend>
-concept HasReset = requires(T& model, const ConfigBackend& config) {
+template <typename T>
+concept HasReset = requires(T& model) {
   { model.reset() } -> std::same_as<void>;
 };
 
 /**
  * @brief Concept requiring finalization capability
  */
-template <typename T, typename ConfigBackend>
-concept HasFinalize = requires(T& model, const ConfigBackend& config) {
+template <typename T>
+concept HasFinalize = requires(T& model) {
   { model.finalize() } -> std::same_as<void>;
 };
 
 /**
  * @brief Concept requiring parameter get capability
  */
-template <typename T, typename ConfigBackend>
+template <typename T>
 concept HasGetParameter = requires(const T& model, const std::string& name) {
   { model.getParameter(name) } -> std::convertible_to<std::string>;
 };
@@ -73,7 +64,7 @@ concept HasGetParameter = requires(const T& model, const std::string& name) {
 /**
  * @brief Concept requiring parameter set capability
  */
-template <typename T, typename ConfigBackend>
+template <typename T>
 concept HasSetParameter =
     requires(T& model, const std::string& name, const std::string& value) {
       { model.setParameter(name, value) } -> std::same_as<void>;
@@ -82,7 +73,7 @@ concept HasSetParameter =
 /**
  * @brief Concept requiring model run capability
  */
-template <typename T, typename ConfigBackend, typename StateBackend>
+template <typename T, typename StateBackend>
 concept HasRun =
     requires(T& model, const StateBackend& initialState,
              StateBackend& finalState, double startTime, double endTime) {
@@ -103,10 +94,7 @@ concept HasRun =
  */
 template <typename T, typename ConfigBackend, typename StateBackend>
 concept ModelBackendType =
-    HasInitialize<T, ConfigBackend> && HasReset<T, ConfigBackend> &&
-    HasFinalize<T, ConfigBackend> && HasGetParameter<T, ConfigBackend> &&
-    HasSetParameter<T, ConfigBackend> &&
-    HasRun<T, ConfigBackend, StateBackend> && HasStateBackend<T> &&
-    HasModelBackend<T>;
+    HasInitialize<T, ConfigBackend> && HasReset<T> && HasFinalize<T> &&
+    HasGetParameter<T> && HasSetParameter<T> && HasRun<T, StateBackend>;
 
 }  // namespace metada::framework

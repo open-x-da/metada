@@ -52,6 +52,10 @@ class State;
  * BackendTraits
  */
 template <typename BackendTag>
+  requires ModelBackendType<
+      typename traits::BackendTraits<BackendTag>::ModelBackend,
+      typename traits::BackendTraits<BackendTag>::ConfigBackend,
+      typename traits::BackendTraits<BackendTag>::StateBackend>
 class Model : private NonCopyable {
  public:
   using ModelBackend = typename traits::BackendTraits<BackendTag>::ModelBackend;
