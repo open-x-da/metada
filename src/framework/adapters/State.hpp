@@ -20,9 +20,9 @@
  * - Allow state information queries
  * - Support increment creation and application
  *
- * @see IState
  * @see Config
  * @see Increment
+ * @see StateBackendType
  */
 
 #pragma once
@@ -61,7 +61,7 @@ class Config;
  * - Support for arithmetic operations
  * - Integration with increment operations
  *
- * The backend must implement the IState interface to provide the core
+ * The backend must satisfy the StateBackendType concept to provide the core
  * functionality, while this wrapper adds type safety and convenience.
  *
  * Example usage:
@@ -72,9 +72,10 @@ class Config;
  * auto& data = state.getData<double>();
  * @endcode
  *
- * @tparam Backend The state backend type that implements IState interface
+ * @tparam BackendTag The tag type that defines the state backend through BackendTraits
  *
- * @see IState
+ * @see StateBackendType
+ * @see Config
  * @see Increment
  */
 template <typename BackendTag>
@@ -93,7 +94,6 @@ class State : private NonCopyable {
   /**
    * @brief Constructor that initializes state with configuration
    *
-   * @tparam T The configuration backend type
    * @param[in] config Configuration object containing initialization parameters
    * @throws std::runtime_error If backend initialization fails
    */

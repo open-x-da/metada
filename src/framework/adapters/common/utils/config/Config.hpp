@@ -14,7 +14,7 @@ namespace metada::framework {
  * @brief Main configuration class template providing a generic interface to
  * configuration backends
  *
- * @details This class template provides a static interface for loading,
+ * @details This class template provides a unified interface for loading,
  * accessing, modifying and saving configuration data using a backend specified
  * by the BackendTag template parameter. The backend must satisfy the
  * ConfigBackendType concept.
@@ -25,9 +25,8 @@ namespace metada::framework {
  *
  * @par Example usage:
  * @code
- * // Create application context with configuration
- * auto context = ApplicationContext<BackendTag>(argv[0], argv[1]);
- * auto& config = context.getConfig();
+ * // Create a configuration from a file
+ * Config<BackendTag> config("config.yaml");
  *
  * // Access configuration values with defaults
  * auto host = config.Get("database.host", "localhost");
@@ -62,6 +61,10 @@ namespace metada::framework {
  *
  * @tparam BackendTag The tag type that identifies the configuration backend via
  * BackendTraits
+ *
+ * @see ConfigBackendType
+ * @see ConfigValue
+ * @see BackendTraits
  */
 template <typename BackendTag>
   requires ConfigBackendType<
