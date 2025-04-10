@@ -90,7 +90,7 @@ class StateTest : public ::testing::Test {
    * @brief Clean up test data after each test
    */
   void TearDown() override {
-    // Clean up State objects first
+    config_.reset();
     state1_.reset();
     state2_.reset();
   }

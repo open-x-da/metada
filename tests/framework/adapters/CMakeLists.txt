@@ -25,14 +25,15 @@ setup_test_executable(logger_test LoggerTest.cpp)
 # State tests
 setup_test_executable(state_test StateTest.cpp)
 
+# Model tests
+setup_test_executable(model_test ModelTest.cpp)
+
 # Ensemble tests
 #setup_test_executable(ensemble_test EnsembleTest.cpp)
 
 # Increment tests
 #setup_test_executable(increment_test IncrementTest.cpp)
 
-# Model tests
-#setup_test_executable(model_test ModelTest.cpp)
 
 # IObservations tests
 #setup_test_executable(observation_test ObservationTest.cpp)
@@ -46,9 +47,9 @@ setup_test_executable(state_test StateTest.cpp)
 #AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR})
 #AddFormatTarget(logger_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
-# AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
 #AddFormatTarget(geometry_test ${CMAKE_CURRENT_SOURCE_DIR})

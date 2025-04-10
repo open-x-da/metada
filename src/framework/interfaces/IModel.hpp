@@ -142,53 +142,6 @@ class IModel : private NonCopyable {
    */
   virtual void run(const IState& initialState, IState& finalState,
                    double startTime, double endTime) = 0;
-
-  /**
-   * @brief Get the model's time stepping capability
-   *
-   * This method returns a pointer to the model's time stepping capability
-   * interface if the model supports time stepping. If the model does not
-   * support time stepping, this method returns nullptr.
-   *
-   * @return Pointer to the model's time stepping capability, or nullptr if not
-   * supported
-   */
-  virtual ITimeStepper* getTimeStepper() { return nullptr; }
-
-  /**
-   * @brief Get the model's AI prediction capability
-   *
-   * This method returns a pointer to the model's AI prediction capability
-   * interface if the model is an AI-based model. If the model does not
-   * support AI prediction, this method returns nullptr.
-   *
-   * @return Pointer to the model's AI prediction capability, or nullptr if not
-   * supported
-   */
-  virtual IAIPredictor* getAIPredictor() { return nullptr; }
-
-  /**
-   * @brief Get the model's batch processing capability
-   *
-   * This method returns a pointer to the model's batch processing capability
-   * interface if the model supports batch processing. If the model does not
-   * support batch processing, this method returns nullptr.
-   *
-   * @return Pointer to the model's batch processing capability, or nullptr if
-   * not supported
-   */
-  virtual IBatchProcessor* getBatchProcessor() { return nullptr; }
-
-  /**
-   * @brief Get the model's hardware acceleration capability
-   *
-   * This method returns a pointer to the model's hardware acceleration
-   * capability if the model supports hardware acceleration. If the model does
-   * not support hardware acceleration, this method returns nullptr.
-   *
-   * @return Pointer to the model's hardware acceleration capability, or nullptr
-   */
-  virtual IHardwareAccelerator* getHardwareAccelerator() { return nullptr; }
 };
 
 }  // namespace metada::framework

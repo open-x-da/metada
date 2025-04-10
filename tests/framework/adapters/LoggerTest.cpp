@@ -59,6 +59,8 @@ class LoggerTest : public ::testing::Test {
   }
 
   void TearDown() override {
+    config_.reset();
+    logger.reset();
     traits::BackendTraits<traits::MockBackendTag>::LoggerBackend::Shutdown();
   }
 };

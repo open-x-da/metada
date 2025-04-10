@@ -10,7 +10,6 @@ target_include_directories(adapters
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/model>
         )
 
 # List header files for proper IDE indexing and documentation
@@ -33,10 +32,6 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger/LogLevel.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger/LoggerConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger/LogStream.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/model/TimeStepperImpl.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/model/AIPredictorImpl.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/model/BatchProcessorImpl.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/model/HardwareAcceleratorImpl.hpp
 )
 
 AddFormatTarget(adapters ${CMAKE_CURRENT_SOURCE_DIR})

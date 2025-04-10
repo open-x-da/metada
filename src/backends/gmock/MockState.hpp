@@ -88,13 +88,26 @@ class MockState {
   MockState& operator=(const MockState& other) = delete;
 
   // Move constructor
-  MockState(MockState&& other) noexcept : config_(other.config_) {
-    // Explicit Move Constructor (Even Without Data Members)
+  MockState(MockState&& other) noexcept
+      : config_(std::move(other.config_)),
+        variableNames_(std::move(other.variableNames_)),
+        dimensions_(std::move(other.dimensions_)),
+        data_(std::move(other.data_)) {
+    other.variableNames_.clear();
+    other.dimensions_.clear();
+    other.data_.clear();
   }
 
   // Move assignment operator
-  MockState& operator=([[maybe_unused]] MockState&& other) {
-    // Explicit Move Assignment (Even Without Data Members)
+  MockState& operator=(MockState&& other) noexcept {
+    if (this != &other) {
+      variableNames_ = std::move(other.variableNames_);
+      dimensions_ = std::move(other.dimensions_);
+      data_ = std::move(other.data_);
+      other.variableNames_.clear();
+      other.dimensions_.clear();
+      other.data_.clear();
+    }
     return *this;
   }
 

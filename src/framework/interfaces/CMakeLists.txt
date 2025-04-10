@@ -16,10 +16,6 @@ target_sources(interfaces
         ${CMAKE_CURRENT_SOURCE_DIR}/IObservation.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IObsOperator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IModel.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/ITimeStepper.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/IAIPredictor.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/IBatchProcessor.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/IHardwareAccelerator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometry.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometryIterator.hpp
 )

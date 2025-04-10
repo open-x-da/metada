@@ -26,23 +26,7 @@
 
 #include <string>
 
-#include "IAIPredictor.hpp"
-#include "IBatchProcessor.hpp"
-#include "IHardwareAccelerator.hpp"
-#include "IModel.hpp"
-#include "utils/config/Config.hpp"
-
-namespace metada::tests {
-
-using framework::Config;
-using framework::IAIPredictor;
-using framework::IBatchProcessor;
-using framework::IConfig;
-using framework::IHardwareAccelerator;
-using framework::IModel;
-using framework::IState;
-using framework::ITimeStepper;
-
+namespace metada::backends::gmock {
 /**
  * @brief Mock implementation of IModel for testing
  *
@@ -63,48 +47,80 @@ using framework::ITimeStepper;
  * @par Model Execution
  * - run() - Run the model from initial to final state
  *
- * @par Capability Access
- * - getTimeStepper() - Get time stepping capability
- * - getAIPredictor() - Get AI prediction capability
- * - getBatchProcessor() - Get batch processing capability
- * - getHardwareAccelerator() - Get hardware acceleration capability
+ * @tparam ConfigBackend The backend configuration type
+ * @tparam StateBackend The backend state type
  *
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
-class MockModel : public IModel {
+template <typename ConfigBackend, typename StateBackend>
+class MockModel {
  public:
+  /**
+   * @brief Default constructor is deleted
+   *
+   * MockModel objects must be constructed with a Config object.
+   */
+  MockModel() = delete;
+
+  /**
+   * @brief Destructor
+   */
+  ~MockModel() = default;
+
+  /**
+   * @brief Copy constructor is deleted
+   */
+  MockModel(const MockModel&) = delete;
+
+  /**
+   * @brief Copy assignment operator is deleted
+   */
+  MockModel& operator=(const MockModel&) = delete;
+
+  /**
+   * @brief Move constructor
+   *
+   * @param other The other MockModel object to move from
+   */
+  MockModel(MockModel&& other) noexcept : config_(std::move(other.config_)) {}
+
+  /**
+   * @brief Move assignment operator
+   *
+   * @param other The other MockModel object to move from
+   * @return Reference to this MockModel object
+   */
+  MockModel& operator=(MockModel&& other) noexcept {
+    config_ = std::move(other.config_);
+    return *this;
+  }
+
   /**
    * @brief Constructor taking a configuration object
    *
    * @param config Configuration object with model parameters
    */
-  explicit MockModel(const Config<MockConfig>& config)
-      : IModel(config.backend()) {}
+  explicit MockModel(const ConfigBackend& config) : config_(config) {}
 
   // Lifecycle management
-  MOCK_METHOD(void, initialize, (const IConfig& config), (override));
-  MOCK_METHOD(void, reset, (), (override));
-  MOCK_METHOD(void, finalize, (), (override));
-  MOCK_METHOD(bool, isInitialized, (), (const, override));
+  MOCK_METHOD(void, initialize, (const ConfigBackend& config));
+  MOCK_METHOD(void, reset, ());
+  MOCK_METHOD(void, finalize, ());
+  MOCK_METHOD(bool, isInitialized, (), (const));
 
   // Parameter management
   MOCK_METHOD(std::string, getParameter, (const std::string& name),
-              (const, override));
+              (const));
   MOCK_METHOD(void, setParameter,
-              (const std::string& name, const std::string& value), (override));
+              (const std::string& name, const std::string& value));
 
   // Model execution
   MOCK_METHOD(void, run,
-              (const IState& initialState, IState& finalState, double startTime,
-               double endTime),
-              (override));
-
-  // Capability access
-  MOCK_METHOD(ITimeStepper*, getTimeStepper, (), (override));
-  MOCK_METHOD(IAIPredictor*, getAIPredictor, (), (override));
-  MOCK_METHOD(IBatchProcessor*, getBatchProcessor, (), (override));
-  MOCK_METHOD(IHardwareAccelerator*, getHardwareAccelerator, (), (override));
+              (const StateBackend& initialState, StateBackend& finalState,
+               double startTime, double endTime));
+ private:
+  const ConfigBackend& config_;  /**< Reference to the configuration object */
 };
 
-}  // namespace metada::tests
+}  // namespace metada::backends::gmock
