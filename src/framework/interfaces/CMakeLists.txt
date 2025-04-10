@@ -15,7 +15,6 @@ target_sources(interfaces
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/IObservation.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IObsOperator.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/IModel.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometry.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/IGeometryIterator.hpp
 )

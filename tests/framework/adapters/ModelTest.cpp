@@ -52,6 +52,8 @@ class ModelTest : public ::testing::Test {
 
   void SetUp() override {
     // Create and configure the mock model
+    auto test_dir = std::filesystem::path(__FILE__).parent_path();
+    config_file_ = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
     mockModel_ = std::make_unique<Model<traits::MockBackendTag>>(*config_);
   }
