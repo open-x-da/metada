@@ -33,6 +33,7 @@
 
 #include <filesystem>
 
+#include "Config.hpp"
 #include "MockBackendTraits.hpp"
 #include "State.hpp"
 

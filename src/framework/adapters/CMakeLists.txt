@@ -26,6 +26,7 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/GeometryPointIterator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/GeometryIterator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/Config.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/ConfigConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/ConfigValue.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger/Logger.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger/LogLevel.hpp
