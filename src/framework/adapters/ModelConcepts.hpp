@@ -13,6 +13,7 @@
 
 #include <concepts>
 #include <string>
+#include <type_traits>
 
 namespace metada::framework {
 
@@ -28,6 +29,18 @@ template <typename T, typename ConfigBackend>
 concept HasConstructorFromConfig = requires(const ConfigBackend& config) {
   T(config);  // Check if T can be constructed from config
 };
+
+/**
+ * @brief Concept to check if copy construction is deleted
+ */
+template <typename T>
+concept HasDeletedCopyConstructor = !std::is_copy_constructible_v<T>;
+
+/**
+ * @brief Concept to check if copy assignment is deleted
+ */
+template <typename T>
+concept HasDeletedCopyAssignment = !std::is_copy_assignable_v<T>;
 
 /**
  * @brief Concept requiring initialization capability
@@ -96,6 +109,7 @@ template <typename T, typename ConfigBackend, typename StateBackend>
 concept ModelBackendType =
     HasConstructorFromConfig<T, ConfigBackend> &&
     HasInitialize<T, ConfigBackend> && HasReset<T> && HasFinalize<T> &&
-    HasGetParameter<T> && HasSetParameter<T> && HasRun<T, StateBackend>;
+    HasGetParameter<T> && HasSetParameter<T> && HasRun<T, StateBackend> &&
+    HasDeletedCopyConstructor<T> && HasDeletedCopyAssignment<T>;
 
 }  // namespace metada::framework
