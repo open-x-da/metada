@@ -17,6 +17,7 @@ target_include_directories(adapters
 target_sources(adapters
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/State.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/StateConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Increment.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Observation.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ObsOperator.hpp

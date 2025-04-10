@@ -33,8 +33,9 @@
 #include <vector>
 
 #include "BackendTraits.hpp"
+#include "ConfigConcepts.hpp"
 #include "NonCopyable.hpp"
-#include "common/utils/config/ConfigConcepts.hpp"
+#include "StateConcepts.hpp"
 
 namespace metada::framework {
 
@@ -45,35 +46,6 @@ template <typename BackendTag>
   requires ConfigBackendType<
       typename traits::BackendTraits<BackendTag>::ConfigBackend>
 class Config;
-
-// Concepts to check backend requirements
-template <typename T>
-concept HasClone = requires(const T& t) {
-  { t.clone() } -> std::convertible_to<std::unique_ptr<T>>;
-};
-
-template <typename T>
-concept HasGetData = requires(T& t, const T& ct) {
-  { t.getData() } -> std::same_as<void*>;
-  { ct.getData() } -> std::same_as<const void*>;
-};
-
-template <typename T>
-concept HasGetVariableNames = requires(const T& t) {
-  { t.getVariableNames() } -> std::same_as<const std::vector<std::string>&>;
-};
-
-template <typename T>
-concept HasGetDimensions = requires(const T& t) {
-  {
-    t.getDimensions(std::string{})
-  } -> std::same_as<const std::vector<size_t>&>;
-};
-
-// Combined concept for all backend requirements
-template <typename T>
-concept StateBackendType = HasClone<T> && HasGetData<T> &&
-                           HasGetVariableNames<T> && HasGetDimensions<T>;
 
 /**
  * @brief Main state class template providing a generic interface to state
