@@ -57,6 +57,18 @@ concept HasStateBackend =
     requires { typename traits::BackendTraits<T>::StateBackend; };
 
 /**
+ * @brief Checks if a type provides a ModelBackend type through BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines a ModelBackend type through the BackendTraits specialization.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasModelBackend =
+    requires { typename traits::BackendTraits<T>::ModelBackend; };
+
+/**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend
  *
  * @details This concept verifies that a type T has a constructor that takes a

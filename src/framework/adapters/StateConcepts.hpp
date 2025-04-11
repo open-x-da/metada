@@ -87,7 +87,8 @@ template <typename T, typename ConfigBackend>
 concept StateBackendImpl =
     HasConfigConstructor<T, ConfigBackend> && HasClone<T> && HasGetData<T> &&
     HasGetVariableNames<T> && HasGetDimensions<T> &&
-    HasDeletedCopyConstructor<T> && HasDeletedCopyAssignment<T>;
+    HasDeletedDefaultConstructor<T> && HasDeletedCopyConstructor<T> &&
+    HasDeletedCopyAssignment<T>;
 
 /**
  * @brief Concept that defines requirements for a state backend tag type

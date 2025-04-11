@@ -46,14 +46,14 @@ class State;
  * It provides capability-based query methods for optional capabilities using
  * a component-based design that leverages C++20 features.
  *
+ * The backend tag must satisfy the ModelBackendType concept, which ensures
+ * it provides valid backend implementation types through BackendTraits.
+ *
  * @tparam BackendTag The tag type that defines the backend through
  * BackendTraits
  */
 template <typename BackendTag>
-  requires ModelBackendType<
-      typename traits::BackendTraits<BackendTag>::ModelBackend,
-      typename traits::BackendTraits<BackendTag>::ConfigBackend,
-      typename traits::BackendTraits<BackendTag>::StateBackend>
+  requires ModelBackendType<BackendTag>
 class Model : private NonCopyable {
  public:
   using ModelBackend = typename traits::BackendTraits<BackendTag>::ModelBackend;
