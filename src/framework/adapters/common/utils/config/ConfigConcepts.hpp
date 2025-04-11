@@ -93,7 +93,8 @@ concept HasStructureManagement = requires(T t, const std::string& key) {
 //-----------------------------------------------------------------------------
 
 /**
- * @brief Concept that defines requirements for a configuration backend implementation
+ * @brief Concept that defines requirements for a configuration backend
+ * implementation
  *
  * @details A valid configuration backend must:
  * - Be constructible with a filename
@@ -102,7 +103,8 @@ concept HasStructureManagement = requires(T t, const std::string& key) {
  * - Support saving configurations to files and string representation
  * - Provide structure management capabilities (clearing and creating
  *   subsections)
- * - Have deleted copy constructor and assignment operator to prevent unintended copies
+ * - Have deleted copy constructor and assignment operator to prevent unintended
+ * copies
  *
  * This concept is used to ensure that backend implementations provide
  * all the necessary functionality required by the Config class.

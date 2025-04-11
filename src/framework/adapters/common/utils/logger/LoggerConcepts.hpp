@@ -13,7 +13,8 @@ namespace metada::framework {
 //-----------------------------------------------------------------------------
 
 /**
- * @brief Concept that checks if a type implements the core logging functionality
+ * @brief Concept that checks if a type implements the core logging
+ * functionality
  *
  * @details Verifies that a type T provides a LogMessage method accepting a
  * LogLevel and a string message, which is the minimum requirement for any

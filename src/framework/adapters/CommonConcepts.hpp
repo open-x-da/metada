@@ -45,6 +45,18 @@ concept HasLoggerBackend =
     requires { typename traits::BackendTraits<T>::LoggerBackend; };
 
 /**
+ * @brief Checks if a type provides a StateBackend type through BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines a StateBackend type through the BackendTraits specialization.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasStateBackend =
+    requires { typename traits::BackendTraits<T>::StateBackend; };
+
+/**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend
  *
  * @details This concept verifies that a type T has a constructor that takes a
@@ -56,6 +68,20 @@ concept HasConfigConstructor = requires(const ConfigBackend& config) {
   {
     T(config)
   } -> std::same_as<T>;  // Check if T can be constructed from config
+};
+
+/**
+ * @brief Concept that checks if a type provides a clone method
+ *
+ * @details Verifies that a type T provides a clone method that returns
+ * a unique_ptr to a new instance of the same type, enabling deep copying
+ * of state objects.
+ *
+ * @tparam T The type to check for cloning capability
+ */
+template <typename T>
+concept HasClone = requires(const T& t) {
+  { t.clone() } -> std::convertible_to<std::unique_ptr<T>>;
 };
 
 /**

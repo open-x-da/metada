@@ -34,9 +34,7 @@ class Config;
  * @brief Forward declaration of State class
  */
 template <typename BackendTag>
-  requires StateBackendType<
-      typename traits::BackendTraits<BackendTag>::StateBackend,
-      typename traits::BackendTraits<BackendTag>::ConfigBackend>
+  requires StateBackendType<BackendTag>
 class State;
 
 /**
