@@ -13,7 +13,7 @@ namespace metada::framework {
 //-----------------------------------------------------------------------------
 
 /**
- * @brief Checks if a type can be initialized with a filename
+ * @brief Concept that checks if a type can be initialized with a filename
  *
  * @details Verifies that the type has a constructor that accepts a string
  * filename parameter and returns an instance of the type.
@@ -26,7 +26,7 @@ concept HasFileConstructor = requires(const std::string& filename) {
 };
 
 /**
- * @brief Checks if a type supports file-based loading operations
+ * @brief Concept that checks if a type supports file-based loading operations
  *
  * @details Verifies that the type provides methods to load configuration
  * from both files and strings, with both methods returning a boolean
@@ -41,7 +41,7 @@ concept HasFileLoading = requires(T t, const std::string& filename) {
 };
 
 /**
- * @brief Checks if a type supports value access operations
+ * @brief Concept that checks if a type supports value access operations
  *
  * @details Verifies that the type provides methods to get, set, and check
  * for configuration values using string keys. The Get method must return
@@ -59,7 +59,7 @@ concept HasValueAccess =
     };
 
 /**
- * @brief Checks if a type supports persistence operations
+ * @brief Concept that checks if a type supports persistence operations
  *
  * @details Verifies that the type provides methods to save configuration
  * to a file and convert it to a string representation. SaveToFile must
@@ -74,7 +74,7 @@ concept HasPersistence = requires(T t, const std::string& filename) {
 };
 
 /**
- * @brief Checks if a type supports structure management operations
+ * @brief Concept that checks if a type supports structure management operations
  *
  * @details Verifies that the type provides methods to clear the configuration
  * and create subsections. Clear must return void, and CreateSubsection must
@@ -93,7 +93,7 @@ concept HasStructureManagement = requires(T t, const std::string& key) {
 //-----------------------------------------------------------------------------
 
 /**
- * @brief Defines requirements for a configuration backend implementation
+ * @brief Concept that defines requirements for a configuration backend implementation
  *
  * @details A valid configuration backend must:
  * - Be constructible with a filename
@@ -102,6 +102,7 @@ concept HasStructureManagement = requires(T t, const std::string& key) {
  * - Support saving configurations to files and string representation
  * - Provide structure management capabilities (clearing and creating
  *   subsections)
+ * - Have deleted copy constructor and assignment operator to prevent unintended copies
  *
  * This concept is used to ensure that backend implementations provide
  * all the necessary functionality required by the Config class.
@@ -113,14 +114,17 @@ concept HasStructureManagement = requires(T t, const std::string& key) {
  * @see HasValueAccess
  * @see HasPersistence
  * @see HasStructureManagement
+ * @see HasDeletedCopyConstructor
+ * @see HasDeletedCopyAssignment
  */
 template <typename T>
 concept ConfigBackendImpl =
     HasFileConstructor<T> && HasFileLoading<T> && HasValueAccess<T> &&
-    HasPersistence<T> && HasStructureManagement<T>;
+    HasPersistence<T> && HasStructureManagement<T> &&
+    HasDeletedCopyConstructor<T> && HasDeletedCopyAssignment<T>;
 
 /**
- * @brief Defines requirements for a configuration backend tag type
+ * @brief Concept that defines requirements for a configuration backend tag type
  *
  * @details A valid backend tag must:
  * - Provide a ConfigBackend type through BackendTraits

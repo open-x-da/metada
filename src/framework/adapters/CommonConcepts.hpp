@@ -59,6 +59,16 @@ concept HasConfigConstructor = requires(const ConfigBackend& config) {
 };
 
 /**
+ * @brief Concept to check if default construction is deleted
+ *
+ * @details This concept verifies that a type cannot be default-constructed,
+ * which is used to ensure classes are always properly initialized with
+ * parameters.
+ */
+template <typename T>
+concept HasDeletedDefaultConstructor = !std::is_default_constructible_v<T>;
+
+/**
  * @brief Concept to check if copy construction is deleted
  *
  * @details This concept verifies that a type cannot be copy-constructed,
