@@ -3,6 +3,7 @@
 #include <concepts>
 #include <string>
 
+#include "../../../CommonConcepts.hpp"
 #include "ConfigValue.hpp"
 
 namespace metada::framework {

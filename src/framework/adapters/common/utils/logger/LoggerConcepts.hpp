@@ -3,6 +3,7 @@
 #include <concepts>
 #include <string>
 
+#include "../../../CommonConcepts.hpp"
 #include "LogLevel.hpp"
 
 namespace metada::framework {

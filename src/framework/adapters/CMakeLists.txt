@@ -15,6 +15,7 @@ target_include_directories(adapters
 # List header files for proper IDE indexing and documentation
 target_sources(adapters
     INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/CommonConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/State.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/StateConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Increment.hpp

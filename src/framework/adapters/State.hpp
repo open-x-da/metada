@@ -81,7 +81,8 @@ class Config;
  */
 template <typename BackendTag>
   requires StateBackendType<
-      typename traits::BackendTraits<BackendTag>::StateBackend>
+      typename traits::BackendTraits<BackendTag>::StateBackend,
+      typename traits::BackendTraits<BackendTag>::ConfigBackend>
 class State : private NonCopyable {
  public:
   using StateBackend = typename traits::BackendTraits<BackendTag>::StateBackend;
@@ -362,7 +363,8 @@ namespace metada::framework {
 // Implementation of methods that depend on Increment
 template <typename BackendTag>
   requires StateBackendType<
-      typename traits::BackendTraits<BackendTag>::StateBackend>
+      typename traits::BackendTraits<BackendTag>::StateBackend,
+      typename traits::BackendTraits<BackendTag>::ConfigBackend>
 template <typename IncrementType>
 IncrementType State<BackendTag>::createIncrementTo(const State& other) const {
   // Use the factory method in Increment
@@ -371,7 +373,8 @@ IncrementType State<BackendTag>::createIncrementTo(const State& other) const {
 
 template <typename BackendTag>
   requires StateBackendType<
-      typename traits::BackendTraits<BackendTag>::StateBackend>
+      typename traits::BackendTraits<BackendTag>::StateBackend,
+      typename traits::BackendTraits<BackendTag>::ConfigBackend>
 template <typename IncrementType>
 State<BackendTag>& State<BackendTag>::applyIncrement(
     const IncrementType& increment) {

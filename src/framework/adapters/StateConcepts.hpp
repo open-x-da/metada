@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "CommonConcepts.hpp"
+
 namespace metada::framework {
 
 // Individual concepts for state backend requirements
@@ -45,8 +47,10 @@ concept HasGetDimensions = requires(const T& t) {
  * - Getting variable names
  * - Getting dimensions of state variables
  */
-template <typename T>
-concept StateBackendType = HasClone<T> && HasGetData<T> &&
-                           HasGetVariableNames<T> && HasGetDimensions<T>;
+template <typename T, typename ConfigBackend>
+concept StateBackendType =
+    HasConstructorFromConfig<T, ConfigBackend> && HasClone<T> &&
+    HasGetData<T> && HasGetVariableNames<T> && HasGetDimensions<T> &&
+    HasDeletedCopyConstructor<T> && HasDeletedCopyAssignment<T>;
 
 }  // namespace metada::framework

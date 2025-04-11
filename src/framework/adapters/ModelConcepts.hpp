@@ -15,52 +15,12 @@
 
 #include <concepts>
 #include <string>
-#include <type_traits>
+
+#include "CommonConcepts.hpp"
 
 namespace metada::framework {
 
 // Individual concepts for model backend requirements
-
-/**
- * @brief Concept to check if copy construction is deleted
- *
- * @details This concept verifies that a type cannot be copy-constructed,
- * which is a requirement for model backends to prevent unintended copying.
- */
-template <typename T>
-concept HasDeletedCopyConstructor = !std::is_copy_constructible_v<T>;
-
-/**
- * @brief Concept to check if copy assignment is deleted
- *
- * @details This concept verifies that a type cannot be copy-assigned,
- * which is a requirement for model backends to prevent unintended copying.
- */
-template <typename T>
-concept HasDeletedCopyAssignment = !std::is_copy_assignable_v<T>;
-
-/**
- * @brief Concept that checks if a type has a constructor from a ConfigBackend
- *
- * @details This concept verifies that a type T has a constructor that takes a
- * ConfigBackend parameter, allowing models to be constructed from
- * configuration.
- */
-template <typename T, typename ConfigBackend>
-concept HasConstructorFromConfig = requires(const ConfigBackend& config) {
-  T(config);  // Check if T can be constructed from config
-};
-
-/**
- * @brief Concept requiring initialization capability
- *
- * @details Verifies that a model can be initialized with a configuration
- * object, setting up its internal state before use.
- */
-template <typename T, typename ConfigBackend>
-concept HasInitialize = requires(T& model, const ConfigBackend& config) {
-  { model.initialize(config) } -> std::same_as<void>;
-};
 
 /**
  * @brief Concept requiring reset capability
