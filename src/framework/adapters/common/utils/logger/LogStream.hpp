@@ -31,8 +31,8 @@ namespace metada::framework {
  * concept
  * @tparam ConfigBackend The configuration backend type required by the logger
  */
-template <typename Backend, typename ConfigBackend>
-  requires LoggerBackend<Backend, ConfigBackend>
+template <typename LoggerBackend, typename ConfigBackend>
+  requires LoggerBackendImpl<LoggerBackend, ConfigBackend>
 class LogStream {
  public:
   /**
@@ -41,7 +41,7 @@ class LogStream {
    * @param logger Reference to the logger that will receive the message
    * @param level The severity level for this log message
    */
-  LogStream(Backend& logger, LogLevel level)
+  LogStream(LoggerBackend& logger, LogLevel level)
       : logger_(logger), level_(level), moved_(false) {}
 
   /**
@@ -116,7 +116,7 @@ class LogStream {
   }
 
  private:
-  Backend& logger_;            ///< Reference to the logger backend
+  LoggerBackend& logger_;      ///< Reference to the logger backend
   LogLevel level_;             ///< Log level for this stream
   std::ostringstream stream_;  ///< Internal stream that accumulates the message
   bool moved_;  ///< Flag to indicate if this object has been moved from

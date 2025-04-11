@@ -14,8 +14,7 @@ namespace metada::framework {
  * @brief Forward declaration of Config class
  */
 template <typename BackendTag>
-  requires ConfigBackendType<
-      typename traits::BackendTraits<BackendTag>::ConfigBackend>
+  requires ConfigBackendType<BackendTag>
 class Config;
 
 /**
@@ -56,7 +55,8 @@ class Config;
  * @see LogStream
  * @see Config
  */
-template <LoggerBackendType BackendTag>
+template <typename BackendTag>
+  requires LoggerBackendType<BackendTag>
 class Logger : public NonCopyable {
  public:
   using LoggerBackend =

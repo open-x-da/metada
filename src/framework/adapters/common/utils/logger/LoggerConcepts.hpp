@@ -9,29 +9,18 @@
 namespace metada::framework {
 
 //-----------------------------------------------------------------------------
-// Basic trait detection concepts
+// Core logging capability concepts
 //-----------------------------------------------------------------------------
-
-/**
- * @brief Checks if a type provides a LoggerBackend type through BackendTraits
- */
-template <typename T>
-concept HasLoggerBackend =
-    requires { typename traits::BackendTraits<T>::LoggerBackend; };
-
-/**
- * @brief Checks if a type provides a ConfigBackend type through BackendTraits
- */
-template <typename T>
-concept HasConfigBackend =
-    requires { typename traits::BackendTraits<T>::ConfigBackend; };
 
 /**
  * @brief Checks if a type implements the core logging functionality
  *
  * @details Verifies that a type T provides a LogMessage method accepting a
  * LogLevel and a string message, which is the minimum requirement for any
- * logger backend implementation.
+ * logger backend implementation. This method is responsible for actually
+ * writing log messages to the underlying logging system.
+ *
+ * @tparam T The type to check for logging capability
  */
 template <typename T>
 concept HasLogMessage =
@@ -43,7 +32,10 @@ concept HasLogMessage =
  * @brief Checks if a type provides lifecycle management methods
  *
  * @details Verifies that a type T has static Init and Shutdown methods
- * for initialization and cleanup of logger backends.
+ * for initialization and cleanup of logger backends. These methods are
+ * typically used to set up and tear down global logging resources.
+ *
+ * @tparam T The type to check for lifecycle management capability
  */
 template <typename T>
 concept HasStaticLifecycle = requires() {
@@ -63,11 +55,18 @@ concept HasStaticLifecycle = requires() {
  * - Be constructible from a ConfigBackend instance
  * - Optionally provide static Init/Shutdown methods
  *
+ * This concept is used to ensure that backend implementations provide
+ * all the necessary functionality required by the Logger class.
+ *
  * @tparam T The logger backend implementation type
  * @tparam ConfigBackend The configuration backend type
+ *
+ * @see HasLogMessage
+ * @see HasConfigConstructor
+ * @see HasStaticLifecycle
  */
 template <typename T, typename ConfigBackend>
-concept LoggerBackend =
+concept LoggerBackendImpl =
     HasLogMessage<T> && HasConfigConstructor<T, ConfigBackend> &&
     (HasStaticLifecycle<T> || true);  // Static lifecycle methods are optional
 
@@ -80,14 +79,19 @@ concept LoggerBackend =
  *   when paired with the ConfigBackend type
  *
  * This concept constrains the template parameter of the Logger class,
- * ensuring that only valid backend configurations can be used.
+ * ensuring that only valid backend configurations can be used. It is used
+ * to provide compile-time validation of backend compatibility.
  *
  * @tparam T The backend tag type to check
+ *
+ * @see HasLoggerBackend
+ * @see HasConfigBackend
+ * @see LoggerBackendImpl
  */
 template <typename T>
 concept LoggerBackendType =
     HasLoggerBackend<T> && HasConfigBackend<T> &&
-    LoggerBackend<typename traits::BackendTraits<T>::LoggerBackend,
-                  typename traits::BackendTraits<T>::ConfigBackend>;
+    LoggerBackendImpl<typename traits::BackendTraits<T>::LoggerBackend,
+                      typename traits::BackendTraits<T>::ConfigBackend>;
 
 }  // namespace metada::framework

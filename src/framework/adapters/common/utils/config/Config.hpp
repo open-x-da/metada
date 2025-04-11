@@ -16,8 +16,9 @@ namespace metada::framework {
  *
  * @details This class template provides a unified interface for loading,
  * accessing, modifying and saving configuration data using a backend specified
- * by the BackendTag template parameter. The backend must satisfy the
- * ConfigBackendType concept.
+ * by the BackendTag template parameter. The backend tag must satisfy the
+ * ConfigBackendType concept, which ensures it provides a valid implementation
+ * type through BackendTraits.
  *
  * The configuration data is stored in a hierarchical structure where keys use
  * dot notation to access nested values. For example, "database.host" would
@@ -67,8 +68,7 @@ namespace metada::framework {
  * @see BackendTraits
  */
 template <typename BackendTag>
-  requires ConfigBackendType<
-      typename traits::BackendTraits<BackendTag>::ConfigBackend>
+  requires ConfigBackendType<BackendTag>
 class Config : public NonCopyable {
  public:
   using ConfigBackend =

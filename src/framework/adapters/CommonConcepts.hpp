@@ -21,6 +21,30 @@
 namespace metada::framework {
 
 /**
+ * @brief Checks if a type provides a ConfigBackend type through BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines a ConfigBackend type through the BackendTraits specialization.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasConfigBackend =
+    requires { typename traits::BackendTraits<T>::ConfigBackend; };
+
+/**
+ * @brief Checks if a type provides a LoggerBackend type through BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines a LoggerBackend type through the BackendTraits specialization.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasLoggerBackend =
+    requires { typename traits::BackendTraits<T>::LoggerBackend; };
+
+/**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend
  *
  * @details This concept verifies that a type T has a constructor that takes a
