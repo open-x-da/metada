@@ -100,9 +100,9 @@ concept HasRun =
  */
 template <typename T, typename ConfigBackend, typename StateBackend>
 concept ModelBackendType =
-    HasConstructorFromConfig<T, ConfigBackend> &&
-    HasInitialize<T, ConfigBackend> && HasReset<T> && HasFinalize<T> &&
-    HasGetParameter<T> && HasSetParameter<T> && HasRun<T, StateBackend> &&
-    HasDeletedCopyConstructor<T> && HasDeletedCopyAssignment<T>;
+    HasConfigConstructor<T, ConfigBackend> && HasInitialize<T, ConfigBackend> &&
+    HasReset<T> && HasFinalize<T> && HasGetParameter<T> && HasSetParameter<T> &&
+    HasRun<T, StateBackend> && HasDeletedCopyConstructor<T> &&
+    HasDeletedCopyAssignment<T>;
 
 }  // namespace metada::framework

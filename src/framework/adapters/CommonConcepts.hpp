@@ -28,8 +28,10 @@ namespace metada::framework {
  * configuration.
  */
 template <typename T, typename ConfigBackend>
-concept HasConstructorFromConfig = requires(const ConfigBackend& config) {
-  T(config);  // Check if T can be constructed from config
+concept HasConfigConstructor = requires(const ConfigBackend& config) {
+  {
+    T(config)
+  } -> std::same_as<T>;  // Check if T can be constructed from config
 };
 
 /**

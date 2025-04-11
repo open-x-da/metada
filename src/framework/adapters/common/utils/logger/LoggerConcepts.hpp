@@ -8,44 +8,30 @@
 
 namespace metada::framework {
 
+//-----------------------------------------------------------------------------
+// Basic trait detection concepts
+//-----------------------------------------------------------------------------
+
 /**
- * @brief Concept that checks if a type has a LoggerBackend type member
- *
- * @details This concept verifies that a type T provides a LoggerBackend type
- * through the BackendTraits specialization.
+ * @brief Checks if a type provides a LoggerBackend type through BackendTraits
  */
 template <typename T>
 concept HasLoggerBackend =
     requires { typename traits::BackendTraits<T>::LoggerBackend; };
 
 /**
- * @brief Concept that checks if a type has a ConfigBackend type member
- *
- * @details This concept verifies that a type T provides a ConfigBackend type
- * through the BackendTraits specialization.
+ * @brief Checks if a type provides a ConfigBackend type through BackendTraits
  */
 template <typename T>
 concept HasConfigBackend =
     requires { typename traits::BackendTraits<T>::ConfigBackend; };
 
 /**
- * @brief Concept that checks if a type has a constructor taking a ConfigBackend
+ * @brief Checks if a type implements the core logging functionality
  *
- * @details This concept ensures that a type T can be constructed with a
- * ConfigBackend parameter, which is necessary for backend implementations
- * to be initialized with configuration data.
- */
-template <typename T, typename ConfigBackend>
-concept HasConfigConstructor = requires(const ConfigBackend& config) {
-  { T(config) } -> std::same_as<T>;
-};
-
-/**
- * @brief Concept that checks if a type has a LogMessage method
- *
- * @details This concept verifies that a type T provides a LogMessage method
- * that takes a LogLevel and a string message, which is the core functionality
- * required for any logger backend implementation.
+ * @details Verifies that a type T provides a LogMessage method accepting a
+ * LogLevel and a string message, which is the minimum requirement for any
+ * logger backend implementation.
  */
 template <typename T>
 concept HasLogMessage =
@@ -54,11 +40,10 @@ concept HasLogMessage =
     };
 
 /**
- * @brief Concept that checks if a type has static Init and Shutdown methods
+ * @brief Checks if a type provides lifecycle management methods
  *
- * @details This concept verifies that a type T provides static Init and
- * Shutdown methods, which are used for lifecycle management of logger backends
- * that require initialization and cleanup.
+ * @details Verifies that a type T has static Init and Shutdown methods
+ * for initialization and cleanup of logger backends.
  */
 template <typename T>
 concept HasStaticLifecycle = requires() {
@@ -66,18 +51,19 @@ concept HasStaticLifecycle = requires() {
   { T::Shutdown() } -> std::same_as<void>;
 };
 
+//-----------------------------------------------------------------------------
+// Component concepts
+//-----------------------------------------------------------------------------
+
 /**
- * @brief Concept that defines the requirements for a logger backend
+ * @brief Defines requirements for a logger backend implementation
  *
- * @details A logger backend must have a LogMessage method that takes a LogLevel
- * and string message. It must also be constructible from a ConfigBackend
- * instance. It may optionally have static Init and Shutdown methods for
- * lifecycle management.
+ * @details A valid logger backend must:
+ * - Implement LogMessage method for handling log entries
+ * - Be constructible from a ConfigBackend instance
+ * - Optionally provide static Init/Shutdown methods
  *
- * This concept is used to constrain the types that can be used as logger
- * backends in the Logger class template.
- *
- * @tparam T The type to check
+ * @tparam T The logger backend implementation type
  * @tparam ConfigBackend The configuration backend type
  */
 template <typename T, typename ConfigBackend>
@@ -86,20 +72,17 @@ concept LoggerBackend =
     (HasStaticLifecycle<T> || true);  // Static lifecycle methods are optional
 
 /**
- * @brief Concept that defines the requirements for a logger backend tag
+ * @brief Defines requirements for a logger backend tag type
  *
- * @details A logger backend tag must provide both LoggerBackend and
- * ConfigBackend types through BackendTraits. The LoggerBackend type must
- * satisfy the LoggerBackend concept when paired with the ConfigBackend type.
+ * @details A valid backend tag must:
+ * - Provide both LoggerBackend and ConfigBackend types via BackendTraits
+ * - Ensure the LoggerBackend type satisfies the LoggerBackend concept
+ *   when paired with the ConfigBackend type
  *
- * This concept is used to constrain the template parameter of the Logger class,
- * ensuring that only valid backend tags can be used.
+ * This concept constrains the template parameter of the Logger class,
+ * ensuring that only valid backend configurations can be used.
  *
- * @tparam T The type to check
- *
- * @see LoggerBackend
- * @see HasLoggerBackend
- * @see HasConfigBackend
+ * @tparam T The backend tag type to check
  */
 template <typename T>
 concept LoggerBackendType =

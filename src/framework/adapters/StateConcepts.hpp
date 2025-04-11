@@ -49,8 +49,8 @@ concept HasGetDimensions = requires(const T& t) {
  */
 template <typename T, typename ConfigBackend>
 concept StateBackendType =
-    HasConstructorFromConfig<T, ConfigBackend> && HasClone<T> &&
-    HasGetData<T> && HasGetVariableNames<T> && HasGetDimensions<T> &&
+    HasConfigConstructor<T, ConfigBackend> && HasClone<T> && HasGetData<T> &&
+    HasGetVariableNames<T> && HasGetDimensions<T> &&
     HasDeletedCopyConstructor<T> && HasDeletedCopyAssignment<T>;
 
 }  // namespace metada::framework
