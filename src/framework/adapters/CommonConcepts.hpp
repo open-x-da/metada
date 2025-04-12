@@ -45,6 +45,32 @@ concept HasLoggerBackend =
     requires { typename traits::BackendTraits<T>::LoggerBackend; };
 
 /**
+ * @brief Checks if a type provides a GeometryBackend type through BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines a GeometryBackend type through the BackendTraits specialization.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasGeometryBackend =
+    requires { typename traits::BackendTraits<T>::GeometryBackend; };
+
+/**
+ * @brief Checks if a type provides a GeometryIteratorBackend type through
+ * BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines a GeometryIteratorBackend type through the BackendTraits
+ * specialization.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasGeometryIteratorBackend =
+    requires { typename traits::BackendTraits<T>::GeometryIteratorBackend; };
+
+/**
  * @brief Checks if a type provides a StateBackend type through BackendTraits
  *
  * @details This concept is used to verify that a backend tag type correctly

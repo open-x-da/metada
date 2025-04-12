@@ -1,283 +1,253 @@
 /**
  * @file Geometry.hpp
- * @brief Implementation of a Geometry adapter
- * @ingroup adapters
+ * @brief Template class providing a generic interface to geometry
+ * implementations
+ * @ingroup repr
+ * @author Metada Framework Team
  *
  * @details
- * This header provides a concrete implementation of a Geometry adapter.
- * It represents the grid structure and physical domain used in numerical
- * models and supports traversal of all grid points via iterators.
+ * This header provides a template class that wraps geometry backend
+ * implementations and provides a unified interface for geometry operations. The
+ * Geometry class delegates operations to the backend while providing type
+ * safety and a consistent API.
+ *
+ * The Geometry class template is designed to:
+ * - Provide a generic interface to different geometry backend implementations
+ * - Support initialization from configuration objects
+ * - Enable grid traversal through iterators
+ * - Implement proper move semantics (non-copyable)
+ * - Support halo exchange operations
+ * - Allow geometry information queries
+ *
+ * @see Config
+ * @see State
+ * @see GeometryIterator
+ * @see GeometryBackendType
  */
 
 #pragma once
+#include <stdexcept>  // for exceptions (if needed)
+#include <utility>    // for std::move
 
-// Include dependencies
-#include "GeometryPointIterator.hpp"
-#include "IGeometry.hpp"
-
-// Standard library includes
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <memory>
-#include <numeric>
-#include <stdexcept>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include "BackendTraits.hpp"
+#include "ConfigConcepts.hpp"
+#include "GeometryConcepts.hpp"  // Added include for GeometryBackendType concept
+#include "GeometryIterator.hpp"
+#include "NonCopyable.hpp"
 
 namespace metada::framework {
 
 // Forward declarations
-class IConfig;
+template <typename BackendTag>
+  requires ConfigBackendType<BackendTag>
+class Config;  // Config adapter for backend
 
 /**
- * @brief Concrete implementation of a Geometry adapter
+ * @brief Main geometry class template providing a generic interface to geometry
+ * implementations
  *
  * @details
- * This class implements a geometry adapter that delegates all operations
- * to a backend implementation of IGeometry. It uses composition rather than
- * inheritance, following the adapter pattern.
+ * This class template wraps a geometry backend implementation and provides a
+ * type-safe interface for all geometry operations. It delegates operations to
+ * the backend while adding:
+ * - Type safety through templates
+ * - Proper move semantics (non-copyable)
+ * - Consistent interface across different backends
+ * - Support for grid traversal through iterators
+ * - Integration with state operations like halo exchange
  *
- * @tparam Backend Type that implements IGeometry interface
+ * The backend tag must satisfy the GeometryBackendType concept, which ensures
+ * it provides valid backend implementation types through BackendTraits.
+ *
+ * Example usage:
+ * @code
+ * Config<T> config;
+ * Geometry<Backend> geometry(config);
+ * for (auto& point : geometry) {
+ *     // Process each grid point
+ * }
+ * @endcode
+ *
+ * @tparam BackendTag The tag type that defines the geometry backend through
+ * BackendTraits
+ *
+ * @see GeometryBackendType
+ * @see Config
+ * @see State
+ * @see GeometryIterator
  */
-template <typename Backend>
-class Geometry {
+template <typename BackendTag>
+  requires GeometryBackendType<BackendTag>
+class Geometry : private NonCopyable {
  public:
-  /**
-   * @brief Default constructor creates geometry with a default backend
-   * @note Backend must be default constructible
-   */
-  Geometry() : backend_ptr_(std::make_unique<Backend>()) {}
+  using GeometryBackend =
+      typename traits::BackendTraits<BackendTag>::GeometryBackend;
+  using Iterator =
+      class GeometryIterator<BackendTag>;  // defined in GeometryIterator.hpp
 
-  /**
-   * @brief Construct a geometry with a specific backend instance
-   *
-   * @param backend Backend implementation
-   */
-  explicit Geometry(const Backend& backend)
-      : backend_ptr_(std::make_unique<Backend>()) {
-    // Instead of copying, use backend methods to get properties and set them
-    if (backend.getDimensions() > 0) {
-      // Copy dimensions
-      std::vector<size_t> resolution = backend.getResolution();
-      backend_ptr_->setDimensions(backend.getDimensions());
-      backend_ptr_->setResolution(resolution);
+  // Disable default constructor – a Geometry must be created with a config or
+  // backend.
+  Geometry() = delete;
 
-      // Copy domain bounds
-      for (size_t i = 0; i < backend.getDimensions(); ++i) {
-        auto bounds = backend.getDomainBounds(i);
-        backend_ptr_->setDomainBounds(i, bounds[0], bounds[1]);
-      }
-    }
-  }
-
-  /**
-   * @brief Construct a geometry with a specific backend pointer
-   *
-   * @param backend_ptr Raw pointer to backend implementation (ownership is
-   * taken)
-   */
-  explicit Geometry(Backend* backend_ptr)
-      : backend_ptr_(backend_ptr ? backend_ptr : new Backend()) {}
-
-  /**
-   * @brief Construct a geometry with specified dimensions and resolution
-   *
-   * @param dimensions Number of spatial dimensions
-   * @param resolution Vector of grid points along each dimension
-   */
-  Geometry(size_t dimensions, const std::vector<size_t>& resolution)
-      : backend_ptr_(std::make_unique<Backend>()) {
-    backend_ptr_->setDimensions(dimensions);
-    backend_ptr_->setResolution(resolution);
-  }
-
-  /**
-   * @brief Construct a geometry with dimensions, resolution, and domain bounds
-   *
-   * @param dimensions Number of spatial dimensions
-   * @param resolution Vector of grid points along each dimension
-   * @param min_bounds Minimum value for each dimension
-   * @param max_bounds Maximum value for each dimension
-   */
-  Geometry(size_t dimensions, const std::vector<size_t>& resolution,
-           const std::vector<double>& min_bounds,
-           const std::vector<double>& max_bounds)
-      : backend_ptr_(std::make_unique<Backend>()) {
-    backend_ptr_->setDimensions(dimensions);
-    backend_ptr_->setResolution(resolution);
-
-    // Set domain bounds for each dimension
-    for (size_t i = 0; i < dimensions; ++i) {
-      backend_ptr_->setDomainBounds(i, min_bounds[i], max_bounds[i]);
-    }
-  }
-
-  /**
-   * @brief Construct from configuration
-   *
-   * @param config Configuration object
-   */
-  explicit Geometry(const IConfig& config)
-      : backend_ptr_(std::make_unique<Backend>()) {
-    initialize(config);
-  }
-
-  /**
-   * @brief Destructor
-   */
+  // Destructor (default ok as backend will clean up)
   ~Geometry() = default;
 
   /**
-   * @brief Initialize geometry from configuration
+   * @brief Main constructor: build Geometry from a configuration
    *
-   * @param config Configuration object containing geometry parameters
+   * @param[in] config Configuration object containing initialization parameters
+   * @throws std::runtime_error If backend initialization fails
    */
-  void initialize(const IConfig& config) { backend_ptr_->initialize(config); }
-
-  /**
-   * @brief Get the number of dimensions
-   *
-   * @return Number of spatial dimensions
-   */
-  size_t getDimensions() const { return backend_ptr_->getDimensions(); }
-
-  /**
-   * @brief Get resolution along each dimension
-   *
-   * @return Vector containing number of grid points along each dimension
-   */
-  std::vector<size_t> getResolution() const {
-    return backend_ptr_->getResolution();
+  explicit Geometry(const Config<BackendTag>& config)
+      : config_(config),  // store a copy of configuration
+        backend_(
+            config.backend()),  // initialize backend with config's backend data
+        initialized_(true) {
+    // If backend initialization fails, consider throwing an exception
+    if (!initialized_) {
+      throw std::runtime_error("Geometry backend initialization failed");
+    }
   }
 
   /**
-   * @brief Get total number of grid points
-   *
-   * @return Total grid point count
+   * @brief Move constructor
+   * @param other Geometry instance to move from
    */
-  size_t getTotalPoints() const { return backend_ptr_->getTotalPoints(); }
-
-  /**
-   * @brief Check if a point is within the domain
-   *
-   * @param coordinates Vector of coordinates to check
-   * @return True if point is within domain, false otherwise
-   */
-  bool containsPoint(const std::vector<double>& coordinates) const {
-    return backend_ptr_->containsPoint(coordinates);
+  Geometry(Geometry&& other) noexcept
+      : config_(std::move(other.config_)),
+        backend_(std::move(other.backend_)),
+        initialized_(other.initialized_) {
+    other.initialized_ = false;  // mark moved-from as uninitialized
   }
 
   /**
-   * @brief Get domain bounds for a specific dimension
-   *
-   * @param dimension Dimension index (0-based)
-   * @return Array containing min and max values for the dimension
+   * @brief Move assignment operator
+   * @param other Geometry instance to move from
+   * @return Reference to this instance
    */
-  std::array<double, 2> getDomainBounds(size_t dimension) const {
-    return backend_ptr_->getDomainBounds(dimension);
+  Geometry& operator=(Geometry&& other) noexcept {
+    if (this != &other) {
+      config_ = std::move(other.config_);
+      backend_ = std::move(other.backend_);
+      initialized_ = other.initialized_;
+      other.initialized_ = false;
+    }
+    return *this;
   }
 
   /**
-   * @brief Set domain bounds for a specific dimension
-   *
-   * @param dimension Dimension index (0-based)
-   * @param min_value Minimum value
-   * @param max_value Maximum value
+   * @brief Clone method: create a new Geometry with the same configuration and
+   * backend state
+   * @return A new Geometry instance with identical configuration and backend
+   * state
    */
-  void setDomainBounds(size_t dimension, double min_value, double max_value) {
-    backend_ptr_->setDomainBounds(dimension, min_value, max_value);
+  Geometry clone() const {
+    // Use backend's clone functionality to duplicate the geometry backend
+    GeometryBackend clonedBackend = *backend_.clone();
+    // Construct a new Geometry with the cloned backend and same config
+    return Geometry(std::move(clonedBackend), config_);
   }
 
   /**
-   * @brief Get grid spacing for each dimension
-   *
-   * @return Vector containing grid spacing for each dimension
-   */
-  std::vector<double> getGridSpacing() const {
-    return backend_ptr_->getGridSpacing();
-  }
-
-  /**
-   * @brief Set the resolution along each dimension
-   *
-   * @param resolution Vector containing new resolution for each dimension
-   */
-  void setResolution(const std::vector<size_t>& resolution) {
-    backend_ptr_->setResolution(resolution);
-  }
-
-  /**
-   * @brief Get coordinates at a specific grid index
-   *
-   * @param indices Grid indices
-   * @return Vector of physical coordinates
-   */
-  std::vector<double> getCoordinates(const std::vector<size_t>& indices) const {
-    return backend_ptr_->getCoordinates(indices);
-  }
-
-  /**
-   * @brief Get grid indices for a physical coordinate
-   *
-   * @param coordinates Physical coordinates
-   * @return Vector of grid indices
-   */
-  std::vector<size_t> getIndices(const std::vector<double>& coordinates) const {
-    return backend_ptr_->getIndices(coordinates);
-  }
-
-  /**
-   * @brief Get iterator to the beginning of the geometry grid
-   *
+   * @brief Get iterator to the beginning of the grid
    * @return Iterator pointing to the first grid point
    */
-  std::unique_ptr<IGeometryIterator<double>> begin() const {
-    auto dimensions = getDimensions();
-    std::vector<size_t> start_position(dimensions, 0);
-    std::vector<double> start_coordinates = getCoordinates(start_position);
-
-    return std::make_unique<GeometryPointIterator<double>>(
-        start_position, getResolution(), start_coordinates, this);
-  }
+  Iterator begin() { return Iterator(backend_.begin()); }
 
   /**
-   * @brief Get iterator to the end of the geometry grid
-   *
+   * @brief Get iterator to the end of the grid
    * @return Iterator pointing past the last grid point
    */
-  std::unique_ptr<IGeometryIterator<double>> end() const {
-    return std::make_unique<GeometryPointIterator<double>>();
-  }
+  Iterator end() { return Iterator(backend_.end()); }
 
   /**
-   * @brief Create a new geometry with the same configuration
-   *
-   * @return Unique pointer to a new geometry instance
+   * @brief Get const iterator to the beginning of the grid
+   * @return Const iterator pointing to the first grid point
    */
-  std::unique_ptr<Geometry<Backend>> clone() const {
-    auto backend_clone = backend_ptr_->clone();
-    Backend* typed_backend = static_cast<Backend*>(backend_clone.release());
-    return std::make_unique<Geometry<Backend>>(typed_backend);
-  }
+  Iterator begin() const { return Iterator(backend_.begin()); }
 
   /**
-   * @brief Check if this geometry is compatible with another geometry
-   *
-   * @param other Geometry to compare with
-   * @return True if geometries are compatible, false otherwise
+   * @brief Get const iterator to the end of the grid
+   * @return Const iterator pointing past the last grid point
    */
-  bool isCompatible(const Geometry<Backend>& other) const {
-    return backend_ptr_->isCompatible(*other.backend_ptr_);
+  Iterator end() const { return Iterator(backend_.end()); }
+
+  /**
+   * @brief Get the total number of grid points
+   * @return Total number of grid points in the geometry
+   */
+  size_t totalGridSize() const {
+    return backend_
+        .size();  // assume backend_ provides total number of grid points
   }
+  // Example: query dimension sizes (if applicable)
+  // int nx() const { return backend_.nx(); }
+  // int ny() const { return backend_.ny(); }
+  // int nz() const { return backend_.nz(); }
+
+  /**
+   * @brief Check if the geometry is periodic in X dimension
+   * @return True if periodic in X, false otherwise
+   */
+  bool isPeriodicX() const { return backend_.isPeriodicX(); }
+
+  /**
+   * @brief Check if the geometry is periodic in Y dimension
+   * @return True if periodic in Y, false otherwise
+   */
+  bool isPeriodicY() const { return backend_.isPeriodicY(); }
+
+  /**
+   * @brief Check if the geometry is periodic in Z dimension
+   * @return True if periodic in Z, false otherwise
+   */
+  bool isPeriodicZ() const { return backend_.isPeriodicZ(); }
+
+  /**
+   * @brief Perform halo exchange on a State using this geometry
+   * @param state The state on which to perform halo exchange
+   */
+  template <typename StateType>
+    requires requires(StateType state) { state.backend(); }
+  void haloExchange(StateType& state) const {
+    backend_.haloExchange(state.backend());
+  }
+
+  // (Additional geometry-related methods can be added as needed, e.g.,
+  // coordinate transformations)
+
+  /**
+   * @brief Access the underlying backend
+   * @return Reference to the backend implementation
+   */
+  GeometryBackend& backend() { return backend_; }
+
+  /**
+   * @brief Access the underlying backend (const version)
+   * @return Const reference to the backend implementation
+   */
+  const GeometryBackend& backend() const { return backend_; }
+
+  /**
+   * @brief Access the stored configuration
+   * @return Const reference to the configuration
+   */
+  const Config<BackendTag>& config() const { return config_; }
 
  private:
   /**
-   * @brief Backend implementation
+   * @brief Private constructor used by clone(): create Geometry from an
+   * existing backend instance
+   * @param backend Backend instance to use
+   * @param config Configuration to associate with this geometry
    */
-  std::unique_ptr<Backend> backend_ptr_;
-};
+  Geometry(GeometryBackend&& backend, const Config<BackendTag>& config)
+      : config_(config), backend_(std::move(backend)), initialized_(true) {}
 
+  const Config<BackendTag>&
+      config_;  // Holds reference to externally managed config
+  GeometryBackend
+      backend_;  // The actual geometry implementation (grid data/operations)
+  bool initialized_{false};  // Flag to indicate if geometry is initialized
+};
 }  // namespace metada::framework

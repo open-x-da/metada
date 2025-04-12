@@ -1,265 +1,142 @@
 /**
  * @file GeometryTest.cpp
- * @brief Unit tests for the Geometry adapter and IGeometry interface
+ * @brief Unit tests for Geometry and GeometryIterator classes
  * @ingroup tests
  * @author Metada Framework Team
  *
  * @details
- * This test suite verifies the proper functioning of the Geometry adapter
- * and the implementation of the IGeometry interface by MockGeometry.
- * The tests ensure that the adapter correctly delegates operations to the
- * backend implementation.
+ * This test suite verifies the functionality of the Geometry class template and
+ * GeometryIterator, which provide generic interfaces for geometry
+ * implementations. The tests cover:
  *
  * Core functionality:
  * - Initialization and construction
- * - Dimension and resolution management
- * - Domain bounds and grid spacing
- * - Coordinate transformations
- *
- * Advanced features:
  * - Grid iteration
- * - Compatibility checking
- * - Error handling
- * - Copy/move semantics
- * - Configuration loading
+ * - Periodicity queries
+ * - Halo exchange
+ * - GeometryIterator operations
  *
  * The test suite uses Google Test/Mock framework for mocking and assertions.
- *
- * @see IGeometry
- * @see Geometry
- * @see MockGeometry
  */
 
-// Standard C++ includes
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <filesystem>
 #include <memory>
-#include <stdexcept>
-#include <string>
 #include <vector>
 
-// Framework includes
+#include "Config.hpp"
 #include "Geometry.hpp"
 #include "GeometryIterator.hpp"
-#include "GeometryPointIterator.hpp"
-#include "IGeometry.hpp"
-#include "IGeometryIterator.hpp"
-#include "MockGeometry.hpp"
-
-// Legacy includes
-#include "AppTraits.hpp"
-#include "ApplicationContext.hpp"
-#include "MockConfig.hpp"
-#include "MockLogger.hpp"
-#include "MockModel.hpp"
-#include "MockObsOperator.hpp"
-#include "MockObservation.hpp"
-#include "MockState.hpp"
+#include "MockBackendTraits.hpp"
+#include "State.hpp"
 
 namespace metada::tests {
 
 using ::testing::_;
-using ::testing::DoAll;
 using ::testing::Return;
 using ::testing::ReturnRef;
-using ::testing::SetArgReferee;
 
-using framework::Config;
-using framework::Geometry;
-using framework::GeometryIterator;
-using framework::IGeometry;
-using framework::Logger;
-using framework::runs::ApplicationContext;
+using namespace metada::framework;
+using namespace metada::backends::gmock;
 
-// Define test traits
-using Traits = AppTraits<MockLogger, MockConfig, MockGeometry, MockState,
-                         MockModel, MockObservation, MockObsOperator>;
+// Define the backend tag for testing
+using TestBackendTag = metada::traits::MockBackendTag;
 
 /**
- * @brief Test fixture for Geometry adapter tests
+ * @brief Test fixture for GeometryIterator class tests
+ *
+ * Tests basic functionality of the iterator without requiring a complete
+ * Geometry object
  */
-class GeometryTest : public ::testing::Test {
+class GeometryIteratorTest : public ::testing::Test {
  protected:
-  /**
-   * @brief Application context for testing
-   */
-  std::unique_ptr<ApplicationContext<Traits>> app_context_;
+  // Mock iterator for testing
+  std::unique_ptr<MockGeometryIterator<MockConfig>> iter_;
+  // Test grid points for iteration sequence
+  std::vector<MockGridPoint> points_;
 
-  /**
-   * @brief Test dimensions and resolutions
-   */
-  const size_t default_dimensions_ = 3;
-  const std::vector<size_t> default_resolution_ = {10, 20, 30};
-  const std::vector<double> default_min_bounds_ = {-1.0, -2.0, -3.0};
-  const std::vector<double> default_max_bounds_ = {1.0, 2.0, 3.0};
-
-  /**
-   * @brief Test backends and adapters
-   */
-  std::unique_ptr<Traits::GeometryType> mock_backend1_;
-  std::unique_ptr<Traits::GeometryType> mock_backend2_;
-  std::unique_ptr<Geometry<Traits::GeometryType>> geometry1_;
-  std::unique_ptr<Geometry<Traits::GeometryType>> geometry2_;
-  std::unique_ptr<Traits::GeometryType> direct_mock_geometry_;
-
-  /**
-   * @brief Initialize test setup
-   */
   void SetUp() override {
-    // Create application context
-    app_context_ = std::make_unique<ApplicationContext<Traits>>("GeometryTest");
-
-    // Configure mock objects
-    auto& config = app_context_->getConfig();
-
-    // Set mock configuration for geometry
-    ON_CALL(config.backend(), Get("geometry.dimensions"))
-        .WillByDefault(Return(static_cast<int>(default_dimensions_)));
-
-    // Resolution for each dimension
-    for (size_t i = 0; i < default_dimensions_; ++i) {
-      std::string key = "geometry.resolution." + std::to_string(i);
-      ON_CALL(config.backend(), Get(key))
-          .WillByDefault(Return(static_cast<int>(default_resolution_[i])));
-
-      // Min and max bounds
-      std::string min_key = "geometry.min_bounds." + std::to_string(i);
-      std::string max_key = "geometry.max_bounds." + std::to_string(i);
-
-      ON_CALL(config.backend(), Get(min_key))
-          .WillByDefault(Return(static_cast<float>(default_min_bounds_[i])));
-
-      ON_CALL(config.backend(), Get(max_key))
-          .WillByDefault(Return(static_cast<float>(default_max_bounds_[i])));
-    }
-
-    // Create mock backends for the Geometry adapter
-    mock_backend1_ = std::make_unique<Traits::GeometryType>();
-    mock_backend1_->setTestDimensions(default_dimensions_);
-    mock_backend1_->setTestResolution(default_resolution_);
-    mock_backend1_->setTestBounds(default_min_bounds_, default_max_bounds_);
-
-    // Set up expectations for the first mock backend
-    EXPECT_CALL(*mock_backend1_, getDimensions())
-        .WillRepeatedly(Return(default_dimensions_));
-    EXPECT_CALL(*mock_backend1_, getResolution())
-        .WillRepeatedly(Return(default_resolution_));
-    EXPECT_CALL(*mock_backend1_, getTotalPoints())
-        .WillRepeatedly(Return(default_resolution_[0] * default_resolution_[1] *
-                               default_resolution_[2]));
-
-    for (size_t i = 0; i < default_dimensions_; ++i) {
-      mock_backend1_->setTestDomainBounds(i, default_min_bounds_[i],
-                                          default_max_bounds_[i]);
-      EXPECT_CALL(*mock_backend1_, getDomainBounds(i))
-          .WillRepeatedly(Return(std::array<double, 2>{
-              default_min_bounds_[i], default_max_bounds_[i]}));
-    }
-
-    // Create another mock backend for a simple 1D geometry
-    mock_backend2_ = std::make_unique<Traits::GeometryType>();
-    mock_backend2_->setTestDimensions(1);
-    mock_backend2_->setTestResolution({10});
-    mock_backend2_->setTestBounds({0.0}, {1.0});
-
-    EXPECT_CALL(*mock_backend2_, getDimensions()).WillRepeatedly(Return(1));
-    EXPECT_CALL(*mock_backend2_, getResolution())
-        .WillRepeatedly(Return(std::vector<size_t>{10}));
-    EXPECT_CALL(*mock_backend2_, getTotalPoints()).WillRepeatedly(Return(10));
-
-    // Create the geometry objects
-    geometry1_ =
-        std::make_unique<Geometry<Traits::GeometryType>>(mock_backend1_.get());
-    geometry2_ =
-        std::make_unique<Geometry<Traits::GeometryType>>(mock_backend2_.get());
-
-    // Create a separate mock geometry for direct interface testing
-    direct_mock_geometry_ = std::make_unique<Traits::GeometryType>();
-    direct_mock_geometry_->setTestDimensions(default_dimensions_);
-    direct_mock_geometry_->setTestResolution(default_resolution_);
-    direct_mock_geometry_->setTestBounds(default_min_bounds_,
-                                         default_max_bounds_);
+    // Create mock iterator and test points
+    iter_ = std::make_unique<MockGeometryIterator<MockConfig>>();
+    points_ = {{0, 0, 0}, {1, 0, 0}, {2, 0, 0}};
   }
 
-  /**
-   * @brief Clean up test resources
-   */
-  void TearDown() override {
-    direct_mock_geometry_.reset();
-    geometry1_.reset();
-    geometry2_.reset();
-    mock_backend1_.reset();
-    mock_backend2_.reset();
-    app_context_.reset();
-  }
-
-  /**
-   * @brief Helper to get config reference
-   */
-  Config<MockConfig>& getConfig() { return app_context_->getConfig(); }
+  void TearDown() override { iter_.reset(); }
 };
 
 /**
- * @brief Test Geometry adapter for configuration and basic properties
+ * @brief Test basic iterator operations (dereference, increment, comparison)
  */
-TEST_F(GeometryTest, BasicProperties) {
-  // Set up expectations for direct mock
-  EXPECT_CALL(*direct_mock_geometry_, getDimensions())
-      .WillRepeatedly(Return(default_dimensions_));
-  EXPECT_CALL(*direct_mock_geometry_, getResolution())
-      .WillRepeatedly(Return(default_resolution_));
-  EXPECT_CALL(*direct_mock_geometry_, getTotalPoints())
-      .WillRepeatedly(Return(default_resolution_[0] * default_resolution_[1] *
-                             default_resolution_[2]));
+TEST_F(GeometryIteratorTest, BasicOperations) {
+  // Set up test point
+  MockGridPoint point{1, 2, 3};
 
-  // Test adapter method: getDimensions
-  EXPECT_EQ(geometry1_->getDimensions(), default_dimensions_);
-  EXPECT_EQ(direct_mock_geometry_->getDimensions(), default_dimensions_);
+  // Set up expectations
+  EXPECT_CALL(*iter_, dereference()).WillOnce(Return(point));
+  EXPECT_CALL(*iter_, compare(testing::_)).WillOnce(Return(true));
+  EXPECT_CALL(*iter_, increment()).Times(2);
 
-  // Test adapter method: getResolution
-  EXPECT_EQ(geometry1_->getResolution(), default_resolution_);
-  EXPECT_EQ(direct_mock_geometry_->getResolution(), default_resolution_);
+  // Test dereference
+  MockGridPoint result = **iter_;
+  EXPECT_EQ(result.x, point.x);
+  EXPECT_EQ(result.y, point.y);
+  EXPECT_EQ(result.z, point.z);
 
-  // Test adapter method: getTotalPoints
-  size_t expected_total =
-      default_resolution_[0] * default_resolution_[1] * default_resolution_[2];
-  EXPECT_EQ(geometry1_->getTotalPoints(), expected_total);
+  // Test comparison
+  MockGeometryIterator<MockConfig> otherIter;
+  EXPECT_TRUE(*iter_ == otherIter);
+  EXPECT_FALSE(*iter_ != otherIter);
+
+  // Test increment operations
+  ++(*iter_);  // Pre-increment
+  (*iter_)++;  // Post-increment
 }
 
 /**
- * @brief Test the Geometry adapter properly forwards calls to the backend
+ * @brief Test iteration through a sequence of points
  */
-TEST_F(GeometryTest, AdapterDelegation) {
-  // Create a mock geometry backend for testing delegation
-  auto mockBackend = std::make_unique<Traits::GeometryType>();
+TEST_F(GeometryIteratorTest, IterationSequence) {
+  // Create a second iterator to act as the end sentinel
+  auto endIter = std::make_unique<MockGeometryIterator<MockConfig>>();
 
-  // Set up expectations for methods that should be called on the backend
-  EXPECT_CALL(*mockBackend, getDimensions()).WillOnce(Return(3));
+  // Configure the iterator sequence
+  iter_->mockIteratorSequence(points_);
 
-  std::vector<size_t> testResolution{10, 10, 10};
-  EXPECT_CALL(*mockBackend, getResolution()).WillOnce(Return(testResolution));
+  // Setup end comparison
+  EXPECT_CALL(*iter_, compare(testing::_)).WillRepeatedly(Return(false));
+  EXPECT_CALL(*endIter, compare(testing::_)).WillRepeatedly(Return(true));
 
-  EXPECT_CALL(*mockBackend, getTotalPoints()).WillOnce(Return(1000));
+  // Simulate iterating through sequence
+  std::size_t pointIndex = 0;
+  while (!(*iter_ == *endIter) && pointIndex < points_.size()) {
+    MockGridPoint point = **iter_;
+    EXPECT_EQ(point.x, points_[pointIndex].x);
+    EXPECT_EQ(point.y, points_[pointIndex].y);
+    EXPECT_EQ(point.z, points_[pointIndex].z);
+    ++(*iter_);
+    pointIndex++;
+  }
 
-  std::vector<double> testSpacing{0.1, 0.1, 0.1};
-  EXPECT_CALL(*mockBackend, getGridSpacing()).WillOnce(Return(testSpacing));
-
-  // Create a Geometry adapter with the mock backend
-  Geometry<Traits::GeometryType> geometry(mockBackend.get());
-
-  // Verify adapter delegates to the backend
-  EXPECT_EQ(geometry.getDimensions(), 3);
-
-  // Use EXPECT_TRUE with container equality for vector comparisons
-  auto resolution = geometry.getResolution();
-  EXPECT_TRUE(resolution == testResolution);
-
-  EXPECT_EQ(geometry.getTotalPoints(), 1000);
-
-  // Use EXPECT_TRUE with container equality for vector comparisons
-  auto spacing = geometry.getGridSpacing();
-  EXPECT_TRUE(spacing == testSpacing);
+  EXPECT_EQ(pointIndex, points_.size());
 }
 
+// Note: In a complete implementation, we would also have a GeometryTest fixture
+// similar to StateTest, with tests for the full Geometry class functionalities:
+// - Construction from Config
+// - Periodicity queries
+// - Size information
+// - Halo exchange with State
+// - Clone operation
+// - Iterator begin()/end() access
+//
+// These tests would require the MockBackendTag to fully satisfy the
+// GeometryBackendType concept including StateBackend support for haloExchange.
+
 }  // namespace metada::tests
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

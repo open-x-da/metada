@@ -1,152 +1,144 @@
 /**
  * @file GeometryIterator.hpp
- * @brief Iterator implementation for traversing geometry grid points
- * @ingroup adapters
+ * @brief Iterator class for traversing geometry grid points
+ * @ingroup repr
+ * @author Metada Framework Team
  *
  * @details
- * This header provides a concrete implementation of the IGeometryIterator
- * interface for traversing geometry grid points in N-dimensional space.
+ * This header provides an iterator class that enables traversal of grid points
+ * in a Geometry object. The GeometryIterator class wraps backend iterator
+ * implementations and provides a consistent interface across different
+ * backends.
+ *
+ * The GeometryIterator class is designed to:
+ * - Provide standard iterator interface (forward iterator)
+ * - Delegate operations to the backend iterator
+ * - Enable range-based for loop usage with Geometry objects
+ * - Support proper copy and move semantics
+ *
+ * @see Geometry
+ * @see GeometryBackendType
  */
 
 #pragma once
+#include <iterator>  // for std::forward_iterator_tag
 
-// Include dependencies
-#include "IGeometryIterator.hpp"
-
-// Standard library includes
-#include <iterator>
-#include <memory>
-#include <vector>
+#include "GeometryIteratorConcepts.hpp"  // Added include for GeometryIteratorBackendType concept
 
 namespace metada::framework {
 
 /**
- * @brief Concrete implementation of the IGeometryIterator for traversing
- * geometry grid points
+ * @brief Iterator class for traversing geometry grid points
  *
- * @tparam T Type of the coordinate value (typically double)
+ * @details
+ * This class template wraps a geometry iterator backend implementation and
+ * provides a standard iterator interface for traversing grid points. It
+ * delegates operations to the backend while providing a consistent interface
+ * across different backends.
+ *
+ * The iterator satisfies the requirements of a ForwardIterator, allowing it to
+ * be used in standard algorithms and range-based for loops.
+ *
+ * Example usage:
+ * @code
+ * Geometry<Backend> geometry(config);
+ * for (auto& point : geometry) {
+ *     // Process each grid point
+ * }
+ * @endcode
+ *
+ * @tparam BackendTag The tag type that defines the geometry backend through
+ * BackendTraits
+ *
+ * @see Geometry
+ * @see GeometryBackendType
  */
-template <typename T>
-class GeometryIterator : public IGeometryIterator<T> {
+template <typename BackendTag>
+  requires GeometryIteratorBackendType<BackendTag>
+class GeometryIterator {
  public:
-  // Inherit iterator traits from the interface
-  using typename IGeometryIterator<T>::value_type;
-  using typename IGeometryIterator<T>::pointer;
-  using typename IGeometryIterator<T>::reference;
+  /** @brief Backend iterator type from traits */
+  using GeometryIteratorBackend =
+      typename traits::BackendTraits<BackendTag>::GeometryIteratorBackend;
+
+  /** @brief Iterator trait definitions for STL compatibility */
+  using iterator_category = std::forward_iterator_tag;
+  using difference_type = std::ptrdiff_t;
+  using value_type = decltype(*std::declval<GeometryIteratorBackend&>());
+  using reference = value_type;
+  using pointer = void;  // not a pointer to a single element in this context
 
   /**
-   * @brief Default constructor creates an end iterator
+   * @brief Constructor from a backend iterator
+   * @param backendIter The backend iterator to wrap
    */
+  explicit GeometryIterator(GeometryIteratorBackend backendIter)
+      : iter_(std::move(backendIter)) {}
+
+  /** @brief Default constructor (for end/sentinels) */
   GeometryIterator() = default;
 
-  /**
-   * @brief Construct iterator with specific position
-   */
-  GeometryIterator(const std::vector<size_t>& position,
-                   const std::vector<size_t>& dimensions,
-                   const std::vector<T>& coordinates)
-      : position_(position),
-        dimensions_(dimensions),
-        coordinates_(coordinates),
-        valid_(true) {}
+  /** @brief Copy constructor */
+  GeometryIterator(const GeometryIterator&) = default;
+
+  /** @brief Copy assignment operator */
+  GeometryIterator& operator=(const GeometryIterator&) = default;
+
+  /** @brief Move constructor */
+  GeometryIterator(GeometryIterator&&) = default;
+
+  /** @brief Move assignment operator */
+  GeometryIterator& operator=(GeometryIterator&&) = default;
+
+  /** @brief Destructor */
+  ~GeometryIterator() = default;
 
   /**
-   * @brief Copy constructor
+   * @brief Dereference operator to access the current grid point
+   * @return Reference to the current grid point
    */
-  GeometryIterator(const GeometryIterator& other)
-      : position_(other.position_),
-        dimensions_(other.dimensions_),
-        coordinates_(other.coordinates_),
-        valid_(other.valid_) {}
+  reference operator*() const { return *iter_; }
 
   /**
-   * @brief Dereference operator returns current point coordinates
+   * @brief Pre-increment operator to advance to the next grid point
+   * @return Reference to this iterator after advancement
    */
-  const value_type& operator*() const override { return coordinates_; }
-
-  /**
-   * @brief Arrow operator for accessing point coordinates
-   */
-  const value_type* operator->() const override { return &coordinates_; }
-
-  /**
-   * @brief Pre-increment operator
-   */
-  IGeometryIterator<T>& operator++() override {
-    // Increment position along the dimensions
-    for (size_t i = 0; i < position_.size(); ++i) {
-      ++position_[i];
-      if (position_[i] < dimensions_[i]) {
-        // Update coordinates based on new position
-        // This is a placeholder - actual implementation would be provided by
-        // derived classes
-        break;
-      }
-      position_[i] = 0;
-      if (i == position_.size() - 1) {
-        // We've reached the end
-        valid_ = false;
-      }
-    }
+  GeometryIterator& operator++() {
+    ++iter_;
     return *this;
   }
 
   /**
-   * @brief Post-increment operator (non-virtual convenience method)
+   * @brief Post-increment operator to advance to the next grid point
+   * @return Copy of the iterator before advancement
    */
   GeometryIterator operator++(int) {
-    GeometryIterator tmp = *this;
+    GeometryIterator tmp(*this);
     ++(*this);
     return tmp;
   }
 
   /**
-   * @brief Equality comparison
+   * @brief Equality comparison operator
+   * @param other Iterator to compare with
+   * @return True if iterators point to the same position
    */
-  bool operator==(const IGeometryIterator<T>& other) const override {
-    // Try to cast to our concrete type
-    const GeometryIterator<T>* otherIterator =
-        dynamic_cast<const GeometryIterator<T>*>(&other);
-
-    if (!otherIterator) {
-      return false;  // Not the same type, can't be equal
-    }
-
-    if (!valid_ && !otherIterator->valid_) return true;
-    if (valid_ != otherIterator->valid_) return false;
-    return position_ == otherIterator->position_;
+  bool operator==(const GeometryIterator& other) const {
+    return iter_ == other.iter_;
   }
 
   /**
-   * @brief Inequality comparison
+   * @brief Inequality comparison operator
+   * @param other Iterator to compare with
+   * @return True if iterators point to different positions
    */
-  bool operator!=(const IGeometryIterator<T>& other) const override {
-    return !(*this == other);
+  bool operator!=(const GeometryIterator& other) const {
+    return iter_ != other.iter_;
   }
 
-  /**
-   * @brief Clone this iterator
-   * @return Unique pointer to a new iterator instance
-   */
-  std::unique_ptr<IGeometryIterator<T>> clone() const override {
-    return std::make_unique<GeometryIterator<T>>(*this);
-  }
-
-  /**
-   * @brief Check if the iterator has reached the end
-   */
-  bool isDone() const { return !valid_; }
-
-  /**
-   * @brief Get current position indices
-   */
-  const std::vector<size_t>& getPosition() const { return position_; }
-
- protected:
-  std::vector<size_t> position_;    ///< Current position indices
-  std::vector<size_t> dimensions_;  ///< Grid dimensions
-  std::vector<T> coordinates_;      ///< Current coordinates
-  bool valid_ = false;              ///< Iterator validity flag
+ private:
+  /** @brief The wrapped backend iterator */
+  GeometryIteratorBackend iter_;
 };
 
 }  // namespace metada::framework

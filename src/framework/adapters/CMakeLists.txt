@@ -24,7 +24,6 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/Ensemble.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Model.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Geometry.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/GeometryPointIterator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/GeometryIterator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/Config.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config/ConfigConcepts.hpp

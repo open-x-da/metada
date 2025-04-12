@@ -15,7 +15,6 @@ target_sources(interfaces_test
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/MockObservation.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/MockObsOperator.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/MockGeometry.hpp
 )
 
 target_link_libraries(interfaces_test

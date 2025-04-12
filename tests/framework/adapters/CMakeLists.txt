@@ -22,6 +22,9 @@ setup_test_executable(config_test ConfigTest.cpp)
 # Logger tests
 setup_test_executable(logger_test LoggerTest.cpp)
 
+# Geometry tests
+setup_test_executable(geometry_test GeometryTest.cpp)
+
 # State tests
 setup_test_executable(state_test StateTest.cpp)
 
@@ -41,9 +44,6 @@ setup_test_executable(model_test ModelTest.cpp)
 # IObsOperator tests
 #setup_test_executable(obsoperator_test ObsOperatorTest.cpp)
 
-# Geometry tests
-#setup_test_executable(geometry_test GeometryTest.cpp)
-
 #AddFormatTarget(config_test ${CMAKE_CURRENT_SOURCE_DIR})
 #AddFormatTarget(logger_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(state_test ${CMAKE_CURRENT_SOURCE_DIR})
@@ -52,4 +52,4 @@ AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
-#AddFormatTarget(geometry_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(geometry_test ${CMAKE_CURRENT_SOURCE_DIR})
