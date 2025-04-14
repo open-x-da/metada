@@ -84,16 +84,16 @@ public:
     }
     
     bool operator==(const MockGeometryIterator& other) const {
-        return compare(&other);
+        return compare(other);
     }
     
     bool operator!=(const MockGeometryIterator& other) const {
-        return !compare(&other);
+        return !compare(other);
     }
 
 private:
     /** @brief The config */
-    ConfigBackend& config_;
+    const ConfigBackend& config_;
 };
 
 } // namespace metada::backends::gmock 

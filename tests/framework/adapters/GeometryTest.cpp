@@ -83,7 +83,9 @@ TEST_F(GeometryIteratorTest, BasicOperations) {
 
   // Set up expectations on the backend iterator
   EXPECT_CALL(iter_->backend(), dereference()).WillOnce(Return(point));
-  EXPECT_CALL(iter_->backend(), compare(testing::_)).WillOnce(Return(true));
+  EXPECT_CALL(iter_->backend(), compare(testing::_))
+      .WillOnce(Return(true))
+      .WillOnce(Return(true));
   EXPECT_CALL(iter_->backend(), increment()).Times(2);
 
   // Test dereference

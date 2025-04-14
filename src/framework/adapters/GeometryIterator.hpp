@@ -107,12 +107,14 @@ class GeometryIterator {
 
   /**
    * @brief Post-increment operator to advance to the next grid point
-   * @return Copy of the iterator before advancement
+   * @return Reference to this iterator after advancement
+   * @note This is deliberately inefficient as backend iterators don't support
+   * copying. Prefer pre-increment (++iter) over post-increment (iter++) for
+   * better performance.
    */
-  GeometryIterator operator++(int) {
-    GeometryIterator tmp(*this);
-    ++(*this);
-    return tmp;
+  GeometryIterator& operator++(int) {
+    ++(*this);     // Just do a pre-increment
+    return *this;  // Return reference to this
   }
 
   /**
