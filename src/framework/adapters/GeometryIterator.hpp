@@ -14,7 +14,7 @@
  * - Provide standard iterator interface (forward iterator)
  * - Delegate operations to the backend iterator
  * - Enable range-based for loop usage with Geometry objects
- * - Support proper copy and move semantics
+ * - Support proper move semantics (non-copyable)
  *
  * @see Geometry
  * @see GeometryBackendType
@@ -23,9 +23,13 @@
 #pragma once
 #include <iterator>  // for std::forward_iterator_tag
 
-#include "GeometryIteratorConcepts.hpp"  // Added include for GeometryIteratorBackendType concept
-
+#include "ConfigConcepts.hpp"            // For ConfigBackendType concept
+#include "GeometryIteratorConcepts.hpp"  // For GeometryIteratorBackendType concept
 namespace metada::framework {
+
+template <typename BackendTag>
+  requires ConfigBackendType<BackendTag>
+class Config;
 
 /**
  * @brief Iterator class for traversing geometry grid points
@@ -38,6 +42,9 @@ namespace metada::framework {
  *
  * The iterator satisfies the requirements of a ForwardIterator, allowing it to
  * be used in standard algorithms and range-based for loops.
+ *
+ * The iterator is move-only (non-copyable) to ensure proper resource management
+ * and consistency with backend implementations.
  *
  * Example usage:
  * @code
@@ -61,43 +68,33 @@ class GeometryIterator {
   using GeometryIteratorBackend =
       typename traits::BackendTraits<BackendTag>::GeometryIteratorBackend;
 
-  /** @brief Iterator trait definitions for STL compatibility */
-  using iterator_category = std::forward_iterator_tag;
-  using difference_type = std::ptrdiff_t;
-  using value_type = decltype(*std::declval<GeometryIteratorBackend&>());
-  using reference = value_type;
-  using pointer = void;  // not a pointer to a single element in this context
-
-  /**
-   * @brief Constructor from a backend iterator
-   * @param backendIter The backend iterator to wrap
-   */
-  explicit GeometryIterator(GeometryIteratorBackend backendIter)
-      : iter_(std::move(backendIter)) {}
-
   /** @brief Default constructor (for end/sentinels) */
-  GeometryIterator() = default;
+  GeometryIterator() = delete;
 
-  /** @brief Copy constructor */
-  GeometryIterator(const GeometryIterator&) = default;
+  /** @brief Copy constructor (deleted - iterator is move-only) */
+  GeometryIterator(const GeometryIterator&) = delete;
 
-  /** @brief Copy assignment operator */
-  GeometryIterator& operator=(const GeometryIterator&) = default;
+  /** @brief Copy assignment operator (deleted - iterator is move-only) */
+  GeometryIterator& operator=(const GeometryIterator&) = delete;
 
   /** @brief Move constructor */
-  GeometryIterator(GeometryIterator&&) = default;
+  GeometryIterator(GeometryIterator&&) noexcept = default;
 
   /** @brief Move assignment operator */
-  GeometryIterator& operator=(GeometryIterator&&) = default;
+  GeometryIterator& operator=(GeometryIterator&&) noexcept = default;
 
   /** @brief Destructor */
   ~GeometryIterator() = default;
+
+  /** @brief Constructor from a config */
+  GeometryIterator(const Config<BackendTag>& config)
+      : iter_(config.backend()) {}
 
   /**
    * @brief Dereference operator to access the current grid point
    * @return Reference to the current grid point
    */
-  reference operator*() const { return *iter_; }
+  auto operator*() const { return *iter_; }
 
   /**
    * @brief Pre-increment operator to advance to the next grid point
@@ -135,6 +132,12 @@ class GeometryIterator {
   bool operator!=(const GeometryIterator& other) const {
     return iter_ != other.iter_;
   }
+
+  /** @brief Get the backend iterator */
+  GeometryIteratorBackend& backend() { return iter_; }
+
+  /** @brief Get the backend iterator (const version) */
+  const GeometryIteratorBackend& backend() const { return iter_; }
 
  private:
   /** @brief The wrapped backend iterator */

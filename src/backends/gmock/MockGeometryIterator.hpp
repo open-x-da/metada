@@ -49,19 +49,23 @@ struct MockGridPoint {
 template <typename ConfigBackend>
 class MockGeometryIterator {
 public:
-    MockGeometryIterator() = default;
+    MockGeometryIterator() = delete;
 
     // Delete copy and move constructors and assignment operators
     MockGeometryIterator(const MockGeometryIterator&) = delete;
     MockGeometryIterator& operator=(const MockGeometryIterator&) = delete;
-    MockGeometryIterator(MockGeometryIterator&&) = delete;
-    MockGeometryIterator& operator=(MockGeometryIterator&&) = delete;
+
+    MockGeometryIterator(MockGeometryIterator&&) noexcept = default;
+    MockGeometryIterator& operator=(MockGeometryIterator&&) noexcept = default;
     
+    /** @brief Constructor from a config */
+    MockGeometryIterator(const ConfigBackend& config) : config_(config) {}
+
     // GMock objects are not copyable or movable, so define our own comparison behavior
     // without trying to mock operator== directly
     MOCK_METHOD(MockGridPoint, dereference, (), (const));
     MOCK_METHOD(void, increment, ());
-    MOCK_METHOD(bool, compare, (const MockGeometryIterator*), (const));
+    MOCK_METHOD(bool, compare, (const MockGeometryIterator&), (const));
     
     // Operator implementations that delegate to the mockable methods
     MockGridPoint operator*() const { 
@@ -86,19 +90,10 @@ public:
     bool operator!=(const MockGeometryIterator& other) const {
         return !compare(&other);
     }
-    
-    // Helper method to mock a sequence of points for iteration
-    void mockIteratorSequence(const std::vector<MockGridPoint>& points) {
-        for (size_t i = 0; i < points.size(); ++i) {
-            EXPECT_CALL(*this, dereference())
-                .WillRepeatedly(testing::Return(points[i]));
-            
-            if (i < points.size() - 1) {
-                EXPECT_CALL(*this, increment())
-                    .WillOnce(testing::DoDefault());
-            }
-        }
-    }
+
+private:
+    /** @brief The config */
+    ConfigBackend& config_;
 };
 
 } // namespace metada::backends::gmock 

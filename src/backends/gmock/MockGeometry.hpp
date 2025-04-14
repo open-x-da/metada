@@ -20,10 +20,6 @@
 
 namespace metada::backends::gmock {
 
-// Forward declaration
-template <typename ConfigBackend>
-class MockGeometryIterator;
-
 /**
  * @brief Mock implementation of a geometry backend for testing
  *
@@ -55,8 +51,8 @@ public:
     MockGeometry& operator=(const MockGeometry&) = delete;
 
     // Move constructor and assignment
-    MockGeometry(MockGeometry&&) = default;
-    MockGeometry& operator=(MockGeometry&&) = default;
+    MockGeometry(MockGeometry&&) noexcept = default;
+    MockGeometry& operator=(MockGeometry&&) noexcept = default;
 
     // Mock methods required by GeometryBackendImpl concept
     MOCK_METHOD(iterator, begin, ());
@@ -64,21 +60,15 @@ public:
     MOCK_METHOD(const_iterator, begin, (), (const));
     MOCK_METHOD(const_iterator, end, (), (const));
     
-    MOCK_METHOD(std::size_t, size, (), (const));
+    MOCK_METHOD(std::size_t, totalGridSize, (), (const));
     
     MOCK_METHOD(bool, isPeriodicX, (), (const));
     MOCK_METHOD(bool, isPeriodicY, (), (const));
     MOCK_METHOD(bool, isPeriodicZ, (), (const));
     
-    MOCK_METHOD(bool, isPeriodic, (int dimension), (const));
-    
     MOCK_METHOD(bool, isInitialized, (), (const));
-    
-    MOCK_METHOD(int, getDimensions, (), (const));
-    MOCK_METHOD(int, getSize, (int dimension), (const));
-    MOCK_METHOD(int, getTotalSize, (), (const));
-    
-    MOCK_METHOD(std::unique_ptr<MockGeometry>, clone, (), (const));
+     
+    MOCK_METHOD(MockGeometry, clone, (), (const));
     
     template <typename StateBackend>
     void haloExchange(StateBackend& state) {
