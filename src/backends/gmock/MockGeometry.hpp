@@ -70,6 +70,14 @@ public:
     MOCK_METHOD(bool, isPeriodicY, (), (const));
     MOCK_METHOD(bool, isPeriodicZ, (), (const));
     
+    MOCK_METHOD(bool, isPeriodic, (int dimension), (const));
+    
+    MOCK_METHOD(bool, isInitialized, (), (const));
+    
+    MOCK_METHOD(int, getDimensions, (), (const));
+    MOCK_METHOD(int, getSize, (int dimension), (const));
+    MOCK_METHOD(int, getTotalSize, (), (const));
+    
     MOCK_METHOD(std::unique_ptr<MockGeometry>, clone, (), (const));
     
     template <typename StateBackend>

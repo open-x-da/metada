@@ -50,6 +50,12 @@ template <typename ConfigBackend>
 class MockGeometryIterator {
 public:
     MockGeometryIterator() = default;
+
+    // Delete copy and move constructors and assignment operators
+    MockGeometryIterator(const MockGeometryIterator&) = delete;
+    MockGeometryIterator& operator=(const MockGeometryIterator&) = delete;
+    MockGeometryIterator(MockGeometryIterator&&) = delete;
+    MockGeometryIterator& operator=(MockGeometryIterator&&) = delete;
     
     // GMock objects are not copyable or movable, so define our own comparison behavior
     // without trying to mock operator== directly

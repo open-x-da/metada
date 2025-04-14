@@ -110,6 +110,15 @@ class Geometry : private NonCopyable {
   }
 
   /**
+   * @brief Constructor with config and existing backend
+   *
+   * @param[in] config Configuration object
+   * @param[in] backend Existing geometry backend to use
+   */
+  Geometry(const Config<BackendTag>& config, GeometryBackend& backend)
+      : config_(config), backend_(backend), initialized_(true) {}
+
+  /**
    * @brief Move constructor
    * @param other Geometry instance to move from
    */
@@ -204,6 +213,34 @@ class Geometry : private NonCopyable {
   bool isPeriodicZ() const { return backend_.isPeriodicZ(); }
 
   /**
+   * @brief Check if the geometry is periodic in the given dimension
+   * @param dimension Dimension index (0=X, 1=Y, 2=Z)
+   * @return True if periodic in the specified dimension, false otherwise
+   */
+  bool isPeriodic(int dimension) const {
+    return backend_.isPeriodic(dimension);
+  }
+
+  /**
+   * @brief Get the number of dimensions in the geometry
+   * @return Number of dimensions
+   */
+  int getDimensions() const { return backend_.getDimensions(); }
+
+  /**
+   * @brief Get the size along a specific dimension
+   * @param dimension Dimension index (0=X, 1=Y, 2=Z)
+   * @return Size along the specified dimension
+   */
+  int getSize(int dimension) const { return backend_.getSize(dimension); }
+
+  /**
+   * @brief Get the total size (number of grid points)
+   * @return Total number of grid points
+   */
+  int getTotalSize() const { return backend_.getTotalSize(); }
+
+  /**
    * @brief Perform halo exchange on a State using this geometry
    * @param state The state on which to perform halo exchange
    */
@@ -215,6 +252,12 @@ class Geometry : private NonCopyable {
 
   // (Additional geometry-related methods can be added as needed, e.g.,
   // coordinate transformations)
+
+  /**
+   * @brief Check if geometry is properly initialized
+   * @return True if initialized, false otherwise
+   */
+  bool isInitialized() const { return initialized_; }
 
   /**
    * @brief Access the underlying backend

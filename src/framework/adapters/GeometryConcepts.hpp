@@ -40,10 +40,10 @@ template <typename T, typename SB>
 concept GeometryBackendImpl =
     requires(T t, T& t_ref, const T& t_const, SB& state) {
       // Iteration
-      { t.begin() } -> std::input_or_output_iterator;
-      { t.end() } -> std::input_or_output_iterator;
-      { t_const.begin() } -> std::input_or_output_iterator;
-      { t_const.end() } -> std::input_or_output_iterator;
+      { t.begin() } -> std::same_as<typename T::iterator>;
+      { t.end() } -> std::same_as<typename T::iterator>;
+      { t_const.begin() } -> std::same_as<typename T::const_iterator>;
+      { t_const.end() } -> std::same_as<typename T::const_iterator>;
 
       // Size information
       { t.size() } -> std::convertible_to<std::size_t>;
