@@ -46,7 +46,7 @@ concept GeometryBackendImpl =
       { t_const.end() } -> std::same_as<typename T::const_iterator>;
 
       // Size information
-      { t.size() } -> std::convertible_to<std::size_t>;
+      { t.totalGridSize() } -> std::convertible_to<std::size_t>;
 
       // Periodicity checks
       { t.isPeriodicX() } -> std::same_as<bool>;
@@ -54,7 +54,7 @@ concept GeometryBackendImpl =
       { t.isPeriodicZ() } -> std::same_as<bool>;
 
       // Cloning
-      { t_const.clone() } -> std::convertible_to<std::unique_ptr<T>>;
+      { t_const.clone() } -> std::same_as<T>;
 
       // Halo exchange functionality (required)
       { t.haloExchange(state) } -> std::same_as<void>;

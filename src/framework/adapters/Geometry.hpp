@@ -175,8 +175,8 @@ class Geometry : private NonCopyable {
    * @return Total number of grid points in the geometry
    */
   size_t totalGridSize() const {
-    return backend_
-        .size();  // assume backend_ provides total number of grid points
+    return backend_.totalGridSize();  // assume backend_ provides total number
+                                      // of grid points
   }
 
   /**

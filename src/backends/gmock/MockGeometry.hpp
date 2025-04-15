@@ -41,7 +41,7 @@ public:
      * @brief Constructor that takes a mock config
      * @param config Mock configuration object
      */
-    explicit MockGeometry(const ConfigBackend& config) {}
+    explicit MockGeometry([[maybe_unused]] const ConfigBackend& config) {}
     
     // Deleted default constructor
     MockGeometry() = delete;
