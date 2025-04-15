@@ -1,7 +1,7 @@
 /**
  * @file GeometryIterator.hpp
  * @brief Iterator class for traversing geometry grid points
- * @ingroup repr
+ * @ingroup adapters
  * @author Metada Framework Team
  *
  * @details
@@ -23,10 +23,13 @@
 #pragma once
 #include <iterator>  // for std::forward_iterator_tag
 
+#include "BackendTraits.hpp"             // For BackendTraits
 #include "ConfigConcepts.hpp"            // For ConfigBackendType concept
 #include "GeometryIteratorConcepts.hpp"  // For GeometryIteratorBackendType concept
+
 namespace metada::framework {
 
+// Forward declaration
 template <typename BackendTag>
   requires ConfigBackendType<BackendTag>
 class Config;
@@ -89,6 +92,10 @@ class GeometryIterator {
   /** @brief Constructor from a config */
   GeometryIterator(const Config<BackendTag>& config)
       : iter_(config.backend()) {}
+
+  /** @brief Constructor from a backend iterator */
+  explicit GeometryIterator(GeometryIteratorBackend iter)
+      : iter_(std::move(iter)) {}
 
   /**
    * @brief Dereference operator to access the current grid point

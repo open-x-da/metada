@@ -11,6 +11,12 @@
  *
  * - Basic iterator operations (dereference, increment, comparison)
  * - Iteration through sequences of grid points
+ * - Iterator semantics and behavior
+ *
+ * The GeometryIterator is designed as a forward iterator that wraps backend-specific
+ * iterator implementations while providing a consistent interface across different
+ * backends. This test suite ensures that the adapter correctly delegates operations
+ * to the backend implementation.
  *
  * The test suite uses Google Test/Mock framework for mocking and assertions.
  */
@@ -39,7 +45,10 @@ using namespace metada::backends::gmock;
  * @brief Test fixture for GeometryIterator class tests
  *
  * Tests basic functionality of the iterator without requiring a complete
- * Geometry object
+ * Geometry object. The fixture provides:
+ * - A mock configuration
+ * - A mock iterator instance
+ * - Test grid points for iteration sequences
  */
 class GeometryIteratorTest : public ::testing::Test {
  protected:
@@ -70,6 +79,12 @@ class GeometryIteratorTest : public ::testing::Test {
 
 /**
  * @brief Test basic iterator operations (dereference, increment, comparison)
+ * 
+ * Verifies that the GeometryIterator correctly delegates basic operations
+ * to the backend implementation:
+ * - Dereference operator (*) returns the current grid point
+ * - Equality/inequality operators compare iterator positions
+ * - Pre-increment and post-increment operators advance the iterator
  */
 TEST_F(GeometryIteratorTest, BasicOperations) {
   // Set up test point
@@ -100,6 +115,13 @@ TEST_F(GeometryIteratorTest, BasicOperations) {
 
 /**
  * @brief Test iteration through a sequence of points
+ * 
+ * Verifies that the GeometryIterator can be used to traverse a sequence
+ * of grid points, simulating how it would be used in a range-based for loop
+ * or standard algorithm. This test ensures:
+ * - Proper iteration semantics (begin to end)
+ * - Correct dereferencing of points during iteration
+ * - Proper termination when reaching the end
  */
 TEST_F(GeometryIteratorTest, IterationSequence) {
   // Create a second iterator to act as the end sentinel

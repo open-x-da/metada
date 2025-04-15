@@ -2,7 +2,7 @@
  * @file Geometry.hpp
  * @brief Template class providing a generic interface to geometry
  * implementations
- * @ingroup repr
+ * @ingroup adapters
  * @author Metada Framework Team
  *
  * @details
@@ -61,8 +61,8 @@ class Config;  // Config adapter for backend
  *
  * Example usage:
  * @code
- * Config<T> config;
- * Geometry<Backend> geometry(config);
+ * Config<BackendTag> config;
+ * Geometry<BackendTag> geometry(config);
  * for (auto& point : geometry) {
  *     // Process each grid point
  * }
@@ -142,8 +142,7 @@ class Geometry : private NonCopyable {
    * state
    */
   Geometry clone() const {
-    // Construct a new Geometry with the cloned backend and same config
-    return Geometry(backend_.clone(), config_);
+    return Geometry(std::move(backend_.clone()), config_);
   }
 
   /**
@@ -204,7 +203,7 @@ class Geometry : private NonCopyable {
   template <typename StateType>
     requires requires(StateType state) { state.backend(); }
   void haloExchange(StateType& state) const {
-    backend_.haloExchange(state.backend());
+    backend_.haloExchangeImpl(state.backend());
   }
 
   /**

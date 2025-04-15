@@ -93,6 +93,9 @@ TEST_F(GeometryTest, Construction) {
 
 /**
  * @brief Test periodicity queries
+ *
+ * Verifies that the Geometry adapter correctly delegates periodicity
+ * queries to the backend implementation.
  */
 TEST_F(GeometryTest, PeriodicityQueries) {
   // Setup expectations for periodicity queries
@@ -108,6 +111,9 @@ TEST_F(GeometryTest, PeriodicityQueries) {
 
 /**
  * @brief Test size information queries
+ *
+ * Verifies that the Geometry adapter correctly delegates size
+ * information queries to the backend implementation.
  */
 TEST_F(GeometryTest, SizeInformation) {
   // Setup expectations for size queries
@@ -119,6 +125,9 @@ TEST_F(GeometryTest, SizeInformation) {
 
 /**
  * @brief Test halo exchange operation
+ *
+ * Verifies that the Geometry adapter correctly delegates halo exchange
+ * operations to the backend implementation.
  */
 TEST_F(GeometryTest, HaloExchange) {
   // Setup expectations for halo exchange
@@ -130,33 +139,34 @@ TEST_F(GeometryTest, HaloExchange) {
 
 /**
  * @brief Test clone operation
+ *
+ * Verifies that the Geometry adapter can create a proper clone of itself
+ * with the same configuration and backend state.
  */
-/*
 TEST_F(GeometryTest, Clone) {
-  // Setup expectations for clone
-  MockGeometryType cloned_backend(*config_);
-  EXPECT_CALL(*geometry_backend_, clone()).WillOnce(Return(cloned_backend));
-
   // Clone the geometry
   auto cloned_geometry = geometry_->clone();
 
   // Verify cloned geometry is initialized
   EXPECT_TRUE(cloned_geometry.isInitialized());
 }
-*/
 
 /**
  * @brief Test iterator begin/end access
+ *
+ * Verifies that the Geometry adapter correctly provides iterators
+ * for traversing grid points by delegating to the backend implementation.
  */
-/*
 TEST_F(GeometryTest, IteratorAccess) {
   // Set up mock iterators to return
-  MockGeometryType::iterator begin_iter(*config_);
-  MockGeometryType::iterator end_iter(*config_);
+  GeometryIterator<traits::MockBackendTag> begin_iter(*config_);
+  GeometryIterator<traits::MockBackendTag> end_iter(*config_);
 
   // Setup expectations for begin/end
-  EXPECT_CALL(*geometry_backend_, begin()).WillOnce(Return(begin_iter));
-  EXPECT_CALL(*geometry_backend_, end()).WillOnce(Return(end_iter));
+  EXPECT_CALL(geometry_->backend(), begin())
+      .WillOnce(Return(std::move(begin_iter.backend())));
+  EXPECT_CALL(geometry_->backend(), end())
+      .WillOnce(Return(std::move(end_iter.backend())));
 
   // Get iterators
   auto iter_begin = geometry_->begin();
@@ -165,6 +175,5 @@ TEST_F(GeometryTest, IteratorAccess) {
   // Simple verification that the iterators are different
   EXPECT_NE(&iter_begin, &iter_end);
 }
-*/
 
 }  // namespace metada::tests
