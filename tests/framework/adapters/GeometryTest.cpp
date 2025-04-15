@@ -107,21 +107,34 @@ TEST_F(GeometryIteratorTest, BasicOperations) {
 /**
  * @brief Test iteration through a sequence of points
  */
-/*
 TEST_F(GeometryIteratorTest, IterationSequence) {
   // Create a second iterator to act as the end sentinel
-  auto endIter = std::make_unique<MockGeometryIterator<MockConfig>>();
+  auto endIter =
+      std::make_unique<GeometryIterator<traits::MockBackendTag>>(*config_);
 
-  // Configure the iterator sequence
-  iter_->mockIteratorSequence(points_);
+  // Setup expectations - mock the sequence of points
+  // First expect dereference calls to return our test points in sequence
+  {
+    ::testing::InSequence seq;
+    for (const auto& point : points_) {
+      EXPECT_CALL(iter_->backend(), dereference()).WillOnce(Return(point));
+    }
+  }
 
-  // Setup end comparison
-  EXPECT_CALL(*iter_, compare(testing::_)).WillRepeatedly(Return(false));
-  EXPECT_CALL(*endIter, compare(testing::_)).WillRepeatedly(Return(true));
+  // Configure compare behavior - return false until we reach the end
+  size_t compareCallCount = 0;
+  EXPECT_CALL(iter_->backend(), compare(testing::_))
+      .WillRepeatedly([this, &compareCallCount](const auto&) {
+        // Return false for first points_.size() calls, then true
+        return (compareCallCount++ >= points_.size());
+      });
+
+  // Configure increment to be called for each point
+  EXPECT_CALL(iter_->backend(), increment()).Times(points_.size());
 
   // Simulate iterating through sequence
   std::size_t pointIndex = 0;
-  while (!(*iter_ == *endIter) && pointIndex < points_.size()) {
+  while (*iter_ != *endIter && pointIndex < points_.size()) {
     MockGridPoint point = **iter_;
     EXPECT_EQ(point.x, points_[pointIndex].x);
     EXPECT_EQ(point.y, points_[pointIndex].y);
@@ -132,7 +145,6 @@ TEST_F(GeometryIteratorTest, IterationSequence) {
 
   EXPECT_EQ(pointIndex, points_.size());
 }
-*/
 
 /**
  * @brief Test fixture for Geometry class tests
