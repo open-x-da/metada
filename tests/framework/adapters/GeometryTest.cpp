@@ -94,45 +94,39 @@ TEST_F(GeometryTest, Construction) {
 /**
  * @brief Test periodicity queries
  */
-/*
 TEST_F(GeometryTest, PeriodicityQueries) {
   // Setup expectations for periodicity queries
-  EXPECT_CALL(*geometry_backend_, isPeriodicX()).WillOnce(Return(true));
-  EXPECT_CALL(*geometry_backend_, isPeriodicY()).WillOnce(Return(false));
-  EXPECT_CALL(*geometry_backend_, isPeriodicZ()).WillOnce(Return(true));
+  EXPECT_CALL(geometry_->backend(), isPeriodicX()).WillOnce(Return(true));
+  EXPECT_CALL(geometry_->backend(), isPeriodicY()).WillOnce(Return(false));
+  EXPECT_CALL(geometry_->backend(), isPeriodicZ()).WillOnce(Return(true));
 
   // Test periodicity in different dimensions
   EXPECT_TRUE(geometry_->isPeriodicX());   // X dimension periodic
   EXPECT_FALSE(geometry_->isPeriodicY());  // Y dimension not periodic
   EXPECT_TRUE(geometry_->isPeriodicZ());   // Z dimension periodic
 }
-*/
 
 /**
  * @brief Test size information queries
  */
-/*
 TEST_F(GeometryTest, SizeInformation) {
   // Setup expectations for size queries
-  EXPECT_CALL(*geometry_backend_, size()).WillOnce(Return(3000));
+  EXPECT_CALL(geometry_->backend(), totalGridSize()).WillOnce(Return(3000));
 
   // Test total size query
   EXPECT_EQ(geometry_->totalGridSize(), 3000);
 }
-*/
 
 /**
  * @brief Test halo exchange operation
  */
-/*
 TEST_F(GeometryTest, HaloExchange) {
   // Setup expectations for halo exchange
-  EXPECT_CALL(*geometry_backend_, haloExchangeImpl(testing::_)).Times(1);
+  EXPECT_CALL(geometry_->backend(), haloExchangeImpl(testing::_)).Times(1);
 
   // Perform halo exchange
   geometry_->haloExchange(*state_);
 }
-*/
 
 /**
  * @brief Test clone operation

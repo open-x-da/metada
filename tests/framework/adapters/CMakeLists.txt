@@ -27,6 +27,7 @@ setup_test_executable(geometry_test GeometryTest.cpp)
 
 # Geometry iterator tests
 setup_test_executable(geometry_iterator_test GeometryIteratorTest.cpp)
+
 # State tests
 setup_test_executable(state_test StateTest.cpp)
 

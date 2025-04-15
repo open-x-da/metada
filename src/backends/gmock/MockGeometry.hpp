@@ -71,12 +71,12 @@ public:
     MOCK_METHOD(MockGeometry, clone, (), (const));
     
     template <typename StateBackend>
-    void haloExchange(StateBackend& state) {
+    void haloExchange(StateBackend& state) const {
         // Call the mock method with void* to avoid template issues in mocking
         haloExchangeImpl(static_cast<void*>(&state));
     }
     
-    MOCK_METHOD(void, haloExchangeImpl, (void* state));
+    MOCK_METHOD(void, haloExchangeImpl, (void* state), (const));
 };
 
 } // namespace metada::backends::gmock 
