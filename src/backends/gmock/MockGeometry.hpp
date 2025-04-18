@@ -25,6 +25,7 @@
 #include <vector>
 #include <gmock/gmock.h>
 
+#include "MockGridPoint.hpp"
 #include "MockGeometryIterator.hpp"
 
 namespace metada::backends::gmock {
@@ -53,14 +54,14 @@ namespace metada::backends::gmock {
 template <typename ConfigBackend>
 class MockGeometry {
 public:
-    using iterator = MockGeometryIterator<ConfigBackend>;
-    using const_iterator = MockGeometryIterator<ConfigBackend>;
+    using iterator = MockGeometryIterator;
+    using const_iterator = MockGeometryIterator;
 
     /**
      * @brief Constructor that takes a mock config
      * @param config Mock configuration object
      */
-    explicit MockGeometry([[maybe_unused]] const ConfigBackend& config) : config_(config) {}
+    explicit MockGeometry(const ConfigBackend& config) : config_(config), gridPoints_({{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}) {}
     
     // Deleted default constructor
     MockGeometry() = delete;
@@ -70,10 +71,11 @@ public:
     MockGeometry& operator=(const MockGeometry&) = delete;
 
     // Move constructor and assignment operator
-    MockGeometry(MockGeometry&& other) noexcept : config_(std::move(other.config_)) {}
+    MockGeometry(MockGeometry&& other) noexcept : config_(std::move(other.config_)), gridPoints_(std::move(other.gridPoints_)) {}
     MockGeometry& operator=(MockGeometry&& other) noexcept {
         if (this != &other) {
             config_ = std::move(other.config_);
+            gridPoints_ = std::move(other.gridPoints_);
         }
         return *this;
     }
@@ -141,6 +143,7 @@ public:
 
 private:
     const ConfigBackend& config_;
+    std::vector<MockGridPoint> gridPoints_;
 };
 
 }    // namespace metada::backends::gmock 

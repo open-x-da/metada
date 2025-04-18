@@ -14,7 +14,7 @@
  * - Provide standard iterator interface (forward iterator)
  * - Delegate operations to the backend iterator
  * - Enable range-based for loop usage with Geometry objects
- * - Support proper move semantics (non-copyable)
+ * - Support proper move and copy semantics
  *
  * @see Geometry
  * @see GeometryBackendType
@@ -46,8 +46,8 @@ class Config;
  * The iterator satisfies the requirements of a ForwardIterator, allowing it to
  * be used in standard algorithms and range-based for loops.
  *
- * The iterator is move-only (non-copyable) to ensure proper resource management
- * and consistency with backend implementations.
+ * The iterator supports both copy and move operations to ensure proper resource
+ * management and consistency with backend implementations.
  *
  * Example usage:
  * @code
@@ -74,11 +74,11 @@ class GeometryIterator {
   /** @brief Default constructor (for end/sentinels) */
   GeometryIterator() = delete;
 
-  /** @brief Copy constructor (deleted - iterator is move-only) */
-  GeometryIterator(const GeometryIterator&) = delete;
+  /** @brief Copy constructor */
+  GeometryIterator(const GeometryIterator&) = default;
 
-  /** @brief Copy assignment operator (deleted - iterator is move-only) */
-  GeometryIterator& operator=(const GeometryIterator&) = delete;
+  /** @brief Copy assignment operator */
+  GeometryIterator& operator=(const GeometryIterator&) = default;
 
   /** @brief Move constructor */
   GeometryIterator(GeometryIterator&&) noexcept = default;
@@ -88,10 +88,6 @@ class GeometryIterator {
 
   /** @brief Destructor */
   ~GeometryIterator() = default;
-
-  /** @brief Constructor from a config */
-  GeometryIterator(const Config<BackendTag>& config)
-      : iter_(config.backend()) {}
 
   /** @brief Constructor from a backend iterator */
   explicit GeometryIterator(GeometryIteratorBackend iter)

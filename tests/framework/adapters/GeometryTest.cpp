@@ -42,6 +42,13 @@ using ::testing::ReturnRef;
 using namespace metada::framework;
 using namespace metada::backends::gmock;
 
+/**
+ * @brief Test fixture for Geometry tests
+ *
+ * This fixture sets up the necessary objects for testing the Geometry adapter,
+ * including a configuration, a geometry instance, and a state object for
+ * testing halo exchange operations.
+ */
 class GeometryTest : public ::testing::Test {
  protected:
   std::string config_file_;
@@ -53,6 +60,11 @@ class GeometryTest : public ::testing::Test {
   // State object for halo exchange testing
   std::unique_ptr<State<traits::MockBackendTag>> state_;
 
+  /**
+   * @brief Set up the test environment
+   *
+   * Creates configuration, geometry, and state objects needed for testing.
+   */
   void SetUp() override {
     // Get the directory where the test file is located
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
@@ -64,6 +76,11 @@ class GeometryTest : public ::testing::Test {
     state_ = std::make_unique<State<traits::MockBackendTag>>(*config_);
   }
 
+  /**
+   * @brief Clean up the test environment
+   *
+   * Releases all resources in the correct order.
+   */
   void TearDown() override {
     geometry_.reset();
     state_.reset();
@@ -158,15 +175,13 @@ TEST_F(GeometryTest, Clone) {
  * for traversing grid points by delegating to the backend implementation.
  */
 TEST_F(GeometryTest, IteratorAccess) {
-  // Set up mock iterators to return
-  GeometryIterator<traits::MockBackendTag> begin_iter(*config_);
-  GeometryIterator<traits::MockBackendTag> end_iter(*config_);
+  // Create MockGeometryIterator instances with shared_ptr
+  auto begin_mock_iter = std::make_shared<MockGeometryIterator>(nullptr);
+  auto end_mock_iter = std::make_shared<MockGeometryIterator>(nullptr);
 
-  // Setup expectations for begin/end
-  EXPECT_CALL(geometry_->backend(), begin())
-      .WillOnce(Return(std::move(begin_iter.backend())));
-  EXPECT_CALL(geometry_->backend(), end())
-      .WillOnce(Return(std::move(end_iter.backend())));
+  // Setup expectations for begin/end - use references for comparison
+  EXPECT_CALL(geometry_->backend(), begin()).WillOnce(Return(*begin_mock_iter));
+  EXPECT_CALL(geometry_->backend(), end()).WillOnce(Return(*end_mock_iter));
 
   // Get iterators
   auto iter_begin = geometry_->begin();

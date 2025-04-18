@@ -17,7 +17,7 @@ struct BackendTraits<MockBackendTag> {
   using ConfigBackend       = backends::gmock::MockConfig;
   using LoggerBackend       = backends::gmock::MockLogger<ConfigBackend>;
   using GeometryBackend     = backends::gmock::MockGeometry<ConfigBackend>;
-  using GeometryIteratorBackend = backends::gmock::MockGeometryIterator<ConfigBackend>;
+  using GeometryIteratorBackend = backends::gmock::MockGeometryIterator;
   using StateBackend        = backends::gmock::MockState<ConfigBackend>;
   using ModelBackend        = backends::gmock::MockModel<ConfigBackend, StateBackend>;
   //using ObservationBackend  = MockObservationBackend;

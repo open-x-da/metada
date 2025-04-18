@@ -26,27 +26,9 @@
 #include <memory>
 #include <vector>
 
-namespace metada::backends::gmock {
+#include "MockGridPoint.hpp"
 
-/**
- * @brief Mock implementation of a grid point for testing
- * 
- * @details
- * This simple struct represents a grid point in the mock geometry.
- * It provides equality comparison operators to facilitate testing
- * of iterator behavior and grid point access.
- */
-struct MockGridPoint {
-    int x, y, z;
-    
-    bool operator==(const MockGridPoint& other) const {
-        return x == other.x && y == other.y && z == other.z;
-    }
-    
-    bool operator!=(const MockGridPoint& other) const {
-        return !(*this == other);
-    }
-};
+namespace metada::backends::gmock {
 
 /**
  * @brief Mock implementation of a geometry iterator backend for testing
@@ -61,40 +43,27 @@ struct MockGridPoint {
  * - Dereference operations to access grid points
  * - Increment operations to advance the iterator
  * - Comparison operations to check iterator positions
- * - Proper move semantics (non-copyable)
- *
- * @tparam ConfigBackend The mock configuration backend type
+ * - Proper copy and move semantics
  *
  * @see MockGeometry
  * @see GeometryIterator
  * @see GeometryIteratorBackendType
  */
-template <typename ConfigBackend>
 class MockGeometryIterator {
 public:
+    using GridPoint = MockGridPoint;
     MockGeometryIterator() = delete;
-
-    // Delete copy and move constructors and assignment operators
-    MockGeometryIterator(const MockGeometryIterator&) = delete;
-    MockGeometryIterator& operator=(const MockGeometryIterator&) = delete;
-
-    MockGeometryIterator(MockGeometryIterator&& other) noexcept : config_(std::move(other.config_)) {}
-    MockGeometryIterator& operator=(MockGeometryIterator&& other) noexcept {
-        if (this != &other) {
-            config_ = std::move(other.config_);
-        }
-        return *this;
-    }
     
-    /** 
-     * @brief Constructor from a config 
-     * @param config Reference to the configuration backend
-     */
-    MockGeometryIterator(const ConfigBackend& config) : config_(config) {}
-
-    // GMock objects are not copyable or movable, so define our own comparison behavior
-    // without trying to mock operator== directly
-    MOCK_METHOD(MockGridPoint, dereference, (), (const));
+    // Constructor that takes a mock geometry or other context
+    explicit MockGeometryIterator([[maybe_unused]] void* context) {}
+    
+    // No copy or move operations - Google Mock objects can't be copied or moved
+    MockGeometryIterator(const MockGeometryIterator&) {};
+    MockGeometryIterator& operator=(const MockGeometryIterator&) { return *this; }
+    MockGeometryIterator(MockGeometryIterator&&) {};
+    MockGeometryIterator& operator=(MockGeometryIterator&&) { return *this; }
+    
+    MOCK_METHOD(GridPoint, dereference, (), (const));
     MOCK_METHOD(void, increment, ());
     MOCK_METHOD(bool, compare, (const MockGeometryIterator&), (const));
     
@@ -102,7 +71,7 @@ public:
      * @brief Dereference operator to access the current grid point
      * @return The current grid point
      */
-    MockGridPoint operator*() const { 
+    GridPoint operator*() const { 
         return dereference(); 
     }
     
@@ -142,10 +111,6 @@ public:
     bool operator!=(const MockGeometryIterator& other) const {
         return !compare(other);
     }
-
-private:
-    /** @brief Reference to the configuration backend */
-    const ConfigBackend& config_;
 };
 
 } // namespace metada::backends::gmock 

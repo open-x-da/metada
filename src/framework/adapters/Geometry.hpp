@@ -18,6 +18,7 @@
  * - Implement proper move semantics (non-copyable)
  * - Support halo exchange operations
  * - Allow geometry information queries
+ * - Support cloning for creating identical geometry instances
  *
  * @see Config
  * @see State
@@ -55,6 +56,8 @@ class Config;  // Config adapter for backend
  * - Consistent interface across different backends
  * - Support for grid traversal through iterators
  * - Integration with state operations like halo exchange
+ * - Periodicity queries for boundary conditions
+ * - Size information about the underlying grid
  *
  * The backend tag must satisfy the GeometryBackendType concept, which ensures
  * it provides valid backend implementation types through BackendTraits.
@@ -63,9 +66,19 @@ class Config;  // Config adapter for backend
  * @code
  * Config<BackendTag> config;
  * Geometry<BackendTag> geometry(config);
+ *
+ * // Check grid properties
+ * size_t gridSize = geometry.totalGridSize();
+ * bool isPeriodic = geometry.isPeriodicX();
+ *
+ * // Iterate through grid points
  * for (auto& point : geometry) {
  *     // Process each grid point
  * }
+ *
+ * // Perform halo exchange on a state
+ * State<BackendTag> state(config);
+ * geometry.haloExchange(state);
  * @endcode
  *
  * @tparam BackendTag The tag type that defines the geometry backend through
@@ -83,7 +96,7 @@ class Geometry : private NonCopyable {
   using GeometryBackend =
       typename traits::BackendTraits<BackendTag>::GeometryBackend;
   using Iterator =
-      class GeometryIterator<BackendTag>;  // defined in GeometryIterator.hpp
+      GeometryIterator<BackendTag>;  // defined in GeometryIterator.hpp
 
   // Disable default constructor – a Geometry must be created with a config or
   // backend.
@@ -99,10 +112,7 @@ class Geometry : private NonCopyable {
    * @throws std::runtime_error If backend initialization fails
    */
   explicit Geometry(const Config<BackendTag>& config)
-      : config_(config),  // store a copy of configuration
-        backend_(
-            config.backend()),  // initialize backend with config's backend data
-        initialized_(true) {
+      : config_(config), backend_(config.backend()), initialized_(true) {
     // If backend initialization fails, consider throwing an exception
     if (!initialized_) {
       throw std::runtime_error("Geometry backend initialization failed");
@@ -114,7 +124,7 @@ class Geometry : private NonCopyable {
    * @param other Geometry instance to move from
    */
   Geometry(Geometry&& other) noexcept
-      : config_(std::move(other.config_)),
+      : config_(other.config_),
         backend_(std::move(other.backend_)),
         initialized_(other.initialized_) {
     other.initialized_ = false;  // mark moved-from as uninitialized
@@ -127,7 +137,7 @@ class Geometry : private NonCopyable {
    */
   Geometry& operator=(Geometry&& other) noexcept {
     if (this != &other) {
-      config_ = std::move(other.config_);
+      config_ = other.config_;
       backend_ = std::move(other.backend_);
       initialized_ = other.initialized_;
       other.initialized_ = false;
@@ -203,7 +213,7 @@ class Geometry : private NonCopyable {
   template <typename StateType>
     requires requires(StateType state) { state.backend(); }
   void haloExchange(StateType& state) const {
-    backend_.haloExchangeImpl(state.backend());
+    backend_.haloExchangeImpl(static_cast<void*>(&state.backend()));
   }
 
   /**
