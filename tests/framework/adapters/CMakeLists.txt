@@ -26,7 +26,7 @@ setup_test_executable(logger_test LoggerTest.cpp)
 setup_test_executable(geometry_test GeometryTest.cpp)
 
 # Geometry iterator tests
-#setup_test_executable(geometry_iterator_test GeometryIteratorTest.cpp)
+setup_test_executable(geometry_iterator_test GeometryIteratorTest.cpp)
 
 # State tests
 setup_test_executable(state_test StateTest.cpp)
@@ -56,4 +56,4 @@ AddFormatTarget(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
 # AddFormatTarget(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
 AddFormatTarget(geometry_test ${CMAKE_CURRENT_SOURCE_DIR})
-# AddFormatTarget(geometry_iterator_test ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(geometry_iterator_test ${CMAKE_CURRENT_SOURCE_DIR})

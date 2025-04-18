@@ -73,7 +73,7 @@ class GeometryIteratorTest : public ::testing::Test {
     mock_iter_ = MockGeometryIteratorFactory::createMockIterator();
     iter_ =
         std::make_unique<GeometryIterator<traits::MockBackendTag>>(*mock_iter_);
-    points_ = {{0, 0, 0}, {1, 0, 0}, {2, 0, 0}};
+    points_ = {{0, 1, 2}, {1, 2, 3}, {2, 3, 4}};
   }
 
   void TearDown() override {
@@ -96,11 +96,11 @@ TEST_F(GeometryIteratorTest, BasicOperations) {
   MockGridPoint point{1, 2, 3};
 
   // Set up expectations on the backend iterator
-  EXPECT_CALL(*mock_iter_, dereference()).WillOnce(Return(point));
-  EXPECT_CALL(*mock_iter_, compare(testing::_))
+  EXPECT_CALL(iter_->backend(), dereference()).WillOnce(Return(point));
+  EXPECT_CALL(iter_->backend(), compare(testing::_))
       .WillOnce(Return(true))
       .WillOnce(Return(false));
-  EXPECT_CALL(*mock_iter_, increment()).Times(2);
+  EXPECT_CALL(iter_->backend(), increment()).Times(2);
 
   // Test dereference
   MockGridPoint result = **iter_;
@@ -141,20 +141,20 @@ TEST_F(GeometryIteratorTest, IterationSequence) {
   {
     ::testing::InSequence seq;
     for (const auto& point : points_) {
-      EXPECT_CALL(*mock_iter_, dereference()).WillOnce(Return(point));
+      EXPECT_CALL(iter_->backend(), dereference()).WillOnce(Return(point));
     }
   }
 
   // Configure compare behavior - return false until we reach the end
   size_t compareCallCount = 0;
-  EXPECT_CALL(*mock_iter_, compare(testing::_))
+  EXPECT_CALL(iter_->backend(), compare(testing::_))
       .WillRepeatedly([this, &compareCallCount](const auto&) {
         // Return false for first points_.size() calls, then true
         return (compareCallCount++ >= points_.size());
       });
 
   // Configure increment to be called for each point
-  EXPECT_CALL(*mock_iter_, increment()).Times(points_.size());
+  EXPECT_CALL(iter_->backend(), increment()).Times(points_.size());
 
   // Simulate iterating through sequence
   std::size_t pointIndex = 0;
