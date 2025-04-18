@@ -74,7 +74,6 @@ public:
     MockGeometry(MockGeometry&& other) noexcept : config_(std::move(other.config_)), gridPoints_(std::move(other.gridPoints_)) {}
     MockGeometry& operator=(MockGeometry&& other) noexcept {
         if (this != &other) {
-            config_ = std::move(other.config_);
             gridPoints_ = std::move(other.gridPoints_);
         }
         return *this;

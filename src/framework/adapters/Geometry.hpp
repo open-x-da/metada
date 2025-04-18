@@ -112,23 +112,14 @@ class Geometry : private NonCopyable {
    * @throws std::runtime_error If backend initialization fails
    */
   explicit Geometry(const Config<BackendTag>& config)
-      : config_(config), backend_(config.backend()), initialized_(true) {
-    // If backend initialization fails, consider throwing an exception
-    if (!initialized_) {
-      throw std::runtime_error("Geometry backend initialization failed");
-    }
-  }
+      : config_(config), backend_(config.backend()) {}
 
   /**
    * @brief Move constructor
    * @param other Geometry instance to move from
    */
   Geometry(Geometry&& other) noexcept
-      : config_(other.config_),
-        backend_(std::move(other.backend_)),
-        initialized_(other.initialized_) {
-    other.initialized_ = false;  // mark moved-from as uninitialized
-  }
+      : config_(other.config_), backend_(std::move(other.backend_)) {}
 
   /**
    * @brief Move assignment operator
@@ -137,10 +128,7 @@ class Geometry : private NonCopyable {
    */
   Geometry& operator=(Geometry&& other) noexcept {
     if (this != &other) {
-      config_ = other.config_;
       backend_ = std::move(other.backend_);
-      initialized_ = other.initialized_;
-      other.initialized_ = false;
     }
     return *this;
   }
@@ -220,7 +208,7 @@ class Geometry : private NonCopyable {
    * @brief Check if geometry is properly initialized
    * @return True if initialized, false otherwise
    */
-  bool isInitialized() const { return initialized_; }
+  bool isInitialized() const { return backend_.isInitialized(); }
 
   /**
    * @brief Access the underlying backend
@@ -248,12 +236,11 @@ class Geometry : private NonCopyable {
    * @param config Configuration to associate with this geometry
    */
   Geometry(GeometryBackend&& backend, const Config<BackendTag>& config)
-      : config_(config), backend_(std::move(backend)), initialized_(true) {}
+      : config_(config), backend_(std::move(backend)) {}
 
   const Config<BackendTag>&
       config_;  // Holds reference to externally managed config
   GeometryBackend
       backend_;  // The actual geometry implementation (grid data/operations)
-  bool initialized_{false};  // Flag to indicate if geometry is initialized
 };
 }  // namespace metada::framework
