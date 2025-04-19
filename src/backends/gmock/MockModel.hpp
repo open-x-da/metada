@@ -110,8 +110,7 @@ class MockModel {
   MOCK_METHOD(bool, isInitialized, (), (const));
 
   // Parameter management
-  MOCK_METHOD(std::string, getParameter, (const std::string& name),
-              (const));
+  MOCK_METHOD(std::string, getParameter, (const std::string& name), (const));
   MOCK_METHOD(void, setParameter,
               (const std::string& name, const std::string& value));
 
@@ -119,8 +118,9 @@ class MockModel {
   MOCK_METHOD(void, run,
               (const StateBackend& initialState, StateBackend& finalState,
                double startTime, double endTime));
+
  private:
-  const ConfigBackend& config_;  /**< Reference to the configuration object */
+  const ConfigBackend& config_; /**< Reference to the configuration object */
 };
 
 }  // namespace metada::backends::gmock

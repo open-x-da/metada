@@ -5,11 +5,10 @@ function(setup_test_executable target source)
     target_link_libraries(${target}
         PRIVATE
             metada::traits
-            metada::framework::interfaces
             metada::framework::adapters
-            metada::framework::interfaces::test
             metada::framework::runs
             metada::framework::core
+            metada::backends::gmock
     ) 
   
     # Add test with coverage

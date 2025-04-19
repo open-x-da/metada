@@ -12,11 +12,11 @@ target_sources(gmock_backends
     INTERFACE
         MockConfig.hpp
         MockGeometry.hpp
+        MockGridPoint.hpp
         MockGeometryIterator.hpp
         MockLogger.hpp
         MockModel.hpp
         MockState.hpp)
 
 # Add format target
-AddFormatTarget(gmock_backends
-    ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(gmock_backends ${CMAKE_CURRENT_SOURCE_DIR})

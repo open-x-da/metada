@@ -112,7 +112,9 @@ class MockState {
   }
 
   // Constructor that initializes state from config
-  explicit MockState(const ConfigBackend& config) : config_(config) { initialize(); }
+  explicit MockState(const ConfigBackend& config) : config_(config) {
+    initialize();
+  }
 
   // Clone operation
   std::unique_ptr<MockState> clone() const {
