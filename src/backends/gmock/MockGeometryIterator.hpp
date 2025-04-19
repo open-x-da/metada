@@ -45,26 +45,41 @@ namespace metada::backends::gmock {
  * - Comparison operations to check iterator positions
  * - Proper copy and move semantics
  *
+ * This mock is used in tests to verify that the GeometryIterator adapter
+ * correctly delegates operations to the backend implementation.
+ *
  * @see MockGeometry
  * @see GeometryIterator
  * @see GeometryIteratorBackendType
  */
 class MockGeometryIterator {
 public:
+    /** @brief Grid point type used by this iterator */
     using GridPoint = MockGridPoint;
+    
+    /** @brief Default constructor is deleted to ensure proper initialization */
     MockGeometryIterator() = delete;
     
-    // Constructor that takes a mock geometry or other context
+    /**
+     * @brief Constructor that takes a mock geometry or other context
+     * @param context Pointer to context object (can be null for testing)
+     */
     explicit MockGeometryIterator([[maybe_unused]] void* context) {}
     
-    // No copy or move operations - Google Mock objects can't be copied or moved
+    /**
+     * @brief Copy constructor
+     * @param other Iterator to copy from
+     * @note Explicitly defined because it would be deleted by default by gmock
+     */
     MockGeometryIterator(const MockGeometryIterator&) {};
-    MockGeometryIterator& operator=(const MockGeometryIterator&) { return *this; }
-    MockGeometryIterator(MockGeometryIterator&&) {};
-    MockGeometryIterator& operator=(MockGeometryIterator&&) { return *this; }
     
+    /** @brief Mock method for dereferencing the iterator */
     MOCK_METHOD(GridPoint, dereference, (), (const));
+    
+    /** @brief Mock method for incrementing the iterator */
     MOCK_METHOD(void, increment, ());
+    
+    /** @brief Mock method for comparing iterators */
     MOCK_METHOD(bool, compare, (const MockGeometryIterator&), (const));
     
     /**

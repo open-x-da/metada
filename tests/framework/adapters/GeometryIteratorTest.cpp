@@ -111,9 +111,10 @@ TEST_F(GeometryIteratorTest, BasicOperations) {
   // Test comparison
   std::shared_ptr<MockGeometryIterator> otherMockIter =
       MockGeometryIteratorFactory::createMockIterator();
-  GeometryIterator<traits::MockBackendTag> otherIter(*otherMockIter);
-  EXPECT_TRUE(*iter_ == otherIter);
-  EXPECT_TRUE(*iter_ != otherIter);
+  auto otherIter = std::make_unique<GeometryIterator<traits::MockBackendTag>>(
+      *otherMockIter);
+  EXPECT_TRUE(*iter_ == *otherIter);
+  EXPECT_TRUE(*iter_ != *otherIter);
 
   // Test increment operations
   ++(*iter_);  // Pre-increment
@@ -134,7 +135,8 @@ TEST_F(GeometryIteratorTest, IterationSequence) {
   // Create a second iterator to act as the end sentinel
   std::shared_ptr<MockGeometryIterator> endMockIter =
       MockGeometryIteratorFactory::createMockIterator();
-  GeometryIterator<traits::MockBackendTag> endIter(*endMockIter);
+  auto endIter =
+      std::make_unique<GeometryIterator<traits::MockBackendTag>>(*endMockIter);
 
   // Setup expectations - mock the sequence of points
   // First expect dereference calls to return our test points in sequence
@@ -158,7 +160,7 @@ TEST_F(GeometryIteratorTest, IterationSequence) {
 
   // Simulate iterating through sequence
   std::size_t pointIndex = 0;
-  while (*iter_ != endIter && pointIndex < points_.size()) {
+  while (*iter_ != *endIter && pointIndex < points_.size()) {
     MockGridPoint point = **iter_;
     EXPECT_EQ(point.x, points_[pointIndex].x);
     EXPECT_EQ(point.y, points_[pointIndex].y);

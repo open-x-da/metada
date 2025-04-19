@@ -21,9 +21,9 @@
 
 #pragma once
 
+#include <gmock/gmock.h>
 #include <memory>
 #include <vector>
-#include <gmock/gmock.h>
 
 #include "MockGridPoint.hpp"
 #include "MockGeometryIterator.hpp"
@@ -44,7 +44,9 @@ namespace metada::backends::gmock {
  * - Periodicity queries in X, Y, and Z dimensions
  * - Size information queries
  * - Halo exchange operations
+ * - Initialization status checks
  * - Proper move semantics (non-copyable)
+ * - Cloning capability
  *
  * @tparam ConfigBackend The mock configuration backend type
  *
@@ -54,7 +56,10 @@ namespace metada::backends::gmock {
 template <typename ConfigBackend>
 class MockGeometry {
 public:
+    /** @brief Iterator type for traversing grid points */
     using iterator = MockGeometryIterator;
+    
+    /** @brief Const iterator type for traversing grid points */
     using const_iterator = MockGeometryIterator;
 
     /**
@@ -63,15 +68,26 @@ public:
      */
     explicit MockGeometry(const ConfigBackend& config) : config_(config), gridPoints_({{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}) {}
     
-    // Deleted default constructor
+    /** @brief Default constructor is deleted to ensure proper initialization */
     MockGeometry() = delete;
     
-    // Delete copy constructor and assignment operator
+    /** @brief Copy constructor is deleted (non-copyable) */
     MockGeometry(const MockGeometry&) = delete;
+    
+    /** @brief Copy assignment operator is deleted (non-copyable) */
     MockGeometry& operator=(const MockGeometry&) = delete;
 
-    // Move constructor and assignment operator
+    /**
+     * @brief Move constructor
+     * @param other Geometry to move from
+     */
     MockGeometry(MockGeometry&& other) noexcept : config_(std::move(other.config_)), gridPoints_(std::move(other.gridPoints_)) {}
+    
+    /**
+     * @brief Move assignment operator
+     * @param other Geometry to move from
+     * @return Reference to this geometry after assignment
+     */
     MockGeometry& operator=(MockGeometry&& other) noexcept {
         if (this != &other) {
             gridPoints_ = std::move(other.gridPoints_);
@@ -87,10 +103,16 @@ public:
         return MockGeometry(config_);
     }
 
-    // Mock methods required by GeometryBackendType concept
+    /** @brief Mock method for getting iterator to first grid point */
     MOCK_METHOD(iterator, begin, ());
+    
+    /** @brief Mock method for getting iterator past the last grid point */
     MOCK_METHOD(iterator, end, ());
+    
+    /** @brief Mock method for getting const iterator to first grid point */
     MOCK_METHOD(const_iterator, begin, (), (const));
+    
+    /** @brief Mock method for getting const iterator past the last grid point */
     MOCK_METHOD(const_iterator, end, (), (const));
     
     /**
@@ -141,7 +163,10 @@ public:
     MOCK_METHOD(void, haloExchangeImpl, (void* state), (const));
 
 private:
+    /** @brief Reference to the configuration backend */
     const ConfigBackend& config_;
+    
+    /** @brief Sample grid points for testing */
     std::vector<MockGridPoint> gridPoints_;
 };
 
