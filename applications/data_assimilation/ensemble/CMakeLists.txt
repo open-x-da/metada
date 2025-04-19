@@ -4,9 +4,12 @@ add_executable(letkf letkf.cpp)
 # Link with required backend libraries for logging and configuration
 target_link_libraries(letkf
     PRIVATE
+        metada::traits
+        metada::framework::adapters
         metada::framework::core
-        metada::backends::tools::logger
-        metada::backends::tools::config
+        metada::framework::interfaces
+        metada::framework::runs
+        metada::backends::common::utils
 )
 
 # Add format target to ensure consistent code style across the project

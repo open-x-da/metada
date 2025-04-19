@@ -1,35 +1,40 @@
-letkf:
-  # Ensemble parameters
-  ensemble_size: 64
-  inflation_factor: 1.15
-  localization_radius: 500.0  # km
+logger:
+  app_name: "letkf"
+  level: "debug"
+  color: true
+  console: true
 
-  # State variables to analyze
-  state_variables:
-    - temperature
-    - pressure
-    - humidity
-    - wind_u
-    - wind_v
+# Ensemble parameters
+ensemble_size: 64
+inflation_factor: 1.15
+localization_radius: 500.0  # km
 
-  # Observation settings
-  observations:
-    max_distance: 1000.0  # km
-    error_threshold: 3.0  # standard deviations
-    types:
-      - satellite
-      - radiosonde
-      - surface
+# State variables to analyze
+state_variables:
+  - temperature
+  - pressure
+  - humidity
+  - wind_u
+  - wind_v
 
-  # Computational settings
-  compute:
-    num_threads: 8
-    batch_size: 1000
-    use_gpu: true
+# Observation settings
+observations:
+  max_distance: 1000.0  # km
+  error_threshold: 3.0  # standard deviations
+  types:
+    - satellite
+    - radiosonde
+    - surface
 
-  # Output settings
-  output:
-    format: netcdf4
-    compression_level: 4
-    save_ensemble: true
-    save_analysis_error: true 
+# Computational settings
+compute:
+  num_threads: 8
+  batch_size: 1000
+  use_gpu: true
+
+# Output settings
+output:
+  format: netcdf4
+  compression_level: 4
+  save_ensemble: true
+  save_analysis_error: true 

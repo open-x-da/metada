@@ -1,30 +1,95 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "MSVC Debug",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${command:cmake.launchTargetPath}",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "C/C++ Active File",
-            "type": "cppvsdbg",
+            "name": "C/C++: g++.exe build and debug active file",
+            "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
-            "console": "integratedTerminal"
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\mingw64\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "C/C++: g++.exe build active file"
+        },
+        {
+            "name": "Debug LETKF",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/applications/data_assimilation/ensemble/letkf",
+            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.yaml"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "GLOG_logtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_v",
+                    "value": "2"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Debug Lorenz63 C++ Example",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/src/backends/interfaces/apps/lorenz63/lorenz63_cpp_example",
+            "args": ["${workspaceFolder}/src/backends/interfaces/apps/lorenz63/config.yaml"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "GLOG_logtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_v",
+                    "value": "2"
+                },
+                {
+                    "name": "GLOG_colorlogtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_minloglevel",
+                    "value": "0"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

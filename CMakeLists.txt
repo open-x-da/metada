@@ -1,43 +1,57 @@
-# Require CMake 3.30 or higher
+# Root CMakeLists.txt for the metada project
+#
+# This is the main CMake configuration file that:
+# - Sets up project metadata and CMake requirements
+# - Configures build options and dependencies
+# - Defines the project structure
+# - Enables testing and documentation
+
 cmake_minimum_required(VERSION 3.30)
 
-# Add project-specific CMake modules
 list(APPEND CMAKE_MODULE_PATH
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts"
 )
 
-# Define project metadata
 project(metada
     VERSION 0.1.0
     LANGUAGES C CXX Fortran
 )
 
-# Load project configuration
 include(ProjectSetup)
 metada_project_initialize()
 
-# Required dependencies
+# Find required external dependencies
 metada_find_package(Python3 COMPONENTS Development NumPy)
 metada_find_package(GTest)
 metada_find_package(Git)
 metada_find_package(ClangFormat)
 metada_find_package(Lcov)
 
-# Optional dependencies
+# Find optional external dependencies
 metada_find_package(yaml-cpp OPTIONAL QUIET)
 metada_find_package(nlohmann_json OPTIONAL QUIET)
 metada_find_package(Glog OPTIONAL QUIET)
 
-# CUDA configuration
+# Configure CUDA support
 include(CUDA)
 
-# Project structure
+# Add core components
 add_subdirectory(src)
+add_subdirectory(applications)
+
+# Enable testing
 include(CTest)
 add_subdirectory(tests)
-add_subdirectory(applications)
+
+# Add documentation
 add_subdirectory(docs)
 
-# Display build configuration
+# Enable precompiled headers for all targets
+#include(EnablePrecompiledHeaders)
+
+# Enable unity builds for all targets
+#include(EnableUnityBuild)
+
+# Show final configuration
 metada_project_summary()

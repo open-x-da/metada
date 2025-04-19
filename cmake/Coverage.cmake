@@ -61,7 +61,9 @@ function(AddCoverage target)
   add_custom_target(
     coverage-${target}
     # Clean up the old gcda
-    COMMAND ${CMAKE_COMMAND} -E remove ${target_binary_dir}/*.gcda
+    COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} 
+            -DCMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} 
+            -P ${CMAKE_SOURCE_DIR}/cmake/scripts/clean_gcda.cmake
     # Capture coverage data
     COMMAND ${LCOV_COMMAND} 
             --directory .
@@ -94,7 +96,6 @@ function(AddCoverage target)
     COMMAND ${CMAKE_COMMAND} -E remove coverage.info filtered.info
     WORKING_DIRECTORY ${target_binary_dir}
     COMMENT "Generating coverage report for ${target}"
-
   )
 
   # Add a global coverage target if it doesn't exist

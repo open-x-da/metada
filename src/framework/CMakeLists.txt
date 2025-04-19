@@ -1,3 +1,4 @@
-add_subdirectory(tools)
+add_subdirectory(adapters)
 add_subdirectory(core)
-add_subdirectory(repr)
+add_subdirectory(interfaces)
+add_subdirectory(runs)

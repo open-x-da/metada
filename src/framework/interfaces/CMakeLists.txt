@@ -1,0 +1,20 @@
+# Define the scientific representation library
+add_library(interfaces INTERFACE)
+
+# Create alias target
+add_library(metada::framework::interfaces ALIAS interfaces)
+
+# Set up include directories
+target_include_directories(interfaces
+    INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
+
+# List header files for proper IDE indexing and documentation
+target_sources(interfaces
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/IObservation.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/IObsOperator.hpp
+)
+
+AddFormatTarget(interfaces ${CMAKE_CURRENT_SOURCE_DIR})

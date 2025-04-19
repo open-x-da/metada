@@ -1,0 +1,59 @@
+# Test configuration file for ConfigTest
+# Contains various data types and structures for testing
+
+# Basic scalar values
+string_value: "test string"
+int_value: 42
+float_value: 3.14
+bool_value: true
+
+# Arrays of different types
+string_array:
+  - "a"
+  - "b"
+  - "c"
+
+int_array:
+  - 1
+  - 2
+  - 3
+
+float_array:
+  - 1.1
+  - 2.2
+  - 3.3
+
+bool_array:
+  - true
+  - false
+  - true
+
+# Nested structures
+database:
+  host: "localhost"
+  port: 5432
+  credentials:
+    username: "admin"
+    password: "secret"
+
+logging:
+  level: "debug"
+  file: "app.log"
+  rotation:
+    max_size: 10485760  # 10MB
+    max_files: 5
+    compress: true
+
+# Complex nested arrays
+matrix:
+  - [1, 2, 3]
+  - [4, 5, 6]
+  - [7, 8, 9]
+
+# Mixed types in arrays
+mixed_array:
+  - "string"
+  - 42
+  - 3.14
+  - true
+  - null 

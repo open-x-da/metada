@@ -49,4 +49,8 @@ IncludeCategories:
     Priority:        2
   - Regex:           '.*'
     Priority:        3
+
+# Namespace formatting
+FixNamespaceComments: true
+ShortNamespaceLines: 1
 --- 
