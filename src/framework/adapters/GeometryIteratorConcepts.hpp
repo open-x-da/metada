@@ -17,6 +17,8 @@
 #include <iterator>
 #include <type_traits>
 
+#include "CommonConcepts.hpp"
+
 namespace metada::framework {
 
 /**
@@ -28,11 +30,14 @@ namespace metada::framework {
  * - Pre/post increment operators
  * - Equality/inequality comparison operators
  * - Forward iterator behavior
+ * - Proper resource management with deleted default constructor
  *
  * This concept ensures that the backend iterator can be used with the standard
- * iterator interface.
+ * iterator interface and follows the framework's resource management patterns.
  *
  * @tparam T The geometry iterator backend implementation type
+ *
+ * @see HasDeletedDefaultConstructor
  */
 template <typename T>
 concept GeometryIteratorBackendImpl = requires(T it, const T& const_it) {
@@ -53,6 +58,9 @@ concept GeometryIteratorBackendImpl = requires(T it, const T& const_it) {
   // Inequality comparison
   { it != it } -> std::same_as<bool>;
   { const_it != const_it } -> std::same_as<bool>;
+
+  // Resource management constraints
+  requires HasDeletedDefaultConstructor<T>;
 };
 
 /**
@@ -62,12 +70,16 @@ concept GeometryIteratorBackendImpl = requires(T it, const T& const_it) {
  * @details A valid backend tag must:
  * - Provide a GeometryIteratorBackend type through BackendTraits
  * - Ensure the GeometryIteratorBackend type satisfies the
- * GeometryIteratorBackendImpl concept
+ *   GeometryIteratorBackendImpl concept
  *
  * This concept constrains the template parameter of the GeometryIterator class,
- * ensuring that only valid backend iterator implementations can be used.
+ * ensuring that only valid backend iterator implementations can be used. It
+ * provides compile-time validation of backend compatibility.
  *
  * @tparam T The backend tag type to check
+ *
+ * @see HasGeometryIteratorBackend
+ * @see GeometryIteratorBackendImpl
  */
 template <typename T>
 concept GeometryIteratorBackendType =

@@ -1,3 +1,16 @@
+/**
+ * @file LoggerConcepts.hpp
+ * @brief Concept definitions for logger classes
+ * @ingroup adapters
+ * @author Metada Framework Team
+ *
+ * @details
+ * This file contains concept definitions that constrain the types that can be
+ * used with the Logger adapter class. These concepts ensure that backend
+ * implementations provide all the necessary functionality required by the
+ * logging operations.
+ */
+
 #pragma once
 
 #include <concepts>
@@ -9,71 +22,46 @@
 namespace metada::framework {
 
 //-----------------------------------------------------------------------------
-// Core logging capability concepts
-//-----------------------------------------------------------------------------
-
-/**
- * @brief Concept that checks if a type implements the core logging
- * functionality
- *
- * @details Verifies that a type T provides a LogMessage method accepting a
- * LogLevel and a string message, which is the minimum requirement for any
- * logger backend implementation. This method is responsible for actually
- * writing log messages to the underlying logging system.
- *
- * @tparam T The type to check for logging capability
- */
-template <typename T>
-concept HasLogMessage =
-    requires(T t, LogLevel level, const std::string& message) {
-      { t.LogMessage(level, message) } -> std::same_as<void>;
-    };
-
-/**
- * @brief Concept that checks if a type provides lifecycle management methods
- *
- * @details Verifies that a type T has static Init and Shutdown methods
- * for initialization and cleanup of logger backends. These methods are
- * typically used to set up and tear down global logging resources.
- *
- * @tparam T The type to check for lifecycle management capability
- */
-template <typename T>
-concept HasStaticLifecycle = requires(const std::string& app_name) {
-  { T::Init(app_name) } -> std::same_as<void>;
-  { T::Shutdown() } -> std::same_as<void>;
-};
-
-//-----------------------------------------------------------------------------
 // Component concepts
 //-----------------------------------------------------------------------------
 
 /**
  * @brief Concept that defines requirements for a logger backend implementation
  *
- * @details A valid logger backend must:
- * - Implement LogMessage method for handling log entries
- * - Be constructible from a ConfigBackend instance
- * - Provide static Init/Shutdown methods for lifecycle management
- * - Have deleted default constructor, copy constructor, and copy assignment
+ * @details A valid logger backend implementation must provide:
+ * - A LogMessage method for writing log entries
+ * - Static Init/Shutdown methods for lifecycle management
+ * - Configuration constructor
+ * - Proper resource management with deleted default constructor, copy
+ * constructor, and copy assignment operator
  *
  * This concept is used to ensure that backend implementations provide
  * all the necessary functionality required by the Logger class.
  *
- * Example implementations include GoogleLogger and MockLogger.
- *
  * @tparam T The logger backend implementation type
  * @tparam ConfigBackend The configuration backend type
  *
- * @see HasLogMessage
- * @see HasConfigConstructor
- * @see HasStaticLifecycle
+ * @see HasDeletedDefaultConstructor
+ * @see HasDeletedCopyConstructor
+ * @see HasDeletedCopyAssignment
  */
 template <typename T, typename ConfigBackend>
 concept LoggerBackendImpl =
-    HasLogMessage<T> && HasConfigConstructor<T, ConfigBackend> &&
-    HasStaticLifecycle<T> && HasDeletedDefaultConstructor<T> &&
-    HasDeletedCopyConstructor<T> && HasDeletedCopyAssignment<T>;
+    requires(T& t, const ConfigBackend& config, LogLevel level,
+             const std::string& message, const std::string& app_name) {
+      // Core logging functionality
+      { t.LogMessage(level, message) } -> std::same_as<void>;
+
+      // Lifecycle management
+      { T::Init(app_name) } -> std::same_as<void>;
+      { T::Shutdown() } -> std::same_as<void>;
+
+      // Construction and resource management
+      { T(config) } -> std::same_as<T>;
+      requires HasDeletedDefaultConstructor<T>;
+      requires HasDeletedCopyConstructor<T>;
+      requires HasDeletedCopyAssignment<T>;
+    };
 
 /**
  * @brief Concept that defines requirements for a logger backend tag type
