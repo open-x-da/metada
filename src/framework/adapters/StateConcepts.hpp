@@ -1,3 +1,16 @@
+/**
+ * @file StateConcepts.hpp
+ * @brief Concept definitions for state classes
+ * @ingroup adapters
+ * @author Metada Framework Team
+ *
+ * @details
+ * This file contains concept definitions that constrain the types that can be
+ * used with the State adapter class. These concepts ensure that backend
+ * implementations provide all the necessary functionality required by the
+ * state operations.
+ */
+
 #pragma once
 
 #include <concepts>
@@ -9,86 +22,42 @@
 
 namespace metada::framework {
 
-//-----------------------------------------------------------------------------
-// Core state capability concepts
-//-----------------------------------------------------------------------------
-
-/**
- * @brief Concept that checks if a type provides data access methods
- *
- * @details Verifies that a type T provides methods to access the underlying
- * state data as both mutable and const void pointers, allowing for type-safe
- * casting at the interface level.
- *
- * @tparam T The type to check for data access capability
- */
-template <typename T>
-concept HasGetData = requires(T& t, const T& ct) {
-  { t.getData() } -> std::same_as<void*>;
-  { ct.getData() } -> std::same_as<const void*>;
-};
-
-/**
- * @brief Concept that checks if a type provides variable name access
- *
- * @details Verifies that a type T provides a method to retrieve the names
- * of state variables as a vector of strings, supporting discovery and
- * introspection of state components.
- *
- * @tparam T The type to check for variable name access capability
- */
-template <typename T>
-concept HasGetVariableNames = requires(const T& t) {
-  { t.getVariableNames() } -> std::same_as<const std::vector<std::string>&>;
-};
-
-/**
- * @brief Concept that checks if a type provides dimension information
- *
- * @details Verifies that a type T provides a method to retrieve the dimensions
- * of each state variable, supporting multi-dimensional state representations.
- *
- * @tparam T The type to check for dimension access capability
- */
-template <typename T>
-concept HasGetDimensions = requires(const T& t) {
-  {
-    t.getDimensions(std::string{})
-  } -> std::same_as<const std::vector<size_t>&>;
-};
-
-//-----------------------------------------------------------------------------
-// Component concepts
-//-----------------------------------------------------------------------------
-
 /**
  * @brief Concept that defines requirements for a state backend implementation
  *
- * @details A valid state backend must:
- * - Be constructible from a ConfigBackend instance
- * - Provide a clone method for deep copying
- * - Provide methods to access underlying data
- * - Provide methods to retrieve variable names and dimensions
- * - Have deleted copy constructor and assignment operator
- *
- * This concept is used to ensure that backend implementations provide
- * all the necessary functionality required by the State class.
+ * @details A valid state backend implementation must provide:
+ * - Data access methods (getData for both mutable and const access)
+ * - Variable name access method
+ * - Dimension information for each variable
+ * - Support for cloning the state
+ * - Configuration constructor and proper resource management
  *
  * @tparam T The state backend implementation type
  * @tparam ConfigBackend The configuration backend type
- *
- * @see HasConfigConstructor
- * @see HasClone
- * @see HasGetData
- * @see HasGetVariableNames
- * @see HasGetDimensions
  */
 template <typename T, typename ConfigBackend>
 concept StateBackendImpl =
-    HasConfigConstructor<T, ConfigBackend> && HasClone<T> && HasGetData<T> &&
-    HasGetVariableNames<T> && HasGetDimensions<T> &&
-    HasDeletedDefaultConstructor<T> && HasDeletedCopyConstructor<T> &&
-    HasDeletedCopyAssignment<T>;
+    requires(T& t, const T& ct, const std::string& varName,
+             const ConfigBackend& config) {
+      // Data access
+      { t.getData() } -> std::same_as<void*>;
+      { ct.getData() } -> std::same_as<const void*>;
+
+      // Variable information
+      {
+        ct.getVariableNames()
+      } -> std::same_as<const std::vector<std::string>&>;
+      { ct.getDimensions(varName) } -> std::same_as<const std::vector<size_t>&>;
+
+      // Construction and cloning
+      { T(config) } -> std::same_as<T>;
+      { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;
+
+      // Resource management constraints
+      requires HasDeletedDefaultConstructor<T>;
+      requires HasDeletedCopyConstructor<T>;
+      requires HasDeletedCopyAssignment<T>;
+    };
 
 /**
  * @brief Concept that defines requirements for a state backend tag type
@@ -98,15 +67,7 @@ concept StateBackendImpl =
  * - Ensure the StateBackend type satisfies the StateBackendImpl concept
  *   when paired with the ConfigBackend type
  *
- * This concept constrains the template parameter of the State class,
- * ensuring that only valid backend configurations can be used. It provides
- * compile-time validation of backend compatibility.
- *
  * @tparam T The backend tag type to check
- *
- * @see HasStateBackend
- * @see HasConfigBackend
- * @see StateBackendImpl
  */
 template <typename T>
 concept StateBackendType =
