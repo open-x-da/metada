@@ -1,3 +1,3 @@
 # Add test categories
 add_subdirectory(framework)
-#add_subdirectory(python)
+add_subdirectory(python)
