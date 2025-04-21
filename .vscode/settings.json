@@ -4,7 +4,7 @@
         "CMAKE_BUILD_TYPE": "Debug"
     },
     "cmake.configureArgs": [
-        "-DLOGGER_BACKEND=CONSOLE",
+        "-DLOGGER_BACKEND=GLOG",
         "-DCONFIG_BACKEND=YAML"
     ],
     "cmake.buildDirectory": "${workspaceFolder}/build",
