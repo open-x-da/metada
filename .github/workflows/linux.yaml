@@ -43,15 +43,21 @@ jobs:
           libyaml-cpp-dev \
           nlohmann-json3-dev
 
+    - name: Install GCC 14.2.0
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get update
+        sudo apt-get install -y gcc-14 g++-14 gfortran-14
+
     - name: Configure CMake
       run: |
         mkdir build
         cd build
         cmake -G Ninja \
           -DCMAKE_BUILD_TYPE=Debug \
-          -DCMAKE_C_COMPILER=gcc \
-          -DCMAKE_CXX_COMPILER=g++ \
-          -DCMAKE_Fortran_COMPILER=gfortran \
+          -DCMAKE_C_COMPILER=gcc-14 \
+          -DCMAKE_CXX_COMPILER=g++-14 \
+          -DCMAKE_Fortran_COMPILER=gfortran-14 \
           ..
 
     - name: Build
