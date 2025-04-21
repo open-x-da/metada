@@ -15,7 +15,7 @@ NamespaceIndentation: None
 ContinuationIndentWidth: 4
 
 # Alignment
-DerivePointerAlignment: true
+DerivePointerAlignment: false
 PointerAlignment: Left
 
 # Line breaks

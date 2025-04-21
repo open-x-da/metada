@@ -22,7 +22,7 @@ include(ProjectSetup)
 metada_project_initialize()
 
 # Find required external dependencies
-metada_find_package(Python3 COMPONENTS Development NumPy)
+#metada_find_package(Python3 COMPONENTS Development NumPy)
 metada_find_package(GTest)
 metada_find_package(Git)
 metada_find_package(ClangFormat)
