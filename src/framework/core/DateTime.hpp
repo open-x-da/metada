@@ -4,6 +4,7 @@
 #include <compare>
 #include <concepts>
 #include <format>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -25,6 +26,9 @@ class DateTime {
   explicit DateTime(
       const std::chrono::system_clock::time_point& timepoint) noexcept;
 
+  // Construct from ISO8601 string (e.g., "2023-04-15T12:30:45Z")
+  explicit DateTime(const std::string& iso8601_string);
+
   // Get components
   [[nodiscard]] int year() const noexcept;
   [[nodiscard]] int month() const noexcept;
@@ -40,6 +44,9 @@ class DateTime {
   // Format the date/time using std::format
   [[nodiscard]] std::string format(
       std::string_view fmt = "%Y-%m-%d %H:%M:%S") const;
+
+  // Format as ISO8601 string (YYYY-MM-DDThh:mm:ssZ)
+  [[nodiscard]] std::string iso8601() const;
 
   // Static methods
   [[nodiscard]] static DateTime now() noexcept;

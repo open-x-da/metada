@@ -27,6 +27,41 @@ TEST(DateTimeTest, ComponentConstructor) {
   EXPECT_EQ(dt.second(), 45);
 }
 
+TEST(DateTimeTest, PartialComponentConstructor) {
+  // Test with just year, month, day (time should default to 00:00:00)
+  DateTime date_only(2023, 4, 15);
+  EXPECT_EQ(date_only.year(), 2023);
+  EXPECT_EQ(date_only.month(), 4);
+  EXPECT_EQ(date_only.day(), 15);
+  EXPECT_EQ(date_only.hour(), 0);
+  EXPECT_EQ(date_only.minute(), 0);
+  EXPECT_EQ(date_only.second(), 0);
+
+  // Test with year, month, day, hour (minutes and seconds should default to
+  // 00:00)
+  DateTime with_hour(2023, 4, 15, 12);
+  EXPECT_EQ(with_hour.year(), 2023);
+  EXPECT_EQ(with_hour.month(), 4);
+  EXPECT_EQ(with_hour.day(), 15);
+  EXPECT_EQ(with_hour.hour(), 12);
+  EXPECT_EQ(with_hour.minute(), 0);
+  EXPECT_EQ(with_hour.second(), 0);
+
+  // Test with year, month, day, hour, minute (seconds should default to 00)
+  DateTime with_minute(2023, 4, 15, 12, 30);
+  EXPECT_EQ(with_minute.year(), 2023);
+  EXPECT_EQ(with_minute.month(), 4);
+  EXPECT_EQ(with_minute.day(), 15);
+  EXPECT_EQ(with_minute.hour(), 12);
+  EXPECT_EQ(with_minute.minute(), 30);
+  EXPECT_EQ(with_minute.second(), 0);
+
+  // Test ISO8601 output with incomplete time
+  EXPECT_EQ(date_only.iso8601(), "2023-04-15T00:00:00Z");
+  EXPECT_EQ(with_hour.iso8601(), "2023-04-15T12:00:00Z");
+  EXPECT_EQ(with_minute.iso8601(), "2023-04-15T12:30:00Z");
+}
+
 TEST(DateTimeTest, TimePointConstructor) {
   // Create a specific time point
   std::chrono::system_clock::time_point tp =
@@ -34,6 +69,48 @@ TEST(DateTimeTest, TimePointConstructor) {
 
   DateTime dt(tp);
   EXPECT_EQ(dt.timePoint(), tp);
+}
+
+TEST(DateTimeTest, ISO8601Constructor) {
+  // Test valid ISO8601 string
+  DateTime dt1("2023-04-15T12:30:45Z");
+  EXPECT_EQ(dt1.year(), 2023);
+  EXPECT_EQ(dt1.month(), 4);
+  EXPECT_EQ(dt1.day(), 15);
+  EXPECT_EQ(dt1.hour(), 12);
+  EXPECT_EQ(dt1.minute(), 30);
+  EXPECT_EQ(dt1.second(), 45);
+
+  // Test with timezone offset
+  DateTime dt2("2023-04-15T12:30:45+00:00");
+  EXPECT_EQ(dt2.year(), 2023);
+  EXPECT_EQ(dt2.month(), 4);
+  EXPECT_EQ(dt2.day(), 15);
+  EXPECT_EQ(dt2.hour(), 12);
+  EXPECT_EQ(dt2.minute(), 30);
+  EXPECT_EQ(dt2.second(), 45);
+
+  // Test with milliseconds
+  DateTime dt3("2023-04-15T12:30:45.123Z");
+  EXPECT_EQ(dt3.year(), 2023);
+  EXPECT_EQ(dt3.month(), 4);
+  EXPECT_EQ(dt3.day(), 15);
+  EXPECT_EQ(dt3.hour(), 12);
+  EXPECT_EQ(dt3.minute(), 30);
+  EXPECT_EQ(dt3.second(), 45);
+
+  // Test invalid format exceptions
+  EXPECT_THROW(DateTime("2023-04-15"), std::invalid_argument);
+  EXPECT_THROW(DateTime("2023-04-15T12:30"), std::invalid_argument);
+  EXPECT_THROW(DateTime("not-a-date"), std::invalid_argument);
+
+  // Test invalid date components
+  EXPECT_THROW(DateTime("2023-13-15T12:30:45Z"),
+               std::invalid_argument);  // Invalid month
+  EXPECT_THROW(DateTime("2023-04-32T12:30:45Z"),
+               std::invalid_argument);  // Invalid day
+  EXPECT_THROW(DateTime("2023-04-15T24:30:45Z"),
+               std::invalid_argument);  // Invalid hour
 }
 
 TEST(DateTimeTest, OperatorPlus) {
@@ -204,6 +281,20 @@ TEST(DateTimeTest, FormatDefault) {
   EXPECT_TRUE(formatted.find("12") != std::string::npos);
   EXPECT_TRUE(formatted.find("30") != std::string::npos);
   EXPECT_TRUE(formatted.find("45") != std::string::npos);
+}
+
+TEST(DateTimeTest, ISO8601Format) {
+  // Test basic ISO8601 formatting
+  DateTime dt1(2023, 4, 15, 12, 30, 45);
+  EXPECT_EQ(dt1.iso8601(), "2023-04-15T12:30:45Z");
+
+  // Test single-digit values (should be zero-padded)
+  DateTime dt2(2023, 1, 5, 9, 5, 5);
+  EXPECT_EQ(dt2.iso8601(), "2023-01-05T09:05:05Z");
+
+  // Test round-trip (parse ISO8601 string and convert back)
+  DateTime dt3("2023-12-31T23:59:59Z");
+  EXPECT_EQ(dt3.iso8601(), "2023-12-31T23:59:59Z");
 }
 
 TEST(DateTimeTest, FormatCustom) {
