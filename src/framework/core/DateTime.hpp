@@ -7,8 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace metada {
-namespace core {
+namespace metada::core {
 
 /**
  * @brief A DateTime class utilizing C++20 features for date and time handling
@@ -37,14 +36,6 @@ class DateTime {
   // Get as time_point
   [[nodiscard]] std::chrono::system_clock::time_point timePoint()
       const noexcept;
-
-  // Add/subtract durations
-  template <typename Rep, typename Period>
-  DateTime& add(const std::chrono::duration<Rep, Period>& duration) noexcept;
-
-  template <typename Rep, typename Period>
-  DateTime& subtract(
-      const std::chrono::duration<Rep, Period>& duration) noexcept;
 
   // Format the date/time using std::format
   [[nodiscard]] std::string format(
@@ -78,6 +69,49 @@ class DateTime {
     return m_timePoint >= other.m_timePoint;
   }
 
+  // Operator overloads for immutable duration arithmetic
+  template <typename Rep, typename Period>
+  [[nodiscard]] DateTime operator+(
+      const std::chrono::duration<Rep, Period>& duration) const noexcept {
+    DateTime result(*this);
+    result.m_timePoint += duration;
+    result.updateComponents();
+    return result;
+  }
+
+  template <typename Rep, typename Period>
+  [[nodiscard]] DateTime operator-(
+      const std::chrono::duration<Rep, Period>& duration) const noexcept {
+    DateTime result(*this);
+    result.m_timePoint -= duration;
+    result.updateComponents();
+    return result;
+  }
+
+  // Compound assignment operators for mutable operations
+  template <typename Rep, typename Period>
+  DateTime& operator+=(
+      const std::chrono::duration<Rep, Period>& duration) noexcept {
+    m_timePoint += duration;
+    updateComponents();
+    return *this;
+  }
+
+  template <typename Rep, typename Period>
+  DateTime& operator-=(
+      const std::chrono::duration<Rep, Period>& duration) noexcept {
+    m_timePoint -= duration;
+    updateComponents();
+    return *this;
+  }
+
+  // Compute difference between two DateTimes
+  [[nodiscard]] std::chrono::seconds operator-(
+      const DateTime& other) const noexcept {
+    return std::chrono::duration_cast<std::chrono::seconds>(m_timePoint -
+                                                            other.m_timePoint);
+  }
+
  private:
   std::chrono::system_clock::time_point m_timePoint;
   std::chrono::year_month_day m_date;
@@ -85,27 +119,22 @@ class DateTime {
 
   // Update m_date and m_time from m_timePoint
   void updateComponents() noexcept;
+
+  // Add/subtract durations (private implementation methods)
+  template <typename Rep, typename Period>
+  DateTime& add(const std::chrono::duration<Rep, Period>& duration) noexcept {
+    m_timePoint += duration;
+    updateComponents();
+    return *this;
+  }
+
+  template <typename Rep, typename Period>
+  DateTime& subtract(
+      const std::chrono::duration<Rep, Period>& duration) noexcept {
+    m_timePoint -= duration;
+    updateComponents();
+    return *this;
+  }
 };
 
-//
-// Template implementations
-//
-
-template <typename Rep, typename Period>
-DateTime& DateTime::add(
-    const std::chrono::duration<Rep, Period>& duration) noexcept {
-  m_timePoint += duration;
-  updateComponents();
-  return *this;
-}
-
-template <typename Rep, typename Period>
-DateTime& DateTime::subtract(
-    const std::chrono::duration<Rep, Period>& duration) noexcept {
-  m_timePoint -= duration;
-  updateComponents();
-  return *this;
-}
-
-}  // namespace core
-}  // namespace metada
+}  // namespace metada::core

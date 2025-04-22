@@ -36,39 +36,163 @@ TEST(DateTimeTest, TimePointConstructor) {
   EXPECT_EQ(dt.timePoint(), tp);
 }
 
-TEST(DateTimeTest, GetComponents) {
+TEST(DateTimeTest, OperatorPlus) {
   DateTime dt(2023, 4, 15, 12, 30, 45);
-  EXPECT_EQ(dt.year(), 2023);
-  EXPECT_EQ(dt.month(), 4);
+
+  // Test adding days
+  DateTime nextDay = dt + std::chrono::days(1);
+  EXPECT_EQ(nextDay.year(), 2023);
+  EXPECT_EQ(nextDay.month(), 4);
+  EXPECT_EQ(nextDay.day(), 16);
+  EXPECT_EQ(nextDay.hour(), 12);
+  EXPECT_EQ(nextDay.minute(), 30);
+  EXPECT_EQ(nextDay.second(), 45);
+
+  // Test adding hours
+  DateTime laterHour = dt + std::chrono::hours(3);
+  EXPECT_EQ(laterHour.hour(), 15);
+
+  // Test adding minutes
+  DateTime laterMinute = dt + std::chrono::minutes(45);
+  EXPECT_EQ(laterMinute.hour(), 13);
+  EXPECT_EQ(laterMinute.minute(), 15);
+
+  // Test that original DateTime remains unchanged
   EXPECT_EQ(dt.day(), 15);
   EXPECT_EQ(dt.hour(), 12);
   EXPECT_EQ(dt.minute(), 30);
-  EXPECT_EQ(dt.second(), 45);
 }
 
-TEST(DateTimeTest, AddDuration) {
+TEST(DateTimeTest, OperatorMinus) {
   DateTime dt(2023, 4, 15, 12, 30, 45);
 
-  dt.add(std::chrono::days(1));
-  EXPECT_EQ(dt.day(), 16);
+  // Test subtracting days
+  DateTime previousDay = dt - std::chrono::days(1);
+  EXPECT_EQ(previousDay.year(), 2023);
+  EXPECT_EQ(previousDay.month(), 4);
+  EXPECT_EQ(previousDay.day(), 14);
+  EXPECT_EQ(previousDay.hour(), 12);
+  EXPECT_EQ(previousDay.minute(), 30);
+  EXPECT_EQ(previousDay.second(), 45);
 
-  dt.add(std::chrono::hours(1));
-  EXPECT_EQ(dt.hour(), 13);
+  // Test subtracting hours
+  DateTime earlierHour = dt - std::chrono::hours(3);
+  EXPECT_EQ(earlierHour.hour(), 9);
 
-  dt.add(std::chrono::minutes(30));
-  EXPECT_EQ(dt.minute(), 0);
-  EXPECT_EQ(dt.hour(), 14);
+  // Test subtracting minutes
+  DateTime earlierMinute = dt - std::chrono::minutes(45);
+  EXPECT_EQ(earlierMinute.hour(), 11);
+  EXPECT_EQ(earlierMinute.minute(), 45);
+
+  // Test that original DateTime remains unchanged
+  EXPECT_EQ(dt.day(), 15);
+  EXPECT_EQ(dt.hour(), 12);
+  EXPECT_EQ(dt.minute(), 30);
 }
 
-TEST(DateTimeTest, SubtractDuration) {
-  DateTime dt(2023, 4, 15, 12, 30, 45);
+TEST(DateTimeTest, OperatorDateDifference) {
+  DateTime dt1(2023, 4, 15, 12, 30, 45);
+  DateTime dt2(2023, 4, 15, 14, 45, 15);
+  DateTime dt3(2023, 4, 16, 12, 30, 45);
 
-  dt.subtract(std::chrono::hours(1));
-  EXPECT_EQ(dt.hour(), 11);
+  // Test difference in hours
+  auto diff1 = dt2 - dt1;
+  EXPECT_EQ(diff1.count(), 8070);  // 2h 14m 30s = 8070 seconds
 
-  dt.subtract(std::chrono::minutes(31));
-  EXPECT_EQ(dt.hour(), 10);
-  EXPECT_EQ(dt.minute(), 59);
+  // Test difference in days
+  auto diff2 = dt3 - dt1;
+  EXPECT_EQ(diff2.count(), 86400);  // 24h = 86400 seconds
+
+  // Test negative difference
+  auto diff3 = dt1 - dt2;
+  EXPECT_EQ(diff3.count(), -8070);  // -2h 14m 30s = -8070 seconds
+}
+
+TEST(DateTimeTest, CompoundAssignmentOperators) {
+  // Test +=
+  DateTime dt1(2023, 4, 15, 12, 30, 45);
+  dt1 += std::chrono::hours(1);
+  EXPECT_EQ(dt1.hour(), 13);
+  EXPECT_EQ(dt1.minute(), 30);
+
+  dt1 += std::chrono::minutes(45);
+  EXPECT_EQ(dt1.hour(), 14);
+  EXPECT_EQ(dt1.minute(), 15);
+
+  // Test -=
+  DateTime dt2(2023, 4, 15, 12, 30, 45);
+  dt2 -= std::chrono::hours(3);
+  EXPECT_EQ(dt2.hour(), 9);
+  EXPECT_EQ(dt2.minute(), 30);
+
+  dt2 -= std::chrono::minutes(45);
+  EXPECT_EQ(dt2.hour(), 8);
+  EXPECT_EQ(dt2.minute(), 45);
+
+  // Test sequential operators
+  DateTime dt3(2023, 4, 15, 12, 0, 0);
+  dt3 += std::chrono::hours(3);
+  dt3 += std::chrono::minutes(30);
+  EXPECT_EQ(dt3.hour(), 15);
+  EXPECT_EQ(dt3.minute(), 30);
+
+  DateTime dt4(2023, 4, 15, 12, 0, 0);
+  dt4 -= std::chrono::hours(3);
+  dt4 -= std::chrono::minutes(30);
+  EXPECT_EQ(dt4.hour(), 8);
+  EXPECT_EQ(dt4.minute(), 30);
+}
+
+TEST(DateTimeTest, ChainedOperatorExpressions) {
+  // Base date and various durations
+  DateTime base(2023, 4, 15, 12, 0, 0);
+  auto oneDay = std::chrono::days(1);
+  auto threeHours = std::chrono::hours(3);
+  auto ninetyMinutes = std::chrono::minutes(90);
+
+  // Test d = a + b (single addition chain)
+  DateTime result1 = base + oneDay;
+  EXPECT_EQ(result1.year(), 2023);
+  EXPECT_EQ(result1.month(), 4);
+  EXPECT_EQ(result1.day(), 16);
+  EXPECT_EQ(result1.hour(), 12);
+
+  // Test d = a + b + c (multiple addition chain)
+  DateTime result2 = base + oneDay + threeHours;
+  EXPECT_EQ(result2.day(), 16);
+  EXPECT_EQ(result2.hour(), 15);
+
+  // Test d = a - b (single subtraction chain)
+  DateTime result3 = base - threeHours;
+  EXPECT_EQ(result3.day(), 15);
+  EXPECT_EQ(result3.hour(), 9);
+
+  // Test d = a - b - c (multiple subtraction chain)
+  DateTime result4 = base - threeHours - ninetyMinutes;
+  EXPECT_EQ(result4.hour(), 7);
+  EXPECT_EQ(result4.minute(), 30);
+
+  // Test d = a + b - c (mixed operators)
+  DateTime result5 = base + oneDay - threeHours;
+  EXPECT_EQ(result5.day(), 16);
+  EXPECT_EQ(result5.hour(), 9);
+
+  // Test d = a - b + c (mixed operators, different order)
+  DateTime result6 = base - threeHours + ninetyMinutes;
+  EXPECT_EQ(result6.day(), 15);
+  EXPECT_EQ(result6.hour(), 10);
+  EXPECT_EQ(result6.minute(), 30);
+
+  // Test DateTime difference calculation with expressions
+  auto dateA = base + oneDay;
+  auto dateB = base - threeHours;
+  auto duration = dateA - dateB;
+  EXPECT_EQ(duration.count(), 86400 + 10800);  // 1 day + 3 hours in seconds
+
+  // Verify base date hasn't changed (immutability check)
+  EXPECT_EQ(base.day(), 15);
+  EXPECT_EQ(base.hour(), 12);
+  EXPECT_EQ(base.minute(), 0);
 }
 
 TEST(DateTimeTest, FormatDefault) {
@@ -121,7 +245,7 @@ TEST(DateTimeTest, EdgeCases) {
 
   // Test wrapping around midnight
   DateTime evening(2023, 4, 15, 23, 59, 59);
-  evening.add(std::chrono::seconds(1));
+  evening += std::chrono::seconds(1);
   EXPECT_EQ(evening.day(), 16);
   EXPECT_EQ(evening.hour(), 0);
   EXPECT_EQ(evening.minute(), 0);
@@ -129,7 +253,7 @@ TEST(DateTimeTest, EdgeCases) {
 
   // Test month boundary
   DateTime endOfMonth(2023, 4, 30, 12, 0, 0);
-  endOfMonth.add(std::chrono::days(1));
+  endOfMonth += std::chrono::days(1);
   EXPECT_EQ(endOfMonth.month(), 5);
   EXPECT_EQ(endOfMonth.day(), 1);
 }
