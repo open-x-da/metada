@@ -58,4 +58,7 @@ function(metada_project_initialize)
     
     # Include printing utilities for configuration summary
     include(print/Config)
+
+    # Include testing utilities
+    include(TestingUtils)
 endfunction()
