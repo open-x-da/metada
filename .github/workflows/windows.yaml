@@ -23,54 +23,56 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        shell: msys2 {0}
+        shell: pwsh
 
     steps:
     - uses: actions/checkout@v2
 
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: >-
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-gcc-fortran
-          mingw-w64-x86_64-cmake
-          mingw-w64-x86_64-ninja
-          mingw-w64-x86_64-python
-          mingw-w64-x86_64-python-pip
-          mingw-w64-x86_64-python-numpy
-          mingw-w64-x86_64-gtest
-          mingw-w64-x86_64-glog
-          mingw-w64-x86_64-clang-tools-extra
-          mingw-w64-x86_64-lcov
-          mingw-w64-x86_64-yaml-cpp
-          mingw-w64-x86_64-nlohmann-json
-          mingw-w64-x86_64-netcdf
-          mingw-w64-x86_64-netcdf-cxx
-
-    - name: Install xtensor with vcpkg
-      shell: powershell
+    - name: Setup vcpkg
       run: |
         # Clone vcpkg repo
         git clone https://github.com/microsoft/vcpkg.git
         cd vcpkg
         # Bootstrap vcpkg
         ./bootstrap-vcpkg.bat
-        # Install xtensor and xtensor-blas
+        # Set environment variable for CMake
+        echo "VCPKG_ROOT=${{github.workspace}}/vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Install dependencies with vcpkg
+      run: |
+        cd vcpkg
+        # Install all dependencies
+        ./vcpkg install gtest
+        ./vcpkg install glog
+        ./vcpkg install yaml-cpp
+        ./vcpkg install nlohmann-json
+        ./vcpkg install netcdf-c
+        ./vcpkg install netcdf-cxx4
         ./vcpkg install xtensor
         ./vcpkg install xtensor-blas
-        echo "VCPKG_ROOT=${{github.workspace}}/vcpkg" >> $GITHUB_ENV
+        # List installed packages
+        ./vcpkg list
+
+    - name: Install Python dependencies
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    
+    - name: Install numpy
+      run: pip install numpy
+      
+    - name: Setup Ninja
+      uses: seanmiddleditch/gha-setup-ninja@master
+
+    - name: Setup Compiler
+      uses: ilammy/msvc-dev-cmd@v1
 
     - name: Configure CMake
       run: |
         mkdir build
         cd build
-        cmake -G Ninja \
-          -DPython3_ROOT_DIR=/mingw64 \
-          -DPython3_EXECUTABLE=/mingw64/bin/python3 \
-          -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake \
+        cmake -G Ninja `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
           ..
 
     - name: Build
