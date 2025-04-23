@@ -28,6 +28,7 @@ metada_find_package(Git)
 metada_find_package(ClangFormat)
 metada_find_package(Lcov)
 metada_find_package(netcdf-cxx4)
+metada_find_package(xtensor)
 
 # Find optional external dependencies
 metada_find_package(yaml-cpp OPTIONAL QUIET)
