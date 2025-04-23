@@ -46,7 +46,7 @@ jobs:
           yaml-cpp \
           nlohmann-json \
           netcdf \
-          netcdf-cxx4 \
+          netcdf-cxx \
           xtensor
 
     - name: Configure CMake

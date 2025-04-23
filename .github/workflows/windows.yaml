@@ -48,8 +48,20 @@ jobs:
           mingw-w64-x86_64-yaml-cpp
           mingw-w64-x86_64-nlohmann-json
           mingw-w64-x86_64-netcdf
-          mingw-w64-x86_64-netcdf-cxx4
-          mingw-w64-x86_64-xtensor
+          mingw-w64-x86_64-netcdf-cxx
+
+    - name: Install xtensor with vcpkg
+      shell: powershell
+      run: |
+        # Clone vcpkg repo
+        git clone https://github.com/microsoft/vcpkg.git
+        cd vcpkg
+        # Bootstrap vcpkg
+        ./bootstrap-vcpkg.bat
+        # Install xtensor and xtensor-blas
+        ./vcpkg install xtensor
+        ./vcpkg install xtensor-blas
+        echo "VCPKG_ROOT=${{github.workspace}}/vcpkg" >> $GITHUB_ENV
 
     - name: Configure CMake
       run: |
@@ -58,6 +70,7 @@ jobs:
         cmake -G Ninja \
           -DPython3_ROOT_DIR=/mingw64 \
           -DPython3_EXECUTABLE=/mingw64/bin/python3 \
+          -DCMAKE_TOOLCHAIN_FILE=${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake \
           ..
 
     - name: Build
