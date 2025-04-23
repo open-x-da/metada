@@ -47,6 +47,9 @@ jobs:
           mingw-w64-x86_64-lcov
           mingw-w64-x86_64-yaml-cpp
           mingw-w64-x86_64-nlohmann-json
+          mingw-w64-x86_64-netcdf
+          mingw-w64-x86_64-netcdf-cxx4
+          mingw-w64-x86_64-xtensor
 
     - name: Configure CMake
       run: |

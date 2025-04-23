@@ -44,7 +44,10 @@ jobs:
           llvm \
           lcov \
           yaml-cpp \
-          nlohmann-json
+          nlohmann-json \
+          netcdf \
+          netcdf-cxx4 \
+          xtensor
 
     - name: Configure CMake
       run: |
