@@ -38,6 +38,59 @@ jobs:
         # Set environment variable for CMake
         echo "VCPKG_ROOT=${{github.workspace}}/vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-lcov
+          
+    - name: Install lcov to PATH
+      run: |
+        # Add MSYS2 paths to PowerShell PATH
+        $msys2Path = "C:\msys64\usr\bin;C:\msys64\mingw64\bin"
+        echo "$msys2Path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        
+        # Create symlinks for lcov and genhtml in a directory that's in PATH
+        mkdir -p "$env:RUNNER_TEMP\bin"
+        echo "$env:RUNNER_TEMP\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        
+        # Create wrapper scripts for lcov and genhtml that handle path conversions
+        @"
+        #!/bin/bash
+        # Convert Windows paths to MSYS2 paths
+        args=()
+        for arg in "$`@"; do
+          if [[ "$arg" == [A-Za-z]:\\* ]]; then
+            arg="\$(echo "$arg" | sed 's|\\\\|/|g' | sed 's|^\\([A-Za-z]\\):|/\\1|')"
+          fi
+          args+=("$arg")
+        done
+        /usr/bin/lcov "$`{args[@]}"
+        "@ | Out-File -FilePath "$env:RUNNER_TEMP\bin\lcov" -Encoding utf8
+        
+        @"
+        #!/bin/bash
+        # Convert Windows paths to MSYS2 paths
+        args=()
+        for arg in "$`@"; do
+          if [[ "$arg" == [A-Za-z]:\\* ]]; then
+            arg="\$(echo "$arg" | sed 's|\\\\|/|g' | sed 's|^\\([A-Za-z]\\):|/\\1|')"
+          fi
+          args+=("$arg")
+        done
+        /usr/bin/genhtml "$`{args[@]}"
+        "@ | Out-File -FilePath "$env:RUNNER_TEMP\bin\genhtml" -Encoding utf8
+        
+        # Make the scripts executable
+        chmod +x "$env:RUNNER_TEMP\bin\lcov"
+        chmod +x "$env:RUNNER_TEMP\bin\genhtml"
+        
+        # Verify installation
+        bash -c "lcov --version"
+        bash -c "genhtml --version"
+
     - name: Install dependencies with vcpkg
       run: |
         cd vcpkg
