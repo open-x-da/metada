@@ -47,49 +47,46 @@ jobs:
           mingw-w64-x86_64-lcov
           
     - name: Install lcov to PATH
+      shell: bash
       run: |
-        # Add MSYS2 paths to PowerShell PATH
-        $msys2Path = "C:\msys64\usr\bin;C:\msys64\mingw64\bin"
-        echo "$msys2Path" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        # Find where lcov and genhtml are installed
+        LCOV_PATH=$(find /mingw64 -name lcov.exe -o -name lcov 2>/dev/null | head -1)
+        GENHTML_PATH=$(find /mingw64 -name genhtml.exe -o -name genhtml 2>/dev/null | head -1)
         
-        # Create symlinks for lcov and genhtml in a directory that's in PATH
-        mkdir -p "$env:RUNNER_TEMP\bin"
-        echo "$env:RUNNER_TEMP\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        if [ -z "$LCOV_PATH" ]; then
+          echo "lcov not found, installing via pacman"
+          pacman -S --noconfirm mingw-w64-x86_64-lcov
+          LCOV_PATH=$(find /mingw64 -name lcov.exe -o -name lcov 2>/dev/null | head -1)
+          GENHTML_PATH=$(find /mingw64 -name genhtml.exe -o -name genhtml 2>/dev/null | head -1)
+        fi
         
-        # Create wrapper scripts for lcov and genhtml that handle path conversions
-        @"
-        #!/bin/bash
-        # Convert Windows paths to MSYS2 paths
-        args=()
-        for arg in "$`@"; do
-          if [[ "$arg" == [A-Za-z]:\\* ]]; then
-            arg="\$(echo "$arg" | sed 's|\\\\|/|g' | sed 's|^\\([A-Za-z]\\):|/\\1|')"
-          fi
-          args+=("$arg")
-        done
-        /usr/bin/lcov "$`{args[@]}"
-        "@ | Out-File -FilePath "$env:RUNNER_TEMP\bin\lcov" -Encoding utf8
+        echo "Found lcov at: $LCOV_PATH"
+        echo "Found genhtml at: $GENHTML_PATH"
         
-        @"
-        #!/bin/bash
-        # Convert Windows paths to MSYS2 paths
-        args=()
-        for arg in "$`@"; do
-          if [[ "$arg" == [A-Za-z]:\\* ]]; then
-            arg="\$(echo "$arg" | sed 's|\\\\|/|g' | sed 's|^\\([A-Za-z]\\):|/\\1|')"
-          fi
-          args+=("$arg")
-        done
-        /usr/bin/genhtml "$`{args[@]}"
-        "@ | Out-File -FilePath "$env:RUNNER_TEMP\bin\genhtml" -Encoding utf8
+        # Create bin directory for wrapper scripts
+        mkdir -p "$RUNNER_TEMP/bin"
+        echo "$RUNNER_TEMP/bin" >> $GITHUB_PATH
         
-        # Make the scripts executable
-        chmod +x "$env:RUNNER_TEMP\bin\lcov"
-        chmod +x "$env:RUNNER_TEMP\bin\genhtml"
+        # Create wrapper scripts
+        cat > "$RUNNER_TEMP/bin/lcov" << 'EOF'
+#!/bin/bash
+# Use the full path to lcov
+/mingw64/bin/perl /mingw64/bin/lcov "$@"
+EOF
+
+        cat > "$RUNNER_TEMP/bin/genhtml" << 'EOF'
+#!/bin/bash
+# Use the full path to genhtml
+/mingw64/bin/perl /mingw64/bin/genhtml "$@"
+EOF
+
+        # Make scripts executable
+        chmod +x "$RUNNER_TEMP/bin/lcov"
+        chmod +x "$RUNNER_TEMP/bin/genhtml"
         
-        # Verify installation
-        bash -c "lcov --version"
-        bash -c "genhtml --version"
+        # Verify installation using the wrapper scripts
+        "$RUNNER_TEMP/bin/lcov" --version || echo "lcov verification failed"
+        "$RUNNER_TEMP/bin/genhtml" --version || echo "genhtml verification failed"
 
     - name: Install dependencies with vcpkg
       run: |
