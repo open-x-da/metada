@@ -37,11 +37,7 @@ endfunction()
 # 4. Filters out system headers
 # 5. Generates HTML report
 function(AddCoverage target)
-  find_program(LCOV_PATH lcov REQUIRED)
-  find_program(GENHTML_PATH genhtml REQUIRED)
-  find_program(PERL_EXECUTABLE perl)
-
-  if(WIN32 AND PERL_EXECUTABLE)
+   if(WIN32 AND PERL_EXECUTABLE)
     set(LCOV_COMMAND ${CMAKE_COMMAND} -E env "LC_ALL=C" "${PERL_EXECUTABLE}" "${LCOV_PATH}")
     set(GENHTML_COMMAND ${CMAKE_COMMAND} -E env "LC_ALL=C" "${PERL_EXECUTABLE}" "${GENHTML_PATH}")
   else()
