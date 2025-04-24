@@ -57,49 +57,65 @@ jobs:
         mkdir -p "$RUNNER_TEMP/bin"
         echo "$RUNNER_TEMP/bin" >> $GITHUB_PATH
         
-        # Create wrapper script for lcov in PowerShell-accessible location
-        cat > "$RUNNER_TEMP/bin/lcov.bat" << 'EOFSCRIPT1'
-        @echo off
-        C:\msys64\usr\bin\bash.exe -l -c "lcov %*"
-        EOFSCRIPT1
+        # Create a direct lcov executable (not .bat) for Coverage.cmake
+        cat > "$RUNNER_TEMP/bin/lcov" << 'EOFSCRIPT1'
+#!/bin/bash
+# Direct wrapper for lcov
+lcov "$@"
+EOFSCRIPT1
+        chmod +x "$RUNNER_TEMP/bin/lcov"
 
-        # Create wrapper script for genhtml
-        cat > "$RUNNER_TEMP/bin/genhtml.bat" << 'EOFSCRIPT2'
-        @echo off
-        C:\msys64\usr\bin\bash.exe -l -c "genhtml %*"
-        EOFSCRIPT2
+        # Create a direct genhtml executable for Coverage.cmake
+        cat > "$RUNNER_TEMP/bin/genhtml" << 'EOFSCRIPT2'
+#!/bin/bash
+# Direct wrapper for genhtml
+genhtml "$@"
+EOFSCRIPT2
+        chmod +x "$RUNNER_TEMP/bin/genhtml"
+        
+        # Create Windows batch versions as well
+        cat > "$RUNNER_TEMP/bin/lcov.bat" << 'EOFSCRIPT3'
+@echo off
+C:\msys64\usr\bin\bash.exe -l -c "lcov %*"
+EOFSCRIPT3
+
+        cat > "$RUNNER_TEMP/bin/genhtml.bat" << 'EOFSCRIPT4'
+@echo off
+C:\msys64\usr\bin\bash.exe -l -c "genhtml %*"
+EOFSCRIPT4
         
         # Create a CMake executable module to find lcov
         mkdir -p "$RUNNER_TEMP/cmake"
         echo "$RUNNER_TEMP/cmake" >> $GITHUB_PATH
         
         cat > "$RUNNER_TEMP/cmake/FindLcov.cmake" << 'EOFCMAKE'
-        # FindLcov.cmake
-        # This module finds the lcov and genhtml executables.
-        
-        # Find the lcov and genhtml executables
-        find_program(Lcov_EXECUTABLE NAMES lcov lcov.bat)
-        find_program(Lcov_GENHTML NAMES genhtml genhtml.bat)
-        
-        # Handle standard arguments
-        include(FindPackageHandleStandardArgs)
-        find_package_handle_standard_args(Lcov
-            REQUIRED_VARS Lcov_EXECUTABLE Lcov_GENHTML
-        )
-        
-        # Mark as advanced
-        mark_as_advanced(Lcov_EXECUTABLE Lcov_GENHTML)
-        EOFCMAKE
+# FindLcov.cmake
+# This module finds the lcov and genhtml executables.
+
+# Find the lcov and genhtml executables
+find_program(Lcov_EXECUTABLE NAMES lcov lcov.bat)
+find_program(Lcov_GENHTML NAMES genhtml genhtml.bat)
+
+# Handle standard arguments
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(Lcov
+    REQUIRED_VARS Lcov_EXECUTABLE Lcov_GENHTML
+)
+
+# Mark as advanced
+mark_as_advanced(Lcov_EXECUTABLE Lcov_GENHTML)
+EOFCMAKE
         
         # Convert paths to use forward slashes for CMake
-        LCOV_PATH=$(cygpath -m "$RUNNER_TEMP/bin/lcov.bat")
-        GENHTML_PATH=$(cygpath -m "$RUNNER_TEMP/bin/genhtml.bat")
+        LCOV_PATH=$(cygpath -m "$RUNNER_TEMP/bin/lcov")
+        GENHTML_PATH=$(cygpath -m "$RUNNER_TEMP/bin/genhtml")
         CMAKE_MODULE_PATH=$(cygpath -m "$RUNNER_TEMP/cmake")
         
         # Set environment variables for CMake to find lcov
         echo "Lcov_EXECUTABLE=${LCOV_PATH}" >> $GITHUB_ENV
         echo "Lcov_GENHTML=${GENHTML_PATH}" >> $GITHUB_ENV
         echo "CMAKE_MODULE_PATH=${CMAKE_MODULE_PATH}" >> $GITHUB_ENV
+        echo "LCOV_PATH=${LCOV_PATH}" >> $GITHUB_ENV
 
     - name: Install dependencies with vcpkg
       run: |
@@ -150,6 +166,7 @@ jobs:
           -DCMAKE_MODULE_PATH="$env:CMAKE_MODULE_PATH" `
           -DLcov_EXECUTABLE="$env:Lcov_EXECUTABLE" `
           -DLcov_GENHTML="$env:Lcov_GENHTML" `
+          -DLCOV_PATH="$env:LCOV_PATH" `
           ..
 
     - name: Build
