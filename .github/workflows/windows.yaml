@@ -91,10 +91,15 @@ jobs:
         mark_as_advanced(Lcov_EXECUTABLE Lcov_GENHTML)
         EOFCMAKE
         
+        # Convert paths to use forward slashes for CMake
+        LCOV_PATH=$(cygpath -m "$RUNNER_TEMP/bin/lcov.bat")
+        GENHTML_PATH=$(cygpath -m "$RUNNER_TEMP/bin/genhtml.bat")
+        CMAKE_MODULE_PATH=$(cygpath -m "$RUNNER_TEMP/cmake")
+        
         # Set environment variables for CMake to find lcov
-        echo "Lcov_EXECUTABLE=$RUNNER_TEMP/bin/lcov.bat" >> $GITHUB_ENV
-        echo "Lcov_GENHTML=$RUNNER_TEMP/bin/genhtml.bat" >> $GITHUB_ENV
-        echo "CMAKE_MODULE_PATH=$RUNNER_TEMP/cmake" >> $GITHUB_ENV
+        echo "Lcov_EXECUTABLE=${LCOV_PATH}" >> $GITHUB_ENV
+        echo "Lcov_GENHTML=${GENHTML_PATH}" >> $GITHUB_ENV
+        echo "CMAKE_MODULE_PATH=${CMAKE_MODULE_PATH}" >> $GITHUB_ENV
 
     - name: Install dependencies with vcpkg
       run: |
