@@ -45,49 +45,29 @@ jobs:
         update: true
         install: >-
           mingw-w64-x86_64-lcov
-          
+
     - name: Install lcov to PATH
-      shell: bash
+      shell: msys2 {0}
       run: |
-        # Find where lcov and genhtml are installed
-        LCOV_PATH=$(find /mingw64 -name lcov.exe -o -name lcov 2>/dev/null | head -1)
-        GENHTML_PATH=$(find /mingw64 -name genhtml.exe -o -name genhtml 2>/dev/null | head -1)
+        # Verify lcov is installed
+        lcov --version
+        genhtml --version
         
-        if [ -z "$LCOV_PATH" ]; then
-          echo "lcov not found, installing via pacman"
-          pacman -S --noconfirm mingw-w64-x86_64-lcov
-          LCOV_PATH=$(find /mingw64 -name lcov.exe -o -name lcov 2>/dev/null | head -1)
-          GENHTML_PATH=$(find /mingw64 -name genhtml.exe -o -name genhtml 2>/dev/null | head -1)
-        fi
-        
-        echo "Found lcov at: $LCOV_PATH"
-        echo "Found genhtml at: $GENHTML_PATH"
-        
-        # Create bin directory for wrapper scripts
+        # Create bin directory for lcov wrappers
         mkdir -p "$RUNNER_TEMP/bin"
         echo "$RUNNER_TEMP/bin" >> $GITHUB_PATH
         
-        # Create wrapper script for lcov
-        cat > "$RUNNER_TEMP/bin/lcov" << 'EOFSCRIPT1'
-        #!/bin/bash
-        # Use the full path to lcov
-        /mingw64/bin/perl /mingw64/bin/lcov "$@"
+        # Create wrapper script for lcov in PowerShell-accessible location
+        cat > "$RUNNER_TEMP/bin/lcov.bat" << 'EOFSCRIPT1'
+        @echo off
+        C:\msys64\usr\bin\bash.exe -l -c "lcov %*"
         EOFSCRIPT1
 
         # Create wrapper script for genhtml
-        cat > "$RUNNER_TEMP/bin/genhtml" << 'EOFSCRIPT2'
-        #!/bin/bash
-        # Use the full path to genhtml
-        /mingw64/bin/perl /mingw64/bin/genhtml "$@"
+        cat > "$RUNNER_TEMP/bin/genhtml.bat" << 'EOFSCRIPT2'
+        @echo off
+        C:\msys64\usr\bin\bash.exe -l -c "genhtml %*"
         EOFSCRIPT2
-
-        # Make scripts executable
-        chmod +x "$RUNNER_TEMP/bin/lcov"
-        chmod +x "$RUNNER_TEMP/bin/genhtml"
-        
-        # Verify installation using the wrapper scripts
-        "$RUNNER_TEMP/bin/lcov" --version || echo "lcov verification failed"
-        "$RUNNER_TEMP/bin/genhtml" --version || echo "genhtml verification failed"
 
     - name: Install dependencies with vcpkg
       run: |
