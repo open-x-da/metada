@@ -67,18 +67,19 @@ jobs:
         mkdir -p "$RUNNER_TEMP/bin"
         echo "$RUNNER_TEMP/bin" >> $GITHUB_PATH
         
-        # Create wrapper scripts
-        cat > "$RUNNER_TEMP/bin/lcov" << 'EOF'
-#!/bin/bash
-# Use the full path to lcov
-/mingw64/bin/perl /mingw64/bin/lcov "$@"
-EOF
+        # Create wrapper script for lcov
+        cat > "$RUNNER_TEMP/bin/lcov" << 'EOFSCRIPT1'
+        #!/bin/bash
+        # Use the full path to lcov
+        /mingw64/bin/perl /mingw64/bin/lcov "$@"
+        EOFSCRIPT1
 
-        cat > "$RUNNER_TEMP/bin/genhtml" << 'EOF'
-#!/bin/bash
-# Use the full path to genhtml
-/mingw64/bin/perl /mingw64/bin/genhtml "$@"
-EOF
+        # Create wrapper script for genhtml
+        cat > "$RUNNER_TEMP/bin/genhtml" << 'EOFSCRIPT2'
+        #!/bin/bash
+        # Use the full path to genhtml
+        /mingw64/bin/perl /mingw64/bin/genhtml "$@"
+        EOFSCRIPT2
 
         # Make scripts executable
         chmod +x "$RUNNER_TEMP/bin/lcov"
