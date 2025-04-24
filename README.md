@@ -18,24 +18,46 @@
 
 ### Description:
 
-METADA is a modern, high-performance data assimilation system designed for Earth science applications. It provides:
+METADA is a high-performance, cross-platform data assimilation framework designed for Earth science applications. Built with modern C++ and optimized for performance, METADA provides a robust infrastructure for implementing, testing, and deploying data assimilation algorithms across diverse computing environments.
 
-- Efficient implementation of various data assimilation algorithms
-- GPU acceleration for compute-intensive operations
-- Flexible interface for different Earth system models
-- Scalable parallel processing capabilities
-- Modern C++ design with Python bindings
+The system features:
+- Cross-platform compatibility (Linux, macOS, Windows)
+- Performance-optimized implementations of state-of-the-art data assimilation algorithms
+- Flexible interfaces for integrating various Earth system models
+- Optional GPU acceleration for compute-intensive operations
+- Comprehensive testing infrastructure with optional code coverage analysis
+- Modern CMake-based build system with cross-compiler support
 
 ### Key Features:
 
-- **Multiple DA Methods**: Support for EnKF, 4D-Var, and hybrid methods
-- **High Performance**: GPU acceleration using CUDA
-- **Model Agnostic**: Generic interfaces for various Earth system models
-- **Scalable**: MPI-based parallel implementation
-- **Modern Design**: C++17 with modular architecture
-- **Python Interface**: Easy-to-use Python bindings
-- **Container Support**: Docker and Singularity containers for reproducible environments
+- **Advanced DA Algorithms**: Implementation of Ensemble Kalman Filter (EnKF), 4D-Var, Particle Filters, and hybrid methods
+- **High Performance Computing**: 
+  - Multi-threaded parallelism for shared-memory systems
+  - Optional GPU acceleration via CUDA
+  - Optimized linear algebra operations using modern C++ libraries
+- **Cross-Platform**: Fully tested on Linux, macOS, and Windows (with MinGW 13.2)
+- **Flexible Model Integration**: 
+  - Generic interfaces for Earth system models
+  - Support for structured and unstructured grids
+  - Configurable observation operators
+- **Modern Software Design**: 
+  - C++17 with modular architecture
+  - Template metaprogramming for compile-time optimizations
+  - Policy-based design for algorithm customization
+- **Python Integration**: Comprehensive Python bindings using pybind11
+- **Containerization**: Ready-to-use Docker and Singularity containers
+- **Quality Assurance**:
+  - Comprehensive unit and integration testing
+  - Automated CI/CD pipeline
+  - Optional code coverage analysis (when lcov/genhtml are available)
+- **Dependency Management**: Integrated CMake-based dependency handling
 
 ### Installation:
 
 For detailed installation instructions, please visit our [documentation](https://modern-data-assimilation-system-for-earth-sciences.readthedocs.io/en/latest/index.html).
+
+### Development:
+
+- **Compiler Support**: MinGW GCC 13.2, Clang, GCC on Linux/macOS
+- **Coverage Testing**: Automatically enabled when lcov/genhtml are available
+- **CI/CD**: Automated testing on Linux, macOS, and Windows
