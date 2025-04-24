@@ -23,20 +23,10 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        shell: pwsh
+        shell: msys2 {0}
 
     steps:
     - uses: actions/checkout@v2
-
-    - name: Setup vcpkg
-      run: |
-        # Clone vcpkg repo
-        git clone https://github.com/microsoft/vcpkg.git
-        cd vcpkg
-        # Bootstrap vcpkg
-        ./bootstrap-vcpkg.bat
-        # Set environment variable for CMake
-        echo "VCPKG_ROOT=${{github.workspace}}/vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
@@ -44,110 +34,45 @@ jobs:
         msystem: MINGW64
         update: true
         install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-gcc-fortran
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-python
+          mingw-w64-x86_64-python-pip
+          mingw-w64-x86_64-python-numpy
+          mingw-w64-x86_64-gtest
+          mingw-w64-x86_64-glog
+          mingw-w64-x86_64-clang-tools-extra
           mingw-w64-x86_64-lcov
-
-    - name: Install lcov to PATH
-      shell: msys2 {0}
+          mingw-w64-x86_64-yaml-cpp
+          mingw-w64-x86_64-nlohmann-json
+          mingw-w64-x86_64-netcdf
+          mingw-w64-x86_64-netcdf-cxx
+          
+    - name: Install xtl and xtensor
       run: |
-        # Verify lcov is installed
-        lcov --version
-        genhtml --version
-        
-        # Create bin directory for tool wrappers
-        mkdir -p "$RUNNER_TEMP/bin"
-        echo "$RUNNER_TEMP/bin" >> $GITHUB_PATH
-        
-        # Create a direct lcov executable for use in scripts
-        cat > "$RUNNER_TEMP/bin/lcov" << 'EOF'
-        #!/bin/bash
-        # Direct wrapper for lcov
-        lcov "$@"
-        EOF
-        chmod +x "$RUNNER_TEMP/bin/lcov"
-
-        # Create a direct genhtml executable
-        cat > "$RUNNER_TEMP/bin/genhtml" << 'EOF'
-        #!/bin/bash
-        # Direct wrapper for genhtml
-        genhtml "$@"
-        EOF
-        chmod +x "$RUNNER_TEMP/bin/genhtml"
-        
-        # Create Windows batch versions as well
-        cat > "$RUNNER_TEMP/bin/lcov.bat" << 'EOF'
-        @echo off
-        C:\msys64\usr\bin\bash.exe -l -c "lcov %*"
-        EOF
-
-        cat > "$RUNNER_TEMP/bin/genhtml.bat" << 'EOF'
-        @echo off
-        C:\msys64\usr\bin\bash.exe -l -c "genhtml %*"
-        EOF
-        
-        # Convert paths to use forward slashes for CMake
-        LCOV_PATH=$(cygpath -m "$RUNNER_TEMP/bin/lcov")
-        GENHTML_PATH=$(cygpath -m "$RUNNER_TEMP/bin/genhtml")
-        
-        # Set environment variables with absolute paths to tools
-        echo "LCOV=${LCOV_PATH}" >> $GITHUB_ENV
-        echo "GENHTML=${GENHTML_PATH}" >> $GITHUB_ENV
-        echo "LCOV_PATH=${LCOV_PATH}" >> $GITHUB_ENV
-        echo "GENHTML_PATH=${GENHTML_PATH}" >> $GITHUB_ENV
-        echo "COVERAGE_COMMAND=${LCOV_PATH}" >> $GITHUB_ENV
-        echo "COVERAGE_REPORT_COMMAND=${GENHTML_PATH}" >> $GITHUB_ENV
-
-    - name: Install dependencies with vcpkg
-      run: |
-        cd vcpkg
-        # Install all dependencies
-        ./vcpkg install gtest
-        ./vcpkg install glog
-        ./vcpkg install yaml-cpp
-        ./vcpkg install nlohmann-json
-        ./vcpkg install netcdf-c
-        ./vcpkg install netcdf-cxx4
-        ./vcpkg install xtensor
-        ./vcpkg install xtensor-blas
-        # List installed packages
-        ./vcpkg list
-
-    - name: Install Python dependencies
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-    
-    - name: Install numpy
-      run: pip install numpy
-      
-    - name: Setup Ninja
-      uses: seanmiddleditch/gha-setup-ninja@master
-
-    - name: Setup MinGW with Chocolatey
-      run: |
-        choco install mingw --version=12.2.0 -y
-        # Add to path
-        echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        # Verify installation
-        gcc --version
-        g++ --version
-        gfortran --version
+        git clone https://github.com/xtensor-stack/xtl.git
+        mkdir xtl/build
+        cd xtl/build
+        cmake .. -G Ninja
+        cmake --build .
+        ninja install
+        cd ..
+        git clone https://github.com/xtensor-stack/xtensor.git
+        mkdir xtensor/build
+        cd xtensor/build
+        cmake .. -G Ninja
+        cmake --build .
+        ninja install
 
     - name: Configure CMake
       run: |
         mkdir build
         cd build
-        # Use MinGW for all compilers to ensure compatibility
-        cmake -G Ninja `
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-          -DCMAKE_C_COMPILER=gcc `
-          -DCMAKE_CXX_COMPILER=g++ `
-          -DCMAKE_Fortran_COMPILER=gfortran `
-          -DLCOV="$env:LCOV" `
-          -DGENHTML="$env:GENHTML" `
-          -DLCOV_PATH="$env:LCOV_PATH" `
-          -DGENHTML_PATH="$env:GENHTML_PATH" `
-          -DCOVERAGE_COMMAND="$env:COVERAGE_COMMAND" `
-          -DCOVERAGE_REPORT_COMMAND="$env:COVERAGE_REPORT_COMMAND" `
+        cmake -G Ninja \
+          -DPython3_ROOT_DIR=/mingw64 \
+          -DPython3_EXECUTABLE=/mingw64/bin/python3 \
           ..
 
     - name: Build
