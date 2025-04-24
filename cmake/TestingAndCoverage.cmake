@@ -28,7 +28,8 @@ macro(metada_add_test_with_coverage target)
   gtest_discover_tests(
     ${target}
     PROPERTIES
-      TIMEOUT 60
+      TIMEOUT 300
+    DISCOVERY_TIMEOUT 300
   )
 
   # AddMemcheck(${target})

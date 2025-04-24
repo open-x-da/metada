@@ -45,11 +45,26 @@ if(NETCDF_CXX4_INCLUDE_DIR)
     find_program(NETCDF_CXX4_CONFIG ncxx4-config HINTS "${NETCDF_CXX4_INCLUDE_DIR}/../bin")
     mark_as_advanced(NETCDF_CXX4_CONFIG)
     if(NETCDF_CXX4_CONFIG)
-      execute_process(
-        COMMAND ${NETCDF_CXX4_CONFIG} --version
-        OUTPUT_VARIABLE NETCDF_CXX4_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-      )
+      # Handle Windows differently - use cmd.exe to run the command
+      if(WIN32)
+        execute_process(
+          COMMAND "${NETCDF_CXX4_CONFIG}" --version
+          OUTPUT_VARIABLE NETCDF_CXX4_VERSION
+          ERROR_VARIABLE NETCDF_CXX4_VERSION_ERR
+          RESULT_VARIABLE NETCDF_CXX4_VERSION_RESULT
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          ERROR_STRIP_TRAILING_WHITESPACE
+        )
+      else()
+        execute_process(
+          COMMAND ${NETCDF_CXX4_CONFIG} --version
+          OUTPUT_VARIABLE NETCDF_CXX4_VERSION
+          ERROR_VARIABLE NETCDF_CXX4_VERSION_ERR
+          RESULT_VARIABLE NETCDF_CXX4_VERSION_RESULT
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          ERROR_STRIP_TRAILING_WHITESPACE
+        )
+      endif()
     endif()
   endif()
   
