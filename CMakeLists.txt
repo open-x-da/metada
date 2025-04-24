@@ -26,11 +26,11 @@ metada_project_initialize()
 metada_find_package(GTest)
 metada_find_package(Git)
 metada_find_package(ClangFormat)
-metada_find_package(Lcov)
 metada_find_package(netcdf-cxx4)
 metada_find_package(xtensor)
 
 # Find optional external dependencies
+metada_find_package(Lcov OPTIONAL QUIET)
 metada_find_package(yaml-cpp OPTIONAL QUIET)
 metada_find_package(nlohmann_json OPTIONAL QUIET)
 metada_find_package(Glog OPTIONAL QUIET)

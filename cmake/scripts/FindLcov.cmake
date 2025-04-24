@@ -161,6 +161,13 @@ find_package_handle_standard_args(Lcov
     VERSION_VAR Lcov_VERSION
 )
 
+# Provide a clear status message about coverage availability
+if(Lcov_FOUND)
+    message(STATUS "Coverage testing: ENABLED (lcov ${Lcov_VERSION} found)")
+else()
+    message(STATUS "Coverage testing: DISABLED (lcov/genhtml not found)")
+endif()
+
 # Mark advanced variables
 mark_as_advanced(
     Lcov_EXECUTABLE

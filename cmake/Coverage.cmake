@@ -3,6 +3,11 @@
 # Enables code coverage instrumentation for a target in Debug mode
 # Adds compiler-specific coverage flags and disables inlining for accurate coverage data
 function(enable_coverage target)
+  # Skip if lcov is not found
+  if(NOT Lcov_FOUND)
+    return()
+  endif()
+
   if(NOT CMAKE_BUILD_TYPE STREQUAL Debug)
     return()
   endif()
@@ -37,7 +42,13 @@ endfunction()
 # 4. Filters out system headers
 # 5. Generates HTML report
 function(AddCoverage target)
-   if(WIN32 AND PERL_EXECUTABLE)
+  # Check if lcov and genhtml are available
+  if(NOT Lcov_FOUND)
+    message(STATUS "Skipping coverage for ${target} - lcov/genhtml not found")
+    return()
+  endif()
+  
+  if(WIN32 AND PERL_EXECUTABLE)
     set(LCOV_COMMAND ${CMAKE_COMMAND} -E env "LC_ALL=C" "${PERL_EXECUTABLE}" "${LCOV_PATH}")
     set(GENHTML_COMMAND ${CMAKE_COMMAND} -E env "LC_ALL=C" "${PERL_EXECUTABLE}" "${GENHTML_PATH}")
   else()
