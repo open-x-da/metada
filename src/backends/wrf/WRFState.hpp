@@ -1,5 +1,5 @@
 /**
- * @file State.hpp
+ * @file WRFState.hpp
  * @brief WRF state backend implementation
  * @ingroup backends
  * @author Metada Framework Team
@@ -25,22 +25,22 @@ namespace metada::backends::wrf {
  * meteorological state variables stored in NetCDF files and provides
  * operations required by the State adapter.
  */
-class State {
+class WRFState {
  public:
   /**
    * @brief Default constructor is deleted
    */
-  State() = delete;
+  WRFState() = delete;
 
   /**
    * @brief Copy constructor is deleted
    */
-  State(const State&) = delete;
+  WRFState(const WRFState&) = delete;
 
   /**
    * @brief Copy assignment operator is deleted
    */
-  State& operator=(const State&) = delete;
+  WRFState& operator=(const WRFState&) = delete;
 
   /**
    * @brief Constructor that takes a configuration backend
@@ -48,14 +48,14 @@ class State {
    * @param config Configuration containing WRF file path and variables
    */
   template <typename ConfigBackend>
-  explicit State(const ConfigBackend& config);
+  explicit WRFState(const ConfigBackend& config);
 
   /**
    * @brief Move constructor
    *
    * @param other WRF state backend to move from
    */
-  State(State&& other) noexcept;
+  WRFState(WRFState&& other) noexcept;
 
   /**
    * @brief Move assignment operator
@@ -63,19 +63,19 @@ class State {
    * @param other WRF state backend to move from
    * @return Reference to this state after assignment
    */
-  State& operator=(State&& other) noexcept;
+  WRFState& operator=(WRFState&& other) noexcept;
 
   /**
    * @brief Destructor
    */
-  ~State() = default;
+  ~WRFState() = default;
 
   /**
    * @brief Clone this state
    *
    * @return Unique pointer to a new identical WRF state backend
    */
-  std::unique_ptr<State> clone() const;
+  std::unique_ptr<WRFState> clone() const;
 
   /**
    * @brief Get mutable access to the underlying data
@@ -134,7 +134,7 @@ class State {
    * @return Scalar dot product result
    * @throws std::runtime_error If states are incompatible
    */
-  double dot(const State& other) const;
+  double dot(const WRFState& other) const;
 
   /**
    * @brief Calculate L2 norm of this state
@@ -149,7 +149,7 @@ class State {
    * @param other State to compare with
    * @return True if states are equal, false otherwise
    */
-  bool equals(const State& other) const;
+  bool equals(const WRFState& other) const;
 
   /**
    * @brief Add another state to this one
@@ -157,7 +157,7 @@ class State {
    * @param other State to add
    * @throws std::runtime_error If states are incompatible
    */
-  void add(const State& other);
+  void add(const WRFState& other);
 
   /**
    * @brief Subtract another state from this one
@@ -165,7 +165,7 @@ class State {
    * @param other State to subtract
    * @throws std::runtime_error If states are incompatible
    */
-  void subtract(const State& other);
+  void subtract(const WRFState& other);
 
   /**
    * @brief Multiply this state by a scalar
@@ -221,7 +221,7 @@ class State {
    * @param other State to check compatibility with
    * @return True if compatible, false otherwise
    */
-  bool isCompatible(const State& other) const;
+  bool isCompatible(const WRFState& other) const;
 
   // WRF NetCDF file information
   std::string wrfFilename_;

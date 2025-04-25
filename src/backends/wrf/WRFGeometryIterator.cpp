@@ -7,12 +7,12 @@
 
 #include <tuple>
 
-#include "Geometry.hpp"
+#include "WRFGeometry.hpp"
 
 namespace metada::backends::wrf {
 
 // Constructor for creating a valid iterator
-Geometry::iterator::iterator(const Geometry* geometry, size_t index)
+WRFGeometry::iterator::iterator(const WRFGeometry* geometry, size_t index)
     : geometry_(geometry), index_(index) {
   if (geometry_ && index_ < geometry_->totalGridSize()) {
     // Calculate 3D indices from linear index
@@ -33,12 +33,12 @@ Geometry::iterator::iterator(const Geometry* geometry, size_t index)
 }
 
 // Dereference operator
-Geometry::iterator::value_type Geometry::iterator::operator*() const {
+WRFGeometry::iterator::value_type WRFGeometry::iterator::operator*() const {
   return std::make_tuple(i_, j_, k_);
 }
 
 // Pre-increment operator
-Geometry::iterator& Geometry::iterator::operator++() {
+WRFGeometry::iterator& WRFGeometry::iterator::operator++() {
   if (geometry_ && index_ < geometry_->totalGridSize()) {
     // Increment linear index
     ++index_;
@@ -66,20 +66,20 @@ Geometry::iterator& Geometry::iterator::operator++() {
 }
 
 // Post-increment operator
-Geometry::iterator Geometry::iterator::operator++(int) {
+WRFGeometry::iterator WRFGeometry::iterator::operator++(int) {
   iterator temp = *this;
   ++(*this);
   return temp;
 }
 
 // Equality comparison
-bool Geometry::iterator::operator==(const iterator& other) const {
+bool WRFGeometry::iterator::operator==(const iterator& other) const {
   // Two iterators are equal if they have the same index and geometry
   return (geometry_ == other.geometry_ && index_ == other.index_);
 }
 
 // Inequality comparison
-bool Geometry::iterator::operator!=(const iterator& other) const {
+bool WRFGeometry::iterator::operator!=(const iterator& other) const {
   return !(*this == other);
 }
 

@@ -1,9 +1,9 @@
 # Add the WRF Backend sources
 set(WRF_BACKEND_SOURCES
-    Geometry.cpp
-    GeometryIterator.cpp
-    State.cpp
-    Model.cpp
+    WRFGeometry.cpp
+    WRFGeometryIterator.cpp
+    WRFState.cpp
+    WRFModel.cpp
 )
 
 # Find required dependencies

@@ -1,5 +1,5 @@
 /**
- * @file Geometry.hpp
+ * @file WRFGeometry.hpp
  * @brief WRF geometry backend implementation
  * @ingroup backends
  * @author Metada Framework Team
@@ -24,7 +24,7 @@ namespace metada::backends::wrf {
  * geographical data from a WRF NetCDF file and provides methods for
  * traversing the grid and managing boundary conditions.
  */
-class Geometry {
+class WRFGeometry {
  public:
   // Iterator classes (forward declarations)
   class iterator;
@@ -33,17 +33,17 @@ class Geometry {
   /**
    * @brief Default constructor is deleted
    */
-  Geometry() = delete;
+  WRFGeometry() = delete;
 
   /**
    * @brief Copy constructor is deleted
    */
-  Geometry(const Geometry&) = delete;
+  WRFGeometry(const WRFGeometry&) = delete;
 
   /**
    * @brief Copy assignment operator is deleted
    */
-  Geometry& operator=(const Geometry&) = delete;
+  WRFGeometry& operator=(const WRFGeometry&) = delete;
 
   /**
    * @brief Constructor that takes a configuration backend
@@ -51,14 +51,14 @@ class Geometry {
    * @param config Configuration containing WRF file path and timestamp
    */
   template <typename ConfigBackend>
-  explicit Geometry(const ConfigBackend& config);
+  explicit WRFGeometry(const ConfigBackend& config);
 
   /**
    * @brief Move constructor
    *
    * @param other WRF geometry backend to move from
    */
-  Geometry(Geometry&& other) noexcept;
+  WRFGeometry(WRFGeometry&& other) noexcept;
 
   /**
    * @brief Move assignment operator
@@ -66,19 +66,19 @@ class Geometry {
    * @param other WRF geometry backend to move from
    * @return Reference to this geometry after assignment
    */
-  Geometry& operator=(Geometry&& other) noexcept;
+  WRFGeometry& operator=(WRFGeometry&& other) noexcept;
 
   /**
    * @brief Destructor
    */
-  ~Geometry() = default;
+  ~WRFGeometry() = default;
 
   /**
    * @brief Clone this geometry
    *
    * @return A new WRF geometry backend with the same state
    */
-  Geometry clone() const;
+  WRFGeometry clone() const;
 
   /**
    * @brief Get iterator to the beginning of the grid
@@ -217,24 +217,24 @@ class Geometry {
 
 // Template method implementation
 template <typename StateBackend>
-void Geometry::haloExchange(StateBackend& state) {
+void WRFGeometry::haloExchange(StateBackend& state) {
   haloExchangeImpl(static_cast<void*>(&state));
 }
 
 // Iterator method implementations
-inline Geometry::iterator Geometry::begin() {
+inline WRFGeometry::iterator WRFGeometry::begin() {
   return iterator(this, 0);
 }
 
-inline Geometry::iterator Geometry::end() {
+inline WRFGeometry::iterator WRFGeometry::end() {
   return iterator(this, totalGridSize());
 }
 
-inline Geometry::const_iterator Geometry::begin() const {
+inline WRFGeometry::const_iterator WRFGeometry::begin() const {
   return const_iterator(this, 0);
 }
 
-inline Geometry::const_iterator Geometry::end() const {
+inline WRFGeometry::const_iterator WRFGeometry::end() const {
   return const_iterator(this, totalGridSize());
 }
 

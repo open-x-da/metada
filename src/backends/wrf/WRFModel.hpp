@@ -1,5 +1,5 @@
 /**
- * @file Model.hpp
+ * @file WRFModel.hpp
  * @brief WRF model backend implementation
  * @ingroup backends
  * @author Metada Framework Team
@@ -16,7 +16,7 @@
 namespace metada::backends::wrf {
 
 // Forward declaration
-class State;
+class WRFState;
 
 /**
  * @brief WRF model backend implementation
@@ -26,22 +26,22 @@ class State;
  * Forecasting) model. It provides methods for time stepping and integration of
  * the WRF dynamical core.
  */
-class Model {
+class WRFModel {
  public:
   /**
    * @brief Default constructor is deleted
    */
-  Model() = delete;
+  WRFModel() = delete;
 
   /**
    * @brief Copy constructor is deleted
    */
-  Model(const Model&) = delete;
+  WRFModel(const WRFModel&) = delete;
 
   /**
    * @brief Copy assignment operator is deleted
    */
-  Model& operator=(const Model&) = delete;
+  WRFModel& operator=(const WRFModel&) = delete;
 
   /**
    * @brief Constructor that takes a configuration backend
@@ -49,14 +49,14 @@ class Model {
    * @param config Configuration containing WRF model parameters
    */
   template <typename ConfigBackend>
-  explicit Model(const ConfigBackend& config);
+  explicit WRFModel(const ConfigBackend& config);
 
   /**
    * @brief Move constructor
    *
    * @param other WRF model backend to move from
    */
-  Model(Model&& other) noexcept;
+  WRFModel(WRFModel&& other) noexcept;
 
   /**
    * @brief Move assignment operator
@@ -64,12 +64,12 @@ class Model {
    * @param other WRF model backend to move from
    * @return Reference to this model after assignment
    */
-  Model& operator=(Model&& other) noexcept;
+  WRFModel& operator=(WRFModel&& other) noexcept;
 
   /**
    * @brief Destructor
    */
-  ~Model();
+  ~WRFModel();
 
   /**
    * @brief Initialize the model with a configuration
@@ -116,7 +116,7 @@ class Model {
    * @param endTime End time in seconds
    * @throws std::runtime_error If model run fails
    */
-  void run(const State& initialState, State& finalState, double startTime,
+  void run(const WRFState& initialState, WRFState& finalState, double startTime,
            double endTime);
 
   /**
@@ -134,7 +134,7 @@ class Model {
    * @param outState Output state after time step
    * @param dt Time step size in seconds
    */
-  void timeStep(const State& inState, State& outState, double dt);
+  void timeStep(const WRFState& inState, WRFState& outState, double dt);
 
   /**
    * @brief Calculate adaptive time step based on CFL condition
@@ -143,14 +143,14 @@ class Model {
    * @param maxDt Maximum allowed time step
    * @return Calculated time step size
    */
-  double calculateTimeStep(const State& state, double maxDt) const;
+  double calculateTimeStep(const WRFState& state, double maxDt) const;
 
   /**
    * @brief Apply boundary conditions to the model state
    *
    * @param state State to apply boundary conditions to
    */
-  void applyBoundaryConditions(State& state) const;
+  void applyBoundaryConditions(WRFState& state) const;
 
   // Model configuration
   bool initialized_ = false;

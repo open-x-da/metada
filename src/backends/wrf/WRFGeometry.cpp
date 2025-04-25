@@ -1,11 +1,11 @@
 /**
- * @file Geometry.cpp
+ * @file WRFGeometry.cpp
  * @brief WRF geometry backend implementation
  * @ingroup backends
  * @author Metada Framework Team
  */
 
-#include "Geometry.hpp"
+#include "WRFGeometry.hpp"
 
 #include <netcdf>
 #include <stdexcept>
@@ -15,7 +15,7 @@ namespace metada::backends::wrf {
 
 // Constructor implementation with ConfigBackend
 template <typename ConfigBackend>
-Geometry::Geometry(const ConfigBackend& config)
+WRFGeometry::WRFGeometry(const ConfigBackend& config)
     : wrfFilename_(config.getString("wrf.input_file", "")),
       timestamp_(config.getString("wrf.timestamp", "0000-00-00_00:00:00")),
       initialized_(false),
@@ -33,7 +33,7 @@ Geometry::Geometry(const ConfigBackend& config)
 }
 
 // Move constructor implementation
-Geometry::Geometry(Geometry&& other) noexcept
+WRFGeometry::WRFGeometry(WRFGeometry&& other) noexcept
     : wrfFilename_(std::move(other.wrfFilename_)),
       timestamp_(std::move(other.timestamp_)),
       initialized_(other.initialized_),
@@ -54,7 +54,7 @@ Geometry::Geometry(Geometry&& other) noexcept
 }
 
 // Move assignment operator implementation
-Geometry& Geometry::operator=(Geometry&& other) noexcept {
+WRFGeometry& WRFGeometry::operator=(WRFGeometry&& other) noexcept {
   if (this != &other) {
     wrfFilename_ = std::move(other.wrfFilename_);
     timestamp_ = std::move(other.timestamp_);
@@ -79,49 +79,49 @@ Geometry& Geometry::operator=(Geometry&& other) noexcept {
 }
 
 // Clone implementation
-Geometry Geometry::clone() const {
-  Geometry clone_geometry(*this);  // Use the copy constructor
+WRFGeometry WRFGeometry::clone() const {
+  WRFGeometry clone_geometry(*this);  // Use the copy constructor
   return clone_geometry;
 }
 
 // totalGridSize implementation
-std::size_t Geometry::totalGridSize() const {
+std::size_t WRFGeometry::totalGridSize() const {
   return nx_ * ny_ * nz_;
 }
 
 // Periodicity checks implementation
-bool Geometry::isPeriodicX() const {
+bool WRFGeometry::isPeriodicX() const {
   return periodicX_;
 }
 
-bool Geometry::isPeriodicY() const {
+bool WRFGeometry::isPeriodicY() const {
   return periodicY_;
 }
 
-bool Geometry::isPeriodicZ() const {
+bool WRFGeometry::isPeriodicZ() const {
   return periodicZ_;
 }
 
 // isInitialized implementation
-bool Geometry::isInitialized() const {
+bool WRFGeometry::isInitialized() const {
   return initialized_;
 }
 
 // Get accessor methods implementation
-const xt::xarray<double>& Geometry::getLongitude() const {
+const xt::xarray<double>& WRFGeometry::getLongitude() const {
   return longitude_;
 }
 
-const xt::xarray<double>& Geometry::getLatitude() const {
+const xt::xarray<double>& WRFGeometry::getLatitude() const {
   return latitude_;
 }
 
-const xt::xarray<double>& Geometry::getElevation() const {
+const xt::xarray<double>& WRFGeometry::getElevation() const {
   return elevation_;
 }
 
 // Halo exchange implementation
-void Geometry::haloExchangeImpl(void* state_ptr) {
+void WRFGeometry::haloExchangeImpl(void* state_ptr) {
   // Implementation depends on state type and halo exchange requirements
   // This is a placeholder, actual implementation would transfer data between
   // neighboring domains or processes
@@ -135,8 +135,8 @@ void Geometry::haloExchangeImpl(void* state_ptr) {
 }
 
 // Private helper method to load geometry data from NetCDF file
-void Geometry::loadGeometryData(const std::string& filename,
-                                const std::string& timestamp) {
+void WRFGeometry::loadGeometryData(const std::string& filename,
+                                   const std::string& timestamp) {
   try {
     // Open NetCDF file
     netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
@@ -212,7 +212,7 @@ void Geometry::loadGeometryData(const std::string& filename,
 
 // Explicit template instantiations for known config backend types
 // Add additional instantiations as needed for different config backends
-template Geometry::Geometry(
+template WRFGeometry::WRFGeometry(
     const metada::backends::yaml::YAMLConfigBackend& config);
 
 }  // namespace metada::backends::wrf

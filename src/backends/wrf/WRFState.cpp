@@ -1,11 +1,11 @@
 /**
- * @file State.cpp
+ * @file WRFState.cpp
  * @brief Implementation of the WRF state backend
  * @ingroup backends
  * @author Metada Framework Team
  */
 
-#include "State.hpp"
+#include "WRFState.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -19,7 +19,7 @@ namespace metada::backends::wrf {
 
 // Constructor implementation with ConfigBackend
 template <typename ConfigBackend>
-State::State(const ConfigBackend& config)
+WRFState::WRFState(const ConfigBackend& config)
     : wrfFilename_(config.getString("wrf.input_file", "")),
       timestamp_(config.getString("wrf.timestamp", "0000-00-00_00:00:00")),
       initialized_(false) {
@@ -50,7 +50,7 @@ State::State(const ConfigBackend& config)
 }
 
 // Move constructor implementation
-State::State(State&& other) noexcept
+WRFState::WRFState(WRFState&& other) noexcept
     : wrfFilename_(std::move(other.wrfFilename_)),
       timestamp_(std::move(other.timestamp_)),
       initialized_(other.initialized_),
@@ -65,7 +65,7 @@ State::State(State&& other) noexcept
 }
 
 // Move assignment operator implementation
-State& State::operator=(State&& other) noexcept {
+WRFState& WRFState::operator=(WRFState&& other) noexcept {
   if (this != &other) {
     wrfFilename_ = std::move(other.wrfFilename_);
     timestamp_ = std::move(other.timestamp_);
@@ -84,14 +84,14 @@ State& State::operator=(State&& other) noexcept {
 }
 
 // Clone implementation
-std::unique_ptr<State> State::clone() const {
+std::unique_ptr<WRFState> WRFState::clone() const {
   // Use copy constructor for cloning (private constructor would be better in a
   // real implementation)
-  return std::make_unique<State>(*this);
+  return std::make_unique<WRFState>(*this);
 }
 
 // Data access implementation
-void* State::getData() {
+void* WRFState::getData() {
   if (!initialized_ || activeVariable_.empty()) {
     return nullptr;
   }
@@ -104,7 +104,7 @@ void* State::getData() {
 }
 
 // Const data access implementation
-const void* State::getData() const {
+const void* WRFState::getData() const {
   if (!initialized_ || activeVariable_.empty()) {
     return nullptr;
   }
@@ -117,12 +117,12 @@ const void* State::getData() const {
 }
 
 // Get active variable implementation
-const std::string& State::getActiveVariable() const {
+const std::string& WRFState::getActiveVariable() const {
   return activeVariable_;
 }
 
 // Set active variable implementation
-void State::setActiveVariable(const std::string& name) {
+void WRFState::setActiveVariable(const std::string& name) {
   if (variables_.find(name) == variables_.end()) {
     throw std::out_of_range("Variable not found: " + name);
   }
@@ -130,12 +130,13 @@ void State::setActiveVariable(const std::string& name) {
 }
 
 // Get variable names implementation
-const std::vector<std::string>& State::getVariableNames() const {
+const std::vector<std::string>& WRFState::getVariableNames() const {
   return variableNames_;
 }
 
 // Get dimensions implementation
-const std::vector<size_t>& State::getDimensions(const std::string& name) const {
+const std::vector<size_t>& WRFState::getDimensions(
+    const std::string& name) const {
   try {
     return dimensions_.at(name);
   } catch (const std::out_of_range&) {
@@ -144,14 +145,14 @@ const std::vector<size_t>& State::getDimensions(const std::string& name) const {
 }
 
 // Zero implementation
-void State::zero() {
+void WRFState::zero() {
   for (auto& [name, data] : variables_) {
     data.fill(0.0);
   }
 }
 
 // Dot product implementation
-double State::dot(const State& other) const {
+double WRFState::dot(const WRFState& other) const {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for dot product");
   }
@@ -171,7 +172,7 @@ double State::dot(const State& other) const {
 }
 
 // Norm implementation
-double State::norm() const {
+double WRFState::norm() const {
   double sumSquares = 0.0;
 
   // Sum squares of all variables
@@ -183,7 +184,7 @@ double State::norm() const {
 }
 
 // Equals implementation
-bool State::equals(const State& other) const {
+bool WRFState::equals(const WRFState& other) const {
   if (!isCompatible(other)) {
     return false;
   }
@@ -206,7 +207,7 @@ bool State::equals(const State& other) const {
 }
 
 // Add implementation
-void State::add(const State& other) {
+void WRFState::add(const WRFState& other) {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for addition");
   }
@@ -221,7 +222,7 @@ void State::add(const State& other) {
 }
 
 // Subtract implementation
-void State::subtract(const State& other) {
+void WRFState::subtract(const WRFState& other) {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for subtraction");
   }
@@ -236,7 +237,7 @@ void State::subtract(const State& other) {
 }
 
 // Multiply implementation
-void State::multiply(double scalar) {
+void WRFState::multiply(double scalar) {
   // Multiply each variable by the scalar
   for (auto& [name, data] : variables_) {
     data *= scalar;
@@ -244,13 +245,13 @@ void State::multiply(double scalar) {
 }
 
 // Is initialized implementation
-bool State::isInitialized() const {
+bool WRFState::isInitialized() const {
   return initialized_;
 }
 
 // Set data implementation
-void State::setData(const std::vector<double>& values,
-                    const std::string& variableName) {
+void WRFState::setData(const std::vector<double>& values,
+                       const std::string& variableName) {
   // Use active variable if none specified
   std::string varName = variableName.empty() ? activeVariable_ : variableName;
 
@@ -277,7 +278,7 @@ void State::setData(const std::vector<double>& values,
 }
 
 // Get data implementation
-const xt::xarray<double>& State::getData(
+const xt::xarray<double>& WRFState::getData(
     const std::string& variableName) const {
   // Use active variable if none specified
   std::string varName = variableName.empty() ? activeVariable_ : variableName;
@@ -290,9 +291,9 @@ const xt::xarray<double>& State::getData(
 }
 
 // Private helper to load state data
-void State::loadStateData(const std::string& filename,
-                          const std::vector<std::string>& variables,
-                          const std::string& timestamp) {
+void WRFState::loadStateData(const std::string& filename,
+                             const std::vector<std::string>& variables,
+                             const std::string& timestamp) {
   try {
     // Open NetCDF file
     netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
@@ -394,7 +395,7 @@ void State::loadStateData(const std::string& filename,
 }
 
 // Helper to check compatibility
-bool State::isCompatible(const State& other) const {
+bool WRFState::isCompatible(const WRFState& other) const {
   // Check if both states have the same variable names
   if (variableNames_.size() != other.variableNames_.size()) {
     return false;
@@ -422,6 +423,7 @@ bool State::isCompatible(const State& other) const {
 
 // Explicit template instantiations for known config backend types
 // Add additional instantiations as needed for different config backends
-template State::State(const metada::backends::yaml::YAMLConfigBackend& config);
+template WRFState::WRFState(
+    const metada::backends::yaml::YAMLConfigBackend& config);
 
 }  // namespace metada::backends::wrf

@@ -1,5 +1,5 @@
 /**
- * @file GeometryIterator.hpp
+ * @file WRFGeometryIterator.hpp
  * @brief WRF geometry iterator implementation
  * @ingroup backends
  * @author Metada Framework Team
@@ -12,7 +12,7 @@
 namespace metada::backends::wrf {
 
 // Forward declaration
-class Geometry;
+class WRFGeometry;
 
 /**
  * @brief Iterator for the WRF geometry grid
@@ -20,7 +20,7 @@ class Geometry;
  * Allows iteration over all grid points in the WRF geometry.
  * Implements the required iterator interface for use with STL algorithms.
  */
-class Geometry::iterator {
+class WRFGeometry::iterator {
  public:
   // Iterator traits
   using iterator_category = std::forward_iterator_tag;
@@ -40,7 +40,7 @@ class Geometry::iterator {
    * @param geometry Pointer to the WRF geometry backend
    * @param index Linear index into the grid (0 for begin, grid size for end)
    */
-  iterator(const Geometry* geometry, size_t index);
+  iterator(const WRFGeometry* geometry, size_t index);
 
   /**
    * @brief Dereference operator
@@ -111,7 +111,7 @@ class Geometry::iterator {
 /**
  * @brief Const iterator for the WRF geometry grid
  */
-class Geometry::const_iterator : public Geometry::iterator {
+class WRFGeometry::const_iterator : public WRFGeometry::iterator {
  public:
   // Inherit constructors from base class
   using iterator::iterator;
