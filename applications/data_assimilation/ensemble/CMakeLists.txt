@@ -12,5 +12,11 @@ target_link_libraries(letkf
         metada::backends::common::utils
 )
 
+# Set output directory
+set_target_properties(letkf
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Add format target to ensure consistent code style across the project
 AddFormatTarget(letkf ${CMAKE_CURRENT_SOURCE_DIR})
