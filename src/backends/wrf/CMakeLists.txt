@@ -6,32 +6,28 @@ set(WRF_BACKEND_SOURCES
 )
 
 # Find required dependencies
-find_package(xtl REQUIRED)
-find_package(xtensor REQUIRED)
-find_package(netcdf-cxx4 REQUIRED)
+metada_find_package(xtl REQUIRED)
+metada_find_package(xtensor REQUIRED)
+metada_find_package(netcdf-cxx4 REQUIRED)
 
 # Create the WRF backend library
-add_library(metada_wrf_backend ${WRF_BACKEND_SOURCES})
-add_library(metada::backends::wrf ALIAS metada_wrf_backend)
+add_library(wrf_backends ${WRF_BACKEND_SOURCES})
+add_library(metada::backends::wrf ALIAS wrf_backends)
 
 # Set include directories
-target_include_directories(metada_wrf_backend 
+target_include_directories(wrf_backends 
     PUBLIC 
-        ${CMAKE_SOURCE_DIR}/src
-    PUBLIC SYSTEM
-        ${xtl_INCLUDE_DIRS}
-        ${xtensor_INCLUDE_DIRS}
-        ${netcdf-cxx4_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 # Link dependencies
-target_link_libraries(metada_wrf_backend 
+target_link_libraries(wrf_backends 
     PUBLIC
-        ${netcdf-cxx4_LIBRARIES}
+        NetCDF::CXX4
         xtl
         xtensor
         metada::framework::core
 )
 
 # Add format target
-AddFormatTarget(metada_wrf_backend ${CMAKE_CURRENT_SOURCE_DIR}) 
+AddFormatTarget(wrf_backends ${CMAKE_CURRENT_SOURCE_DIR}) 

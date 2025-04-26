@@ -21,7 +21,6 @@ target_link_libraries(forecast
         metada::traits
         metada::backends::common::utils
         metada::backends::wrf
-        NetCDF::CXX4
 )
 
 # Set output directory
