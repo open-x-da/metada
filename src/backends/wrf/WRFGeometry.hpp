@@ -12,8 +12,13 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#if (WIN32)
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
+#else
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xarray.hpp>
+#endif
 
 // Forward declarations
 namespace metada::backends::wrf {

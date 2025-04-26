@@ -12,8 +12,13 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#if (WIN32)
 #include <xtensor/core/xmath.hpp>
 #include <xtensor/views/xview.hpp>
+#else
+#include <xtensor/xmath.hpp>
+#include <xtensor/xview.hpp>
+#endif
 
 namespace metada::backends::wrf {
 

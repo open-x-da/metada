@@ -12,8 +12,13 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#if (WIN32)
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
+#else
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xarray.hpp>
+#endif
 
 namespace metada::backends::wrf {
 
