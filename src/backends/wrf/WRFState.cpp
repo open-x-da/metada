@@ -12,7 +12,7 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-#if (WIN32)
+#if defined(_WIN32) || defined(WIN32)
 #include <xtensor/core/xmath.hpp>
 #include <xtensor/views/xview.hpp>
 #else
