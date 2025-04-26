@@ -17,12 +17,13 @@
 
 // Default backends, can be changed with template parameters
 using BackendTag = metada::traits::WRFBackendTag;
-namespace Framework = metada::framework::runs;
+using namespace metada::framework;
+using namespace metada::framework::runs;
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
   try {
     // Initialize application context
-    Framework::ApplicationContext<BackendTag> context(argv[0], argv[1]);
+    ApplicationContext<BackendTag> context(argv[0], argv[1]);
 
     auto& logger = context.getLogger();
     auto& config = context.getConfig();
@@ -47,16 +48,16 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     // Initialize geometry
     logger.Info() << "Initializing geometry";
-    metada::framework::Geometry<BackendTag> geometry(config);
+    Geometry<BackendTag> geometry(config);
 
     // Initialize initial state
     logger.Info() << "Initializing model state";
-    // metada::framework::State<BackendTag> initialState(config);
-    // metada::framework::State<BackendTag> currentState(config);
+    // State<BackendTag> initialState(config);
+    // State<BackendTag> currentState(config);
 
     // Initialize model
     logger.Info() << "Initializing forecast model";
-    // metada::framework::Model<BackendTag> model(config);
+    // Model<BackendTag> model(config);
 
     // Run forecast
     logger.Info() << "Starting forecast integration for " << max_steps
@@ -85,7 +86,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                        << " to t=" << segment_end_time << " seconds";
 
         // Run model for this time segment
-        // metada::framework::State<BackendTag> nextState(config);
+        // State<BackendTag> nextState(config);
         // model.run(currentState, nextState, current_time, segment_end_time);
 
         // Update current state and time
@@ -102,7 +103,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
       }
     } else {
       // Single run for the entire time period
-      // metada::framework::State<BackendTag> finalState(config);
+      // State<BackendTag> finalState(config);
       logger.Debug() << "Integration from t=0 to t=" << end_time << " seconds";
       // model.run(initialState, finalState, 0.0, end_time);
       // currentState = finalState;
