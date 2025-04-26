@@ -12,8 +12,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <xtensor/xadapt.hpp>
-#include <xtensor/xarray.hpp>
+#include <xtensor/containers/xadapt.hpp>
+#include <xtensor/containers/xarray.hpp>
 
 namespace metada::backends::wrf {
 

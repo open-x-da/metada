@@ -12,8 +12,8 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-#include <xtensor/xmath.hpp>
-#include <xtensor/xview.hpp>
+#include <xtensor/core/xmath.hpp>
+#include <xtensor/views/xview.hpp>
 
 namespace metada::backends::wrf {
 
