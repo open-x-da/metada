@@ -19,9 +19,10 @@ namespace metada::backends::wrf {
 
 // Constructor implementation with ConfigBackend
 template <typename ConfigBackend>
-WRFState::WRFState(const ConfigBackend& config)
-    : wrfFilename_(config.getString("wrf.input_file", "")),
-      timestamp_(config.getString("wrf.timestamp", "0000-00-00_00:00:00")),
+WRFState<ConfigBackend>::WRFState(const ConfigBackend& config)
+    : config_(config),
+      wrfFilename_(config.Get("wrf.input_file").asString()),
+      timestamp_(config.Get("wrf.timestamp").asString()),
       initialized_(false) {
   if (wrfFilename_.empty()) {
     throw std::runtime_error(
@@ -34,7 +35,7 @@ WRFState::WRFState(const ConfigBackend& config)
 
   // Try to get variables list from config, otherwise use defaults
   try {
-    variables = config.getStringVector("wrf.variables");
+    variables = config.Get("wrf.variables").as;
   } catch (const std::exception&) {
     variables = defaultVars;
   }
@@ -50,7 +51,8 @@ WRFState::WRFState(const ConfigBackend& config)
 }
 
 // Move constructor implementation
-WRFState::WRFState(WRFState&& other) noexcept
+template <typename ConfigBackend>
+WRFState<ConfigBackend>::WRFState(WRFState<ConfigBackend>&& other) noexcept
     : wrfFilename_(std::move(other.wrfFilename_)),
       timestamp_(std::move(other.timestamp_)),
       initialized_(other.initialized_),
@@ -65,7 +67,9 @@ WRFState::WRFState(WRFState&& other) noexcept
 }
 
 // Move assignment operator implementation
-WRFState& WRFState::operator=(WRFState&& other) noexcept {
+template <typename ConfigBackend>
+WRFState<ConfigBackend>& WRFState<ConfigBackend>::operator=(
+    WRFState<ConfigBackend>&& other) noexcept {
   if (this != &other) {
     wrfFilename_ = std::move(other.wrfFilename_);
     timestamp_ = std::move(other.timestamp_);
@@ -84,14 +88,24 @@ WRFState& WRFState::operator=(WRFState&& other) noexcept {
 }
 
 // Clone implementation
-std::unique_ptr<WRFState> WRFState::clone() const {
-  // Use copy constructor for cloning (private constructor would be better in a
-  // real implementation)
-  return std::make_unique<WRFState>(*this);
+template <typename ConfigBackend>
+std::unique_ptr<WRFState<ConfigBackend>> WRFState<ConfigBackend>::clone()
+    const {
+  auto cloned = std::make_unique<WRFState<ConfigBackend>>(config_);
+  // Copy all the state data to the cloned object
+  cloned->wrfFilename_ = this->wrfFilename_;
+  cloned->timestamp_ = this->timestamp_;
+  cloned->initialized_ = this->initialized_;
+  cloned->variables_ = this->variables_;
+  cloned->dimensions_ = this->dimensions_;
+  cloned->variableNames_ = this->variableNames_;
+  cloned->activeVariable_ = this->activeVariable_;
+  return cloned;
 }
 
 // Data access implementation
-void* WRFState::getData() {
+template <typename ConfigBackend>
+void* WRFState<ConfigBackend>::getData() {
   if (!initialized_ || activeVariable_.empty()) {
     return nullptr;
   }
@@ -104,7 +118,8 @@ void* WRFState::getData() {
 }
 
 // Const data access implementation
-const void* WRFState::getData() const {
+template <typename ConfigBackend>
+const void* WRFState<ConfigBackend>::getData() const {
   if (!initialized_ || activeVariable_.empty()) {
     return nullptr;
   }
@@ -117,12 +132,14 @@ const void* WRFState::getData() const {
 }
 
 // Get active variable implementation
-const std::string& WRFState::getActiveVariable() const {
+template <typename ConfigBackend>
+const std::string& WRFState<ConfigBackend>::getActiveVariable() const {
   return activeVariable_;
 }
 
 // Set active variable implementation
-void WRFState::setActiveVariable(const std::string& name) {
+template <typename ConfigBackend>
+void WRFState<ConfigBackend>::setActiveVariable(const std::string& name) {
   if (variables_.find(name) == variables_.end()) {
     throw std::out_of_range("Variable not found: " + name);
   }
@@ -130,12 +147,15 @@ void WRFState::setActiveVariable(const std::string& name) {
 }
 
 // Get variable names implementation
-const std::vector<std::string>& WRFState::getVariableNames() const {
+template <typename ConfigBackend>
+const std::vector<std::string>& WRFState<ConfigBackend>::getVariableNames()
+    const {
   return variableNames_;
 }
 
 // Get dimensions implementation
-const std::vector<size_t>& WRFState::getDimensions(
+template <typename ConfigBackend>
+const std::vector<size_t>& WRFState<ConfigBackend>::getDimensions(
     const std::string& name) const {
   try {
     return dimensions_.at(name);
@@ -145,14 +165,17 @@ const std::vector<size_t>& WRFState::getDimensions(
 }
 
 // Zero implementation
-void WRFState::zero() {
+template <typename ConfigBackend>
+void WRFState<ConfigBackend>::zero() {
   for (auto& [name, data] : variables_) {
     data.fill(0.0);
   }
 }
 
 // Dot product implementation
-double WRFState::dot(const WRFState& other) const {
+template <typename ConfigBackend>
+double WRFState<ConfigBackend>::dot(
+    const WRFState<ConfigBackend>& other) const {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for dot product");
   }
@@ -172,7 +195,8 @@ double WRFState::dot(const WRFState& other) const {
 }
 
 // Norm implementation
-double WRFState::norm() const {
+template <typename ConfigBackend>
+double WRFState<ConfigBackend>::norm() const {
   double sumSquares = 0.0;
 
   // Sum squares of all variables
@@ -184,7 +208,9 @@ double WRFState::norm() const {
 }
 
 // Equals implementation
-bool WRFState::equals(const WRFState& other) const {
+template <typename ConfigBackend>
+bool WRFState<ConfigBackend>::equals(
+    const WRFState<ConfigBackend>& other) const {
   if (!isCompatible(other)) {
     return false;
   }
@@ -207,7 +233,8 @@ bool WRFState::equals(const WRFState& other) const {
 }
 
 // Add implementation
-void WRFState::add(const WRFState& other) {
+template <typename ConfigBackend>
+void WRFState<ConfigBackend>::add(const WRFState<ConfigBackend>& other) {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for addition");
   }
@@ -222,7 +249,8 @@ void WRFState::add(const WRFState& other) {
 }
 
 // Subtract implementation
-void WRFState::subtract(const WRFState& other) {
+template <typename ConfigBackend>
+void WRFState<ConfigBackend>::subtract(const WRFState<ConfigBackend>& other) {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for subtraction");
   }
@@ -237,7 +265,8 @@ void WRFState::subtract(const WRFState& other) {
 }
 
 // Multiply implementation
-void WRFState::multiply(double scalar) {
+template <typename ConfigBackend>
+void WRFState<ConfigBackend>::multiply(double scalar) {
   // Multiply each variable by the scalar
   for (auto& [name, data] : variables_) {
     data *= scalar;
@@ -245,13 +274,15 @@ void WRFState::multiply(double scalar) {
 }
 
 // Is initialized implementation
-bool WRFState::isInitialized() const {
+template <typename ConfigBackend>
+bool WRFState<ConfigBackend>::isInitialized() const {
   return initialized_;
 }
 
 // Set data implementation
-void WRFState::setData(const std::vector<double>& values,
-                       const std::string& variableName) {
+template <typename ConfigBackend>
+void WRFState<ConfigBackend>::setData(const std::vector<double>& values,
+                                      const std::string& variableName) {
   // Use active variable if none specified
   std::string varName = variableName.empty() ? activeVariable_ : variableName;
 
@@ -278,7 +309,8 @@ void WRFState::setData(const std::vector<double>& values,
 }
 
 // Get data implementation
-const xt::xarray<double>& WRFState::getData(
+template <typename ConfigBackend>
+const xt::xarray<double>& WRFState<ConfigBackend>::getData(
     const std::string& variableName) const {
   // Use active variable if none specified
   std::string varName = variableName.empty() ? activeVariable_ : variableName;
@@ -291,9 +323,10 @@ const xt::xarray<double>& WRFState::getData(
 }
 
 // Private helper to load state data
-void WRFState::loadStateData(const std::string& filename,
-                             const std::vector<std::string>& variables,
-                             const std::string& timestamp) {
+template <typename ConfigBackend>
+void WRFState<ConfigBackend>::loadStateData(
+    const std::string& filename, const std::vector<std::string>& variables,
+    const std::string& timestamp) {
   try {
     // Open NetCDF file
     netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
@@ -395,7 +428,9 @@ void WRFState::loadStateData(const std::string& filename,
 }
 
 // Helper to check compatibility
-bool WRFState::isCompatible(const WRFState& other) const {
+template <typename ConfigBackend>
+bool WRFState<ConfigBackend>::isCompatible(
+    const WRFState<ConfigBackend>& other) const {
   // Check if both states have the same variable names
   if (variableNames_.size() != other.variableNames_.size()) {
     return false;
@@ -421,9 +456,9 @@ bool WRFState::isCompatible(const WRFState& other) const {
   return true;
 }
 
-// Explicit template instantiations for known config backend types
-// Add additional instantiations as needed for different config backends
-template WRFState::WRFState(
-    const metada::backends::yaml::YAMLConfigBackend& config);
+/*
+ * TODO: Template instantiations for config backends need to be fixed
+ * There is a namespace/include issue with YamlConfig that needs to be addressed
+ */
 
 }  // namespace metada::backends::wrf

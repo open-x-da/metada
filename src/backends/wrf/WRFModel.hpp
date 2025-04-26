@@ -16,6 +16,7 @@
 namespace metada::backends::wrf {
 
 // Forward declaration
+template <typename ConfigBackend>
 class WRFState;
 
 /**
@@ -26,6 +27,7 @@ class WRFState;
  * Forecasting) model. It provides methods for time stepping and integration of
  * the WRF dynamical core.
  */
+template <typename ConfigBackend>
 class WRFModel {
  public:
   /**
@@ -48,7 +50,6 @@ class WRFModel {
    *
    * @param config Configuration containing WRF model parameters
    */
-  template <typename ConfigBackend>
   explicit WRFModel(const ConfigBackend& config);
 
   /**
@@ -76,7 +77,6 @@ class WRFModel {
    *
    * @param config Configuration containing model parameters
    */
-  template <typename ConfigBackend>
   void initialize(const ConfigBackend& config);
 
   /**
@@ -116,7 +116,8 @@ class WRFModel {
    * @param endTime End time in seconds
    * @throws std::runtime_error If model run fails
    */
-  void run(const WRFState& initialState, WRFState& finalState, double startTime,
+  void run(const WRFState<ConfigBackend>& initialState,
+           WRFState<ConfigBackend>& finalState, double startTime,
            double endTime);
 
   /**
@@ -134,7 +135,8 @@ class WRFModel {
    * @param outState Output state after time step
    * @param dt Time step size in seconds
    */
-  void timeStep(const WRFState& inState, WRFState& outState, double dt);
+  void timeStep(const WRFState<ConfigBackend>& inState,
+                WRFState<ConfigBackend>& outState, double dt);
 
   /**
    * @brief Calculate adaptive time step based on CFL condition
@@ -143,14 +145,15 @@ class WRFModel {
    * @param maxDt Maximum allowed time step
    * @return Calculated time step size
    */
-  double calculateTimeStep(const WRFState& state, double maxDt) const;
+  double calculateTimeStep(const WRFState<ConfigBackend>& state,
+                           double maxDt) const;
 
   /**
    * @brief Apply boundary conditions to the model state
    *
    * @param state State to apply boundary conditions to
    */
-  void applyBoundaryConditions(WRFState& state) const;
+  void applyBoundaryConditions(WRFState<ConfigBackend>& state) const;
 
   // Model configuration
   bool initialized_ = false;

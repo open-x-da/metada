@@ -1,7 +1,6 @@
 # Add the WRF Backend sources
 set(WRF_BACKEND_SOURCES
     WRFGeometry.cpp
-    WRFGeometryIterator.cpp
     WRFState.cpp
     WRFModel.cpp
 )
@@ -19,7 +18,7 @@ add_library(metada::backends::wrf ALIAS metada_wrf_backend)
 target_include_directories(metada_wrf_backend 
     PUBLIC 
         ${CMAKE_SOURCE_DIR}/src
-    SYSTEM PUBLIC
+    PUBLIC SYSTEM
         ${xtl_INCLUDE_DIRS}
         ${xtensor_INCLUDE_DIRS}
         ${netcdf-cxx4_INCLUDE_DIRS}

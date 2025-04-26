@@ -25,6 +25,7 @@ namespace metada::backends::wrf {
  * meteorological state variables stored in NetCDF files and provides
  * operations required by the State adapter.
  */
+template <typename ConfigBackend>
 class WRFState {
  public:
   /**
@@ -47,7 +48,6 @@ class WRFState {
    *
    * @param config Configuration containing WRF file path and variables
    */
-  template <typename ConfigBackend>
   explicit WRFState(const ConfigBackend& config);
 
   /**
@@ -222,6 +222,8 @@ class WRFState {
    * @return True if compatible, false otherwise
    */
   bool isCompatible(const WRFState& other) const;
+
+  const ConfigBackend& config_;
 
   // WRF NetCDF file information
   std::string wrfFilename_;

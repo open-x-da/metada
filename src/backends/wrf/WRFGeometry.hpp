@@ -9,10 +9,19 @@
 
 #include <memory>
 #include <netcdf>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xarray.hpp>
+
+// Forward declarations
+namespace metada::backends::wrf {
+template <typename ConfigBackend>
+class WRFGeometryIterator;
+template <typename ConfigBackend>
+class WRFGeometryConstIterator;
+}  // namespace metada::backends::wrf
 
 namespace metada::backends::wrf {
 
@@ -24,11 +33,12 @@ namespace metada::backends::wrf {
  * geographical data from a WRF NetCDF file and provides methods for
  * traversing the grid and managing boundary conditions.
  */
+template <typename ConfigBackend>
 class WRFGeometry {
  public:
-  // Iterator classes (forward declarations)
-  class iterator;
-  class const_iterator;
+  // Iterator type aliases
+  using iterator = WRFGeometryIterator<ConfigBackend>;
+  using const_iterator = WRFGeometryConstIterator<ConfigBackend>;
 
   /**
    * @brief Default constructor is deleted
@@ -50,8 +60,22 @@ class WRFGeometry {
    *
    * @param config Configuration containing WRF file path and timestamp
    */
-  template <typename ConfigBackend>
-  explicit WRFGeometry(const ConfigBackend& config);
+  explicit WRFGeometry(const ConfigBackend& config)
+      : wrfFilename_(config.Get("wrf.input_file").asString()),
+        timestamp_(config.Get("wrf.timestamp").asString()),
+        initialized_(false),
+        periodicX_(config.Get("wrf.periodic_x").asBool()),
+        periodicY_(config.Get("wrf.periodic_y").asBool()),
+        periodicZ_(config.Get("wrf.periodic_z").asBool()) {
+    if (wrfFilename_.empty()) {
+      throw std::runtime_error(
+          "WRF input file path not specified in configuration");
+    }
+
+    // Load geometry data from WRF NetCDF file
+    loadGeometryData(wrfFilename_, timestamp_);
+    initialized_ = true;
+  };
 
   /**
    * @brief Move constructor
@@ -113,7 +137,7 @@ class WRFGeometry {
    *
    * @return Total number of grid points in the geometry
    */
-  std::size_t totalGridSize() const;
+  std::size_t totalGridSize() const { return nx_ * ny_ * nz_; }
 
   /**
    * @brief Check if the geometry is periodic in X dimension
@@ -189,7 +213,84 @@ class WRFGeometry {
    * @param timestamp Timestamp to read from the file
    */
   void loadGeometryData(const std::string& filename,
-                        const std::string& timestamp);
+                        [[maybe_unused]] const std::string& timestamp) {
+    try {
+      // Open NetCDF file
+      netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
+
+      // Check if file is open
+      if (!wrf_file.isNull()) {
+        // Read grid dimensions
+        auto dim_west_east = wrf_file.getDim("west_east");
+        auto dim_south_north = wrf_file.getDim("south_north");
+        auto dim_bottom_top = wrf_file.getDim("bottom_top");
+
+        if (dim_west_east.isNull() || dim_south_north.isNull() ||
+            dim_bottom_top.isNull()) {
+          throw std::runtime_error("Missing required dimensions in WRF file");
+        }
+
+        nx_ = dim_west_east.getSize();
+        ny_ = dim_south_north.getSize();
+        nz_ = dim_bottom_top.getSize();
+
+        // Read geographic data variables
+        auto var_longitude = wrf_file.getVar("XLONG");
+        auto var_latitude = wrf_file.getVar("XLAT");
+        auto var_terrain = wrf_file.getVar("HGT");
+
+        if (var_longitude.isNull() || var_latitude.isNull() ||
+            var_terrain.isNull()) {
+          throw std::runtime_error(
+              "Missing required geographic variables in WRF file");
+        }
+
+        // Read time index for the requested timestamp if available
+        size_t time_idx = 0;  // Default to first time step
+        auto times_var = wrf_file.getVar("Times");
+        if (!times_var.isNull()) {
+          // Find matching timestamp (implementation dependent on WRF file
+          // format) This is a placeholder for actual timestamp matching logic
+        }
+
+        // Allocate arrays for geographic data
+        std::vector<size_t> start = {time_idx, 0, 0};
+        std::vector<size_t> count = {1, ny_, nx_};
+
+        // Read longitude data
+        std::vector<double> longitude_data(nx_ * ny_);
+        var_longitude.getVar(start, count, longitude_data.data());
+        longitude_ =
+            xt::reshape_view(xt::adapt(longitude_data, {ny_, nx_}), {ny_, nx_});
+
+        // Read latitude data
+        std::vector<double> latitude_data(nx_ * ny_);
+        var_latitude.getVar(start, count, latitude_data.data());
+        latitude_ =
+            xt::reshape_view(xt::adapt(latitude_data, {ny_, nx_}), {ny_, nx_});
+
+        // Read terrain/elevation data
+        std::vector<double> elevation_data(nx_ * ny_);
+        var_terrain.getVar(start, count, elevation_data.data());
+        elevation_ =
+            xt::reshape_view(xt::adapt(elevation_data, {ny_, nx_}), {ny_, nx_});
+
+      } else {
+        throw std::runtime_error("Failed to open WRF file: " + filename);
+      }
+    } catch (const netCDF::exceptions::NcException& e) {
+      throw std::runtime_error(
+          "NetCDF error while loading WRF geometry data: " +
+          std::string(e.what()));
+    } catch (const std::exception& e) {
+      throw std::runtime_error("Error loading WRF geometry data: " +
+                               std::string(e.what()));
+    }
+  };
+
+  // Special constructor for cloning
+  WRFGeometry(const std::string& fn, const std::string& ts, bool px, bool py,
+              bool pz);
 
   // WRF NetCDF file
   std::string wrfFilename_;
@@ -212,33 +313,46 @@ class WRFGeometry {
   bool periodicZ_ = false;
 
   // Friend declaration for iterator
-  friend class Geometry::iterator;
+  friend class WRFGeometryIterator<ConfigBackend>;
 };
 
 // Template method implementation
+template <typename ConfigBackend>
 template <typename StateBackend>
-void WRFGeometry::haloExchange(StateBackend& state) {
+void WRFGeometry<ConfigBackend>::haloExchange(StateBackend& state) {
   haloExchangeImpl(static_cast<void*>(&state));
-}
-
-// Iterator method implementations
-inline WRFGeometry::iterator WRFGeometry::begin() {
-  return iterator(this, 0);
-}
-
-inline WRFGeometry::iterator WRFGeometry::end() {
-  return iterator(this, totalGridSize());
-}
-
-inline WRFGeometry::const_iterator WRFGeometry::begin() const {
-  return const_iterator(this, 0);
-}
-
-inline WRFGeometry::const_iterator WRFGeometry::end() const {
-  return const_iterator(this, totalGridSize());
 }
 
 }  // namespace metada::backends::wrf
 
-// Implementation of the WRF geometry iterator class
+// Include the iterator implementation first
 #include "WRFGeometryIterator.hpp"
+
+// Then define the iterator methods
+namespace metada::backends::wrf {
+
+template <typename ConfigBackend>
+inline typename WRFGeometry<ConfigBackend>::iterator
+WRFGeometry<ConfigBackend>::begin() {
+  return iterator(this, 0);
+}
+
+template <typename ConfigBackend>
+inline typename WRFGeometry<ConfigBackend>::iterator
+WRFGeometry<ConfigBackend>::end() {
+  return iterator(this, totalGridSize());
+}
+
+template <typename ConfigBackend>
+inline typename WRFGeometry<ConfigBackend>::const_iterator
+WRFGeometry<ConfigBackend>::begin() const {
+  return const_iterator(this, 0);
+}
+
+template <typename ConfigBackend>
+inline typename WRFGeometry<ConfigBackend>::const_iterator
+WRFGeometry<ConfigBackend>::end() const {
+  return const_iterator(this, totalGridSize());
+}
+
+}  // namespace metada::backends::wrf

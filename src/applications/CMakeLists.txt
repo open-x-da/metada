@@ -20,18 +20,14 @@ target_link_libraries(forecast
         metada::framework::runs
         metada::traits
         metada::backends::common::utils
+        metada::backends::wrf
+        NetCDF::CXX4
 )
 
 # Set output directory
 set_target_properties(forecast
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-# Install rules
-install(TARGETS forecast
-    RUNTIME DESTINATION bin
-    COMPONENT applications
 )
 
 # Add format target

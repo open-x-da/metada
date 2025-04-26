@@ -47,10 +47,11 @@ struct BackendTraits<WRFBackendTag> {
   using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>; // Default
 #endif
 
-  using GeometryBackend  = metada::backends::wrf::WRFGeometry;
-  using GeometryIteratorBackend = metada::backends::wrf::WRFGeometryIterator;
-  using StateBackend = metada::backends::wrf::WRFState;
-  using ModelBackend = metada::backends::wrf::WRFModel;
+  using GeometryBackend = backends::wrf::WRFGeometry<ConfigBackend>;
+  using GeometryIteratorBackend =
+      backends::wrf::WRFGeometryIterator<ConfigBackend>;
+  using StateBackend = backends::wrf::WRFState<ConfigBackend>;
+  using ModelBackend = backends::wrf::WRFModel<ConfigBackend>;
 };
 
 }  // namespace metada::traits

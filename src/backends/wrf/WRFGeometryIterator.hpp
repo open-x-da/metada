@@ -12,15 +12,12 @@
 namespace metada::backends::wrf {
 
 // Forward declaration
+template <typename ConfigBackend>
 class WRFGeometry;
 
-/**
- * @brief Iterator for the WRF geometry grid
- *
- * Allows iteration over all grid points in the WRF geometry.
- * Implements the required iterator interface for use with STL algorithms.
- */
-class WRFGeometry::iterator {
+// Define standalone iterator classes
+template <typename ConfigBackend>
+class WRFGeometryIterator {
  public:
   // Iterator traits
   using iterator_category = std::forward_iterator_tag;
@@ -32,7 +29,7 @@ class WRFGeometry::iterator {
   /**
    * @brief Default constructor - creates an invalid iterator
    */
-  iterator() : geometry_(nullptr), i_(0), j_(0), k_(0), index_(0) {}
+  WRFGeometryIterator() = delete;
 
   /**
    * @brief Constructor for creating a valid iterator
@@ -40,28 +37,75 @@ class WRFGeometry::iterator {
    * @param geometry Pointer to the WRF geometry backend
    * @param index Linear index into the grid (0 for begin, grid size for end)
    */
-  iterator(const WRFGeometry* geometry, size_t index);
+  WRFGeometryIterator(const WRFGeometry<ConfigBackend>* geometry, size_t index)
+      : geometry_(geometry), index_(index) {
+    if (geometry_ && index_ < geometry_->totalGridSize()) {
+      // Calculate 3D indices from linear index
+      const size_t nx = geometry_->nx_;
+      const size_t ny = geometry_->ny_;
+
+      // Using row-major order: index = k*nx*ny + j*nx + i
+      k_ = index_ / (nx * ny);
+      const size_t remainder = index_ % (nx * ny);
+      j_ = remainder / nx;
+      i_ = remainder % nx;
+    } else {
+      // End iterator or invalid
+      i_ = 0;
+      j_ = 0;
+      k_ = 0;
+    }
+  }
 
   /**
    * @brief Dereference operator
    *
    * @return Tuple containing (i, j, k) indices of current position
    */
-  value_type operator*() const;
+  value_type operator*() const { return std::make_tuple(i_, j_, k_); }
 
   /**
    * @brief Pre-increment operator
    *
    * @return Reference to this iterator after incrementing
    */
-  iterator& operator++();
+  WRFGeometryIterator& operator++() {
+    if (geometry_ && index_ < geometry_->totalGridSize()) {
+      // Increment linear index
+      ++index_;
+
+      if (index_ < geometry_->totalGridSize()) {
+        // Recalculate 3D indices
+        const size_t nx = geometry_->nx_;
+        const size_t ny = geometry_->ny_;
+
+        // Increment i (west-east) first
+        ++i_;
+        if (i_ >= nx) {
+          // Wrap to next j (south-north)
+          i_ = 0;
+          ++j_;
+          if (j_ >= ny) {
+            // Wrap to next k (bottom-top)
+            j_ = 0;
+            ++k_;
+          }
+        }
+      }
+    }
+    return *this;
+  }
 
   /**
    * @brief Post-increment operator
    *
    * @return Copy of iterator before incrementing
    */
-  iterator operator++(int);
+  WRFGeometryIterator operator++(int) {
+    WRFGeometryIterator temp = *this;
+    ++(*this);
+    return temp;
+  }
 
   /**
    * @brief Equality comparison
@@ -69,7 +113,9 @@ class WRFGeometry::iterator {
    * @param other Iterator to compare with
    * @return True if iterators point to the same position
    */
-  bool operator==(const iterator& other) const;
+  bool operator==(const WRFGeometryIterator& other) const {
+    return (geometry_ == other.geometry_ && index_ == other.index_);
+  }
 
   /**
    * @brief Inequality comparison
@@ -77,7 +123,9 @@ class WRFGeometry::iterator {
    * @param other Iterator to compare with
    * @return True if iterators point to different positions
    */
-  bool operator!=(const iterator& other) const;
+  bool operator!=(const WRFGeometryIterator& other) const {
+    return !(*this == other);
+  }
 
   /**
    * @brief Get i index (west-east)
@@ -101,20 +149,18 @@ class WRFGeometry::iterator {
   size_t k() const { return k_; }
 
  private:
-  const Geometry* geometry_;  // Pointer to parent geometry
-  size_t i_;                  // West-east index
-  size_t j_;                  // South-north index
-  size_t k_;                  // Bottom-top index
-  size_t index_;              // Linear index into the grid
+  const WRFGeometry<ConfigBackend>* geometry_;  // Pointer to parent geometry
+  size_t i_;                                    // West-east index
+  size_t j_;                                    // South-north index
+  size_t k_;                                    // Bottom-top index
+  size_t index_;                                // Linear index into the grid
 };
 
-/**
- * @brief Const iterator for the WRF geometry grid
- */
-class WRFGeometry::const_iterator : public WRFGeometry::iterator {
+template <typename ConfigBackend>
+class WRFGeometryConstIterator : public WRFGeometryIterator<ConfigBackend> {
  public:
   // Inherit constructors from base class
-  using iterator::iterator;
+  using WRFGeometryIterator<ConfigBackend>::WRFGeometryIterator;
 };
 
 }  // namespace metada::backends::wrf

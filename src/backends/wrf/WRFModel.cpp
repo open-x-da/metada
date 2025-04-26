@@ -15,19 +15,21 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "State.hpp"
+#include "WRFState.hpp"
 
 namespace metada::backends::wrf {
 
 // Constructor implementation with ConfigBackend
 template <typename ConfigBackend>
-WRFModel::WRFModel(const ConfigBackend& config) : initialized_(false) {
+WRFModel<ConfigBackend>::WRFModel(const ConfigBackend& config)
+    : initialized_(false) {
   // Initialize the model with the provided config
   initialize(config);
 }
 
 // Move constructor implementation
-WRFModel::WRFModel(WRFModel&& other) noexcept
+template <typename ConfigBackend>
+WRFModel<ConfigBackend>::WRFModel(WRFModel<ConfigBackend>&& other) noexcept
     : initialized_(other.initialized_),
       parameters_(std::move(other.parameters_)),
       currentTime_(other.currentTime_),
@@ -47,7 +49,9 @@ WRFModel::WRFModel(WRFModel&& other) noexcept
 }
 
 // Move assignment operator implementation
-WRFModel& WRFModel::operator=(WRFModel&& other) noexcept {
+template <typename ConfigBackend>
+WRFModel<ConfigBackend>& WRFModel<ConfigBackend>::operator=(
+    WRFModel<ConfigBackend>&& other) noexcept {
   if (this != &other) {
     initialized_ = other.initialized_;
     parameters_ = std::move(other.parameters_);
@@ -71,7 +75,8 @@ WRFModel& WRFModel::operator=(WRFModel&& other) noexcept {
 }
 
 // Destructor implementation
-WRFModel::~WRFModel() {
+template <typename ConfigBackend>
+WRFModel<ConfigBackend>::~WRFModel() {
   if (initialized_) {
     try {
       finalize();
@@ -84,7 +89,7 @@ WRFModel::~WRFModel() {
 
 // Initialize implementation with ConfigBackend
 template <typename ConfigBackend>
-void WRFModel::initialize(const ConfigBackend& config) {
+void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
   if (initialized_) {
     return;  // Already initialized
   }
@@ -145,7 +150,8 @@ void WRFModel::initialize(const ConfigBackend& config) {
 }
 
 // Reset implementation
-void WRFModel::reset() {
+template <typename ConfigBackend>
+void WRFModel<ConfigBackend>::reset() {
   if (!initialized_) {
     throw std::runtime_error("Cannot reset uninitialized WRF model");
   }
@@ -157,7 +163,8 @@ void WRFModel::reset() {
 }
 
 // Finalize implementation
-void WRFModel::finalize() {
+template <typename ConfigBackend>
+void WRFModel<ConfigBackend>::finalize() {
   if (!initialized_) {
     return;  // Nothing to finalize
   }
@@ -170,7 +177,9 @@ void WRFModel::finalize() {
 }
 
 // Get parameter implementation
-std::string WRFModel::getParameter(const std::string& name) const {
+template <typename ConfigBackend>
+std::string WRFModel<ConfigBackend>::getParameter(
+    const std::string& name) const {
   try {
     return parameters_.at(name);
   } catch (const std::out_of_range&) {
@@ -179,7 +188,9 @@ std::string WRFModel::getParameter(const std::string& name) const {
 }
 
 // Set parameter implementation
-void WRFModel::setParameter(const std::string& name, const std::string& value) {
+template <typename ConfigBackend>
+void WRFModel<ConfigBackend>::setParameter(const std::string& name,
+                                           const std::string& value) {
   // Special handling for certain parameters that affect model behavior
   if (name == "time_step") {
     try {
@@ -223,9 +234,10 @@ void WRFModel::setParameter(const std::string& name, const std::string& value) {
 }
 
 // Run implementation
-void WRFModel::run(const WRFStateBackend& initialState,
-                   WRFStateBackend& finalState, double startTime,
-                   double endTime) {
+template <typename ConfigBackend>
+void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
+                                  WRFState<ConfigBackend>& finalState,
+                                  double startTime, double endTime) {
   if (!initialized_) {
     throw std::runtime_error("Cannot run uninitialized WRF model");
   }
@@ -293,8 +305,10 @@ void WRFModel::run(const WRFStateBackend& initialState,
 }
 
 // Time step implementation
-void WRFModel::timeStep(const WRFStateBackend& inState,
-                        WRFStateBackend& outState, double dt) {
+template <typename ConfigBackend>
+void WRFModel<ConfigBackend>::timeStep(const WRFState<ConfigBackend>& inState,
+                                       WRFState<ConfigBackend>& outState,
+                                       double dt) {
   // Clone input state to output state first
   outState = std::move(*inState.clone());
 
@@ -378,8 +392,9 @@ void WRFModel::timeStep(const WRFStateBackend& inState,
 }
 
 // Calculate time step implementation
-double WRFModel::calculateTimeStep(const WRFStateBackend& state,
-                                   double maxDt) const {
+template <typename ConfigBackend>
+double WRFModel<ConfigBackend>::calculateTimeStep(
+    const WRFState<ConfigBackend>& state, double maxDt) const {
   // This would calculate an appropriate time step based on the CFL condition
   // For simplicity, we'll just return the maximum time step here
 
@@ -419,7 +434,9 @@ double WRFModel::calculateTimeStep(const WRFStateBackend& state,
 }
 
 // Apply boundary conditions implementation
-void WRFModel::applyBoundaryConditions(WRFStateBackend& state) const {
+template <typename ConfigBackend>
+void WRFModel<ConfigBackend>::applyBoundaryConditions(
+    WRFState<ConfigBackend>& state) const {
   // Apply appropriate boundary conditions to each variable
   // For demonstration purposes, we'll just apply simple conditions
 
@@ -432,11 +449,5 @@ void WRFModel::applyBoundaryConditions(WRFStateBackend& state) const {
     // boundary conditions depending on the variable and domain configuration
   }
 }
-
-// Explicit template instantiations for known config backend types
-template WRFModel::WRFModel(
-    const metada::backends::yaml::YAMLConfigBackend& config);
-template void WRFModel::initialize(
-    const metada::backends::yaml::YAMLConfigBackend& config);
 
 }  // namespace metada::backends::wrf
