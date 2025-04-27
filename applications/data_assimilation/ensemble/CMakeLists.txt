@@ -7,7 +7,6 @@ target_link_libraries(letkf
         metada::traits
         metada::framework::adapters
         metada::framework::core
-        metada::framework::interfaces
         metada::framework::runs
         metada::backends::common::utils
 )

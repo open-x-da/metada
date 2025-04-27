@@ -1,0 +1,14 @@
+logger:
+  app_name: "forecast"
+  level: "debug"
+  color: true
+  console: true
+
+forecast:
+  start_time: "2023-04-15T12:00:00Z"
+  end_time: "2023-04-15T18:00:00Z"
+  time_step: 3600  # seconds
+  max_steps: 100
+  output_file: "forecast.nc"
+
+geometry:

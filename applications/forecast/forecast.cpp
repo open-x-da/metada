@@ -4,11 +4,13 @@
  * @author Metada Framework Team
  */
 
+#include <chrono>
 #include <iostream>
 #include <string>
 
 #include "ApplicationContext.hpp"
 #include "Config.hpp"
+#include "DateTime.hpp"
 #include "Geometry.hpp"
 #include "Logger.hpp"
 #include "Model.hpp"
@@ -18,9 +20,10 @@
 // Default backends, can be changed with template parameters
 using BackendTag = metada::traits::WRFBackendTag;
 using namespace metada::framework;
+using namespace metada::core;
 using namespace metada::framework::runs;
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
+int main([[maybe_unused]] int argc, char** argv) {
   try {
     // Initialize application context
     ApplicationContext<BackendTag> context(argv[0], argv[1]);
@@ -32,14 +35,18 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     logger.Info() << "Using configuration file: " << argv[1];
 
     // Read forecast parameters
-    const int max_steps = config.Get("forecast.max_steps").asInt();
-    const float dt = config.Get("forecast.time_step").asFloat();  // seconds
+    const auto start_datetime =
+        DateTime(config.Get("forecast.start_time").asString());
+    const auto end_datetime =
+        DateTime(config.Get("forecast.end_time").asString());
+    const size_t max_steps = config.Get("forecast.max_steps").asInt();
+    const auto dt =
+        std::chrono::seconds(config.Get("forecast.time_step").asInt());
     const std::string output_file =
         config.Get("forecast.output_file").asString();
-    const bool write_intermediates =
-        config.Get("forecast.write_intermediates").asBool();
-    const int output_frequency =
-        config.Get("forecast.output_frequency").asInt();
+    const bool write_history = config.Get("forecast.write_history").asBool();
+    const int history_frequency =
+        config.Get("forecast.history_frequency").asInt();
 
     logger.Info() << "Forecast configuration:";
     logger.Info() << "  - Maximum steps: " << max_steps;
@@ -60,13 +67,13 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     // Model<BackendTag> model(config);
 
     // Run forecast
-    logger.Info() << "Starting forecast integration for " << max_steps
-                  << " steps";
-    double current_time = 0.0;
-    double end_time = max_steps * dt;
+    // logger.Info() << "Starting forecast integration from " << start_datetime
+    //               << " to " << end_datetime;
+    auto current_time = start_datetime;
+    auto end_time = end_datetime;
 
     // Output initial state if needed
-    if (write_intermediates) {
+    if (write_history) {
       logger.Info() << "Writing initial state to " << output_file;
       // Code to write initial state
     }
@@ -75,15 +82,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     // currentState = initialState;  // Assuming State has assignment operator
 
     // Time integration loop using model.run
-    if (write_intermediates && output_frequency > 0) {
+    if (write_history && history_frequency > 0) {
       // Use multiple shorter runs if intermediate outputs are needed
-      for (int step = 0; step < max_steps; step += output_frequency) {
+      for (int step = 0; step < max_steps; step += history_frequency) {
         // Calculate end time for this segment
-        double segment_end_time = std::min(
-            static_cast<double>((step + output_frequency) * dt), end_time);
+        auto segment_end_time =
+            std::min(current_time + history_frequency * dt, end_time);
 
-        logger.Debug() << "Integration from t=" << current_time
-                       << " to t=" << segment_end_time << " seconds";
+        // logger.Debug() << "Integration from t=" << current_time
+        //                << " to t=" << segment_end_time << " seconds";
 
         // Run model for this time segment
         // State<BackendTag> nextState(config);
@@ -94,11 +101,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         current_time = segment_end_time;
 
         // Write intermediate output
-        if (write_intermediates) {
-          int current_step = static_cast<int>(current_time / dt);
-          logger.Info() << "Writing intermediate state at step "
-                        << current_step;
-          // Code to write intermediate state
+        if (write_history) {
+          logger.Info() << "Writing history at t=" << current_time;
+          // Code to write history
         }
       }
     } else {
