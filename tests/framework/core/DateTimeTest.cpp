@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <sstream>
 #include <thread>
 
 #include "DateTime.hpp"
@@ -347,4 +348,21 @@ TEST(DateTimeTest, EdgeCases) {
   endOfMonth += std::chrono::days(1);
   EXPECT_EQ(endOfMonth.month(), 5);
   EXPECT_EQ(endOfMonth.day(), 1);
+}
+
+TEST(DateTimeTest, StreamInsertionOperator) {
+  DateTime dt(2023, 4, 15, 12, 30, 45);
+
+  // Test stream insertion operator (<<)
+  std::stringstream ss;
+  ss << dt;
+
+  // Should match the default format output
+  std::string expected = dt.format();
+  EXPECT_EQ(ss.str(), expected);
+
+  // Test in a more complex stream expression
+  std::stringstream ss2;
+  ss2 << "DateTime: " << dt << " is valid";
+  EXPECT_EQ(ss2.str(), "DateTime: " + expected + " is valid");
 }

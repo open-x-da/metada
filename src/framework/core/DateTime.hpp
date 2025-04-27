@@ -4,6 +4,7 @@
 #include <compare>
 #include <concepts>
 #include <format>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -143,5 +144,10 @@ class DateTime {
     return *this;
   }
 };
+
+// Operator overload for stream insertion
+inline std::ostream& operator<<(std::ostream& os, const DateTime& dt) {
+  return os << dt.format();
+}
 
 }  // namespace metada::core
