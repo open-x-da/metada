@@ -1,5 +1,6 @@
 add_library(core 
     DateTime.cpp
+    Duration.cpp
 )
 add_library(metada::framework::core ALIAS core)
 
@@ -7,6 +8,7 @@ target_sources(core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/NonCopyable.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/DateTime.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/Duration.hpp
 )
 
 target_include_directories(core

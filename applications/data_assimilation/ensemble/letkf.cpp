@@ -58,8 +58,8 @@ using namespace metada::traits;
  * @return 0 on successful execution, 1 on error
  * @throws std::runtime_error For critical errors during execution
  */
-int main(int argc, char* argv[]) {
-  auto context = ApplicationContext<L63BackendTag>(argv[0], argv[1]);
+int main(const int argc, const char** argv) {
+  auto context = ApplicationContext<L63BackendTag>(argc, argv);
   auto& logger = context.getLogger();
   auto& config = context.getConfig();
 

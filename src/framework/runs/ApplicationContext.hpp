@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
@@ -41,7 +42,7 @@ namespace metada::framework::runs {
  * @code{.cpp}
  * int main(int argc, char* argv[]) {
  *   // Create context with app name and config file
- *   auto context = ApplicationContext<L63BackendTag>(argv[0], argv[1]);
+ *   auto context = ApplicationContext<L63BackendTag>(argc, argv);
  *
  *   // Access managed services
  *   auto& logger = context.getLogger();
@@ -70,19 +71,21 @@ class ApplicationContext {
   /**
    * @brief Constructs and initializes the application context
    *
-   * @param app_name Name of the application used for logging and identification
-   * @param config_file Path to configuration file (JSON/YAML)
-   * @throws std::runtime_error If initialization of any service fails
+   * @param argc Number of command line arguments
+   * @param argv Array of command line arguments
+   * @throws std::runtime_error If initialization of any service fails or config
+   * file is missing
    *
    * @details Initializes services in the following order:
-   * 1. Configuration loading from specified file
-   * 2. Logger initialization with configuration
-   * 3. Logs successful initialization with application name
+   * 1. Check if config file path is provided in command line
+   * 2. Configuration loading from specified file
+   * 3. Logger initialization with configuration
+   * 4. Logs successful initialization with application name
    */
-  ApplicationContext(const std::string& app_name,
-                     const std::string& config_file)
-      : config_(config_file), logger_(config_.GetSubsection("logger")) {
-    logger_.Info() << "Application context initialized: " << app_name;
+  ApplicationContext(const int argc, const char** argv)
+      : config_(validateAndGetConfigPath(argc, argv)),
+        logger_(config_.GetSubsection("logger")) {
+    logger_.Info() << "Application context initialized: " << argv[0];
   }
 
   /**
@@ -153,6 +156,26 @@ class ApplicationContext {
   // Timer& getTimer() { return timer_; }
 
  private:
+  /**
+   * @brief Validates command line arguments and returns config file path
+   *
+   * @param argc Number of command line arguments
+   * @param argv Array of command line arguments
+   * @return const char* Path to configuration file
+   * @throws std::runtime_error If config file path is missing
+   */
+  static const char* validateAndGetConfigPath(const int argc,
+                                              const char** argv) {
+    if (argc < 2) {
+      std::cerr << "Error: No configuration file specified." << std::endl;
+      std::cerr << "Usage: " << (argc > 0 ? argv[0] : "application")
+                << " <path_to_config_file>" << std::endl;
+      throw std::runtime_error(
+          "Missing configuration file path in command line arguments");
+    }
+    return argv[1];
+  }
+
   Config<BackendTag> config_;  ///< Configuration service instance
   Logger<BackendTag> logger_;  ///< Logging service instance
   // Timer timer_;  // To be implemented

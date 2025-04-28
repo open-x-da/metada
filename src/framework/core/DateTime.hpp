@@ -9,6 +9,8 @@
 #include <string>
 #include <string_view>
 
+#include "Duration.hpp"
+
 namespace metada::core {
 
 /**
@@ -77,6 +79,29 @@ class DateTime {
     return m_timePoint >= other.m_timePoint;
   }
 
+  // Operator overloads for Duration arithmetic
+  [[nodiscard]] DateTime operator+(const Duration& duration) const noexcept {
+    return DateTime(m_timePoint + duration.asChrono());
+  }
+
+  [[nodiscard]] DateTime operator-(const Duration& duration) const noexcept {
+    return DateTime(m_timePoint - duration.asChrono());
+  }
+
+  // Compound assignment operators with Duration
+  DateTime& operator+=(const Duration& duration) noexcept {
+    m_timePoint += duration.asChrono();
+    updateComponents();
+    return *this;
+  }
+
+  DateTime& operator-=(const Duration& duration) noexcept {
+    m_timePoint -= duration.asChrono();
+    updateComponents();
+    return *this;
+  }
+
+  // Original chrono-based operators for backward compatibility
   // Operator overloads for immutable duration arithmetic
   template <typename Rep, typename Period>
   [[nodiscard]] DateTime operator+(
@@ -113,11 +138,11 @@ class DateTime {
     return *this;
   }
 
-  // Compute difference between two DateTimes
-  [[nodiscard]] std::chrono::seconds operator-(
-      const DateTime& other) const noexcept {
-    return std::chrono::duration_cast<std::chrono::seconds>(m_timePoint -
-                                                            other.m_timePoint);
+  // Compute difference between two DateTimes (return Duration)
+  [[nodiscard]] Duration operator-(const DateTime& other) const noexcept {
+    auto seconds_diff = std::chrono::duration_cast<std::chrono::seconds>(
+        m_timePoint - other.m_timePoint);
+    return Duration(seconds_diff);
   }
 
  private:
