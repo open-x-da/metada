@@ -17,7 +17,6 @@ namespace metada::backends::wrf {
 template <typename ConfigBackend>
 WRFGeometry<ConfigBackend>::WRFGeometry(WRFGeometry&& other) noexcept
     : wrfFilename_(std::move(other.wrfFilename_)),
-      timestamp_(std::move(other.timestamp_)),
       initialized_(other.initialized_),
       longitude_(std::move(other.longitude_)),
       latitude_(std::move(other.latitude_)),
@@ -41,7 +40,6 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
     WRFGeometry&& other) noexcept {
   if (this != &other) {
     wrfFilename_ = std::move(other.wrfFilename_);
-    timestamp_ = std::move(other.timestamp_);
     initialized_ = other.initialized_;
     longitude_ = std::move(other.longitude_);
     latitude_ = std::move(other.latitude_);
@@ -66,8 +64,8 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
 template <typename ConfigBackend>
 WRFGeometry<ConfigBackend> WRFGeometry<ConfigBackend>::clone() const {
   // Use the specialized constructor
-  WRFGeometry<ConfigBackend> clone(wrfFilename_, timestamp_, periodicX_,
-                                   periodicY_, periodicZ_);
+  WRFGeometry<ConfigBackend> clone(wrfFilename_, periodicX_, periodicY_,
+                                   periodicZ_);
 
   // Copy data members
   clone.longitude_ = longitude_;
@@ -135,11 +133,9 @@ void WRFGeometry<ConfigBackend>::haloExchangeImpl(void* state_ptr) {
 }
 
 template <typename ConfigBackend>
-WRFGeometry<ConfigBackend>::WRFGeometry(const std::string& fn,
-                                        const std::string& ts, bool px, bool py,
+WRFGeometry<ConfigBackend>::WRFGeometry(const std::string& fn, bool px, bool py,
                                         bool pz)
     : wrfFilename_(fn),
-      timestamp_(ts),
       initialized_(false),
       periodicX_(px),
       periodicY_(py),

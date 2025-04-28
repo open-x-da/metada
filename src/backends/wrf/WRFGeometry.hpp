@@ -66,19 +66,18 @@ class WRFGeometry {
    * @param config Configuration containing WRF file path and timestamp
    */
   explicit WRFGeometry(const ConfigBackend& config)
-      : wrfFilename_(config.Get("wrf.input_file").asString()),
-        timestamp_(config.Get("wrf.timestamp").asString()),
+      : wrfFilename_(config.Get("input_file").asString()),
         initialized_(false),
-        periodicX_(config.Get("wrf.periodic_x").asBool()),
-        periodicY_(config.Get("wrf.periodic_y").asBool()),
-        periodicZ_(config.Get("wrf.periodic_z").asBool()) {
+        periodicX_(false),
+        periodicY_(false),
+        periodicZ_(false) {
     if (wrfFilename_.empty()) {
       throw std::runtime_error(
           "WRF input file path not specified in configuration");
     }
 
     // Load geometry data from WRF NetCDF file
-    loadGeometryData(wrfFilename_, timestamp_);
+    loadGeometryData(wrfFilename_);
     initialized_ = true;
   };
 
@@ -215,10 +214,8 @@ class WRFGeometry {
    * @brief Load geometry data from the WRF NetCDF file
    *
    * @param filename Path to the WRF NetCDF file
-   * @param timestamp Timestamp to read from the file
    */
-  void loadGeometryData(const std::string& filename,
-                        [[maybe_unused]] const std::string& timestamp) {
+  void loadGeometryData(const std::string& filename) {
     try {
       // Open NetCDF file
       netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
@@ -294,12 +291,10 @@ class WRFGeometry {
   };
 
   // Special constructor for cloning
-  WRFGeometry(const std::string& fn, const std::string& ts, bool px, bool py,
-              bool pz);
+  WRFGeometry(const std::string& fn, bool px, bool py, bool pz);
 
   // WRF NetCDF file
   std::string wrfFilename_;
-  std::string timestamp_;
   bool initialized_ = false;
 
   // Geographic data

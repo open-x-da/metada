@@ -5,14 +5,11 @@
  */
 
 #include <chrono>
-#include <iostream>
 #include <string>
 
 #include "ApplicationContext.hpp"
-#include "Config.hpp"
 #include "DateTime.hpp"
 #include "Geometry.hpp"
-#include "Logger.hpp"
 #include "Model.hpp"
 #include "State.hpp"
 #include "WRFBackendTraits.hpp"
@@ -23,7 +20,7 @@ using namespace metada::framework;
 using namespace metada::core;
 using namespace metada::framework::runs;
 
-int main([[maybe_unused]] int argc, char** argv) {
+int main(int argc, char** argv) {
   try {
     // Initialize application context
     ApplicationContext<BackendTag> context(argv[0], argv[1]);
@@ -34,28 +31,51 @@ int main([[maybe_unused]] int argc, char** argv) {
     logger.Info() << "Starting forecast application";
     logger.Info() << "Using configuration file: " << argv[1];
 
+    const auto time_control = config.GetSubsection("time_control");
     // Read forecast parameters
     const auto start_datetime =
-        DateTime(config.Get("forecast.start_time").asString());
-    const auto end_datetime =
-        DateTime(config.Get("forecast.end_time").asString());
-    const size_t max_steps = config.Get("forecast.max_steps").asInt();
-    const auto dt =
-        std::chrono::seconds(config.Get("forecast.time_step").asInt());
-    const std::string output_file =
-        config.Get("forecast.output_file").asString();
-    const bool write_history = config.Get("forecast.write_history").asBool();
-    const int history_frequency =
-        config.Get("forecast.history_frequency").asInt();
+        DateTime(time_control.Get("start_datetime").asString());
 
+    // Exit if neither forecast_length nor end_datetime is available
+    if (!time_control.HasKey("forecast_length") &&
+        !time_control.HasKey("end_datetime")) {
+      logger.Error() << "Either forecast_length or end_datetime must be "
+                        "specified in the config";
+      return 1;
+    }
+
+    DateTime end_datetime;
+
+    // If forecast_length exists, use it to calculate end_datetime
+    if (time_control.HasKey("forecast_length")) {
+      const int forecast_length_hours =
+          time_control.Get("forecast_length").asInt();
+      end_datetime = start_datetime + std::chrono::hours(forecast_length_hours);
+      logger.Info() << "Using forecast_length of " << forecast_length_hours
+                    << " hours to set end_datetime to " << end_datetime;
+    } else {
+      // Otherwise use the provided end_datetime
+      end_datetime = DateTime(time_control.Get("end_datetime").asString());
+      logger.Info() << "Using provided end_datetime: " << end_datetime;
+    }
+
+    const auto time_step =
+        std::chrono::seconds(time_control.Get("time_step").asInt());
+
+    const auto output_history =
+        time_control.Get("output_history", "false").asBool();
+    const std::string output_file = time_control.Get("history_file").asString();
+    logger.Info() << "output_file: " << output_file;
+    const bool write_history = true;
+    logger.Info() << "write_history: " << write_history;
+    const int history_frequency = time_control.Get("history_frequency").asInt();
+    logger.Info() << "history_frequency: " << history_frequency;
     logger.Info() << "Forecast configuration:";
-    logger.Info() << "  - Maximum steps: " << max_steps;
-    logger.Info() << "  - Time step: " << dt << " seconds";
     logger.Info() << "  - Output file: " << output_file;
 
     // Initialize geometry
     logger.Info() << "Initializing geometry";
-    Geometry<BackendTag> geometry(config);
+    Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
     // Initialize initial state
     logger.Info() << "Initializing model state";
@@ -66,77 +86,33 @@ int main([[maybe_unused]] int argc, char** argv) {
     logger.Info() << "Initializing forecast model";
     // Model<BackendTag> model(config);
 
-    // Run forecast
-    // logger.Info() << "Starting forecast integration from " << start_datetime
-    //               << " to " << end_datetime;
-    auto current_time = start_datetime;
-    auto end_time = end_datetime;
-
-    // Output initial state if needed
-    if (write_history) {
-      logger.Info() << "Writing initial state to " << output_file;
-      // Code to write initial state
-    }
-
     // Copy initial state to current state
     // currentState = initialState;  // Assuming State has assignment operator
 
     // Time integration loop using model.run
-    if (write_history && history_frequency > 0) {
-      // Use multiple shorter runs if intermediate outputs are needed
-      for (int step = 0; step < max_steps; step += history_frequency) {
-        // Calculate end time for this segment
-        auto segment_end_time =
-            std::min(current_time + history_frequency * dt, end_time);
+    auto current_datetime = start_datetime;
+    while (current_datetime != end_datetime) {
+      logger.Debug() << "Time Step on " << current_datetime;
 
-        // logger.Debug() << "Integration from t=" << current_time
-        //                << " to t=" << segment_end_time << " seconds";
+      // Run model for this time segment
+      // State<BackendTag> nextState(config);
+      // model.run(currentState, nextState, current_time, segment_end_time);
 
-        // Run model for this time segment
-        // State<BackendTag> nextState(config);
-        // model.run(currentState, nextState, current_time, segment_end_time);
+      // Update current state and time
+      // currentState = nextState;
+      current_datetime += time_step;
 
-        // Update current state and time
-        // currentState = nextState;
-        current_time = segment_end_time;
-
-        // Write intermediate output
-        if (write_history) {
-          logger.Info() << "Writing history at t=" << current_time;
-          // Code to write history
-        }
+      // Write intermediate output
+      if (output_history) {
+        logger.Info() << "Writing history at " << current_datetime;
+        // Code to write history
       }
-    } else {
-      // Single run for the entire time period
-      // State<BackendTag> finalState(config);
-      logger.Debug() << "Integration from t=0 to t=" << end_time << " seconds";
-      // model.run(initialState, finalState, 0.0, end_time);
-      // currentState = finalState;
-      current_time = end_time;
     }
 
     // Write final output
     logger.Info() << "Forecast completed successfully";
     logger.Info() << "Writing final state to " << output_file;
     // Code to write final state
-
-    // Advanced usage: Iterate over the geometry to compute diagnostics
-    logger.Info() << "Computing diagnostic values";
-    double domain_avg = 0.0;
-    int count = 0;
-
-    // Example of using geometry iterator
-    for (auto it = geometry.begin(); it != geometry.end(); ++it) {
-      // const auto& point = *it;
-      // Example diagnostic calculation
-      // domain_avg += state.getValue("temperature", point);
-      count++;
-    }
-
-    if (count > 0) {
-      domain_avg /= count;
-      logger.Info() << "Domain average: " << domain_avg;
-    }
 
     logger.Info() << "Forecast application completed";
     return 0;

@@ -31,7 +31,7 @@
             "name": "Debug LETKF",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/applications/data_assimilation/ensemble/letkf",
+            "program": "${workspaceFolder}/build/bin/letkf",
             "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.yaml"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -43,6 +43,14 @@
                 {
                     "name": "GLOG_v",
                     "value": "2"
+                },
+                {
+                    "name": "GLOG_colorlogtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_minloglevel",
+                    "value": "0"
                 }
             ],
             "externalConsole": false,
@@ -56,13 +64,14 @@
             ]
         },
         {
-            "name": "Debug Lorenz63 C++ Example",
+            "name": "Debug forecast Example",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/src/backends/interfaces/apps/lorenz63/lorenz63_cpp_example",
-            "args": ["${workspaceFolder}/src/backends/interfaces/apps/lorenz63/config.yaml"],
+            "program": "${workspaceFolder}/build/bin/forecast",
+            "args": ["${workspaceFolder}/applications/forecast/config.yaml"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
             "environment": [
                 {
                     "name": "GLOG_logtostderr",
