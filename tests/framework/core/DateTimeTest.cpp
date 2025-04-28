@@ -175,15 +175,15 @@ TEST(DateTimeTest, OperatorDateDifference) {
 
   // Test difference in hours
   auto diff1 = dt2 - dt1;
-  EXPECT_EQ(diff1.count(), 8070);  // 2h 14m 30s = 8070 seconds
+  EXPECT_EQ(diff1.totalSeconds(), 8070);  // 2h 14m 30s = 8070 seconds
 
   // Test difference in days
   auto diff2 = dt3 - dt1;
-  EXPECT_EQ(diff2.count(), 86400);  // 24h = 86400 seconds
+  EXPECT_EQ(diff2.totalSeconds(), 86400);  // 24h = 86400 seconds
 
   // Test negative difference
   auto diff3 = dt1 - dt2;
-  EXPECT_EQ(diff3.count(), -8070);  // -2h 14m 30s = -8070 seconds
+  EXPECT_EQ(diff3.totalSeconds(), -8070);  // -2h 14m 30s = -8070 seconds
 }
 
 TEST(DateTimeTest, CompoundAssignmentOperators) {
@@ -265,7 +265,8 @@ TEST(DateTimeTest, ChainedOperatorExpressions) {
   auto dateA = base + oneDay;
   auto dateB = base - threeHours;
   auto duration = dateA - dateB;
-  EXPECT_EQ(duration.count(), 86400 + 10800);  // 1 day + 3 hours in seconds
+  EXPECT_EQ(duration.totalSeconds(),
+            86400 + 10800);  // 1 day + 3 hours in seconds
 
   // Verify base date hasn't changed (immutability check)
   EXPECT_EQ(base.day(), 15);

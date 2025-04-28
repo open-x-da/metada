@@ -1,3 +1,7 @@
 setup_test_executable(datetime_test DateTimeTest.cpp)
 
 add_test_format_target(datetime_test ${CMAKE_CURRENT_SOURCE_DIR})
+
+setup_test_executable(duration_test DurationTest.cpp)
+
+add_test_format_target(duration_test ${CMAKE_CURRENT_SOURCE_DIR})
