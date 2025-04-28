@@ -175,15 +175,4 @@ inline std::ostream& operator<<(std::ostream& os, const DateTime& dt) {
   return os << dt.format();
 }
 
-// Implementation of friend operators from Duration.hpp
-// Remove this function to resolve ambiguity with member function
-// inline DateTime operator+(const DateTime& dt, const Duration& duration) {
-//   return dt.operator+(duration);
-// }
-
-// Remove this function to resolve ambiguity with member function
-// inline DateTime operator-(const DateTime& dt, const Duration& duration) {
-//   return dt.operator-(duration);
-// }
-
 }  // namespace metada::core
