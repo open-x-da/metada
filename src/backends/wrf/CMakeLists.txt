@@ -6,9 +6,9 @@ set(WRF_BACKEND_SOURCES
 )
 
 # Find required dependencies
-metada_find_package(xtl REQUIRED)
-metada_find_package(xtensor REQUIRED)
-metada_find_package(netcdf-cxx4 REQUIRED)
+metada_find_package(xtl CONFIG)
+metada_find_package(xtensor CONFIG)
+metada_find_package(netcdf-cxx4)
 
 # Create the WRF backend library
 add_library(wrf_backends ${WRF_BACKEND_SOURCES})

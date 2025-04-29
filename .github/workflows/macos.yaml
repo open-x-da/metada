@@ -46,8 +46,23 @@ jobs:
           yaml-cpp \
           nlohmann-json \
           netcdf \
-          netcdf-cxx \
-          xtensor
+          netcdf-cxx
+        
+    - name: Install xtl and xtensor
+      run: |
+        git clone https://github.com/xtensor-stack/xtl.git
+        mkdir xtl/build
+        cd xtl/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/opt/homebrew
+        cmake --build .
+        ninja install
+        cd ../..
+        git clone https://github.com/xtensor-stack/xtensor.git
+        mkdir xtensor/build
+        cd xtensor/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/opt/homebrew
+        cmake --build .
+        ninja install
 
     - name: Configure CMake
       run: |
@@ -58,7 +73,6 @@ jobs:
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_C_COMPILER=clang \
           -DCMAKE_CXX_COMPILER=clang++ \
-          -DCMAKE_CXX_STANDARD=17 \
           -DCMAKE_Fortran_COMPILER=${GFORTRAN_PATH} \
           ..
 

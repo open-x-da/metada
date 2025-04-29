@@ -5,7 +5,7 @@ include(package/Status)
 # Function to find and register a package
 function(metada_find_package package)
     cmake_parse_arguments(ARG
-        "OPTIONAL;QUIET"
+        "OPTIONAL;QUIET;CONFIG"
         "CONDITION"
         "COMPONENTS"
         ${ARGN}
@@ -26,6 +26,9 @@ function(metada_find_package package)
     endif()
     if(ARG_QUIET)
         list(APPEND find_args QUIET)
+    endif()
+    if(ARG_CONFIG)
+        list(APPEND find_args CONFIG)
     endif()
     find_package(${find_args})
 

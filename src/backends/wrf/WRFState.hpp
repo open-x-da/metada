@@ -12,7 +12,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#if defined(_WIN32) || defined(WIN32)
+#if defined(_WIN32) || defined(__APPLE__)
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
 #else

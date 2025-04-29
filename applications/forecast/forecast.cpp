@@ -23,7 +23,7 @@ using namespace metada::framework::runs;
 int main(int argc, char** argv) {
   try {
     // Initialize application context
-    ApplicationContext<BackendTag> context(argv[0], argv[1]);
+    ApplicationContext<BackendTag> context(argc, argv);
 
     auto& logger = context.getLogger();
     auto& config = context.getConfig();

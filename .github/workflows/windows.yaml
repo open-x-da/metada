@@ -26,8 +26,14 @@ jobs:
         shell: msys2 {0}
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Configure case-sensitive directory
+      shell: cmd
+      run: |
+        fsutil.exe file setCaseSensitiveInfo %GITHUB_WORKSPACE% enable
+        cd %GITHUB_WORKSPACE%
 
+    - uses: actions/checkout@v2
+        
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
@@ -37,6 +43,7 @@ jobs:
           git
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-gcc-fortran
+          mingw-w64-x86_64-gdb
           mingw-w64-x86_64-cmake
           mingw-w64-x86_64-ninja
           mingw-w64-x86_64-python
@@ -56,14 +63,14 @@ jobs:
         git clone https://github.com/xtensor-stack/xtl.git
         mkdir xtl/build
         cd xtl/build
-        cmake .. -G Ninja
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
         cmake --build .
         ninja install
-        cd ..
+        cd ../..
         git clone https://github.com/xtensor-stack/xtensor.git
         mkdir xtensor/build
         cd xtensor/build
-        cmake .. -G Ninja
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
         cmake --build .
         ninja install
 
