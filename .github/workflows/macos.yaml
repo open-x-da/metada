@@ -50,6 +50,7 @@ jobs:
           xtensor
         find /opt/homebrew -name xadapt.hpp
         find /opt/homebrew -name netcdf.h
+        find /opt/homebrew -name xtensorConfig.cmake -exec cat {} \;
 
     - name: Configure CMake
       run: |
