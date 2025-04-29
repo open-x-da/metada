@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
 
     // Initialize model
     logger.Info() << "Initializing forecast model";
-    // Model<BackendTag> model(config);
+    Model<BackendTag> model(config.GetSubsection("model"));
 
     // Time integration loop using model.run
     auto current_datetime = start_datetime;

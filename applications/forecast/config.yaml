@@ -33,3 +33,11 @@ state:
     - Q2
     - U10
     - V10
+
+model:
+  time_step: 60
+  physics:
+    microphysics: true
+    radiation: true
+    pbl: true
+    lsm: true
