@@ -13,12 +13,17 @@
 #include <unordered_map>
 #include <vector>
 
+#include "DateTime.hpp"
+#include "Duration.hpp"
+
 namespace metada::backends::wrf {
 
 // Forward declaration
 template <typename ConfigBackend>
 class WRFState;
 
+using core::DateTime;
+using core::Duration;
 /**
  * @brief WRF model backend implementation
  *
@@ -112,13 +117,13 @@ class WRFModel {
    *
    * @param initialState Initial state of the model
    * @param finalState Final state after model integration (output)
-   * @param startTime Start time in seconds
-   * @param endTime End time in seconds
+   * @param startTime Start time
+   * @param endTime End time
    * @throws std::runtime_error If model run fails
    */
   void run(const WRFState<ConfigBackend>& initialState,
-           WRFState<ConfigBackend>& finalState, double startTime,
-           double endTime);
+           WRFState<ConfigBackend>& finalState, DateTime startTime,
+           DateTime endTime);
 
   /**
    * @brief Check if the model is initialized
@@ -133,20 +138,10 @@ class WRFModel {
    *
    * @param inState Input state
    * @param outState Output state after time step
-   * @param dt Time step size in seconds
+   * @param dt Time step size
    */
   void timeStep(const WRFState<ConfigBackend>& inState,
-                WRFState<ConfigBackend>& outState, double dt);
-
-  /**
-   * @brief Calculate adaptive time step based on CFL condition
-   *
-   * @param state Current model state
-   * @param maxDt Maximum allowed time step
-   * @return Calculated time step size
-   */
-  double calculateTimeStep(const WRFState<ConfigBackend>& state,
-                           double maxDt) const;
+                WRFState<ConfigBackend>& outState, Duration dt);
 
   /**
    * @brief Apply boundary conditions to the model state
@@ -160,8 +155,9 @@ class WRFModel {
   std::unordered_map<std::string, std::string> parameters_;
 
   // Model state
-  double currentTime_ = 0.0;
-  double timeStep_ = 0.0;
+  DateTime startTime_;
+  DateTime currentTime_;
+  Duration timeStep_;
 
   // Physics options
   bool enableMicrophysics_ = true;
@@ -171,8 +167,7 @@ class WRFModel {
 
   // Dynamical core options
   std::string advectionScheme_ = "WENO";
-  double diffusionCoefficient_ = 0.0;
-  double cflNumber_ = 0.9;
+  float diffusionCoefficient_ = 0.0;
 };
 
 // Constructor implementation with ConfigBackend
@@ -195,13 +190,11 @@ WRFModel<ConfigBackend>::WRFModel(WRFModel<ConfigBackend>&& other) noexcept
       enablePBL_(other.enablePBL_),
       enableLSM_(other.enableLSM_),
       advectionScheme_(std::move(other.advectionScheme_)),
-      diffusionCoefficient_(other.diffusionCoefficient_),
-      cflNumber_(other.cflNumber_) {
+      diffusionCoefficient_(other.diffusionCoefficient_) {
   // Reset the moved-from object
   other.initialized_ = false;
   other.parameters_.clear();
-  other.currentTime_ = 0.0;
-  other.timeStep_ = 0.0;
+  other.currentTime_ = startTime_;
 }
 
 // Move assignment operator implementation
@@ -219,13 +212,11 @@ WRFModel<ConfigBackend>& WRFModel<ConfigBackend>::operator=(
     enableLSM_ = other.enableLSM_;
     advectionScheme_ = std::move(other.advectionScheme_);
     diffusionCoefficient_ = other.diffusionCoefficient_;
-    cflNumber_ = other.cflNumber_;
 
     // Reset the moved-from object
     other.initialized_ = false;
     other.parameters_.clear();
-    other.currentTime_ = 0.0;
-    other.timeStep_ = 0.0;
+    other.currentTime_ = startTime_;
   }
   return *this;
 }
@@ -252,7 +243,8 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
 
   try {
     // Read model configuration from the config backend
-    timeStep_ = config.Get("time_step").asFloat();  // Default: 60 seconds
+    startTime_ = DateTime(config.Get("start_datetime").asString());
+    timeStep_ = Duration(config.Get("time_step").asString());
 
     // Read physics options
     enableMicrophysics_ = config.Get("physics.microphysics").asBool();
@@ -263,10 +255,9 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
     // Read dynamics options
     advectionScheme_ = config.Get("dynamics.advection_scheme").asString();
     diffusionCoefficient_ = config.Get("dynamics.diffusion").asFloat();
-    cflNumber_ = config.Get("dynamics.cfl").asFloat();
 
     // Store all parameters for later access
-    parameters_["time_step"] = std::to_string(timeStep_);
+    parameters_["time_step"] = timeStep_.toString();
     parameters_["enable_microphysics"] = enableMicrophysics_ ? "true" : "false";
     parameters_["enable_radiation"] = enableRadiation_ ? "true" : "false";
     parameters_["enable_pbl"] = enablePBL_ ? "true" : "false";
@@ -274,7 +265,6 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
     parameters_["advection_scheme"] = advectionScheme_;
     parameters_["diffusion_coefficient"] =
         std::to_string(diffusionCoefficient_);
-    parameters_["cfl_number"] = std::to_string(cflNumber_);
 
     // Additional parameters from config
     try {
@@ -293,10 +283,10 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
 
     // Initialization successful
     initialized_ = true;
-    currentTime_ = 0.0;
+    currentTime_ = startTime_;
 
     std::cout << "WRF model initialized with time step: " << timeStep_
-              << " seconds" << std::endl;
+              << std::endl;
 
   } catch (const std::exception& e) {
     throw std::runtime_error(std::string("WRF model initialization failed: ") +
@@ -312,7 +302,7 @@ void WRFModel<ConfigBackend>::reset() {
   }
 
   // Reset model state to initial conditions
-  currentTime_ = 0.0;
+  currentTime_ = startTime_;
 
   std::cout << "WRF model reset to initial state" << std::endl;
 }
@@ -349,7 +339,7 @@ void WRFModel<ConfigBackend>::setParameter(const std::string& name,
   // Special handling for certain parameters that affect model behavior
   if (name == "time_step") {
     try {
-      timeStep_ = std::stod(value);
+      timeStep_ = Duration(value);
     } catch (const std::exception&) {
       throw std::runtime_error("Invalid time step value: " + value);
     }
@@ -372,16 +362,6 @@ void WRFModel<ConfigBackend>::setParameter(const std::string& name,
     } catch (const std::exception&) {
       throw std::runtime_error("Invalid diffusion coefficient: " + value);
     }
-  } else if (name == "cfl_number") {
-    try {
-      double cfl = std::stod(value);
-      if (cfl <= 0.0 || cfl > 1.0) {
-        throw std::runtime_error("CFL number must be between 0 and 1");
-      }
-      cflNumber_ = cfl;
-    } catch (const std::exception& e) {
-      throw std::runtime_error(std::string("Invalid CFL number: ") + e.what());
-    }
   }
 
   // Store the parameter value
@@ -392,7 +372,7 @@ void WRFModel<ConfigBackend>::setParameter(const std::string& name,
 template <typename ConfigBackend>
 void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
                                   WRFState<ConfigBackend>& finalState,
-                                  double startTime, double endTime) {
+                                  DateTime startTime, DateTime endTime) {
   if (!initialized_) {
     throw std::runtime_error("Cannot run uninitialized WRF model");
   }
@@ -409,7 +389,7 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
     currentTime_ = startTime;
 
     // Calculate the total simulation time
-    double totalSimTime = endTime - startTime;
+    Duration totalSimTime = endTime - startTime;
 
     // Use a temporary state for the time stepping process
     auto tempState = initialState.clone();
@@ -419,33 +399,32 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
 
     // Main time stepping loop
     while (currentTime_ < endTime) {
-      // Calculate adaptive time step if needed
-      double dt = timeStep_;
-      if (cflNumber_ > 0.0) {
-        dt = calculateTimeStep(*workingState, timeStep_);
-      }
-
       // Ensure we don't overshoot the end time
-      if (currentTime_ + dt > endTime) {
-        dt = endTime - currentTime_;
+      if (currentTime_ + timeStep_ > endTime) {
+        timeStep_ = endTime - currentTime_;
       }
 
       // Perform a single time step
-      timeStep(*workingState, *tempState, dt);
+      timeStep(*workingState, *tempState, timeStep_);
 
       // Swap states for next iteration
       std::swap(workingState, tempState);
 
       // Update current time
-      currentTime_ += dt;
+      currentTime_ += timeStep_;
 
       // Optional: print progress
-      if (std::fmod(currentTime_, 3600.0) <
-          dt) {  // Report every simulated hour
-        double progress = (currentTime_ - startTime) / totalSimTime * 100.0;
+      // Check if we're near an hourly mark (report every simulated hour)
+      Duration hoursSinceStart = currentTime_ - startTime;
+      if (hoursSinceStart.totalSeconds() % 3600 < timeStep_.totalSeconds()) {
+        // Calculate progress as percentage
+        double elapsedSeconds = (currentTime_ - startTime).totalSeconds();
+        double totalSeconds = totalSimTime.totalSeconds();
+        double progress = (elapsedSeconds / totalSeconds) * 100.0;
+
         std::cout << "WRF model integration: " << std::fixed
                   << std::setprecision(1) << progress
-                  << "% complete (t=" << currentTime_ << "s)" << std::endl;
+                  << "% complete (t=" << currentTime_ << ")" << std::endl;
       }
     }
 
@@ -463,7 +442,7 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
 template <typename ConfigBackend>
 void WRFModel<ConfigBackend>::timeStep(const WRFState<ConfigBackend>& inState,
                                        WRFState<ConfigBackend>& outState,
-                                       double dt) {
+                                       Duration dt) {
   // Clone input state to output state first
   outState = std::move(*inState.clone());
 
@@ -543,48 +522,6 @@ void WRFModel<ConfigBackend>::timeStep(const WRFState<ConfigBackend>& inState,
   } catch (const std::exception& e) {
     throw std::runtime_error(std::string("Error in time step calculation: ") +
                              e.what());
-  }
-}
-
-// Calculate time step implementation
-template <typename ConfigBackend>
-double WRFModel<ConfigBackend>::calculateTimeStep(
-    const WRFState<ConfigBackend>& state, double maxDt) const {
-  // This would calculate an appropriate time step based on the CFL condition
-  // For simplicity, we'll just return the maximum time step here
-
-  // In a real implementation, we would:
-  // 1. Find the maximum wind speed in the domain
-  // 2. Find the minimum grid spacing
-  // 3. Calculate dt = cflNumber_ * (minimum grid spacing / maximum wind speed)
-  // 4. Return min(dt, maxDt)
-
-  // For demonstration purposes, we'll use a simplified calculation
-  try {
-    // Get wind components if available
-    double maxWindSpeed = 10.0;  // Default assumption in m/s
-
-    const auto& varNames = state.getVariableNames();
-    if (std::find(varNames.begin(), varNames.end(), "U") != varNames.end() &&
-        std::find(varNames.begin(), varNames.end(), "V") != varNames.end()) {
-      // In a real implementation, find the maximum wind speed from U and V
-      // For now, we'll use a dummy calculation
-      maxWindSpeed = 10.0 + 5.0 * std::sin(currentTime_ /
-                                           3600.0);  // Varies between 5-15 m/s
-    }
-
-    // Assume a grid spacing of 3 km
-    double minGridSpacing = 3000.0;  // meters
-
-    // Calculate time step using CFL condition
-    double dt = cflNumber_ * (minGridSpacing / maxWindSpeed);
-
-    // Limit to maximum time step
-    return std::min(dt, maxDt);
-
-  } catch (const std::exception&) {
-    // Fall back to default time step on error
-    return maxDt;
   }
 }
 

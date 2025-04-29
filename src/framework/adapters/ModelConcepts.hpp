@@ -17,8 +17,11 @@
 #include <string>
 
 #include "CommonConcepts.hpp"
+#include "DateTime.hpp"
 
 namespace metada::framework {
+
+using core::DateTime;
 
 //-----------------------------------------------------------------------------
 // Component concepts
@@ -50,7 +53,7 @@ template <typename T, typename ConfigBackend, typename StateBackend>
 concept ModelBackendImpl =
     requires(T& model, const T& const_model, const ConfigBackend& config,
              const StateBackend& initialState, StateBackend& finalState,
-             double startTime, double endTime, const std::string& name,
+             DateTime startTime, DateTime endTime, const std::string& name,
              const std::string& value) {
       // Construction and initialization
       { T(config) } -> std::same_as<T>;
