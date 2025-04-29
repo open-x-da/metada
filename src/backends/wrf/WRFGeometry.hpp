@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#if defined(_WIN32) || defined(WIN32)
+#if defined(_WIN32) || defined(_APPLE_)
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
 #else
