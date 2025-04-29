@@ -82,7 +82,7 @@ class ApplicationContext {
    * 3. Logger initialization with configuration
    * 4. Logs successful initialization with application name
    */
-  ApplicationContext(const int argc, const char** argv)
+  ApplicationContext(const int argc, char** argv)
       : config_(validateAndGetConfigPath(argc, argv)),
         logger_(config_.GetSubsection("logger")) {
     logger_.Info() << "Application context initialized: " << argv[0];
@@ -164,8 +164,7 @@ class ApplicationContext {
    * @return const char* Path to configuration file
    * @throws std::runtime_error If config file path is missing
    */
-  static const char* validateAndGetConfigPath(const int argc,
-                                              const char** argv) {
+  static const char* validateAndGetConfigPath(const int argc, char** argv) {
     if (argc < 2) {
       std::cerr << "Error: No configuration file specified." << std::endl;
       std::cerr << "Usage: " << (argc > 0 ? argv[0] : "application")
