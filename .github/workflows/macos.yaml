@@ -49,6 +49,7 @@ jobs:
           netcdf-cxx \
           xtensor
         find /opt/homebrew -name xadapt.hpp
+        find /opt/homebrew -name netcdf.h
 
     - name: Configure CMake
       run: |
