@@ -15,3 +15,21 @@ time_control:
 
 geometry:
   input_file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+
+state:
+  input_file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+  timestamp: "2000-01-24T12:00:00Z"
+  variables:
+    - U
+    - V
+    - QVAPOR
+    - T
+    - PH
+    - MU
+    - MUB
+    - P
+    - PB
+    - T2
+    - Q2
+    - U10
+    - V10

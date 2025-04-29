@@ -1,7 +1,6 @@
 # Add the WRF Backend sources
 set(WRF_BACKEND_SOURCES
     WRFGeometry.cpp
-    WRFState.cpp
     WRFModel.cpp
 )
 

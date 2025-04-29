@@ -79,15 +79,12 @@ int main(int argc, char** argv) {
 
     // Initialize initial state
     logger.Info() << "Initializing model state";
-    // State<BackendTag> initialState(config);
-    // State<BackendTag> currentState(config);
+    State<BackendTag> initialState(config.GetSubsection("state"));
+    auto currentState = initialState.clone();
 
     // Initialize model
     logger.Info() << "Initializing forecast model";
     // Model<BackendTag> model(config);
-
-    // Copy initial state to current state
-    // currentState = initialState;  // Assuming State has assignment operator
 
     // Time integration loop using model.run
     auto current_datetime = start_datetime;
