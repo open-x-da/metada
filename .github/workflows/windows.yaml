@@ -57,14 +57,14 @@ jobs:
         git clone https://github.com/xtensor-stack/xtl.git
         mkdir xtl/build
         cd xtl/build
-        cmake .. -G Ninja
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
         cmake --build .
         ninja install
-        cd ..
+        cd ../..
         git clone https://github.com/xtensor-stack/xtensor.git
         mkdir xtensor/build
         cd xtensor/build
-        cmake .. -G Ninja
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
         cmake --build .
         ninja install
 
