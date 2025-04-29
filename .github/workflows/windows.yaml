@@ -26,8 +26,17 @@ jobs:
         shell: msys2 {0}
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Create case-sensitive directory
+      shell: cmd
+      run: |
+        mkdir D:\cs-build
+        fsutil.exe file setCaseSensitiveInfo D:\cs-build enable
+        cd D:\cs-build
 
+    - uses: actions/checkout@v2
+      with:
+        path: D:\cs-build\metada
+        
     - name: Setup MSYS2
       uses: msys2/setup-msys2@v2
       with:
@@ -53,6 +62,7 @@ jobs:
           mingw-w64-x86_64-netcdf-cxx
           
     - name: Install xtl and xtensor
+      working-directory: D:/cs-build
       run: |
         git clone https://github.com/xtensor-stack/xtl.git
         mkdir xtl/build
@@ -69,6 +79,7 @@ jobs:
         ninja install
 
     - name: Configure CMake
+      working-directory: D:/cs-build/metada
       run: |
         mkdir build
         cd build
@@ -78,11 +89,13 @@ jobs:
           ..
 
     - name: Build
+      working-directory: D:/cs-build/metada
       run: |
         cd build
         cmake --build .
 
     - name: Test
+      working-directory: D:/cs-build/metada
       run: |
         cd build
         ctest --output-on-failure
