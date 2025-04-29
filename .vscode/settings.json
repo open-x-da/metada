@@ -1,4 +1,5 @@
 {
+    "cmake.cmakePath": "C:/msys64/mingw64/bin/cmake.exe",
     "cmake.generator": "Ninja",
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -7,6 +8,21 @@
         "-DLOGGER_BACKEND=GLOG",
         "-DCONFIG_BACKEND=YAML"
     ],
+    "terminal.integrated.defaultProfile.windows": "MSYS2 Bash",
+    "terminal.integrated.profiles.windows": {
+        "MSYS2 Bash": {
+            "path": "C:/msys64/usr/bin/bash.exe",
+            "args": ["--login", "-i"],
+            "env": {
+                "MSYSTEM": "MINGW64",
+                "CHERE_INVOKING": "1"
+            }
+        }
+    },
+    "terminal.integrated.env.windows": {
+        "MSYSTEM": "MINGW64",
+        "CHERE_INVOKING": "1"
+    },
     "cmake.buildDirectory": "${workspaceFolder}/build",
     "files.associations": {
         "any": "cpp",
