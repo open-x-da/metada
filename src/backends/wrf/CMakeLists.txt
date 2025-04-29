@@ -18,7 +18,6 @@ add_library(metada::backends::wrf ALIAS wrf_backends)
 target_include_directories(wrf_backends 
     PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${xtensor_INCLUDE_DIRS}>
 )
 
 # Link dependencies
