@@ -12,7 +12,7 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-#if defined(_WIN32) || defined(_APPLE_)
+#if defined(_WIN32) || defined(__APPLE__)
 #include <xtensor/core/xmath.hpp>
 #include <xtensor/views/xview.hpp>
 #else
