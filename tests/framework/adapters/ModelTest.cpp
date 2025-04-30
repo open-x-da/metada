@@ -87,6 +87,9 @@ TEST_F(ModelTest, ConstructAndInitialize) {
   // Initialize the model
   model.initialize(*config_);
 
+  // Setup expectations
+  EXPECT_CALL(model.backend(), isInitialized()).WillOnce(Return(true));
+
   // Verify the model is now initialized
   EXPECT_TRUE(model.isInitialized());
 }
@@ -128,7 +131,12 @@ TEST_F(ModelTest, ModelExecution) {
 
   // Setup expectations for initialization
   EXPECT_CALL(model.backend(), initialize(_));
+
+  // Initialize the model
   model.initialize(*config_);
+
+  // Setup expectations for isInitialized
+  EXPECT_CALL(model.backend(), isInitialized()).WillOnce(Return(true));
 
   // Setup expectations for run
   EXPECT_CALL(model.backend(), run(_, _, startTime_, endTime_));
@@ -166,6 +174,9 @@ TEST_F(ModelTest, RunError) {
   EXPECT_CALL(model.backend(), initialize(_));
   model.initialize(*config_);
 
+  // Setup expectations for isInitialized
+  EXPECT_CALL(model.backend(), isInitialized()).WillOnce(Return(true));
+
   // Setup expectations to throw on run
   EXPECT_CALL(model.backend(), run(_, _, _, _))
       .WillOnce(Throw(std::runtime_error("Run error")));
@@ -185,6 +196,13 @@ TEST_F(ModelTest, Finalization) {
   // First initialize the model
   EXPECT_CALL(model.backend(), initialize(_));
   model.initialize(*config_);
+
+  // Setup expectations for isInitialized
+  EXPECT_CALL(model.backend(), isInitialized())
+      .WillOnce(Return(true))
+      .WillOnce(Return(true));
+
+  // Verify the model is now initialized
   EXPECT_TRUE(model.isInitialized());
 
   // Setup expectations for finalize
@@ -193,7 +211,10 @@ TEST_F(ModelTest, Finalization) {
   // Finalize the model
   model.finalize();
 
-  // Model should no longer be initialized
+  // Setup expectations for isInitialized
+  EXPECT_CALL(model.backend(), isInitialized()).WillOnce(Return(false));
+
+  // Verify the model is no longer initialized
   EXPECT_FALSE(model.isInitialized());
 }
 
@@ -207,6 +228,9 @@ TEST_F(ModelTest, FinalizationError) {
   // First initialize the model
   EXPECT_CALL(model.backend(), initialize(_));
   model.initialize(*config_);
+
+  // Setup expectations for isInitialized
+  EXPECT_CALL(model.backend(), isInitialized()).WillOnce(Return(true));
 
   // Setup expectations for finalize to throw
   EXPECT_CALL(model.backend(), finalize())
