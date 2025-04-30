@@ -255,14 +255,14 @@ WRFState<ConfigBackend>::WRFState(const ConfigBackend& config)
   }
 
   // Get variables to load from config
-  std::vector<std::string> defaultVars = {"T", "U", "V", "QVAPOR", "P"};
   std::vector<std::string> variables;
 
   // Try to get variables list from config, otherwise use defaults
   try {
-    variables = config.Get("wrf.variables").asVectorString();
+    variables = config.Get("variables").asVectorString();
   } catch (const std::exception&) {
-    variables = defaultVars;
+    std::cerr << "Warning: No variables specified in configuration"
+              << std::endl;
   }
 
   // Set the active variable to the first one if available
