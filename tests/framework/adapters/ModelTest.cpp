@@ -21,6 +21,7 @@
 #include <string>
 
 #include "Config.hpp"
+#include "DateTime.hpp"
 #include "MockBackendTraits.hpp"
 #include "Model.hpp"
 #include "State.hpp"
@@ -35,6 +36,7 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::Throw;
 
+using core::DateTime;
 using framework::Config;
 using framework::Model;
 using framework::State;
@@ -49,6 +51,10 @@ class ModelTest : public ::testing::Test {
 
   // Test objects
   std::unique_ptr<Model<traits::MockBackendTag>> mockModel_;
+
+  // Create common datetime objects for tests
+  DateTime startTime_{2023, 1, 1, 0, 0, 0};
+  DateTime endTime_{2023, 1, 1, 10, 0, 0};
 
   void SetUp() override {
     // Create and configure the mock model
@@ -125,10 +131,10 @@ TEST_F(ModelTest, ModelExecution) {
   model.initialize(*config_);
 
   // Setup expectations for run
-  EXPECT_CALL(model.backend(), run(_, _, 0.0, 10.0));
+  EXPECT_CALL(model.backend(), run(_, _, startTime_, endTime_));
 
   // Run the model
-  model.run(initialState, finalState, 0.0, 10.0);
+  model.run(initialState, finalState, startTime_, endTime_);
 }
 
 /**
@@ -165,7 +171,7 @@ TEST_F(ModelTest, RunError) {
       .WillOnce(Throw(std::runtime_error("Run error")));
 
   // Expect exception on run
-  EXPECT_THROW(model.run(initialState, finalState, 0.0, 10.0),
+  EXPECT_THROW(model.run(initialState, finalState, startTime_, endTime_),
                std::runtime_error);
 }
 

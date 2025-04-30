@@ -17,11 +17,15 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "DateTime.hpp"
 #include "ModelConcepts.hpp"
 #include "NonCopyable.hpp"
 #include "StateConcepts.hpp"
 
 namespace metada::framework {
+
+// Forward declaration of the Datetime class as an alias for core::DateTime
+using Datetime = core::DateTime;
 
 /**
  * @brief Forward declaration of Config class
@@ -217,7 +221,7 @@ class Model : private NonCopyable {
    * @throws std::runtime_error if the model run fails
    */
   void run(const State<BackendTag>& initialState, State<BackendTag>& finalState,
-           double startTime, double endTime) {
+           const Datetime& startTime, const Datetime& endTime) {
     if (!initialized_) {
       throw std::runtime_error("Model not initialized");
     }

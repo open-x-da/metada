@@ -154,10 +154,11 @@ class WRFModel {
   bool initialized_ = false;
   std::unordered_map<std::string, std::string> parameters_;
 
-  // Model state
+  // Time control
   DateTime startTime_;
   DateTime currentTime_;
   Duration timeStep_;
+  Duration forecast_length_;
 
   // Physics options
   bool enableMicrophysics_ = true;
@@ -244,6 +245,7 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
   try {
     // Read model configuration from the config backend
     startTime_ = DateTime(config.Get("start_datetime").asString());
+    forecast_length_ = Duration(config.Get("forecast_length").asString());
     timeStep_ = Duration(config.Get("time_step").asString());
 
     // Read physics options
@@ -279,6 +281,8 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
       }
     } catch (const std::exception&) {
       // No additional parameters specified, continue
+      std::cout << "No additional parameters specified, continuing..."
+                << std::endl;
     }
 
     // Initialization successful

@@ -39,6 +39,9 @@ model:
   forecast_length: 24h
   end_datetime: "2000-01-25T12:00:00Z"
   time_step: 60s
+  dynamics:
+    advection_scheme: "WENO"
+    diffusion: 0.0
   physics:
     microphysics: true
     radiation: true

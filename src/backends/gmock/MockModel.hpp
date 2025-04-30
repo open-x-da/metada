@@ -26,7 +26,13 @@
 
 #include <string>
 
+#include "DateTime.hpp"
+
 namespace metada::backends::gmock {
+
+// Using declaration for DateTime
+using core::DateTime;
+
 /**
  * @brief Mock implementation of IModel for testing
  *
@@ -117,7 +123,7 @@ class MockModel {
   // Model execution
   MOCK_METHOD(void, run,
               (const StateBackend& initialState, StateBackend& finalState,
-               double startTime, double endTime));
+               const DateTime& startTime, const DateTime& endTime));
 
  private:
   const ConfigBackend& config_; /**< Reference to the configuration object */
