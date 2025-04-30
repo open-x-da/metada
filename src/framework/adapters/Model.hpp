@@ -90,10 +90,7 @@ class Model : private NonCopyable {
    *
    * @param other The other Model object to move from
    */
-  Model(Model&& other) noexcept
-      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
-    other.initialized_ = false;
-  }
+  Model(Model&& other) noexcept : backend_(std::move(other.backend_)) {}
 
   /**
    * @brief Move assignment operator
@@ -104,8 +101,6 @@ class Model : private NonCopyable {
   Model& operator=(Model&& other) noexcept {
     if (this != &other) {
       backend_ = std::move(other.backend_);
-      initialized_ = other.initialized_;
-      other.initialized_ = false;
     }
     return *this;
   }
@@ -119,13 +114,12 @@ class Model : private NonCopyable {
    * @throws std::runtime_error if initialization fails
    */
   void initialize(const Config<BackendTag>& config) {
-    if (initialized_) {
+    if (backend_.isInitialized()) {
       return;  // Already initialized
     }
 
     try {
       backend_.initialize(config.backend());
-      initialized_ = true;
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model initialization failed: ") +
                                e.what());
@@ -140,7 +134,7 @@ class Model : private NonCopyable {
    * @throws std::runtime_error if reset fails
    */
   void reset() {
-    if (!initialized_) {
+    if (!backend_.isInitialized()) {
       throw std::runtime_error("Model not initialized");
     }
 
@@ -163,7 +157,6 @@ class Model : private NonCopyable {
 
     try {
       backend_.finalize();
-      initialized_ = false;
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model finalization failed: ") +
                                e.what());
@@ -175,7 +168,7 @@ class Model : private NonCopyable {
    *
    * @return true if the model is initialized, false otherwise
    */
-  bool isInitialized() const { return initialized_; }
+  bool isInitialized() const { return backend_.isInitialized(); }
 
   /**
    * @brief Get a model parameter value
@@ -254,7 +247,6 @@ class Model : private NonCopyable {
 
  private:
   ModelBackend backend_;
-  bool initialized_{false};  ///< Initialization state
 };
 
 }  // namespace metada::framework

@@ -446,7 +446,7 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
 template <typename ConfigBackend>
 void WRFModel<ConfigBackend>::timeStep(const WRFState<ConfigBackend>& inState,
                                        WRFState<ConfigBackend>& outState,
-                                       Duration dt) {
+                                       [[maybe_unused]] Duration dt) {
   // Clone input state to output state first
   outState = std::move(*inState.clone());
 
