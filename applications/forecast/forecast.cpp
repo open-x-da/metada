@@ -86,24 +86,20 @@ int main(int argc, char** argv) {
     logger.Info() << "Initializing forecast model";
     Model<BackendTag> model(config.GetSubsection("model"));
 
-    // Time integration loop using model.run
-    auto current_datetime = start_datetime;
-    while (current_datetime != end_datetime) {
-      logger.Debug() << "Time Step on " << current_datetime;
+    // Time integration - calling model.run() with the full time interval
+    logger.Info() << "Running model from " << start_datetime << " to "
+                  << end_datetime;
 
-      // Run model for this time segment
-      // State<BackendTag> nextState(config);
-      // model.run(currentState, nextState, current_time, segment_end_time);
+    State<BackendTag> finalState(config.GetSubsection("state"));
+    model.run(currentState, finalState, start_datetime, end_datetime);
 
-      // Update current state and time
-      // currentState = nextState;
-      current_datetime += time_step;
+    // Update current state
+    currentState = std::move(finalState);
 
-      // Write intermediate output
-      if (output_history) {
-        logger.Info() << "Writing history at " << current_datetime;
-        // Code to write history
-      }
+    // Write output after the full model run
+    if (output_history) {
+      logger.Info() << "Writing final output at " << end_datetime;
+      // Code to write history
     }
 
     // Write final output

@@ -157,7 +157,7 @@ class Model : private NonCopyable {
    * @throws std::runtime_error if finalization fails
    */
   void finalize() {
-    if (!initialized_) {
+    if (!backend_.isInitialized()) {
       return;  // No need to finalize if not initialized
     }
 
@@ -222,7 +222,7 @@ class Model : private NonCopyable {
    */
   void run(const State<BackendTag>& initialState, State<BackendTag>& finalState,
            const Datetime& startTime, const Datetime& endTime) {
-    if (!initialized_) {
+    if (!backend_.isInitialized()) {
       throw std::runtime_error("Model not initialized");
     }
 

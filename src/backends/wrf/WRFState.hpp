@@ -297,7 +297,6 @@ template <typename ConfigBackend>
 WRFState<ConfigBackend>& WRFState<ConfigBackend>::operator=(
     WRFState<ConfigBackend>&& other) noexcept {
   if (this != &other) {
-    config_ = std::move(other.config_);
     wrfFilename_ = std::move(other.wrfFilename_);
     timestamp_ = std::move(other.timestamp_);
     initialized_ = other.initialized_;
