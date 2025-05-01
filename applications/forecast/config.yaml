@@ -4,15 +4,6 @@ logger:
   color: true
   console: true
 
-time_control:
-  start_datetime: "2000-01-24T12:00:00Z"
-  forecast_length: 24  # hours
-  end_datetime: "2000-01-25T12:00:00Z"
-  time_step: 360  # seconds
-  output_history: true
-  history_file: "forecast.nc"
-  history_frequency: 3600  # seconds
-
 geometry:
   input_file: "D:/linux/metada/applications/forecast/wrfinput_d01"
 
@@ -35,10 +26,14 @@ state:
     - V10
 
 model:
-  start_datetime: "2000-01-24T12:00:00Z"
-  forecast_length: 24h
-  end_datetime: "2000-01-25T12:00:00Z"
-  time_step: 60s
+  time_control:
+    start_datetime: "2000-01-24T12:00:00Z"
+    forecast_length: 24h
+    end_datetime: "2000-01-25T12:00:00Z"
+    time_step: 360s
+    output_history: true
+    history_file: "forecast.nc"
+    history_frequency: 3600s
   dynamics:
     advection_scheme: "WENO"
     diffusion: 0.0

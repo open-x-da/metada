@@ -51,8 +51,7 @@ template <typename T, typename ConfigBackend, typename StateBackend>
 concept ModelBackendImpl =
     requires(T& model, const T& const_model, const ConfigBackend& config,
              const StateBackend& initialState, StateBackend& finalState,
-             DateTime startTime, DateTime endTime, const std::string& name,
-             const std::string& value) {
+             const std::string& name, const std::string& value) {
       // Construction and initialization
       { T(config) } -> std::same_as<T>;
       { model.initialize(config) } -> std::same_as<void>;
@@ -66,9 +65,7 @@ concept ModelBackendImpl =
       { model.setParameter(name, value) } -> std::same_as<void>;
 
       // Model execution
-      {
-        model.run(initialState, finalState, startTime, endTime)
-      } -> std::same_as<void>;
+      { model.run(initialState, finalState) } -> std::same_as<void>;
 
       // Resource management constraints
       requires HasDeletedDefaultConstructor<T>;

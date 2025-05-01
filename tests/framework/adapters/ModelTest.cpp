@@ -21,7 +21,6 @@
 #include <string>
 
 #include "Config.hpp"
-#include "DateTime.hpp"
 #include "MockBackendTraits.hpp"
 #include "Model.hpp"
 #include "State.hpp"
@@ -50,10 +49,6 @@ class ModelTest : public ::testing::Test {
 
   // Test objects
   std::unique_ptr<Model<traits::MockBackendTag>> mockModel_;
-
-  // Create common datetime objects for tests
-  DateTime startTime_{2023, 1, 1, 0, 0, 0};
-  DateTime endTime_{2023, 1, 1, 10, 0, 0};
 
   void SetUp() override {
     // Create and configure the mock model
@@ -138,10 +133,10 @@ TEST_F(ModelTest, ModelExecution) {
   EXPECT_CALL(model.backend(), isInitialized()).WillOnce(Return(true));
 
   // Setup expectations for run
-  EXPECT_CALL(model.backend(), run(_, _, startTime_, endTime_));
+  EXPECT_CALL(model.backend(), run(_, _));
 
   // Run the model
-  model.run(initialState, finalState, startTime_, endTime_);
+  model.run(initialState, finalState);
 }
 
 /**
@@ -177,12 +172,11 @@ TEST_F(ModelTest, RunError) {
   EXPECT_CALL(model.backend(), isInitialized()).WillOnce(Return(true));
 
   // Setup expectations to throw on run
-  EXPECT_CALL(model.backend(), run(_, _, _, _))
+  EXPECT_CALL(model.backend(), run(_, _))
       .WillOnce(Throw(std::runtime_error("Run error")));
 
   // Expect exception on run
-  EXPECT_THROW(model.run(initialState, finalState, startTime_, endTime_),
-               std::runtime_error);
+  EXPECT_THROW(model.run(initialState, finalState), std::runtime_error);
 }
 
 /**

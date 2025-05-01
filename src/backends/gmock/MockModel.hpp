@@ -26,8 +26,6 @@
 
 #include <string>
 
-#include "DateTime.hpp"
-
 namespace metada::backends::gmock {
 
 /**
@@ -119,8 +117,7 @@ class MockModel {
 
   // Model execution
   MOCK_METHOD(void, run,
-              (const StateBackend& initialState, StateBackend& finalState,
-               const DateTime& startTime, const DateTime& endTime));
+              (const StateBackend& initialState, StateBackend& finalState));
 
  private:
   const ConfigBackend& config_; /**< Reference to the configuration object */

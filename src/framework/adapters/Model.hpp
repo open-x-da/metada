@@ -17,7 +17,6 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
-#include "DateTime.hpp"
 #include "ModelConcepts.hpp"
 #include "NonCopyable.hpp"
 #include "StateConcepts.hpp"
@@ -206,19 +205,16 @@ class Model : private NonCopyable {
    * @tparam StateType The type of state used by the model
    * @param initialState The initial state of the model
    * @param finalState The final state after model run (output parameter)
-   * @param startTime The start time for the model run
-   * @param endTime The end time for the model run
    * @throws std::runtime_error if the model run fails
    */
-  void run(const State<BackendTag>& initialState, State<BackendTag>& finalState,
-           const DateTime& startTime, const DateTime& endTime) {
+  void run(const State<BackendTag>& initialState,
+           State<BackendTag>& finalState) {
     if (!backend_.isInitialized()) {
       throw std::runtime_error("Model not initialized");
     }
 
     try {
-      backend_.run(initialState.backend(), finalState.backend(), startTime,
-                   endTime);
+      backend_.run(initialState.backend(), finalState.backend());
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model run failed: ") + e.what());
     }

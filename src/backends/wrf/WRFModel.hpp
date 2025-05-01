@@ -114,13 +114,10 @@ class WRFModel {
    *
    * @param initialState Initial state of the model
    * @param finalState Final state after model integration (output)
-   * @param startTime Start time
-   * @param endTime End time
    * @throws std::runtime_error If model run fails
    */
   void run(const WRFState<ConfigBackend>& initialState,
-           WRFState<ConfigBackend>& finalState, DateTime startTime,
-           DateTime endTime);
+           WRFState<ConfigBackend>& finalState);
 
   /**
    * @brief Check if the model is initialized
@@ -154,8 +151,8 @@ class WRFModel {
   // Time control
   DateTime startTime_;
   DateTime currentTime_;
+  DateTime endTime_;
   Duration timeStep_;
-  Duration forecast_length_;
 
   // Physics options
   bool enableMicrophysics_ = true;
@@ -232,7 +229,11 @@ WRFModel<ConfigBackend>::~WRFModel() {
   }
 }
 
-// Initialize implementation with ConfigBackend
+/**
+ * @brief Initialize the model with a configuration
+ *
+ * @param config Configuration containing model parameters
+ */
 template <typename ConfigBackend>
 void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
   if (initialized_) {
@@ -240,10 +241,45 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
   }
 
   try {
-    // Read model configuration from the config backend
-    startTime_ = DateTime(config.Get("start_datetime").asString());
-    forecast_length_ = Duration(config.Get("forecast_length").asString());
-    timeStep_ = Duration(config.Get("time_step").asString());
+    // Time control parameters
+    auto time_control = config.CreateSubsection("time_control");
+    startTime_ = DateTime(time_control.Get("start_datetime").asString());
+
+    // Handle forecast length and end time calculations
+    Duration forecast_length;
+    if (time_control.HasKey("forecast_length")) {
+      // Use forecast_length to determine end time
+      forecast_length =
+          Duration(time_control.Get("forecast_length").asString());
+      endTime_ = startTime_ + forecast_length;
+    } else if (time_control.HasKey("end_datetime")) {
+      // Use explicit end_datetime
+      endTime_ = DateTime(time_control.Get("end_datetime").asString());
+      forecast_length = endTime_ - startTime_;
+    } else {
+      throw std::runtime_error(
+          "Either forecast_length or end_datetime must be specified");
+    }
+
+    // Time step configuration
+    timeStep_ = Duration(time_control.Get("time_step").asString());
+
+    // Output history settings
+    if (time_control.HasKey("output_history")) {
+      std::cout << "Output history: "
+                << time_control.Get("output_history").asBool() << std::endl;
+      parameters_["output_history"] =
+          time_control.Get("output_history").asBool();
+    }
+
+    if (time_control.HasKey("history_file")) {
+      parameters_["history_file"] = time_control.Get("history_file").asString();
+    }
+
+    if (time_control.HasKey("history_frequency")) {
+      parameters_["history_frequency"] =
+          time_control.Get("history_frequency").asString();
+    }
 
     // Read physics options
     enableMicrophysics_ = config.Get("physics.microphysics").asBool();
@@ -257,6 +293,9 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
 
     // Store all parameters for later access
     parameters_["time_step"] = timeStep_.toString();
+    parameters_["start_datetime"] = startTime_.iso8601();
+    parameters_["end_datetime"] = endTime_.iso8601();
+    parameters_["forecast_length"] = forecast_length.toString();
     parameters_["enable_microphysics"] = enableMicrophysics_ ? "true" : "false";
     parameters_["enable_radiation"] = enableRadiation_ ? "true" : "false";
     parameters_["enable_pbl"] = enablePBL_ ? "true" : "false";
@@ -288,6 +327,8 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
 
     std::cout << "WRF model initialized with time step: " << timeStep_
               << std::endl;
+    std::cout << "Forecast period: " << startTime_ << " to " << endTime_
+              << " (duration: " << forecast_length << ")" << std::endl;
 
   } catch (const std::exception& e) {
     throw std::runtime_error(std::string("WRF model initialization failed: ") +
@@ -372,13 +413,12 @@ void WRFModel<ConfigBackend>::setParameter(const std::string& name,
 // Run implementation
 template <typename ConfigBackend>
 void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
-                                  WRFState<ConfigBackend>& finalState,
-                                  DateTime startTime, DateTime endTime) {
+                                  WRFState<ConfigBackend>& finalState) {
   if (!initialized_) {
     throw std::runtime_error("Cannot run uninitialized WRF model");
   }
 
-  if (endTime <= startTime) {
+  if (endTime_ <= startTime_) {
     throw std::runtime_error("End time must be greater than start time");
   }
 
@@ -387,22 +427,22 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
     auto workingState = initialState.clone();
 
     // Set current time to start time
-    currentTime_ = startTime;
+    currentTime_ = startTime_;
 
     // Calculate the total simulation time
-    Duration totalSimTime = endTime - startTime;
+    Duration totalSimTime = endTime_ - startTime_;
 
     // Use a temporary state for the time stepping process
     auto tempState = initialState.clone();
 
-    std::cout << "Starting WRF model integration from t=" << startTime
-              << " to t=" << endTime << " seconds" << std::endl;
+    std::cout << "Starting WRF model integration from t=" << startTime_
+              << " to t=" << endTime_ << " seconds" << std::endl;
 
     // Main time stepping loop
-    while (currentTime_ < endTime) {
+    while (currentTime_ < endTime_) {
       // Ensure we don't overshoot the end time
-      if (currentTime_ + timeStep_ > endTime) {
-        timeStep_ = endTime - currentTime_;
+      if (currentTime_ + timeStep_ > endTime_) {
+        timeStep_ = endTime_ - currentTime_;
       }
 
       // Perform a single time step
@@ -416,10 +456,10 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
 
       // Optional: print progress
       // Check if we're near an hourly mark (report every simulated hour)
-      Duration hoursSinceStart = currentTime_ - startTime;
+      Duration hoursSinceStart = currentTime_ - startTime_;
       if (hoursSinceStart.totalSeconds() % 3600 < timeStep_.totalSeconds()) {
         // Calculate progress as percentage
-        double elapsedSeconds = (currentTime_ - startTime).totalSeconds();
+        double elapsedSeconds = (currentTime_ - startTime_).totalSeconds();
         double totalSeconds = totalSimTime.totalSeconds();
         double progress = (elapsedSeconds / totalSeconds) * 100.0;
 

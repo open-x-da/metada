@@ -30,48 +30,6 @@ int main(int argc, char** argv) {
     logger.Info() << "Starting forecast application";
     logger.Info() << "Using configuration file: " << argv[1];
 
-    const auto time_control = config.GetSubsection("time_control");
-    // Read forecast parameters
-    const auto start_datetime =
-        DateTime(time_control.Get("start_datetime").asString());
-
-    // Exit if neither forecast_length nor end_datetime is available
-    if (!time_control.HasKey("forecast_length") &&
-        !time_control.HasKey("end_datetime")) {
-      logger.Error() << "Either forecast_length or end_datetime must be "
-                        "specified in the config";
-      return 1;
-    }
-
-    DateTime end_datetime;
-
-    // If forecast_length exists, use it to calculate end_datetime
-    if (time_control.HasKey("forecast_length")) {
-      const int forecast_length_hours =
-          time_control.Get("forecast_length").asInt();
-      end_datetime = start_datetime + std::chrono::hours(forecast_length_hours);
-      logger.Info() << "Using forecast_length of " << forecast_length_hours
-                    << " hours to set end_datetime to " << end_datetime;
-    } else {
-      // Otherwise use the provided end_datetime
-      end_datetime = DateTime(time_control.Get("end_datetime").asString());
-      logger.Info() << "Using provided end_datetime: " << end_datetime;
-    }
-
-    const auto time_step =
-        std::chrono::seconds(time_control.Get("time_step").asInt());
-
-    const auto output_history =
-        time_control.Get("output_history", "false").asBool();
-    const std::string output_file = time_control.Get("history_file").asString();
-    logger.Info() << "output_file: " << output_file;
-    const bool write_history = true;
-    logger.Info() << "write_history: " << write_history;
-    const int history_frequency = time_control.Get("history_frequency").asInt();
-    logger.Info() << "history_frequency: " << history_frequency;
-    logger.Info() << "Forecast configuration:";
-    logger.Info() << "  - Output file: " << output_file;
-
     // Initialize geometry
     logger.Info() << "Initializing geometry";
     Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
@@ -85,26 +43,15 @@ int main(int argc, char** argv) {
     logger.Info() << "Initializing forecast model";
     Model<BackendTag> model(config.GetSubsection("model"));
 
-    // Time integration - calling model.run() with the full time interval
-    logger.Info() << "Running model from " << start_datetime << " to "
-                  << end_datetime;
-
+    // Create final state
     State<BackendTag> finalState(config.GetSubsection("state"));
-    model.run(currentState, finalState, start_datetime, end_datetime);
+
+    // Run the model
+    logger.Info() << "Running forecast model...";
+    model.run(currentState, finalState);
 
     // Update current state
     currentState = std::move(finalState);
-
-    // Write output after the full model run
-    if (output_history) {
-      logger.Info() << "Writing final output at " << end_datetime;
-      // Code to write history
-    }
-
-    // Write final output
-    logger.Info() << "Forecast completed successfully";
-    logger.Info() << "Writing final state to " << output_file;
-    // Code to write final state
 
     logger.Info() << "Forecast application completed";
     return 0;
