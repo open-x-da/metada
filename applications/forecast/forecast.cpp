@@ -17,7 +17,7 @@
 // Default backends, can be changed with template parameters
 using BackendTag = metada::traits::WRFBackendTag;
 using namespace metada::framework;
-using namespace metada::core;
+using namespace metada::utils;
 using namespace metada::framework::runs;
 
 int main(int argc, char** argv) {

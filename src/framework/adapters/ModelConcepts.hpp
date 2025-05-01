@@ -21,7 +21,7 @@
 
 namespace metada::framework {
 
-using core::DateTime;
+using metada::utils::DateTime;
 
 //-----------------------------------------------------------------------------
 // Component concepts

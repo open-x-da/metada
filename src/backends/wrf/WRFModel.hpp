@@ -22,8 +22,8 @@ namespace metada::backends::wrf {
 template <typename ConfigBackend>
 class WRFState;
 
-using core::DateTime;
-using core::Duration;
+using utils::DateTime;
+using utils::Duration;
 /**
  * @brief WRF model backend implementation
  *

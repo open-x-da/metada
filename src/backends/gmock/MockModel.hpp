@@ -31,7 +31,7 @@
 namespace metada::backends::gmock {
 
 // Using declaration for DateTime
-using core::DateTime;
+using metada::utils::DateTime;
 
 /**
  * @brief Mock implementation of IModel for testing

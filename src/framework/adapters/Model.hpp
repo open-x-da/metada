@@ -24,8 +24,9 @@
 
 namespace metada::framework {
 
-// Forward declaration of the Datetime class as an alias for core::DateTime
-using Datetime = core::DateTime;
+// Forward declaration of the Datetime class as an alias for
+// metada::utils::DateTime
+using Datetime = utils::DateTime;
 
 /**
  * @brief Forward declaration of Config class

@@ -36,10 +36,10 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::Throw;
 
-using core::DateTime;
 using framework::Config;
 using framework::Model;
 using framework::State;
+using utils::DateTime;
 
 /**
  * @brief Test fixture for Model class template

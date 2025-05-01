@@ -4,7 +4,7 @@ add_executable(forecast forecast.cpp)
 # Link with required libraries
 target_link_libraries(forecast
     PRIVATE
-        metada::framework::core
+        metada::framework::utils
         metada::framework::adapters
         metada::framework::runs
         metada::traits
