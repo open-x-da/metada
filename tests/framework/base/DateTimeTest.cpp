@@ -6,7 +6,7 @@
 
 #include "DateTime.hpp"
 
-using namespace metada::base;
+using namespace metada;
 
 TEST(DateTimeTest, DefaultConstructor) {
   DateTime dt;

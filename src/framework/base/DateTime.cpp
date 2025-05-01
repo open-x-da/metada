@@ -4,7 +4,7 @@
 #include <regex>
 #include <sstream>
 
-namespace metada::base {
+namespace metada {
 
 DateTime::DateTime() noexcept : m_timePoint(std::chrono::system_clock::now()) {
   updateComponents();
@@ -157,4 +157,4 @@ void DateTime::updateComponents() noexcept {
   m_time = std::chrono::hh_mm_ss<std::chrono::seconds>{seconds};
 }
 
-}  // namespace metada::base
+}  // namespace metada
