@@ -18,7 +18,6 @@
 using BackendTag = metada::traits::WRFBackendTag;
 using namespace metada;
 using namespace metada::framework;
-using namespace metada::framework::runs;
 
 int main(int argc, char** argv) {
   try {

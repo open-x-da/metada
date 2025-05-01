@@ -46,10 +46,10 @@ using ::testing::Const;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
+using metada::framework::ApplicationContext;
 using metada::framework::Config;
 using metada::framework::Logger;
 using metada::framework::Observation;
-using metada::framework::runs::ApplicationContext;
 
 using Traits = AppTraits<MockLogger, MockConfig, MockState, MockObservation>;
 
