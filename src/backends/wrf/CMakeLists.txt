@@ -18,6 +18,7 @@ target_sources(wrf_backends
     INTERFACE
         WRFModel.hpp
         WRFGeometry.hpp
+        WRFGeometryIterator.hpp
         WRFState.hpp
 )
 

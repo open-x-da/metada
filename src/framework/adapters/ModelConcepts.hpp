@@ -60,10 +60,6 @@ concept ModelBackendImpl =
       { model.reset() } -> std::same_as<void>;
       { model.finalize() } -> std::same_as<void>;
 
-      // Parameter access
-      { const_model.getParameter(name) } -> std::convertible_to<std::string>;
-      { model.setParameter(name, value) } -> std::same_as<void>;
-
       // Model execution
       { model.run(initialState, finalState) } -> std::same_as<void>;
 

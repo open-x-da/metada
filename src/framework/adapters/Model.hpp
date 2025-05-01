@@ -167,39 +167,6 @@ class Model : private NonCopyable {
   bool isInitialized() const { return backend_.isInitialized(); }
 
   /**
-   * @brief Get a model parameter value
-   *
-   * @param name The parameter name
-   * @return The parameter value as a string
-   * @throws std::runtime_error if the parameter does not exist or cannot be
-   * retrieved
-   */
-  std::string getParameter(const std::string& name) const {
-    try {
-      return backend_.getParameter(name);
-    } catch (const std::exception& e) {
-      throw std::runtime_error(std::string("Failed to get parameter '") + name +
-                               "': " + e.what());
-    }
-  }
-
-  /**
-   * @brief Set a model parameter value
-   *
-   * @param name The parameter name
-   * @param value The parameter value as a string
-   * @throws std::runtime_error if the parameter does not exist or cannot be set
-   */
-  void setParameter(const std::string& name, const std::string& value) {
-    try {
-      backend_.setParameter(name, value);
-    } catch (const std::exception& e) {
-      throw std::runtime_error(std::string("Failed to set parameter '") + name +
-                               "' to '" + value + "': " + e.what());
-    }
-  }
-
-  /**
    * @brief Type-safe run method that works directly with State templates
    *
    * @tparam StateType The type of state used by the model

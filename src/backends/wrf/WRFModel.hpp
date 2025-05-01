@@ -50,7 +50,7 @@ class WRFModel {
   /**
    * @brief Constructor that takes a configuration backend
    *
-   * @param config Configuration containing WRF model parameters
+   * @param config Configuration containing WRF model options
    */
   explicit WRFModel(const ConfigBackend& config);
 
@@ -77,7 +77,7 @@ class WRFModel {
   /**
    * @brief Initialize the model with a configuration
    *
-   * @param config Configuration containing model parameters
+   * @param config Configuration containing model options
    */
   void initialize(const ConfigBackend& config);
 
@@ -90,24 +90,6 @@ class WRFModel {
    * @brief Finalize the model, releasing resources
    */
   void finalize();
-
-  /**
-   * @brief Get a model parameter
-   *
-   * @param name Parameter name
-   * @return Parameter value as string
-   * @throws std::out_of_range If parameter doesn't exist
-   */
-  std::string getParameter(const std::string& name) const;
-
-  /**
-   * @brief Set a model parameter
-   *
-   * @param name Parameter name
-   * @param value Parameter value
-   * @throws std::out_of_range If parameter doesn't exist or cannot be set
-   */
-  void setParameter(const std::string& name, const std::string& value);
 
   /**
    * @brief Run the model from start time to end time
@@ -146,13 +128,15 @@ class WRFModel {
 
   // Model configuration
   bool initialized_ = false;
-  std::unordered_map<std::string, std::string> parameters_;
 
   // Time control
   DateTime startTime_;
   DateTime currentTime_;
   DateTime endTime_;
   Duration timeStep_;
+  bool output_history_;
+  std::string history_file_;
+  Duration history_frequency_;
 
   // Physics options
   bool enableMicrophysics_ = true;
@@ -177,9 +161,11 @@ WRFModel<ConfigBackend>::WRFModel(const ConfigBackend& config)
 template <typename ConfigBackend>
 WRFModel<ConfigBackend>::WRFModel(WRFModel<ConfigBackend>&& other) noexcept
     : initialized_(other.initialized_),
-      parameters_(std::move(other.parameters_)),
       currentTime_(other.currentTime_),
       timeStep_(other.timeStep_),
+      output_history_(other.output_history_),
+      history_file_(other.history_file_),
+      history_frequency_(other.history_frequency_),
       enableMicrophysics_(other.enableMicrophysics_),
       enableRadiation_(other.enableRadiation_),
       enablePBL_(other.enablePBL_),
@@ -188,7 +174,6 @@ WRFModel<ConfigBackend>::WRFModel(WRFModel<ConfigBackend>&& other) noexcept
       diffusionCoefficient_(other.diffusionCoefficient_) {
   // Reset the moved-from object
   other.initialized_ = false;
-  other.parameters_.clear();
   other.currentTime_ = startTime_;
 }
 
@@ -198,9 +183,11 @@ WRFModel<ConfigBackend>& WRFModel<ConfigBackend>::operator=(
     WRFModel<ConfigBackend>&& other) noexcept {
   if (this != &other) {
     initialized_ = other.initialized_;
-    parameters_ = std::move(other.parameters_);
     currentTime_ = other.currentTime_;
     timeStep_ = other.timeStep_;
+    output_history_ = other.output_history_;
+    history_file_ = other.history_file_;
+    history_frequency_ = other.history_frequency_;
     enableMicrophysics_ = other.enableMicrophysics_;
     enableRadiation_ = other.enableRadiation_;
     enablePBL_ = other.enablePBL_;
@@ -210,7 +197,6 @@ WRFModel<ConfigBackend>& WRFModel<ConfigBackend>::operator=(
 
     // Reset the moved-from object
     other.initialized_ = false;
-    other.parameters_.clear();
     other.currentTime_ = startTime_;
   }
   return *this;
@@ -232,7 +218,7 @@ WRFModel<ConfigBackend>::~WRFModel() {
 /**
  * @brief Initialize the model with a configuration
  *
- * @param config Configuration containing model parameters
+ * @param config Configuration containing model options
  */
 template <typename ConfigBackend>
 void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
@@ -241,7 +227,7 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
   }
 
   try {
-    // Time control parameters
+    // Time control options
     auto time_control = config.CreateSubsection("time_control");
     startTime_ = DateTime(time_control.Get("start_datetime").asString());
 
@@ -266,60 +252,32 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
 
     // Output history settings
     if (time_control.HasKey("output_history")) {
-      std::cout << "Output history: "
-                << time_control.Get("output_history").asBool() << std::endl;
-      parameters_["output_history"] =
-          time_control.Get("output_history").asBool();
+      output_history_ = time_control.Get("output_history").asBool();
     }
 
-    if (time_control.HasKey("history_file")) {
-      parameters_["history_file"] = time_control.Get("history_file").asString();
+    // If output history is enabled, set the history file and frequency
+    if (output_history_) {
+      history_file_ = time_control.HasKey("history_file")
+                          ? time_control.Get("history_file").asString()
+                          : "wrfout";
+
+      history_frequency_ =
+          time_control.HasKey("history_frequency")
+              ? Duration(time_control.Get("history_frequency").asString())
+              : Duration("360s");
     }
 
-    if (time_control.HasKey("history_frequency")) {
-      parameters_["history_frequency"] =
-          time_control.Get("history_frequency").asString();
-    }
+    // Physics options
+    auto physics = config.CreateSubsection("physics");
+    enableMicrophysics_ = physics.Get("microphysics").asBool();
+    enableRadiation_ = physics.Get("radiation").asBool();
+    enablePBL_ = physics.Get("pbl").asBool();
+    enableLSM_ = physics.Get("lsm").asBool();
 
-    // Read physics options
-    enableMicrophysics_ = config.Get("physics.microphysics").asBool();
-    enableRadiation_ = config.Get("physics.radiation").asBool();
-    enablePBL_ = config.Get("physics.pbl").asBool();
-    enableLSM_ = config.Get("physics.lsm").asBool();
-
-    // Read dynamics options
-    advectionScheme_ = config.Get("dynamics.advection_scheme").asString();
-    diffusionCoefficient_ = config.Get("dynamics.diffusion").asFloat();
-
-    // Store all parameters for later access
-    parameters_["time_step"] = timeStep_.toString();
-    parameters_["start_datetime"] = startTime_.iso8601();
-    parameters_["end_datetime"] = endTime_.iso8601();
-    parameters_["forecast_length"] = forecast_length.toString();
-    parameters_["enable_microphysics"] = enableMicrophysics_ ? "true" : "false";
-    parameters_["enable_radiation"] = enableRadiation_ ? "true" : "false";
-    parameters_["enable_pbl"] = enablePBL_ ? "true" : "false";
-    parameters_["enable_lsm"] = enableLSM_ ? "true" : "false";
-    parameters_["advection_scheme"] = advectionScheme_;
-    parameters_["diffusion_coefficient"] =
-        std::to_string(diffusionCoefficient_);
-
-    // Additional parameters from config
-    try {
-      auto paramNames = config.Get("parameters").asVectorString();
-      for (const auto& name : paramNames) {
-        try {
-          parameters_[name] = config.Get("parameters." + name).asString();
-        } catch (const std::exception& e) {
-          std::cerr << "Warning: Failed to read parameter '" << name
-                    << "': " << e.what() << std::endl;
-        }
-      }
-    } catch (const std::exception&) {
-      // No additional parameters specified, continue
-      std::cout << "No additional parameters specified, continuing..."
-                << std::endl;
-    }
+    // Dynamical core options
+    auto dynamics = config.CreateSubsection("dynamics");
+    advectionScheme_ = dynamics.Get("advection_scheme").asString();
+    diffusionCoefficient_ = dynamics.Get("diffusion").asFloat();
 
     // Initialization successful
     initialized_ = true;
@@ -357,57 +315,9 @@ void WRFModel<ConfigBackend>::finalize() {
   }
 
   // Release any resources
-  parameters_.clear();
   initialized_ = false;
 
   std::cout << "WRF model finalized" << std::endl;
-}
-
-// Get parameter implementation
-template <typename ConfigBackend>
-std::string WRFModel<ConfigBackend>::getParameter(
-    const std::string& name) const {
-  try {
-    return parameters_.at(name);
-  } catch (const std::out_of_range&) {
-    throw std::out_of_range("Parameter not found: " + name);
-  }
-}
-
-// Set parameter implementation
-template <typename ConfigBackend>
-void WRFModel<ConfigBackend>::setParameter(const std::string& name,
-                                           const std::string& value) {
-  // Special handling for certain parameters that affect model behavior
-  if (name == "time_step") {
-    try {
-      timeStep_ = Duration(value);
-    } catch (const std::exception&) {
-      throw std::runtime_error("Invalid time step value: " + value);
-    }
-  } else if (name == "enable_microphysics") {
-    enableMicrophysics_ = (value == "true" || value == "1");
-  } else if (name == "enable_radiation") {
-    enableRadiation_ = (value == "true" || value == "1");
-  } else if (name == "enable_pbl") {
-    enablePBL_ = (value == "true" || value == "1");
-  } else if (name == "enable_lsm") {
-    enableLSM_ = (value == "true" || value == "1");
-  } else if (name == "advection_scheme") {
-    if (value != "WENO" && value != "RK3" && value != "FD4") {
-      throw std::runtime_error("Invalid advection scheme: " + value);
-    }
-    advectionScheme_ = value;
-  } else if (name == "diffusion_coefficient") {
-    try {
-      diffusionCoefficient_ = std::stod(value);
-    } catch (const std::exception&) {
-      throw std::runtime_error("Invalid diffusion coefficient: " + value);
-    }
-  }
-
-  // Store the parameter value
-  parameters_[name] = value;
 }
 
 // Run implementation
@@ -436,7 +346,7 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
     auto tempState = initialState.clone();
 
     std::cout << "Starting WRF model integration from t=" << startTime_
-              << " to t=" << endTime_ << " seconds" << std::endl;
+              << " to t=" << endTime_ << std::endl;
 
     // Main time stepping loop
     while (currentTime_ < endTime_) {

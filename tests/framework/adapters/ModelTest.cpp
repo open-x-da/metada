@@ -89,32 +89,6 @@ TEST_F(ModelTest, ConstructAndInitialize) {
 }
 
 /**
- * @brief Test parameter management
- */
-TEST_F(ModelTest, ParameterManagement) {
-  // Create model
-  Model<traits::MockBackendTag> model(*config_);
-
-  // Setup expectations for initialization
-  EXPECT_CALL(model.backend(), initialize(_));
-  model.initialize(*config_);
-
-  // Setup expectations for getParameter
-  EXPECT_CALL(model.backend(), getParameter("param1"))
-      .WillOnce(Return("value1"));
-
-  // Get parameter
-  std::string value = model.getParameter("param1");
-  EXPECT_EQ(value, "value1");
-
-  // Setup expectations for setParameter
-  EXPECT_CALL(model.backend(), setParameter("param2", "value2"));
-
-  // Set parameter
-  model.setParameter("param2", "value2");
-}
-
-/**
  * @brief Test model execution
  */
 TEST_F(ModelTest, ModelExecution) {

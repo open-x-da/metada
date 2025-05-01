@@ -217,8 +217,7 @@ class WRFState {
    * @param timestamp Timestamp to read from the file
    */
   void loadStateData(const std::string& filename,
-                     const std::vector<std::string>& variables,
-                     const std::string& timestamp);
+                     const std::vector<std::string>& variables);
 
   /**
    * @brief Verify that two states have compatible variables and dimensions
@@ -271,7 +270,7 @@ WRFState<ConfigBackend>::WRFState(const ConfigBackend& config)
   }
 
   // Load state data from WRF NetCDF file
-  loadStateData(wrfFilename_, variables, timestamp_);
+  loadStateData(wrfFilename_, variables);
   initialized_ = true;
 }
 
@@ -551,8 +550,7 @@ const xt::xarray<double>& WRFState<ConfigBackend>::getData(
 // Private helper to load state data
 template <typename ConfigBackend>
 void WRFState<ConfigBackend>::loadStateData(
-    const std::string& filename, const std::vector<std::string>& variables,
-    const std::string& timestamp) {
+    const std::string& filename, const std::vector<std::string>& variables) {
   try {
     // Open NetCDF file
     netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);

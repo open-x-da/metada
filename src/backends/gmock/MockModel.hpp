@@ -110,11 +110,6 @@ class MockModel {
   MOCK_METHOD(void, finalize, ());
   MOCK_METHOD(bool, isInitialized, (), (const));
 
-  // Parameter management
-  MOCK_METHOD(std::string, getParameter, (const std::string& name), (const));
-  MOCK_METHOD(void, setParameter,
-              (const std::string& name, const std::string& value));
-
   // Model execution
   MOCK_METHOD(void, run,
               (const StateBackend& initialState, StateBackend& finalState));
