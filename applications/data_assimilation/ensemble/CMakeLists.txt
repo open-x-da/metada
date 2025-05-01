@@ -6,7 +6,7 @@ target_link_libraries(letkf
     PRIVATE
         metada::traits
         metada::framework::adapters
-        metada::framework::utils
+        metada::framework::base
         metada::framework::runs
         metada::backends::common::utils
 )

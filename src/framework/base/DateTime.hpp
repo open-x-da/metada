@@ -11,7 +11,7 @@
 
 #include "Duration.hpp"
 
-namespace metada::utils {
+namespace metada::base {
 
 /**
  * @brief A DateTime class utilizing C++20 features for date and time handling
@@ -175,4 +175,4 @@ inline std::ostream& operator<<(std::ostream& os, const DateTime& dt) {
   return os << dt.format();
 }
 
-}  // namespace metada::utils
+}  // namespace metada::base

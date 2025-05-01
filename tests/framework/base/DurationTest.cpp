@@ -5,7 +5,7 @@
 #include "DateTime.hpp"
 #include "Duration.hpp"
 
-using namespace metada::utils;
+using namespace metada::base;
 
 TEST(DurationTest, DefaultConstructor) {
   Duration d;

@@ -9,7 +9,7 @@ function(setup_test_executable target source)
             metada::traits
             metada::framework::adapters
             metada::framework::runs
-            metada::framework::utils
+            metada::framework::base
             metada::backends::gmock
     ) 
   

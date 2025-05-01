@@ -4,7 +4,7 @@
 #include <regex>
 #include <sstream>
 
-namespace metada::utils {
+namespace metada::base {
 
 Duration::Duration() noexcept : m_duration(std::chrono::seconds(0)) {}
 
@@ -186,4 +186,4 @@ std::ostream& operator<<(std::ostream& os, const Duration& duration) {
   return os << duration.toString();
 }
 
-}  // namespace metada::utils
+}  // namespace metada::base
