@@ -9,6 +9,7 @@
 | Linux         | ![Linux Build](https://github.com/open-x-da/metada/workflows/Linux/badge.svg) |
 | macOS         | ![macOS Build](https://github.com/open-x-da/metada/workflows/macOS/badge.svg) |
 | Windows       | ![Windows Build](https://github.com/open-x-da/metada/workflows/Windows/badge.svg) |
+| Windows-clang | ![Windows-clang Build](https://github.com/open-x-da/metada/workflows/Windows-clang/badge.svg) |
 | Code Coverage | [![codecov](https://codecov.io/gh/open-x-da/metada/graph/badge.svg?token=QVL2X0P6UO)](https://codecov.io/gh/open-x-da/metada) |
 
 ### License:

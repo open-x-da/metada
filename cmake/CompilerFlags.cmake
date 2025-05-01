@@ -6,7 +6,9 @@ function(configure_compiler_flags)
     set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Disable compiler-specific extensions" FORCE)
        
     # Add module support for C++20
-    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-fmodules-ts>")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-fmodules-ts>")
+    endif()
     
     # Log C++ standard being used
     message(STATUS "Using C++ standard: C++20")
