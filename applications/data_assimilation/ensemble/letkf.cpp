@@ -24,7 +24,6 @@
 #include "L63BackendTraits.hpp"
 
 using namespace metada::framework;
-using namespace metada::framework::runs;
 using namespace metada::traits;
 
 /**

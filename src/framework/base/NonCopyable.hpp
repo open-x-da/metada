@@ -1,6 +1,6 @@
 #pragma once
 
-namespace metada::framework {
+namespace metada {
 
 /**
  * @brief Utility class to make derived classes non-copyable
@@ -33,4 +33,4 @@ class NonCopyable {
   NonCopyable& operator=(NonCopyable&&) = default;
 };
 
-}  // namespace metada::framework
+}  // namespace metada

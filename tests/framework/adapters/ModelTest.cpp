@@ -36,7 +36,6 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::Throw;
 
-using core::DateTime;
 using framework::Config;
 using framework::Model;
 using framework::State;

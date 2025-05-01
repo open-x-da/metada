@@ -21,7 +21,7 @@ target_link_libraries(interfaces_test
     INTERFACE
         metada::framework::adapters
         metada::framework::interfaces
-        metada::framework::core
+        metada::base
 )
 
 AddFormatTarget(interfaces_test

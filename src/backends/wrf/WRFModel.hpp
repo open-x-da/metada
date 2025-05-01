@@ -21,9 +21,6 @@ namespace metada::backends::wrf {
 // Forward declaration
 template <typename ConfigBackend>
 class WRFState;
-
-using core::DateTime;
-using core::Duration;
 /**
  * @brief WRF model backend implementation
  *
