@@ -2,7 +2,7 @@ add_library(base
     DateTime.cpp
     Duration.cpp
 )
-add_library(metada::framework::base ALIAS base)
+add_library(metada::base ALIAS base)
 
 target_sources(base
     PUBLIC
