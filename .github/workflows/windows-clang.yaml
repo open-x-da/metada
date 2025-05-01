@@ -1,0 +1,96 @@
+name: Windows Clang
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/windows-clang.yaml'
+      - 'cmake/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/windows-clang.yaml'
+      - 'cmake/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'CMakeLists.txt'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - name: Configure case-sensitive directory
+      shell: cmd
+      run: |
+        fsutil.exe file setCaseSensitiveInfo %GITHUB_WORKSPACE% enable
+        cd %GITHUB_WORKSPACE%
+
+    - uses: actions/checkout@v2
+        
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          git
+          mingw-w64-x86_64-clang
+          mingw-w64-x86_64-lld
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-python
+          mingw-w64-x86_64-python-pip
+          mingw-w64-x86_64-python-numpy
+          mingw-w64-x86_64-gtest
+          mingw-w64-x86_64-glog
+          mingw-w64-x86_64-clang-tools-extra
+          mingw-w64-x86_64-lcov
+          mingw-w64-x86_64-yaml-cpp
+          mingw-w64-x86_64-nlohmann-json
+          mingw-w64-x86_64-netcdf
+          mingw-w64-x86_64-netcdf-cxx
+          mingw-w64-clang-x86_64-compiler-rt
+          
+    - name: Install xtl and xtensor
+      run: |
+        git clone https://github.com/xtensor-stack/xtl.git
+        mkdir xtl/build
+        cd xtl/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
+        cmake --build .
+        ninja install
+        cd ../..
+        git clone https://github.com/xtensor-stack/xtensor.git
+        mkdir xtensor/build
+        cd xtensor/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
+        cmake --build .
+        ninja install
+
+    - name: Configure CMake with Clang
+      run: |
+        mkdir build
+        cd build
+        cmake -G Ninja \
+          -DPython3_ROOT_DIR=/mingw64 \
+          -DPython3_EXECUTABLE=/mingw64/bin/python3 \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          ..
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build .
+
+    - name: Test
+      run: |
+        cd build
+        ctest --output-on-failure --exclude-regex ".*duration_test.*" 
