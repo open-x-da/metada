@@ -8,6 +8,7 @@
 | ------------- | ------ |
 | Linux-GNU     | ![Linux-GNU Build](https://github.com/open-x-da/metada/workflows/Linux-GNU/badge.svg) |
 | Linux-Intel   | ![Linux-Intel Build](https://github.com/open-x-da/metada/workflows/Linux-Intel/badge.svg) |
+| Linux-Intel   | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/intel.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/intel.yaml) |
 | macOS-Clang   | ![macOS-Clang Build](https://github.com/open-x-da/metada/workflows/macOS-Clang/badge.svg) |
 | Windows-GNU   | ![Windows-GNU Build](https://github.com/open-x-da/metada/workflows/Windows-GNU/badge.svg) |
 | Windows-Clang | ![Windows-Clang Build](https://github.com/open-x-da/metada/workflows/Windows-Clang/badge.svg) |
