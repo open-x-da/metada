@@ -60,7 +60,7 @@ jobs:
       run: |
         mkdir -p build
         cd build
-        source /opt/intel/oneapi/setvars.sh
+        source /opt/intel/oneapi/setvars.sh --force || true
         cmake .. \
           -G Ninja \
           -DCMAKE_C_COMPILER=icx \
@@ -72,12 +72,12 @@ jobs:
       shell: bash
       run: |
         cd build
-        source /opt/intel/oneapi/setvars.sh
+        source /opt/intel/oneapi/setvars.sh --force || true
         cmake --build .
 
     - name: Test
       shell: bash
       run: |
         cd build
-        source /opt/intel/oneapi/setvars.sh
+        source /opt/intel/oneapi/setvars.sh --force || true
         ctest --output-on-failure
