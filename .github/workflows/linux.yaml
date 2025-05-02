@@ -21,8 +21,13 @@ on:
 
 jobs:
   build:
-    name: Build & Test with GCC 14
+    name: Build & Test with GCC 14 (${{ matrix.build_type }})
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+      fail-fast: false
 
     steps:
     - uses: actions/checkout@v2
@@ -58,7 +63,7 @@ jobs:
         mkdir build
         cd build
         cmake -G Ninja \
-          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           -DCMAKE_C_COMPILER=gcc-14 \
           -DCMAKE_CXX_COMPILER=g++-14 \
           -DCMAKE_Fortran_COMPILER=gfortran-14 \

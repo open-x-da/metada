@@ -20,8 +20,13 @@ on:
 
 jobs:
   build:
-    name: Build & Test with Clang
+    name: Build & Test with Clang (${{ matrix.build_type }})
     runs-on: macos-latest
+
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+      fail-fast: false
 
     steps:
     - uses: actions/checkout@v2
@@ -71,7 +76,7 @@ jobs:
         cd build
         GFORTRAN_PATH=$(brew --prefix gcc@13)/bin/gfortran-13
         cmake -G Ninja \
-          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           -DCMAKE_C_COMPILER=clang \
           -DCMAKE_CXX_COMPILER=clang++ \
           -DCMAKE_Fortran_COMPILER=${GFORTRAN_PATH} \

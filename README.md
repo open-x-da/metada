@@ -6,11 +6,11 @@
 ### Continuous Integration:
 | Platform      | Status |
 | ------------- | ------ |
-| Linux-GNU     | ![Linux-GNU Build](https://github.com/open-x-da/metada/workflows/Linux-GNU/badge.svg) |
+| Linux-GNU     | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/linux.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/linux.yaml) |
 | Linux-Intel   | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/intel.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/intel.yaml) |
-| macOS-Clang   | ![macOS-Clang Build](https://github.com/open-x-da/metada/workflows/macOS-Clang/badge.svg) |
+| macOS-Clang   | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/macos.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/macos.yaml) |
 | Windows-GNU   | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/windows.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/windows.yaml) |
-| Windows-Clang | ![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/windows-clang.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/windows-clang.yaml) |
+| Windows-Clang | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/windows-clang.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/windows-clang.yaml) |
 | Code Coverage | [![codecov](https://codecov.io/gh/open-x-da/metada/graph/badge.svg?token=QVL2X0P6UO)](https://codecov.io/gh/open-x-da/metada) |
 
 ### License:
