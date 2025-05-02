@@ -20,11 +20,16 @@ on:
 
 jobs:
   build:
-    name: Build & Test with Clang
+    name: Build & Test with Clang (${{ matrix.build_type }})
     runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
+
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+      fail-fast: false
 
     steps:
     - name: Configure case-sensitive directory
@@ -93,6 +98,7 @@ jobs:
           -DCMAKE_C_COMPILER=clang \
           -DCMAKE_CXX_COMPILER=clang++ \
           -DCMAKE_Fortran_COMPILER=gfortran \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           ..
 
     - name: Build
