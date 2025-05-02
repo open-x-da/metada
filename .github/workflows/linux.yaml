@@ -72,7 +72,7 @@ jobs:
     - name: Build
       run: |
         cd build
-        cmake --build .
+        cmake --build . --verbose
 
     - name: Test
       run: |

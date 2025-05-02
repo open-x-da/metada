@@ -202,7 +202,7 @@ TEST_F(StateTest, DataAccess) {
 
   // Test empty data case
   state1_->backend().setData({});
-  EXPECT_FALSE(&state1_->getData<double>() != nullptr);
+  EXPECT_EQ(&state1_->getData<double>(), nullptr);
 }
 
 /**
