@@ -9,7 +9,8 @@
 | Linux         | ![Linux Build](https://github.com/open-x-da/metada/workflows/Linux/badge.svg) |
 | macOS         | ![macOS Build](https://github.com/open-x-da/metada/workflows/macOS/badge.svg) |
 | Windows       | ![Windows Build](https://github.com/open-x-da/metada/workflows/Windows/badge.svg) |
-| Windows-clang | ![Windows-clang Build](https://github.com/open-x-da/metada/workflows/Windows-clang/badge.svg) |
+| Windows-Clang | ![Windows-Clang Build](https://github.com/open-x-da/metada/workflows/Windows-Clang/badge.svg) |
+| Intel         | ![Intel Build](https://github.com/open-x-da/metada/workflows/Intel/badge.svg) |
 | Code Coverage | [![codecov](https://codecov.io/gh/open-x-da/metada/graph/badge.svg?token=QVL2X0P6UO)](https://codecov.io/gh/open-x-da/metada) |
 
 ### License:
@@ -59,6 +60,6 @@ For detailed installation instructions, please visit our [documentation](https:/
 
 ### Development:
 
-- **Compiler Support**: MinGW GCC 13.2, Clang, GCC on Linux/macOS
+- **Compiler Support**: MinGW GCC 14.2, Clang, GCC on Linux/macOS
 - **Coverage Testing**: Automatically enabled when lcov/genhtml are available
 - **CI/CD**: Automated testing on Linux, macOS, and Windows
