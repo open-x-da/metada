@@ -6,11 +6,11 @@
 ### Continuous Integration:
 | Platform      | Status |
 | ------------- | ------ |
-| Linux         | ![Linux Build](https://github.com/open-x-da/metada/workflows/Linux/badge.svg) |
-| macOS         | ![macOS Build](https://github.com/open-x-da/metada/workflows/macOS/badge.svg) |
-| Windows       | ![Windows Build](https://github.com/open-x-da/metada/workflows/Windows/badge.svg) |
+| Linux-GNU     | ![Linux-GNU Build](https://github.com/open-x-da/metada/workflows/Linux-GNU/badge.svg) |
+| Linux-Intel   | ![Linux-Intel Build](https://github.com/open-x-da/metada/workflows/Linux-Intel/badge.svg) |
+| macOS-Clang   | ![macOS-Clang Build](https://github.com/open-x-da/metada/workflows/macOS-Clang/badge.svg) |
+| Windows-GNU   | ![Windows-GNU Build](https://github.com/open-x-da/metada/workflows/Windows-GNU/badge.svg) |
 | Windows-Clang | ![Windows-Clang Build](https://github.com/open-x-da/metada/workflows/Windows-Clang/badge.svg) |
-| Intel         | ![Intel Build](https://github.com/open-x-da/metada/workflows/Intel/badge.svg) |
 | Code Coverage | [![codecov](https://codecov.io/gh/open-x-da/metada/graph/badge.svg?token=QVL2X0P6UO)](https://codecov.io/gh/open-x-da/metada) |
 
 ### License:
