@@ -55,12 +55,20 @@ jobs:
         echo "ICX path: $(which icx)"
         echo "IFX path: $(which ifx)"
 
+    - name: Install CMake 3.30+
+      shell: bash
+      run: |
+        apt remove --purge -y cmake || true
+        wget https://github.com/Kitware/CMake/releases/download/v3.30.5/cmake-3.30.5-linux-x86_64.sh
+        chmod +x cmake-3.30.5-linux-x86_64.sh
+        ./cmake-3.30.5-linux-x86_64.sh --skip-license --prefix=/usr/local
+        cmake --version
+
     - name: Configure with CMake
       shell: bash
       run: |
         mkdir -p build
         cd build
-        source /opt/intel/oneapi/setvars.sh --force || true
         cmake .. \
           -G Ninja \
           -DCMAKE_C_COMPILER=icx \
@@ -72,12 +80,10 @@ jobs:
       shell: bash
       run: |
         cd build
-        source /opt/intel/oneapi/setvars.sh --force || true
         cmake --build .
 
     - name: Test
       shell: bash
       run: |
         cd build
-        source /opt/intel/oneapi/setvars.sh --force || true
         ctest --output-on-failure
