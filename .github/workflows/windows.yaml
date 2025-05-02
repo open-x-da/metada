@@ -20,6 +20,7 @@ on:
 
 jobs:
   build:
+    name: Build & Test with MinGW GCC
     runs-on: windows-latest
     defaults:
       run:

@@ -21,6 +21,7 @@ on:
 
 jobs:
   build:
+    name: Build & Test with GCC 14
     runs-on: ubuntu-latest
 
     steps:

@@ -20,6 +20,7 @@ on:
 
 jobs:
   build:
+    name: Build & Test with Clang
     runs-on: macos-latest
 
     steps:
