@@ -49,13 +49,6 @@ jobs:
           libnetcdf-c++4-dev \
           libxtensor-dev
 
-    - name: Set up Intel compiler environment
-      shell: bash
-      run: |
-        source /opt/intel/oneapi/setvars.sh --force || true
-        echo "ICX path: $(which icx)"
-        echo "IFX path: $(which ifx)"
-
     - name: Install CMake 3.30+
       shell: bash
       run: |
@@ -64,6 +57,13 @@ jobs:
         chmod +x cmake-3.30.5-linux-x86_64.sh
         ./cmake-3.30.5-linux-x86_64.sh --skip-license --prefix=/usr/local
         cmake --version
+
+    - name: Set up Intel compiler environment
+      shell: bash
+      run: |
+        source /opt/intel/oneapi/setvars.sh --force || true
+        echo "ICX path: $(which icx)"
+        echo "IFX path: $(which ifx)"
 
     - name: Configure with CMake
       shell: bash
@@ -75,7 +75,7 @@ jobs:
           -DCMAKE_C_COMPILER=icx \
           -DCMAKE_CXX_COMPILER=icpx \
           -DCMAKE_Fortran_COMPILER=ifx \
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=Debug
 
     - name: Build
       shell: bash
