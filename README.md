@@ -1,4 +1,4 @@
-# METADA (Modern Data Assimilation System for Earth Sciences)
+# METADA (Modern Earth system Toolkit for Assimilation and Data Analysis)
 
 ### Documentation Status:
 [![Documentation Status](https://readthedocs.org/projects/modern-data-assimilation-system-for-earth-sciences/badge/?version=latest)](https://modern-data-assimilation-system-for-earth-sciences.readthedocs.io/en/latest/?badge=latest)
