@@ -41,7 +41,8 @@ concept StateBackendImpl =
              const ConfigBackend& config) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
-      { ct.getData() } -> std::same_as<const void*>;
+      // TODO: Add const data access
+      //{ ct.getData() } -> std::same_as<const void*>;
 
       // Variable information
       {

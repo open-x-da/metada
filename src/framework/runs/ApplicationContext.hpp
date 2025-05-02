@@ -7,7 +7,7 @@
 #include "common/utils/config/Config.hpp"
 #include "common/utils/logger/Logger.hpp"
 
-namespace metada::framework::runs {
+namespace metada::framework {
 
 /**
  * @brief RAII wrapper managing application-wide runtime context and services
@@ -180,4 +180,4 @@ class ApplicationContext {
   // Timer timer_;  // To be implemented
 };
 
-}  // namespace metada::framework::runs
+}  // namespace metada::framework

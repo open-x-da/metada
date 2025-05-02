@@ -86,10 +86,7 @@ class Model : private NonCopyable {
    *
    * @param other The other Model object to move from
    */
-  Model(Model&& other) noexcept
-      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
-    other.initialized_ = false;
-  }
+  Model(Model&& other) noexcept : backend_(std::move(other.backend_)) {}
 
   /**
    * @brief Move assignment operator
@@ -100,8 +97,6 @@ class Model : private NonCopyable {
   Model& operator=(Model&& other) noexcept {
     if (this != &other) {
       backend_ = std::move(other.backend_);
-      initialized_ = other.initialized_;
-      other.initialized_ = false;
     }
     return *this;
   }
@@ -115,13 +110,12 @@ class Model : private NonCopyable {
    * @throws std::runtime_error if initialization fails
    */
   void initialize(const Config<BackendTag>& config) {
-    if (initialized_) {
+    if (backend_.isInitialized()) {
       return;  // Already initialized
     }
 
     try {
       backend_.initialize(config.backend());
-      initialized_ = true;
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model initialization failed: ") +
                                e.what());
@@ -136,7 +130,7 @@ class Model : private NonCopyable {
    * @throws std::runtime_error if reset fails
    */
   void reset() {
-    if (!initialized_) {
+    if (!backend_.isInitialized()) {
       throw std::runtime_error("Model not initialized");
     }
 
@@ -153,13 +147,12 @@ class Model : private NonCopyable {
    * @throws std::runtime_error if finalization fails
    */
   void finalize() {
-    if (!initialized_) {
+    if (!backend_.isInitialized()) {
       return;  // No need to finalize if not initialized
     }
 
     try {
       backend_.finalize();
-      initialized_ = false;
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model finalization failed: ") +
                                e.what());
@@ -171,40 +164,7 @@ class Model : private NonCopyable {
    *
    * @return true if the model is initialized, false otherwise
    */
-  bool isInitialized() const { return initialized_; }
-
-  /**
-   * @brief Get a model parameter value
-   *
-   * @param name The parameter name
-   * @return The parameter value as a string
-   * @throws std::runtime_error if the parameter does not exist or cannot be
-   * retrieved
-   */
-  std::string getParameter(const std::string& name) const {
-    try {
-      return backend_.getParameter(name);
-    } catch (const std::exception& e) {
-      throw std::runtime_error(std::string("Failed to get parameter '") + name +
-                               "': " + e.what());
-    }
-  }
-
-  /**
-   * @brief Set a model parameter value
-   *
-   * @param name The parameter name
-   * @param value The parameter value as a string
-   * @throws std::runtime_error if the parameter does not exist or cannot be set
-   */
-  void setParameter(const std::string& name, const std::string& value) {
-    try {
-      backend_.setParameter(name, value);
-    } catch (const std::exception& e) {
-      throw std::runtime_error(std::string("Failed to set parameter '") + name +
-                               "' to '" + value + "': " + e.what());
-    }
-  }
+  bool isInitialized() const { return backend_.isInitialized(); }
 
   /**
    * @brief Type-safe run method that works directly with State templates
@@ -212,19 +172,16 @@ class Model : private NonCopyable {
    * @tparam StateType The type of state used by the model
    * @param initialState The initial state of the model
    * @param finalState The final state after model run (output parameter)
-   * @param startTime The start time for the model run
-   * @param endTime The end time for the model run
    * @throws std::runtime_error if the model run fails
    */
-  void run(const State<BackendTag>& initialState, State<BackendTag>& finalState,
-           double startTime, double endTime) {
-    if (!initialized_) {
+  void run(const State<BackendTag>& initialState,
+           State<BackendTag>& finalState) {
+    if (!backend_.isInitialized()) {
       throw std::runtime_error("Model not initialized");
     }
 
     try {
-      backend_.run(initialState.backend(), finalState.backend(), startTime,
-                   endTime);
+      backend_.run(initialState.backend(), finalState.backend());
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model run failed: ") + e.what());
     }
@@ -250,7 +207,6 @@ class Model : private NonCopyable {
 
  private:
   ModelBackend backend_;
-  bool initialized_{false};  ///< Initialization state
 };
 
 }  // namespace metada::framework
