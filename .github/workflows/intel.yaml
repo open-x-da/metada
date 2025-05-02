@@ -51,7 +51,7 @@ jobs:
     - name: Set up Intel compiler environment
       shell: bash
       run: |
-        source /opt/intel/oneapi/setvars.sh
+        source /opt/intel/oneapi/setvars.sh --force || true
         echo "ICX path: $(which icx)"
         echo "IFX path: $(which ifx)"
 
