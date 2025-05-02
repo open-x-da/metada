@@ -1,4 +1,4 @@
-# METADA (Modern Data Assimilation System for Earth Sciences)
+# METADA (Modern Earth system Toolkit for Assimilation and Data Analysis)
 
 ### Documentation Status:
 [![Documentation Status](https://readthedocs.org/projects/modern-data-assimilation-system-for-earth-sciences/badge/?version=latest)](https://modern-data-assimilation-system-for-earth-sciences.readthedocs.io/en/latest/?badge=latest)
@@ -6,10 +6,11 @@
 ### Continuous Integration:
 | Platform      | Status |
 | ------------- | ------ |
-| Linux         | ![Linux Build](https://github.com/open-x-da/metada/workflows/Linux/badge.svg) |
-| macOS         | ![macOS Build](https://github.com/open-x-da/metada/workflows/macOS/badge.svg) |
-| Windows       | ![Windows Build](https://github.com/open-x-da/metada/workflows/Windows/badge.svg) |
-| Windows-clang | ![Windows-clang Build](https://github.com/open-x-da/metada/workflows/Windows-clang/badge.svg) |
+| Linux-GNU     | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/linux.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/linux.yaml) |
+| Linux-Intel   | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/intel.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/intel.yaml) |
+| macOS-Clang   | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/macos.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/macos.yaml) |
+| Windows-GNU   | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/windows.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/windows.yaml) |
+| Windows-Clang | [![Debug+Release](https://img.shields.io/github/actions/workflow/status/open-x-da/metada/windows-clang.yaml?label=Debug%2BRelease)](https://github.com/open-x-da/metada/actions/workflows/windows-clang.yaml) |
 | Code Coverage | [![codecov](https://codecov.io/gh/open-x-da/metada/graph/badge.svg?token=QVL2X0P6UO)](https://codecov.io/gh/open-x-da/metada) |
 
 ### License:
@@ -59,6 +60,6 @@ For detailed installation instructions, please visit our [documentation](https:/
 
 ### Development:
 
-- **Compiler Support**: MinGW GCC 13.2, Clang, GCC on Linux/macOS
+- **Compiler Support**: MinGW GCC 14.2, Clang, GCC on Linux/macOS
 - **Coverage Testing**: Automatically enabled when lcov/genhtml are available
 - **CI/CD**: Automated testing on Linux, macOS, and Windows

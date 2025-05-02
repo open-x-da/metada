@@ -1,4 +1,4 @@
-name: Windows
+name: Windows-GNU
 
 on:
   push:
@@ -20,10 +20,16 @@ on:
 
 jobs:
   build:
+    name: Build & Test with MinGW GCC (${{ matrix.build_type }})
     runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
+        
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+      fail-fast: false
 
     steps:
     - name: Configure case-sensitive directory
@@ -81,23 +87,15 @@ jobs:
         cmake -G Ninja \
           -DPython3_ROOT_DIR=/mingw64 \
           -DPython3_EXECUTABLE=/mingw64/bin/python3 \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           ..
 
     - name: Build
       run: |
         cd build
-        cmake --build .
+        cmake --build . --verbose
 
     - name: Test
       run: |
         cd build
-        ctest --output-on-failure
-
-    # Coverage upload temporarily disabled until coverage generation is properly configured
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v3
-    #   with:
-    #     files: ./build/coverage.info
-    #     flags: windows
-    #     name: windows-coverage
-    #     fail_ci_if_error: true 
+        ctest --output-on-failure 
