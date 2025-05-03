@@ -27,12 +27,7 @@
 #include <string>
 #include <vector>
 
-#include "IObservation.hpp"
-
-namespace metada::tests {
-
-using metada::framework::IConfig;
-using metada::framework::IObservation;
+namespace metada::backends::gmock {
 
 /**
  * @brief Mock implementation of IObservation for testing
@@ -90,23 +85,17 @@ using metada::framework::IObservation;
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
-class MockObservation : public IObservation {
+template <typename ConfigBackend>
+class MockObservation {
  public:
   // Disable default constructor
   MockObservation() = delete;
 
   // Destructor
-  ~MockObservation() override = default;
+  ~MockObservation() = default;
 
   // Copy constructor
   MockObservation(const MockObservation& other) = delete;
-
-  /**
-   * @brief Constructor that initializes observation from config
-   */
-  explicit MockObservation(const IConfig& config) : config_(config) {
-    initialize();
-  }
 
   /**
    * @brief Copy assignment operator
@@ -129,6 +118,13 @@ class MockObservation : public IObservation {
     return *this;
   }
 
+  /**
+   * @brief Constructor that initializes observation from config
+   */
+  explicit MockObservation(const ConfigBackend& config) : config_(config) {
+    initialize();
+  }
+
   // Clone operation
   std::unique_ptr<MockObservation> clone() const {
     auto cloned = std::make_unique<MockObservation>(config_);
@@ -136,15 +132,15 @@ class MockObservation : public IObservation {
   }
 
   // Lifecycle management
-  MOCK_METHOD(void, initialize, (), (override));
+  MOCK_METHOD(void, initialize, ());
 
-  MOCK_METHOD(void, applyQC, (), (override));
-  MOCK_METHOD(bool, equals, (const IObservation& other), (const, override));
+  MOCK_METHOD(void, applyQC, ());
+  MOCK_METHOD(bool, equals, (const MockObservation& other), (const));
 
   // Arithmetic operations
-  MOCK_METHOD(void, add, (const IObservation& other), (override));
-  MOCK_METHOD(void, subtract, (const IObservation& other), (override));
-  MOCK_METHOD(void, multiply, (double scalar), (override));
+  MOCK_METHOD(void, add, (const MockObservation& other));
+  MOCK_METHOD(void, subtract, (const MockObservation& other));
+  MOCK_METHOD(void, multiply, (double scalar));
 
   void loadFromFile([[maybe_unused]] const std::string& filename) {
     // TODO: Implement
@@ -153,9 +149,6 @@ class MockObservation : public IObservation {
   void saveToFile([[maybe_unused]] const std::string& filename) const {
     // TODO: Implement
   }
-
-  // Get the config
-  const IConfig& config() const { return config_; }
 
   // Get the data
   void* getData() { return data_.empty() ? nullptr : data_.data(); }
@@ -184,10 +177,10 @@ class MockObservation : public IObservation {
   void setData(const std::vector<double>& data) { data_ = data; }
 
  private:
-  const IConfig& config_;
+  const ConfigBackend& config_;
   std::vector<std::string> variableNames_;
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
   std::vector<double> data_;
 };
 
-}  // namespace metada::tests
+}  // namespace metada::backends::gmock
