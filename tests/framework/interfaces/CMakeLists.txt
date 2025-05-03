@@ -13,7 +13,6 @@ target_include_directories(interfaces_test
 # List header files for proper IDE indexing and documentation
 target_sources(interfaces_test
     INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR}/MockObservation.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/MockObsOperator.hpp
 )
 

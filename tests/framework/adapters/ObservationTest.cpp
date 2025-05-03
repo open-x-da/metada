@@ -1,42 +1,41 @@
 /**
  * @file ObservationTest.cpp
- * @brief Unit tests for the Observation class template
+ * @brief Unit tests for the Observation adapter class template
  * @ingroup tests
  * @author Metada Framework Team
  *
- * This test suite verifies the functionality of the Observation class template,
- * which provides a generic interface for observation implementations.
+ * This test suite verifies the functionality of the Observation adapter class
+ * template, which provides a generic interface for observation implementations
+ * in data assimilation systems.
  *
  * The tests cover:
  * - Construction and initialization
- * - Core operations (reset, validate, data access)
- * - Copy/move semantics
+ * - Move semantics and cloning
+ * - Data access and variable information
  * - Arithmetic operations (+, -, *, +=, -=, *=)
  * - Comparison operators (==, !=)
- * - Metadata management
- * - Location and time data handling
- * - Quality control flags
- * - Error handling for invalid states
+ * - Input/output operations (file loading and saving)
+ * - Quality control application
+ * - Backend access (const and non-const)
  *
- * The test suite uses Google Test/Mock framework for mocking and assertions.
+ * The test suite uses Google Test/Mock framework for mocking backend
+ * implementations and verifying adapter behavior through assertions.
  *
- * @see Observation
- * @see IObservation
- * @see MockObservation
+ * @see framework::Observation
+ * @see traits::BackendTraits
+ * @see traits::MockBackendTag
+ * @see backends::gmock::MockObservation
  */
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
-#include "AppTraits.hpp"
-#include "ApplicationContext.hpp"
-#include "MockConfig.hpp"
-#include "MockLogger.hpp"
-#include "MockObservation.hpp"
-#include "MockState.hpp"
+#include "Config.hpp"
+#include "MockBackendTraits.hpp"
 #include "Observation.hpp"
 
 namespace metada::tests {
@@ -46,12 +45,8 @@ using ::testing::Const;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
-using metada::framework::ApplicationContext;
-using metada::framework::Config;
-using metada::framework::Logger;
-using metada::framework::Observation;
-
-using Traits = AppTraits<MockLogger, MockConfig, MockState, MockObservation>;
+using framework::Config;
+using framework::Observation;
 
 /**
  * @brief Test fixture for Observation class tests
@@ -63,9 +58,6 @@ using Traits = AppTraits<MockLogger, MockConfig, MockState, MockObservation>;
  */
 class ObservationTest : public ::testing::Test {
  protected:
-  /** @brief Application context instance */
-  std::unique_ptr<ApplicationContext<Traits>> context_;
-
   /** @brief Variable names for test data */
   std::vector<std::string> variableNames_;
 
@@ -91,10 +83,16 @@ class ObservationTest : public ::testing::Test {
   double uncertainty_;
 
   /** @brief First test observation */
-  std::unique_ptr<Observation<Traits::ObservationType>> obs1_;
+  std::unique_ptr<Observation<traits::MockBackendTag>> obs1_;
 
   /** @brief Second test observation */
-  std::unique_ptr<Observation<Traits::ObservationType>> obs2_;
+  std::unique_ptr<Observation<traits::MockBackendTag>> obs2_;
+
+  /** @brief Configuration file path */
+  std::string config_file_;
+
+  /** @brief Configuration instance */
+  std::unique_ptr<Config<traits::MockBackendTag>> config_;
 
   /**
    * @brief Set up test fixture
@@ -103,22 +101,14 @@ class ObservationTest : public ::testing::Test {
    * expectations
    */
   void SetUp() override {
-    // Create a new application context for this test
-    context_ = std::make_unique<ApplicationContext<Traits>>("ObservationTest");
+    auto test_dir = std::filesystem::path(__FILE__).parent_path();
+    config_file_ = (test_dir / "test_config.yaml").string();
+    config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
+    obs1_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
+    obs2_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
 
     // Initialize test data
-    variableNames_ = {"temperature", "pressure"};
-    dimensions_ = {1, 1};
-    locations_ = {{45.0, -120.0, 100.0}, {46.0, -121.0, 200.0}};
-    times_ = {1609459200.0, 1609545600.0};  // Example timestamps (Unix time)
-    qualityFlags_ = {0, 1};                 // 0 = good, 1 = suspect
-    confidenceValues_ = {0.95, 0.85};
-    temperature_ = 25.5;
-    uncertainty_ = 0.5;
-
-    // Create observations
-    obs1_ = std::make_unique<Observation<Traits::ObservationType>>(getConfig());
-    obs2_ = std::make_unique<Observation<Traits::ObservationType>>(getConfig());
+    initializeTestData();
   }
 
   /**
@@ -128,8 +118,7 @@ class ObservationTest : public ::testing::Test {
    */
   void TearDown() override {
     // Clean up observations
-    obs1_.reset();
-    obs2_.reset();
+    resetObservations();
 
     // Then clean up other resources
     variableNames_.clear();
@@ -138,27 +127,49 @@ class ObservationTest : public ::testing::Test {
     times_.clear();
     qualityFlags_.clear();
     confidenceValues_.clear();
-    context_.reset();
+    config_.reset();
   }
-
-  /**
-   * @brief Get logger instance from context
-   * @return Reference to logger
-   */
-  Logger<Traits::LoggerType>& getLogger() { return context_->getLogger(); }
-
-  /**
-   * @brief Get configuration instance from context
-   * @return Reference to configuration
-   */
-  Config<Traits::ConfigType>& getConfig() { return context_->getConfig(); }
 
   /**
    * @brief Create new observation instance
    * @return New observation initialized with test config
    */
-  Observation<Traits::ObservationType> createObservation() {
-    return Observation<Traits::ObservationType>(getConfig());
+  Observation<traits::MockBackendTag> createObservation() {
+    return Observation<traits::MockBackendTag>(*config_);
+  }
+
+  // Helper function to initialize test data
+  void initializeTestData() {
+    variableNames_ = {"temperature", "pressure"};
+    dimensions_ = {1, 1};
+    locations_ = {{45.0, -120.0, 100.0}, {46.0, -121.0, 200.0}};
+    times_ = {1609459200.0, 1609545600.0};  // Example timestamps (Unix time)
+    qualityFlags_ = {0, 1};                 // 0 = good, 1 = suspect
+    confidenceValues_ = {0.95, 0.85};
+    temperature_ = 25.5;
+    uncertainty_ = 0.5;
+  }
+
+  // Helper function to create observations
+  void createObservations() {
+    obs1_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
+    obs2_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
+  }
+
+  // Helper function to reset observations
+  void resetObservations() {
+    obs1_.reset();
+    obs2_.reset();
+  }
+
+  // Helper function to verify data access
+  void verifyDataAccess() {
+    const double* data = &obs1_->getData<double>();
+    EXPECT_NE(data, nullptr);  // Verify we got a valid pointer
+    // Verify actual data values
+    for (size_t i = 0; i < confidenceValues_.size(); ++i) {
+      EXPECT_DOUBLE_EQ(data[i], confidenceValues_[i]);
+    }
   }
 };
 
@@ -250,11 +261,11 @@ TEST_F(ObservationTest, ComparisonOperations) {
 
   // Test comparison with different initialization states
   auto uninit_obs = createObservation();
-  uninit_obs = Observation<Traits::ObservationType>(
+  uninit_obs = Observation<traits::MockBackendTag>(
       std::move(*obs1_));  // Move to invalidate obs1_
 
   // Reset obs1_ for further tests
-  obs1_.reset(new Observation<Traits::ObservationType>(getConfig()));
+  obs1_.reset(new Observation<traits::MockBackendTag>(*config_));
 
   EXPECT_FALSE(*obs1_ == uninit_obs);
   EXPECT_TRUE(*obs1_ != uninit_obs);
@@ -283,12 +294,7 @@ TEST_F(ObservationTest, DataAccessAndInformation) {
   EXPECT_EQ(dims, dimensions_);
 
   // Test data access
-  const double* data = &obs1_->getData<double>();
-  EXPECT_NE(data, nullptr);  // Verify we got a valid pointer
-  // Verify actual data values
-  for (size_t i = 0; i < confidenceValues_.size(); ++i) {
-    EXPECT_DOUBLE_EQ(data[i], confidenceValues_[i]);
-  }
+  verifyDataAccess();
 
   // Test hasVariable
   EXPECT_TRUE(obs1_->hasVariable("temperature"));

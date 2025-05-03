@@ -2,7 +2,7 @@
     "cmake.cmakePath": "C:/msys64/mingw64/bin/cmake.exe",
     "cmake.generator": "Ninja",
     "cmake.configureSettings": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Debug"
     },
     "cmake.configureArgs": [
         "-DLOGGER_BACKEND=GLOG",
@@ -24,7 +24,6 @@
         "CHERE_INVOKING": "1"
     },
     "cmake.buildDirectory": "${workspaceFolder}/build",
-    "cmake.buildArgs": ["--verbose"],
     "files.associations": {
         "any": "cpp",
         "array": "cpp",
