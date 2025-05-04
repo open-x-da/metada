@@ -120,6 +120,21 @@ concept HasObservationBackend =
     requires { typename traits::BackendTraits<T>::ObservationBackend; };
 
 /**
+ * @brief Checks if a type provides an ObsOperatorBackend type through
+ * BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines an ObsOperatorBackend type through the BackendTraits specialization.
+ * The ObsOperatorBackend is responsible for handling the observation operator
+ * and related operations in data assimilation systems.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasObsOperatorBackend =
+    requires { typename traits::BackendTraits<T>::ObsOperatorBackend; };
+
+/**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend
  *
  * @details This concept verifies that a type T has a constructor that takes a

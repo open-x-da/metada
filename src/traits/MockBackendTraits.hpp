@@ -21,6 +21,7 @@
 #include "../backends/gmock/MockState.hpp"
 #include "../backends/gmock/MockModel.hpp"
 #include "../backends/gmock/MockObservation.hpp"
+#include "../backends/gmock/MockObsOperator.hpp"
 
 namespace metada::traits {
 
@@ -64,6 +65,9 @@ struct BackendTraits<MockBackendTag> {
   
   /** @brief Mock implementation of observation backend */
   using ObservationBackend = backends::gmock::MockObservation<ConfigBackend>;
+
+  /** @brief Mock implementation of observation operator backend */
+  using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
 };
 
 } // namespace metada::traits
