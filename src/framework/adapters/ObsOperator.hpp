@@ -5,160 +5,177 @@
 #include <string>
 #include <vector>
 
-#include "IObsOperator.hpp"
-#include "Increment.hpp"
-#include "Observation.hpp"
-#include "State.hpp"
-#include "utils/NonCopyable.hpp"
+#include "BackendTraits.hpp"
+#include "ConfigConcepts.hpp"
+#include "NonCopyable.hpp"
+#include "ObsOperatorConcepts.hpp"
+#include "ObservationConcepts.hpp"
+#include "StateConcepts.hpp"
 
 namespace metada::framework {
 
 // Forward declaration
-template <typename T>
+template <typename BackendTag>
+  requires ConfigBackendType<BackendTag>
 class Config;
 
+template <typename BackendTag>
+  requires ObservationBackendType<BackendTag>
+class Observation;
+
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+class State;
+
 /**
- * @brief Observation operator for data assimilation algorithms
+ * @brief Adapter class for observation operators in data assimilation systems
  *
- * Maps between model space and observation space, providing essential
- * operations for variational and ensemble data assimilation:
- * - H: Forward observation operator (state → observation)
- * - H': Tangent linear operator (increment → observation)
- * - H'*: Adjoint operator (observation → increment)
+ * @details This class provides a type-safe interface for observation operators
+ * that map between model state space and observation space. It wraps a backend
+ * implementation that satisfies the ObsOperatorBackendType concept, providing
+ * consistent access patterns across different backend implementations.
  *
- * @tparam Backend Backend implementation type
+ * The ObsOperator class inherits from NonCopyable to prevent unintended
+ * copying, but supports move semantics for efficient resource management.
+ *
+ * Features:
+ * - Forward observation operator (H): Maps state to observation space
+ * - Type-safe data access through templates
+ * - Delegation to backend implementation
+ * - Comprehensive error handling
+ * - Move semantics for efficient resource management
+ *
+ * @tparam BackendTag The backend tag type that must satisfy
+ * ObsOperatorBackendType concept
+ *
+ * @see ObsOperatorBackendType
+ * @see NonCopyable
  */
-template <typename Backend>
+template <typename BackendTag>
+  requires ObsOperatorBackendType<BackendTag>
 class ObsOperator : public NonCopyable {
- private:
-  std::unique_ptr<Backend> backend_;
-  bool initialized_{false};
-
-  /** @brief Check initialization status and throw if not initialized */
-  void checkInitialized() const {
-    if (!isInitialized()) {
-      throw std::runtime_error("ObsOperator not initialized");
-    }
-  }
-
  public:
-  /** @brief Default constructor deleted - must initialize with config */
+  /** @brief Type alias for the backend implementation type */
+  using ObsOperatorBackend =
+      typename traits::BackendTraits<BackendTag>::ObsOperatorBackend;
+
+  /** @brief Default constructor is deleted since we need a backend */
   ObsOperator() = delete;
 
   /**
-   * @brief Constructor with configuration
+   * @brief Constructor that initializes observation operator with configuration
    *
-   * @tparam Config Configuration type
-   * @param config Configuration object
+   * @details Creates and initializes the observation operator backend using the
+   * provided configuration object.
+   *
+   * @tparam ConfigBackend The configuration backend type
+   * @param config Configuration object containing initialization parameters
    */
-  template <typename T>
-  explicit ObsOperator(const Config<T>& config)
-      : backend_(std::make_unique<Backend>()) {
+  template <typename ConfigBackend>
+  explicit ObsOperator(const Config<ConfigBackend>& config)
+      : backend_(config.backend()) {
     initialize(config);
   }
 
-  /** @brief Move constructor */
+  /**
+   * @brief Move constructor
+   *
+   * @details Transfers ownership of the backend from another observation
+   * operator and updates initialization state.
+   *
+   * @param other The observation operator to move from
+   */
   ObsOperator(ObsOperator&& other) noexcept
-      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
-    other.initialized_ = false;
-  }
+      : backend_(std::move(other.backend_)) {}
 
-  /** @brief Move assignment operator */
+  /**
+   * @brief Move assignment operator
+   *
+   * @details Transfers ownership of the backend from another observation
+   * operator and updates initialization state.
+   *
+   * @param other The observation operator to move from
+   * @return Reference to this observation operator after assignment
+   */
   ObsOperator& operator=(ObsOperator&& other) noexcept {
     if (this != &other) {
       backend_ = std::move(other.backend_);
-      initialized_ = other.initialized_;
-      other.initialized_ = false;
     }
     return *this;
   }
 
-  /** @brief Get const access to backend */
-  const Backend& backend() const { return *backend_; }
+  /**
+   * @brief Get const reference to the backend implementation
+   *
+   * @return Const reference to the backend implementation
+   */
+  const ObsOperatorBackend& backend() const { return backend_; }
 
   /**
    * @brief Initialize with configuration
    *
-   * @tparam Config Configuration type
-   * @param config Configuration object
-   * @throws std::runtime_error If already initialized
+   * @details Initializes the observation operator backend with the provided
+   * configuration object. Throws an exception if already initialized.
+   *
+   * @tparam ConfigBackend The configuration backend type
+   * @param config Configuration object containing initialization parameters
+   * @throws std::runtime_error If the observation operator is already
+   * initialized
    */
-  template <typename T>
-  void initialize(const Config<T>& config) {
-    if (initialized_) {
+  template <typename ConfigBackend>
+  void initialize(const Config<ConfigBackend>& config) {
+    if (isInitialized()) {
       throw std::runtime_error("ObsOperator already initialized");
     }
-    backend_->initialize(config.backend());
-    initialized_ = true;
-  }
-
-  /** @brief Check if initialized */
-  bool isInitialized() const { return initialized_; }
-
-  /**
-   * @brief Apply forward operator: H(x)
-   *
-   * Maps state to observation space (y = H(x))
-   *
-   * @tparam StateType State type
-   * @tparam ObsType Observation type
-   * @param state Model state
-   * @param obs Output observation
-   * @throws std::runtime_error If not initialized
-   */
-  template <typename StateType, typename ObsType>
-  void apply(const State<StateType>& state, Observation<ObsType>& obs) const {
-    checkInitialized();
-    backend_->apply(state.backend(), obs.backend());
+    backend_.initialize(config.backend());
   }
 
   /**
-   * @brief Apply tangent linear operator: H'(x)δx
+   * @brief Check if the observation operator is initialized
    *
-   * Maps increment to observation space (δy = H'(x)δx)
-   *
-   * @tparam IncrementType Increment type
-   * @tparam ObsType Observation type
-   * @param dx State increment
-   * @param dy Output observation increment
-   * @throws std::runtime_error If not initialized
+   * @return True if initialized, false otherwise
    */
-  template <typename StateType, typename ObsType>
-  void applyTangentLinear(const Increment<StateType>& dx,
-                          Increment<ObsType>& dy) const {
-    checkInitialized();
-    backend_->applyTangentLinear(static_cast<const void*>(&dx.entity()),
-                                 static_cast<void*>(&dy.entity()));
+  bool isInitialized() const { return backend_.isInitialized(); }
+
+  /**
+   * @brief Apply forward observation operator: H(x)
+   *
+   * @details Maps state to observation space (y = H(x)) by transforming model
+   * state variables into simulated observations that can be compared with
+   * actual observations.
+   *
+   * @tparam StateBackend The state backend type
+   * @tparam ObsBackend The observation backend type
+   * @param state Model state to transform
+   * @param obs Output observation to store the result
+   * @throws std::runtime_error If the observation operator is not initialized
+   */
+  template <typename StateBackend, typename ObsBackend>
+  void apply(const State<StateBackend>& state,
+             Observation<ObsBackend>& obs) const {
+    backend_.apply(state.backend(), obs.backend());
   }
 
   /**
-   * @brief Apply adjoint operator: H'*(x)δy
+   * @brief Get the state variables required by this observation operator
    *
-   * Maps observation to increment space (δx = H'*(x)δy)
-   *
-   * @tparam IncrementType Increment type
-   * @tparam ObsType Observation type
-   * @param dy Observation increment
-   * @param dx Output state increment
-   * @throws std::runtime_error If not initialized
+   * @return Const reference to vector of required state variable names
    */
-  template <typename StateType, typename ObsType>
-  void applyAdjoint(const Increment<ObsType>& dy,
-                    Increment<StateType>& dx) const {
-    checkInitialized();
-    backend_->applyAdjoint(static_cast<const void*>(&dy.entity()),
-                           static_cast<void*>(&dx.entity()));
-  }
-
-  /** @brief Get required state variables */
   const std::vector<std::string>& getRequiredStateVars() const {
-    return backend_->getRequiredStateVars();
+    return backend_.getRequiredStateVars();
   }
 
-  /** @brief Get required observation variables */
+  /**
+   * @brief Get the observation variables required by this observation operator
+   *
+   * @return Const reference to vector of required observation variable names
+   */
   const std::vector<std::string>& getRequiredObsVars() const {
-    return backend_->getRequiredObsVars();
+    return backend_.getRequiredObsVars();
   }
+
+ private:
+  ObsOperatorBackend backend_; /**< Backend implementation */
 };
 
 }  // namespace metada::framework

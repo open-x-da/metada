@@ -11,7 +11,6 @@ target_include_directories(config_yaml
 target_link_libraries(config_yaml
     PUBLIC
         metada::framework::adapters
-        metada::framework::interfaces
         yaml-cpp::yaml-cpp)
 
 # Add precompiled headers if enabled

@@ -88,9 +88,6 @@ class ObservationTest : public ::testing::Test {
   /** @brief Second test observation */
   std::unique_ptr<Observation<traits::MockBackendTag>> obs2_;
 
-  /** @brief Configuration file path */
-  std::string config_file_;
-
   /** @brief Configuration instance */
   std::unique_ptr<Config<traits::MockBackendTag>> config_;
 
@@ -102,8 +99,8 @@ class ObservationTest : public ::testing::Test {
    */
   void SetUp() override {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
-    config_file_ = (test_dir / "test_config.yaml").string();
-    config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
+    auto config_file = (test_dir / "test_config.yaml").string();
+    config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file);
     obs1_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
     obs2_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
 

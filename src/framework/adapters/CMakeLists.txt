@@ -22,6 +22,7 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/Observation.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ObservationConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ObsOperator.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ObsOperatorConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Ensemble.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Model.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Geometry.hpp
