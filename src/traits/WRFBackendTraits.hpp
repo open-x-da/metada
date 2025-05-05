@@ -18,6 +18,8 @@
 #include "../backends/common/utils/logger/console/ConsoleLogger.hpp"
 #endif
 
+#include "../backends/common/io/BufrObsIO.hpp"
+
 #include "../backends/wrf/WRFGeometry.hpp"
 #include "../backends/wrf/WRFGeometryIterator.hpp"
 #include "../backends/wrf/WRFState.hpp"
@@ -46,6 +48,8 @@ struct BackendTraits<WRFBackendTag> {
 #else
   using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>; // Default
 #endif
+
+  using ObsIOBackend = backends::io::BufrObsIO;
 
   using GeometryBackend = backends::wrf::WRFGeometry<ConfigBackend>;
   using GeometryIteratorBackend =
