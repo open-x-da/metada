@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "CommonConcepts.hpp"
+#include "Config.hpp"
 #include "DateTime.hpp"
 
 namespace metada::framework {
@@ -59,11 +60,15 @@ struct ObservationRecord {
  * operations with different file formats like Bufr, NetCDF, HDF5, etc.
  *
  * @tparam T The observation I/O backend implementation type
+ * @tparam ConfigBackend The configuration backend type
  */
-template <typename T>
+template <typename T, typename ConfigBackend>
 concept ObsIOBackendImpl =
     requires(T& t, const T& ct, const std::string& filename,
              const std::vector<ObservationRecord>& records) {
+      // Constructor from Config
+      //{ T(config) } -> std::same_as<T>;
+
       // Reading methods
       { t.read(filename) } -> std::same_as<std::vector<ObservationRecord>>;
       { ct.canRead(filename) } -> std::same_as<bool>;
@@ -99,7 +104,7 @@ concept ObsIOBackendImpl =
  */
 template <typename T>
 concept ObsIOBackendType =
-    HasObsIOBackend<T> &&
-    ObsIOBackendImpl<typename traits::BackendTraits<T>::ObsIOBackend>;
-
+    HasObsIOBackend<T> && HasConfigBackend<T> &&
+    ObsIOBackendImpl<typename traits::BackendTraits<T>::ObsIOBackend,
+                     typename traits::BackendTraits<T>::ConfigBackend>;
 }  // namespace metada::framework

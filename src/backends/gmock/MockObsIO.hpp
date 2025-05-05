@@ -91,6 +91,9 @@ class MockObsIO {
    * @return Reference to this MockObsIO object
    */
   MockObsIO& operator=([[maybe_unused]] MockObsIO&& other) noexcept {
+    if (this != &other) {
+      config_ = std::move(other.config_);
+    }
     return *this;
   }
 
@@ -99,7 +102,7 @@ class MockObsIO {
    *
    * @param params Initialization parameters as a string
    */
-  explicit MockObsIO(const ConfigBackend& config) : config_(config) {}
+  explicit MockObsIO(ConfigBackend&& config) : config_(std::move(config)) {}
 
   /**
    * @brief Read observations from a file
@@ -150,7 +153,7 @@ class MockObsIO {
   MOCK_METHOD(std::vector<std::string>, getFileExtensions, (), (const));
 
  private:
-  const ConfigBackend& config_; /**< Initialization parameters */
+  ConfigBackend config_; /**< Initialization parameters */
 };
 
 }  // namespace metada::backends::gmock

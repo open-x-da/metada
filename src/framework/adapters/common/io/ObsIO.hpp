@@ -68,8 +68,8 @@ class ObsIO : public NonCopyable {
    *
    * @param params Format-specific initialization parameters
    */
-  explicit ObsIO(const Config<BackendTag>& config)
-      : backend_(config.backend()) {}
+  explicit ObsIO(Config<BackendTag>&& config)
+      : backend_(std::move(config.backend())) {}
 
   /**
    * @brief Move constructor

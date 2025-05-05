@@ -52,7 +52,7 @@ class BufrObsIO {
    *
    * @param config Configuration parameters for BUFR processing
    */
-  explicit BufrObsIO(const ConfigBackend& config) : config_(config) {
+  explicit BufrObsIO(ConfigBackend&& config) : config_(std::move(config)) {
     // Parse and store configuration parameters
     // In a real implementation, this would set up BUFR-specific options
   }
@@ -220,7 +220,7 @@ class BufrObsIO {
 template <typename T>
 struct BufrObsIOConceptCheck {
   static_assert(
-      framework::ObsIOBackendImpl<BufrObsIO<T>>,
+      framework::ObsIOBackendImpl<BufrObsIO<T>, T>,
       "BufrObsIO must satisfy the ObsIOBackendImpl concept");
 };
 
