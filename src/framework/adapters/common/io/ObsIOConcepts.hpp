@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "CommonConcepts.hpp"
-#include "Config.hpp"
 #include "DateTime.hpp"
 
 namespace metada::framework {
@@ -63,29 +62,29 @@ struct ObservationRecord {
  * @tparam ConfigBackend The configuration backend type
  */
 template <typename T, typename ConfigBackend>
-concept ObsIOBackendImpl =
-    requires(T& t, const T& ct, const std::string& filename,
-             const std::vector<ObservationRecord>& records) {
-      // Constructor from Config
-      //{ T(config) } -> std::same_as<T>;
+concept ObsIOBackendImpl = requires(
+    T& t, const T& ct, const std::string& filename,
+    const std::vector<ObservationRecord>& records, ConfigBackend&& config) {
+  // Constructor from Config
+  { T(std::move(config)) } -> std::same_as<T>;
 
-      // Reading methods
-      { t.read(filename) } -> std::same_as<std::vector<ObservationRecord>>;
-      { ct.canRead(filename) } -> std::same_as<bool>;
+  // Reading methods
+  { t.read(filename) } -> std::same_as<std::vector<ObservationRecord>>;
+  { ct.canRead(filename) } -> std::same_as<bool>;
 
-      // Writing methods
-      { t.write(filename, records) } -> std::same_as<void>;
-      { ct.canWrite() } -> std::same_as<bool>;
+  // Writing methods
+  { t.write(filename, records) } -> std::same_as<void>;
+  { ct.canWrite() } -> std::same_as<bool>;
 
-      // Format information
-      { ct.getFormatName() } -> std::same_as<std::string>;
-      { ct.getFileExtensions() } -> std::same_as<std::vector<std::string>>;
+  // Format information
+  { ct.getFormatName() } -> std::same_as<std::string>;
+  { ct.getFileExtensions() } -> std::same_as<std::vector<std::string>>;
 
-      // Proper implementation constraints
-      requires HasDeletedDefaultConstructor<T>;
-      requires HasDeletedCopyConstructor<T>;
-      requires HasDeletedCopyAssignment<T>;
-    };
+  // Proper implementation constraints
+  requires HasDeletedDefaultConstructor<T>;
+  requires HasDeletedCopyConstructor<T>;
+  requires HasDeletedCopyAssignment<T>;
+};
 
 /**
  * @brief Concept that defines requirements for an observation I/O backend tag
