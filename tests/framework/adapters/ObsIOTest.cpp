@@ -38,8 +38,8 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 
 using framework::Config;
-using framework::ObservationRecord;
 using framework::ObsIO;
+using framework::ObsRecord;
 
 /**
  * @brief Test fixture for ObsIO tests
@@ -52,7 +52,7 @@ class ObsIOTest : public ::testing::Test {
   std::string config_file_;
 
   // Sample observation records for testing
-  std::vector<ObservationRecord> records_;
+  std::vector<ObsRecord> records_;
 
   /**
    * @brief Set up the test environment
@@ -65,14 +65,14 @@ class ObsIOTest : public ::testing::Test {
     config_file_ = (test_dir / "test_config.yaml").string();
 
     // Create sample observation records
-    ObservationRecord record1;
+    ObsRecord record1;
     record1.type = "temperature";
     record1.value = 25.5;
     record1.location = "STATION_001";
     record1.datetime = DateTime();
     record1.qc_marker = 0;
 
-    ObservationRecord record2;
+    ObsRecord record2;
     record2.type = "pressure";
     record2.value = 1013.2;
     record2.location = "STATION_001";
@@ -225,7 +225,7 @@ TEST_F(ObsIOTest, ReadObservations) {
   EXPECT_CALL(backend, read(filename)).WillOnce(Return(records_));
 
   // Call the method and verify
-  std::vector<ObservationRecord> result = obsIO.read(filename);
+  std::vector<ObsRecord> result = obsIO.read(filename);
   EXPECT_EQ(result.size(), records_.size());
   EXPECT_EQ(result[0].type, records_[0].type);
   EXPECT_EQ(result[0].value, records_[0].value);

@@ -27,7 +27,6 @@
 #include <string>
 #include <vector>
 
-#include "DateTime.hpp"
 #include "ObsIOConcepts.hpp"
 
 namespace metada::backends::gmock {
@@ -110,7 +109,7 @@ class MockObsIO {
    * @param filename Path to the file to read
    * @return Vector of observation records
    */
-  MOCK_METHOD(std::vector<framework::ObservationRecord>, read,
+  MOCK_METHOD(std::vector<framework::ObsRecord>, read,
               (const std::string& filename));
 
   /**
@@ -129,7 +128,7 @@ class MockObsIO {
    */
   MOCK_METHOD(void, write,
               (const std::string& filename,
-               const std::vector<framework::ObservationRecord>& records));
+               const std::vector<framework::ObsRecord>& records));
 
   /**
    * @brief Check if this backend can write observations
@@ -154,6 +153,13 @@ class MockObsIO {
 
  private:
   ConfigBackend config_; /**< Initialization parameters */
+};
+
+// Static assertion to verify the backend meets the concept requirements
+template <typename T>
+struct MockObsIOConceptCheck {
+  static_assert(framework::ObsIOBackendImpl<MockObsIO<T>, T>,
+                "MockObsIO must satisfy the ObsIOBackendImpl concept");
 };
 
 }  // namespace metada::backends::gmock

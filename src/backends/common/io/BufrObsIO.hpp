@@ -22,7 +22,7 @@
 
 namespace metada::backends::io {
 
-using ObservationRecord = framework::ObservationRecord;
+using ObsRecord = framework::ObsRecord;
 /**
  * @brief Backend implementation for handling BUFR format observation I/O
  *
@@ -164,22 +164,22 @@ class BufrObsIO {
    * @return Vector of observation records read from the file
    * @throws std::runtime_error If the file cannot be read or parsed
    */
-  std::vector<ObservationRecord> read(const std::string& filename) {
+  std::vector<ObsRecord> read(const std::string& filename) {
     // In a real implementation, this would use a BUFR library to read and
     // parse the file, extracting observation records
 
     // This is a placeholder implementation for demonstration
-    std::vector<ObservationRecord> records;
+    std::vector<ObsRecord> records;
 
     // Create a few sample records
-    ObservationRecord record1;
+    ObsRecord record1;
     record1.type = "temperature";
     record1.value = 25.5;
     record1.location = "STATION_001";
     record1.datetime = DateTime();
     record1.qc_marker = 0;
 
-    ObservationRecord record2;
+    ObsRecord record2;
     record2.type = "pressure";
     record2.value = 1013.2;
     record2.location = "STATION_001";
@@ -204,7 +204,7 @@ class BufrObsIO {
    * @throws std::runtime_error If writing fails
    */
   void write(const std::string& filename,
-             const std::vector<ObservationRecord>& records) {
+             const std::vector<ObsRecord>& records) {
     // In a real implementation, this would use a BUFR library to encode
     // the observation records and write them to the file
 

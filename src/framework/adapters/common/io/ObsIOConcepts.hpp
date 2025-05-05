@@ -22,28 +22,9 @@
 
 #include "CommonConcepts.hpp"
 #include "DateTime.hpp"
+#include "ObsRecord.hpp"
 
 namespace metada::framework {
-
-/**
- * @brief Structure representing a single observation record
- *
- * @details Contains all essential metadata and measurement data for a single
- * observation point, including type, value, location, timestamp, and quality
- * information.
- */
-struct ObservationRecord {
-  std::string type;  ///< Type of observation (e.g., "temperature", "pressure")
-  double value;      ///< Observed value
-  std::optional<std::string> unit;        ///< Unit of the observation
-  std::optional<std::string> identifier;  ///< ID of the observation
-  std::string
-      location;  ///< Observation location (e.g., station ID or coordinates)
-  DateTime datetime;      ///< Date and time of observation
-  std::size_t qc_marker;  ///< Quality control marker/flag
-  std::optional<std::string>
-      error_message;  ///< Optional error message or additional information
-};
 
 /**
  * @brief Concept that defines requirements for an observation I/O backend
@@ -62,29 +43,29 @@ struct ObservationRecord {
  * @tparam ConfigBackend The configuration backend type
  */
 template <typename T, typename ConfigBackend>
-concept ObsIOBackendImpl = requires(
-    T& t, const T& ct, const std::string& filename,
-    const std::vector<ObservationRecord>& records, ConfigBackend&& config) {
-  // Constructor from Config
-  { T(std::move(config)) } -> std::same_as<T>;
+concept ObsIOBackendImpl =
+    requires(T& t, const T& ct, const std::string& filename,
+             const std::vector<ObsRecord>& records, ConfigBackend&& config) {
+      // Constructor from Config
+      { T(std::move(config)) } -> std::same_as<T>;
 
-  // Reading methods
-  { t.read(filename) } -> std::same_as<std::vector<ObservationRecord>>;
-  { ct.canRead(filename) } -> std::same_as<bool>;
+      // Reading methods
+      { t.read(filename) } -> std::same_as<std::vector<ObsRecord>>;
+      { ct.canRead(filename) } -> std::same_as<bool>;
 
-  // Writing methods
-  { t.write(filename, records) } -> std::same_as<void>;
-  { ct.canWrite() } -> std::same_as<bool>;
+      // Writing methods
+      { t.write(filename, records) } -> std::same_as<void>;
+      { ct.canWrite() } -> std::same_as<bool>;
 
-  // Format information
-  { ct.getFormatName() } -> std::same_as<std::string>;
-  { ct.getFileExtensions() } -> std::same_as<std::vector<std::string>>;
+      // Format information
+      { ct.getFormatName() } -> std::same_as<std::string>;
+      { ct.getFileExtensions() } -> std::same_as<std::vector<std::string>>;
 
-  // Proper implementation constraints
-  requires HasDeletedDefaultConstructor<T>;
-  requires HasDeletedCopyConstructor<T>;
-  requires HasDeletedCopyAssignment<T>;
-};
+      // Proper implementation constraints
+      requires HasDeletedDefaultConstructor<T>;
+      requires HasDeletedCopyConstructor<T>;
+      requires HasDeletedCopyAssignment<T>;
+    };
 
 /**
  * @brief Concept that defines requirements for an observation I/O backend tag
