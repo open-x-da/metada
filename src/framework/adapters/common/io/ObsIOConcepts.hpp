@@ -65,13 +65,11 @@ concept ObsIOBackendImpl =
     requires(T& t, const T& ct, const std::string& filename,
              const std::vector<ObservationRecord>& records) {
       // Reading methods
-      {
-        t.readObservations(filename)
-      } -> std::same_as<std::vector<ObservationRecord>>;
+      { t.read(filename) } -> std::same_as<std::vector<ObservationRecord>>;
       { ct.canRead(filename) } -> std::same_as<bool>;
 
       // Writing methods
-      { t.writeObservations(filename, records) } -> std::same_as<void>;
+      { t.write(filename, records) } -> std::same_as<void>;
       { ct.canWrite() } -> std::same_as<bool>;
 
       // Format information
@@ -100,8 +98,8 @@ concept ObsIOBackendImpl =
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept ObsIOBackendType = requires {
-  typename traits::BackendTraits<T>::ObsIOBackend;
-} && ObsIOBackendImpl<typename traits::BackendTraits<T>::ObsIOBackend>;
+concept ObsIOBackendType =
+    HasObsIOBackend<T> &&
+    ObsIOBackendImpl<typename traits::BackendTraits<T>::ObsIOBackend>;
 
 }  // namespace metada::framework

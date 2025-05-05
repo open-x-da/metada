@@ -158,7 +158,7 @@ class BufrObsIO {
    * @return Vector of observation records read from the file
    * @throws std::runtime_error If the file cannot be read or parsed
    */
-  std::vector<ObservationRecord> readObservations(const std::string& filename) {
+  std::vector<ObservationRecord> read(const std::string& filename) {
     // In a real implementation, this would use a BUFR library to read and
     // parse the file, extracting observation records
 
@@ -197,8 +197,8 @@ class BufrObsIO {
    * @param records Vector of observation records to write
    * @throws std::runtime_error If writing fails
    */
-  void writeObservations(const std::string& filename,
-                         const std::vector<ObservationRecord>& records) {
+  void write(const std::string& filename,
+             const std::vector<ObservationRecord>& records) {
     // In a real implementation, this would use a BUFR library to encode
     // the observation records and write them to the file
 

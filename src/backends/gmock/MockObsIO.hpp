@@ -109,7 +109,7 @@ class MockObsIO {
    * @param filename Path to the file to read
    * @return Vector of observation records
    */
-  MOCK_METHOD(std::vector<framework::ObservationRecord>, readObservations,
+  MOCK_METHOD(std::vector<framework::ObservationRecord>, read,
               (const std::string& filename));
 
   /**
@@ -126,7 +126,7 @@ class MockObsIO {
    * @param filename Path to the file to write
    * @param records Vector of observation records to write
    */
-  MOCK_METHOD(void, writeObservations,
+  MOCK_METHOD(void, write,
               (const std::string& filename,
                const std::vector<framework::ObservationRecord>& records));
 

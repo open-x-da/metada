@@ -135,6 +135,17 @@ concept HasObsOperatorBackend =
     requires { typename traits::BackendTraits<T>::ObsOperatorBackend; };
 
 /**
+ * @brief Checks if a type provides an ObsIOBackend type through BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines an ObsIOBackend type through the BackendTraits specialization.
+ * The ObsIOBackend is responsible for handling the observation I/O operations.
+ */
+template <typename T>
+concept HasObsIOBackend =
+    requires { typename traits::BackendTraits<T>::ObsIOBackend; };
+
+/**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend
  *
  * @details This concept verifies that a type T has a constructor that takes a

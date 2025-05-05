@@ -29,7 +29,6 @@
 #include "DateTime.hpp"
 #include "MockBackendTraits.hpp"
 #include "ObsIO.hpp"
-#include "ObsIOConcepts.hpp"
 
 namespace metada::tests {
 
@@ -212,10 +211,10 @@ TEST_F(ObsIOTest, ReadObservations) {
   // Setup expectations
   const std::string filename = "observations.bufr";
   EXPECT_CALL(backend, canRead(filename)).WillOnce(Return(true));
-  EXPECT_CALL(backend, readObservations(filename)).WillOnce(Return(records_));
+  EXPECT_CALL(backend, read(filename)).WillOnce(Return(records_));
 
   // Call the method and verify
-  std::vector<ObservationRecord> result = obsIO.readObservations(filename);
+  std::vector<ObservationRecord> result = obsIO.read(filename);
   EXPECT_EQ(result.size(), records_.size());
   EXPECT_EQ(result[0].type, records_[0].type);
   EXPECT_EQ(result[0].value, records_[0].value);
@@ -239,7 +238,7 @@ TEST_F(ObsIOTest, ReadObservationsUnsupportedFormat) {
   EXPECT_CALL(backend, canRead(filename)).WillOnce(Return(false));
 
   // Call the method and verify exception
-  EXPECT_THROW(obsIO.readObservations(filename), std::runtime_error);
+  EXPECT_THROW(obsIO.read(filename), std::runtime_error);
 }
 
 /**
@@ -256,10 +255,10 @@ TEST_F(ObsIOTest, WriteObservations) {
   // Setup expectations
   const std::string filename = "output.bufr";
   EXPECT_CALL(backend, canWrite()).WillOnce(Return(true));
-  EXPECT_CALL(backend, writeObservations(filename, _)).Times(1);
+  EXPECT_CALL(backend, write(filename, _)).Times(1);
 
   // Call the method
-  obsIO.writeObservations(filename, records_);
+  obsIO.write(filename, records_);
 }
 
 /**
@@ -277,8 +276,7 @@ TEST_F(ObsIOTest, WriteObservationsUnsupported) {
   EXPECT_CALL(backend, canWrite()).WillOnce(Return(false));
 
   // Call the method and verify exception
-  EXPECT_THROW(obsIO.writeObservations("output.bufr", records_),
-               std::runtime_error);
+  EXPECT_THROW(obsIO.write("output.bufr", records_), std::runtime_error);
 }
 
 }  // namespace metada::tests

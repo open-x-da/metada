@@ -165,13 +165,13 @@ class ObsIO : public NonCopyable {
    * @return Vector of observation records read from the file
    * @throws std::runtime_error If the file cannot be read
    */
-  std::vector<ObservationRecord> readObservations(const std::string& filename) {
+  std::vector<ObservationRecord> read(const std::string& filename) {
     if (!canRead(filename)) {
       throw std::runtime_error("Cannot read file format: " + filename);
     }
 
     try {
-      return backend_.readObservations(filename);
+      return backend_.read(filename);
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to read observations: " +
                                std::string(e.what()));
@@ -189,15 +189,15 @@ class ObsIO : public NonCopyable {
    * @param records Vector of observation records to write
    * @throws std::runtime_error If writing fails or is not supported
    */
-  void writeObservations(const std::string& filename,
-                         const std::vector<ObservationRecord>& records) {
+  void write(const std::string& filename,
+             const std::vector<ObservationRecord>& records) {
     if (!canWrite()) {
       throw std::runtime_error(
           "This backend does not support writing observations");
     }
 
     try {
-      backend_.writeObservations(filename, records);
+      backend_.write(filename, records);
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to write observations: " +
                                std::string(e.what()));
