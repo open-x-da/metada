@@ -90,12 +90,35 @@ class ObsIOTest : public ::testing::Test {
 };
 
 /**
+ * @brief Test that ObsIO correctly follows NonCopyable pattern
+ *
+ * Verifies that ObsIO adheres to the NonCopyable design pattern
+ * by ensuring it cannot be copied but can be moved. This is important
+ * for resource management and ownership semantics.
+ */
+TEST_F(ObsIOTest, NonCopyableButMovable) {
+  using ObsIOType = ObsIO<traits::MockBackendTag>;
+
+  // Static assertions to verify type traits
+  static_assert(!std::is_default_constructible_v<ObsIOType>,
+                "ObsIO should not be default constructible");
+  static_assert(!std::is_copy_constructible_v<ObsIOType>,
+                "ObsIO should not be copy constructible");
+  static_assert(!std::is_copy_assignable_v<ObsIOType>,
+                "ObsIO should not be copy assignable");
+  static_assert(std::is_move_constructible_v<ObsIOType>,
+                "ObsIO should be move constructible");
+  static_assert(std::is_move_assignable_v<ObsIOType>,
+                "ObsIO should be move assignable");
+}
+
+/**
  * @brief Test construction with parameters
  *
  * Verifies that an ObsIO object can be properly constructed with initialization
  * parameters.
  */
-TEST_F(ObsIOTest, Construction) {
+TEST_F(ObsIOTest, ConstructionFromConfig) {
   // Construct the ObsIO object
   auto config = Config<traits::MockBackendTag>(config_file_);
   ObsIO<traits::MockBackendTag> obsIO(std::move(config));
