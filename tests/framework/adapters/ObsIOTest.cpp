@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "Config.hpp"
 #include "DateTime.hpp"
 #include "MockBackendTraits.hpp"
 #include "ObsIO.hpp"
@@ -36,6 +37,7 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
+using framework::Config;
 using framework::ObservationRecord;
 using framework::ObsIO;
 
@@ -48,7 +50,7 @@ using framework::ObsIO;
 class ObsIOTest : public ::testing::Test {
  protected:
   // Initialization parameters for ObsIO
-  std::string params_;
+  std::unique_ptr<Config<traits::MockBackendTag>> config_;
 
   // Sample observation records for testing
   std::vector<ObservationRecord> records_;
@@ -59,8 +61,10 @@ class ObsIOTest : public ::testing::Test {
    * Creates sample data needed for testing.
    */
   void SetUp() override {
-    // Set up initialization parameters
-    params_ = "config=path/to/config.yaml";
+    // Get the directory where the test file is located
+    auto test_dir = std::filesystem::path(__FILE__).parent_path();
+    auto config_file = (test_dir / "test_config.yaml").string();
+    config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file);
 
     // Create sample observation records
     ObservationRecord record1;
@@ -84,7 +88,10 @@ class ObsIOTest : public ::testing::Test {
   /**
    * @brief Clean up the test environment
    */
-  void TearDown() override { records_.clear(); }
+  void TearDown() override {
+    records_.clear();
+    config_.reset();
+  }
 };
 
 /**
@@ -95,7 +102,7 @@ class ObsIOTest : public ::testing::Test {
  */
 TEST_F(ObsIOTest, Construction) {
   // Construct the ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
 
   // Verify the backend is accessible
   auto& backend = obsIO.backend();
@@ -111,13 +118,13 @@ TEST_F(ObsIOTest, Construction) {
  */
 TEST_F(ObsIOTest, MoveSemantics) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO1(params_);
+  ObsIO<traits::MockBackendTag> obsIO1(*config_);
 
   // Test move constructor
   ObsIO<traits::MockBackendTag> obsIO2(std::move(obsIO1));
 
   // Test move assignment
-  ObsIO<traits::MockBackendTag> obsIO3(params_);
+  ObsIO<traits::MockBackendTag> obsIO3(*config_);
   obsIO3 = std::move(obsIO2);
 
   // Verify the final object's backend is accessible
@@ -132,7 +139,7 @@ TEST_F(ObsIOTest, MoveSemantics) {
  */
 TEST_F(ObsIOTest, CanRead) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectation
@@ -150,7 +157,7 @@ TEST_F(ObsIOTest, CanRead) {
  */
 TEST_F(ObsIOTest, CanWrite) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectation
@@ -167,7 +174,7 @@ TEST_F(ObsIOTest, CanWrite) {
  */
 TEST_F(ObsIOTest, GetFormatName) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectation
@@ -186,7 +193,7 @@ TEST_F(ObsIOTest, GetFormatName) {
  */
 TEST_F(ObsIOTest, GetFileExtensions) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectation
@@ -205,7 +212,7 @@ TEST_F(ObsIOTest, GetFileExtensions) {
  */
 TEST_F(ObsIOTest, ReadObservations) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectations
@@ -230,7 +237,7 @@ TEST_F(ObsIOTest, ReadObservations) {
  */
 TEST_F(ObsIOTest, ReadObservationsUnsupportedFormat) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectation
@@ -249,7 +256,7 @@ TEST_F(ObsIOTest, ReadObservationsUnsupportedFormat) {
  */
 TEST_F(ObsIOTest, WriteObservations) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectations
@@ -269,7 +276,7 @@ TEST_F(ObsIOTest, WriteObservations) {
  */
 TEST_F(ObsIOTest, WriteObservationsUnsupported) {
   // Create an ObsIO object
-  ObsIO<traits::MockBackendTag> obsIO(params_);
+  ObsIO<traits::MockBackendTag> obsIO(*config_);
   auto& backend = obsIO.backend();
 
   // Setup expectation

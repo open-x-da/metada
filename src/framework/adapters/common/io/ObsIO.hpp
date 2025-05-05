@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "BackendTraits.hpp"
+#include "Config.hpp"
 #include "NonCopyable.hpp"
 #include "ObsIOConcepts.hpp"
 
@@ -67,7 +68,8 @@ class ObsIO : public NonCopyable {
    *
    * @param params Format-specific initialization parameters
    */
-  explicit ObsIO(const std::string& params) : backend_(params) {}
+  explicit ObsIO(const Config<BackendTag>& config)
+      : backend_(config.backend()) {}
 
   /**
    * @brief Move constructor

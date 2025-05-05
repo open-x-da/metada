@@ -52,6 +52,7 @@ namespace metada::backends::gmock {
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
+template <typename ConfigBackend>
 class MockObsIO {
  public:
   /**
@@ -81,7 +82,7 @@ class MockObsIO {
    *
    * @param other The other MockObsIO object to move from
    */
-  MockObsIO(MockObsIO&& other) noexcept : params_(std::move(other.params_)) {}
+  MockObsIO(MockObsIO&& other) noexcept : config_(std::move(other.config_)) {}
 
   /**
    * @brief Move assignment operator
@@ -89,10 +90,7 @@ class MockObsIO {
    * @param other The other MockObsIO object to move from
    * @return Reference to this MockObsIO object
    */
-  MockObsIO& operator=(MockObsIO&& other) noexcept {
-    if (this != &other) {
-      params_ = std::move(other.params_);
-    }
+  MockObsIO& operator=([[maybe_unused]] MockObsIO&& other) noexcept {
     return *this;
   }
 
@@ -101,7 +99,7 @@ class MockObsIO {
    *
    * @param params Initialization parameters as a string
    */
-  explicit MockObsIO(const std::string& params) : params_(params) {}
+  explicit MockObsIO(const ConfigBackend& config) : config_(config) {}
 
   /**
    * @brief Read observations from a file
@@ -152,7 +150,7 @@ class MockObsIO {
   MOCK_METHOD(std::vector<std::string>, getFileExtensions, (), (const));
 
  private:
-  std::string params_; /**< Initialization parameters */
+  const ConfigBackend& config_; /**< Initialization parameters */
 };
 
 }  // namespace metada::backends::gmock

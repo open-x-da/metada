@@ -71,7 +71,7 @@ struct BackendTraits<MockBackendTag> {
   using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
   
   /** @brief Mock implementation of observation I/O backend */
-  using ObsIOBackend = backends::gmock::MockObsIO;
+  using ObsIOBackend = backends::gmock::MockObsIO<ConfigBackend>;
 };
 
 } // namespace metada::traits

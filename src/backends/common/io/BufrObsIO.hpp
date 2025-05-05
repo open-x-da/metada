@@ -34,6 +34,7 @@ using ObservationRecord = framework::ObservationRecord;
  * BUFR is a binary format standardized by the World Meteorological Organization
  * (WMO) for the representation and exchange of meteorological data.
  */
+template <typename ConfigBackend>
 class BufrObsIO {
  public:
   /**
@@ -49,9 +50,9 @@ class BufrObsIO {
    * @details Initializes the BUFR I/O backend with the provided parameters,
    * which may include configuration options specific to BUFR handling.
    *
-   * @param params Configuration parameters for BUFR processing
+   * @param config Configuration parameters for BUFR processing
    */
-  explicit BufrObsIO(const std::string& params) {
+  explicit BufrObsIO(const ConfigBackend& config) : config_(config) {
     // Parse and store configuration parameters
     // In a real implementation, this would set up BUFR-specific options
   }
@@ -77,7 +78,7 @@ class BufrObsIO {
    *
    * @param other The BUFR I/O backend to move from
    */
-  BufrObsIO(BufrObsIO&& other) noexcept = default;
+  BufrObsIO(BufrObsIO&& other) noexcept : config_(std::move(other.config_)) {}
 
   /**
    * @brief Move assignment
@@ -87,7 +88,12 @@ class BufrObsIO {
    * @param other The BUFR I/O backend to move from
    * @return Reference to this backend after assignment
    */
-  BufrObsIO& operator=(BufrObsIO&& other) noexcept = default;
+  BufrObsIO& operator=(BufrObsIO&& other) noexcept {
+    if (this != &other) {
+      config_ = std::move(other.config_);
+    }
+    return *this;
+  }
 
   /**
    * @brief Destructor
@@ -205,11 +211,17 @@ class BufrObsIO {
     // This is a placeholder implementation for demonstration
     // Simply log the operation
   }
+
+ private:
+  ConfigBackend config_;
 };
 
 // Static assertion to verify the backend meets the concept requirements
-static_assert(
-    framework::ObsIOBackendImpl<BufrObsIO>,
-    "BufrObsIO must satisfy the ObsIOBackendImpl concept");
+template <typename T>
+struct BufrObsIOConceptCheck {
+  static_assert(
+      framework::ObsIOBackendImpl<BufrObsIO<T>>,
+      "BufrObsIO must satisfy the ObsIOBackendImpl concept");
+};
 
 }  // namespace metada::backends::io

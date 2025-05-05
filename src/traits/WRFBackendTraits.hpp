@@ -49,7 +49,7 @@ struct BackendTraits<WRFBackendTag> {
   using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>; // Default
 #endif
 
-  using ObsIOBackend = backends::io::BufrObsIO;
+  using ObsIOBackend = backends::io::BufrObsIO<ConfigBackend>;
 
   using GeometryBackend = backends::wrf::WRFGeometry<ConfigBackend>;
   using GeometryIteratorBackend =
