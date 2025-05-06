@@ -204,13 +204,7 @@ class BufrObsIO {
    * @throws std::runtime_error If writing fails
    */
   void write(const std::string& filename,
-             const std::vector<ObsRecord>& records) {
-    // In a real implementation, this would use a BUFR library to encode
-    // the observation records and write them to the file
-
-    // This is a placeholder implementation for demonstration
-    // Simply log the operation
-  }
+             const std::vector<ObsRecord>& records) {}
 
  private:
   ConfigBackend config_;
@@ -219,9 +213,8 @@ class BufrObsIO {
 // Static assertion to verify the backend meets the concept requirements
 template <typename T>
 struct BufrObsIOConceptCheck {
-  static_assert(
-      framework::ObsIOBackendImpl<BufrObsIO<T>, T>,
-      "BufrObsIO must satisfy the ObsIOBackendImpl concept");
+  static_assert(framework::ObsIOBackendImpl<BufrObsIO<T>, T>,
+                "BufrObsIO must satisfy the ObsIOBackendImpl concept");
 };
 
 }  // namespace metada::backends::io

@@ -14,18 +14,6 @@ target_link_libraries(config_json
         metada::framework::interfaces
         nlohmann_json::nlohmann_json)
 
-# Add precompiled headers if enabled
-if(USE_PRECOMPILED_HEADERS)
-    # Add standard C++ headers 
-    metada_add_std_precompiled_headers(config_json PRIVATE)
-    
-    # Add project-specific headers
-    target_precompile_headers(config_json
-        PRIVATE 
-        <nlohmann/json.hpp>
-    )
-endif()
-
 # Add format target
 AddFormatTarget(config_json
     ${CMAKE_CURRENT_SOURCE_DIR})

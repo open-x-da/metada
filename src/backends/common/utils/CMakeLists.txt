@@ -10,7 +10,6 @@ add_library(metada::backends::common::utils ALIAS common_utils)
 target_include_directories(common_utils
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src
 )
 
 # First build configuration utilities (required by logger)

@@ -1,0 +1,8 @@
+logger:
+  app_name: "forecast"
+  level: "debug"
+  color: true
+  console: true
+
+observation:
+  filename: "D:/linux/metada/applications/forecast/wrfinput_d01"
