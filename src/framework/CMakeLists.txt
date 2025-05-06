@@ -1,4 +1,3 @@
 add_subdirectory(adapters)
-add_subdirectory(core)
-add_subdirectory(interfaces)
+add_subdirectory(base)
 add_subdirectory(runs)

@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace metada::core {
+namespace metada {
 
 class DateTime;  // Forward declaration
 
@@ -75,4 +75,4 @@ class Duration {
 // Operator overload for stream insertion
 std::ostream& operator<<(std::ostream& os, const Duration& duration);
 
-}  // namespace metada::core
+}  // namespace metada

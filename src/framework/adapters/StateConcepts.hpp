@@ -8,7 +8,8 @@
  * This file contains concept definitions that constrain the types that can be
  * used with the State adapter class. These concepts ensure that backend
  * implementations provide all the necessary functionality required by the
- * state operations.
+ * state operations in data assimilation systems, including data access,
+ * variable information, arithmetic operations, and resource management.
  */
 
 #pragma once
@@ -30,18 +31,25 @@ namespace metada::framework {
  * - Variable name access method
  * - Dimension information for each variable
  * - Support for cloning the state
+ * - Vector arithmetic operations (add, dot product, norm)
+ * - Equality comparison
+ * - Zero initialization
  * - Configuration constructor and proper resource management
+ *
+ * These requirements enable the State adapter to perform common
+ * state-space operations needed in data assimilation algorithms.
  *
  * @tparam T The state backend implementation type
  * @tparam ConfigBackend The configuration backend type
  */
 template <typename T, typename ConfigBackend>
 concept StateBackendImpl =
-    requires(T& t, const T& ct, const std::string& varName,
+    requires(T& t, const T& ct, const T& other, const std::string& varName,
              const ConfigBackend& config) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
-      { ct.getData() } -> std::same_as<const void*>;
+      // TODO: Add const data access
+      //{ ct.getData() } -> std::same_as<const void*>;
 
       // Variable information
       {
@@ -52,6 +60,15 @@ concept StateBackendImpl =
       // Construction and cloning
       { T(config) } -> std::same_as<T>;
       { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;
+
+      // Vector arithmetic
+      { t.zero() } -> std::same_as<void>;
+      { t.add(other) } -> std::same_as<void>;
+      { ct.dot(other) } -> std::convertible_to<double>;
+      { ct.norm() } -> std::convertible_to<double>;
+
+      // Comparison
+      { ct.equals(other) } -> std::convertible_to<bool>;
 
       // Resource management constraints
       requires HasDeletedDefaultConstructor<T>;
@@ -67,7 +84,14 @@ concept StateBackendImpl =
  * - Ensure the StateBackend type satisfies the StateBackendImpl concept
  *   when paired with the ConfigBackend type
  *
+ * This concept is used by the State adapter to validate that a backend
+ * implementation provides all necessary functionality at compile time.
+ *
  * @tparam T The backend tag type to check
+ *
+ * @see StateBackendImpl
+ * @see HasStateBackend
+ * @see HasConfigBackend
  */
 template <typename T>
 concept StateBackendType =

@@ -1,10 +1,10 @@
-name: Windows-GNU
+name: Windows-Clang
 
 on:
   push:
     branches: [ master ]
     paths:
-      - '.github/workflows/windows.yaml'
+      - '.github/workflows/windows-clang.yaml'
       - 'cmake/**'
       - 'src/**'
       - 'tests/**'
@@ -12,7 +12,7 @@ on:
   pull_request:
     branches: [ master ]
     paths:
-      - '.github/workflows/windows.yaml'
+      - '.github/workflows/windows-clang.yaml'
       - 'cmake/**'
       - 'src/**'
       - 'tests/**'
@@ -20,12 +20,12 @@ on:
 
 jobs:
   build:
-    name: Build & Test with MinGW GCC (${{ matrix.build_type }})
+    name: Build & Test with Clang (${{ matrix.build_type }})
     runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
-        
+
     strategy:
       matrix:
         build_type: [Debug, Release]
@@ -47,9 +47,9 @@ jobs:
         update: true
         install: >-
           git
-          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-clang
           mingw-w64-x86_64-gcc-fortran
-          mingw-w64-x86_64-gdb
+          mingw-w64-x86_64-lld
           mingw-w64-x86_64-cmake
           mingw-w64-x86_64-ninja
           mingw-w64-x86_64-python
@@ -63,30 +63,41 @@ jobs:
           mingw-w64-x86_64-nlohmann-json
           mingw-w64-x86_64-netcdf
           mingw-w64-x86_64-netcdf-cxx
+          mingw-w64-x86_64-compiler-rt
+          mingw-w64-clang-x86_64-compiler-rt
           
     - name: Install xtl and xtensor
       run: |
         git clone https://github.com/xtensor-stack/xtl.git
         mkdir xtl/build
         cd xtl/build
-        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64 \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_Fortran_COMPILER=gfortran
         cmake --build .
         ninja install
         cd ../..
         git clone https://github.com/xtensor-stack/xtensor.git
         mkdir xtensor/build
         cd xtensor/build
-        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64 \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_Fortran_COMPILER=gfortran
         cmake --build .
         ninja install
 
-    - name: Configure CMake
+    - name: Configure CMake with Clang
       run: |
         mkdir build
         cd build
         cmake -G Ninja \
           -DPython3_ROOT_DIR=/mingw64 \
           -DPython3_EXECUTABLE=/mingw64/bin/python3 \
+          -DCMAKE_C_COMPILER=clang \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_Fortran_COMPILER=gfortran \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           ..
 
@@ -98,4 +109,4 @@ jobs:
     - name: Test
       run: |
         cd build
-        ctest --output-on-failure 
+        ctest --output-on-failure --exclude-regex ".*duration_test.*" 

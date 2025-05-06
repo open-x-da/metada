@@ -5,7 +5,6 @@
 #include <sstream>
 
 namespace metada {
-namespace core {
 
 DateTime::DateTime() noexcept : m_timePoint(std::chrono::system_clock::now()) {
   updateComponents();
@@ -158,5 +157,4 @@ void DateTime::updateComponents() noexcept {
   m_time = std::chrono::hh_mm_ss<std::chrono::seconds>{seconds};
 }
 
-}  // namespace core
 }  // namespace metada

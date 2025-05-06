@@ -30,7 +30,9 @@ add_test_format_target(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 
 # IObservations tests
-#setup_test_executable(observation_test ObservationTest.cpp)
+setup_test_executable(observation_test ObservationTest.cpp)
+add_test_format_target(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # IObsOperator tests
-#setup_test_executable(obsoperator_test ObsOperatorTest.cpp)
+setup_test_executable(obsoperator_test ObsOperatorTest.cpp)
+add_test_format_target(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})

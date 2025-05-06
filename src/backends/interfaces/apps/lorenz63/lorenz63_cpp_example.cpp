@@ -18,7 +18,6 @@ using model_backend = metada::backends::lorenz63::Model;
 
 using metada::backends::lorenz63::Integrator;
 using namespace metada::framework;
-using namespace metada::framework::runs;
 using namespace metada::backends::logger;
 using namespace metada::backends::config;
 

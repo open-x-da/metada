@@ -1,22 +1,22 @@
-add_library(core 
+add_library(base 
     DateTime.cpp
     Duration.cpp
 )
-add_library(metada::framework::core ALIAS core)
+add_library(metada::base ALIAS base)
 
-target_sources(core
+target_sources(base
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/NonCopyable.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/DateTime.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Duration.hpp
 )
 
-target_include_directories(core
+target_include_directories(base
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 # Ensure C++20 support
-target_compile_features(core PUBLIC cxx_std_20)
+target_compile_features(base PUBLIC cxx_std_20)
 
-AddFormatTarget(core ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(base ${CMAKE_CURRENT_SOURCE_DIR})

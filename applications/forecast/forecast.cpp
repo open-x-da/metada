@@ -16,9 +16,8 @@
 
 // Default backends, can be changed with template parameters
 using BackendTag = metada::traits::WRFBackendTag;
+using namespace metada;
 using namespace metada::framework;
-using namespace metada::core;
-using namespace metada::framework::runs;
 
 int main(int argc, char** argv) {
   try {
@@ -31,88 +30,28 @@ int main(int argc, char** argv) {
     logger.Info() << "Starting forecast application";
     logger.Info() << "Using configuration file: " << argv[1];
 
-    const auto time_control = config.GetSubsection("time_control");
-    // Read forecast parameters
-    const auto start_datetime =
-        DateTime(time_control.Get("start_datetime").asString());
-
-    // Exit if neither forecast_length nor end_datetime is available
-    if (!time_control.HasKey("forecast_length") &&
-        !time_control.HasKey("end_datetime")) {
-      logger.Error() << "Either forecast_length or end_datetime must be "
-                        "specified in the config";
-      return 1;
-    }
-
-    DateTime end_datetime;
-
-    // If forecast_length exists, use it to calculate end_datetime
-    if (time_control.HasKey("forecast_length")) {
-      const int forecast_length_hours =
-          time_control.Get("forecast_length").asInt();
-      end_datetime = start_datetime + std::chrono::hours(forecast_length_hours);
-      logger.Info() << "Using forecast_length of " << forecast_length_hours
-                    << " hours to set end_datetime to " << end_datetime;
-    } else {
-      // Otherwise use the provided end_datetime
-      end_datetime = DateTime(time_control.Get("end_datetime").asString());
-      logger.Info() << "Using provided end_datetime: " << end_datetime;
-    }
-
-    const auto time_step =
-        std::chrono::seconds(time_control.Get("time_step").asInt());
-
-    const auto output_history =
-        time_control.Get("output_history", "false").asBool();
-    const std::string output_file = time_control.Get("history_file").asString();
-    logger.Info() << "output_file: " << output_file;
-    const bool write_history = true;
-    logger.Info() << "write_history: " << write_history;
-    const int history_frequency = time_control.Get("history_frequency").asInt();
-    logger.Info() << "history_frequency: " << history_frequency;
-    logger.Info() << "Forecast configuration:";
-    logger.Info() << "  - Output file: " << output_file;
-
     // Initialize geometry
     logger.Info() << "Initializing geometry";
     Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
     // Initialize initial state
     logger.Info() << "Initializing model state";
-    // State<BackendTag> initialState(config);
-    // State<BackendTag> currentState(config);
+    State<BackendTag> initialState(config.GetSubsection("state"));
+    auto currentState = initialState.clone();
 
     // Initialize model
     logger.Info() << "Initializing forecast model";
-    // Model<BackendTag> model(config);
+    Model<BackendTag> model(config.GetSubsection("model"));
 
-    // Copy initial state to current state
-    // currentState = initialState;  // Assuming State has assignment operator
+    // Create final state
+    State<BackendTag> finalState(config.GetSubsection("state"));
 
-    // Time integration loop using model.run
-    auto current_datetime = start_datetime;
-    while (current_datetime != end_datetime) {
-      logger.Debug() << "Time Step on " << current_datetime;
+    // Run the model
+    logger.Info() << "Running forecast model...";
+    model.run(currentState, finalState);
 
-      // Run model for this time segment
-      // State<BackendTag> nextState(config);
-      // model.run(currentState, nextState, current_time, segment_end_time);
-
-      // Update current state and time
-      // currentState = nextState;
-      current_datetime += time_step;
-
-      // Write intermediate output
-      if (output_history) {
-        logger.Info() << "Writing history at " << current_datetime;
-        // Code to write history
-      }
-    }
-
-    // Write final output
-    logger.Info() << "Forecast completed successfully";
-    logger.Info() << "Writing final state to " << output_file;
-    // Code to write final state
+    // Update current state
+    currentState = std::move(finalState);
 
     logger.Info() << "Forecast application completed";
     return 0;

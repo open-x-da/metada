@@ -16,7 +16,9 @@ target_sources(gmock_backends
         MockGeometryIterator.hpp
         MockLogger.hpp
         MockModel.hpp
-        MockState.hpp)
+        MockState.hpp
+        MockObservation.hpp
+        MockObsOperator.hpp)
 
 # Add format target
 AddFormatTarget(gmock_backends ${CMAKE_CURRENT_SOURCE_DIR})
