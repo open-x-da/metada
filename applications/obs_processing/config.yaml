@@ -6,3 +6,28 @@ logger:
 
 observation:
   filename: "D:/linux/metada/applications/forecast/wrfinput_d01"
+  lats: [30, -30]      # Latitudes from North to South
+  lons: [190, 270]     # Longitudes from 0 to 360
+  station_ids:         # Station IDs (overrides lat/lon selections)
+    - "KMSP "          # 4 letter METAR code with trailing space
+    - 71223
+    - 72224
+    - 79833
+  variables: ["P", "Q", "T", "Z", "U", "V"]   # Selected parameters
+  data_types:          # Data types to be selected
+    - "ADPUPA"
+    - "AIRCAR"
+    - "AIRCFT"
+    - "SATWND"
+    - "PROFLR"
+    - "VADWND"
+    - "SATEMP"
+    - "ADPSFC"
+    - "SFCSHP"
+    - "SFCBOG"
+    - "SPSSMI"
+    - "SYNDAT"
+    - "ERS1DA"
+    - "GOESND"
+    - "QKSWND"
+  include_virtual_temp: false    # Flag to include virtual temperature

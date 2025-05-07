@@ -7,10 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Add the executable with Fortran source
 add_executable(obs_processing 
-    obs_processing.cpp 
     prepbufr_constants.f90
     prepbufr_data.f90
     prepbufr_utils.f90
+    read_prepbufr.f90
 )
 
 # Link with required libraries
@@ -28,6 +28,19 @@ target_link_libraries(obs_processing
 set_target_properties(obs_processing
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_executable(readpb_config readpb_config.f)
+
+target_link_libraries(readpb_config
+    PRIVATE
+        metada::backends::common::io
+)
+
+set_target_properties(readpb_config
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        Fortran_COMPILE_FLAGS "-ffixed-form"
 )
 
 # Add format target to ensure consistent code style
