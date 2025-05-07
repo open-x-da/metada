@@ -1,9 +1,17 @@
+# Enable Fortran support
+enable_language(Fortran)
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Add the executable
-add_executable(obs_processing obs_processing.cpp)
+# Add the executable with Fortran source
+add_executable(obs_processing 
+    obs_processing.cpp 
+    prepbufr_constants.f90
+    prepbufr_data.f90
+    prepbufr_utils.f90
+)
 
 # Link with required libraries
 target_link_libraries(obs_processing

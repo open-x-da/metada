@@ -3,10 +3,10 @@
 #include <vector>
 
 #include "ApplicationContext.hpp"
+#include "BufrObsIO.hpp"
+#include "ObsIO.hpp"
+#include "ObsRecord.hpp"
 #include "WRFBackendTraits.hpp"
-#include "backends/common/io/BufrObsIO.hpp"
-#include "framework/adapters/common/io/ObsIO.hpp"
-#include "framework/adapters/common/io/ObsRecord.hpp"
 
 using BackendTag = metada::traits::WRFBackendTag;
 using namespace metada;
