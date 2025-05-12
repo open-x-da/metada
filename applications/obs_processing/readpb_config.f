@@ -325,6 +325,7 @@ C*        Skip virtual temperature at tv_ev_idx
      +           lv, var(kk), 
      +           (evns(ii,lv,jj,kk),ii=1,8)
 
+          print*,outstg
           DO mm = 1, 150
             IF (outstg (mm:mm) .eq. '*') THEN
               outstg (mm:mm) = ' '

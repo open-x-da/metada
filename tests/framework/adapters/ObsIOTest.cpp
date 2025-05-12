@@ -13,8 +13,6 @@
  * - Move semantics
  * - Reading observations
  * - Writing observations
- * - Format information retrieval
- * - Capability checks
  *
  * The test suite uses Google Test/Mock framework for mocking and assertions.
  */
@@ -155,85 +153,9 @@ TEST_F(ObsIOTest, MoveSemantics) {
 }
 
 /**
- * @brief Test canRead method
+ * @brief Test read method
  *
- * Verifies that the canRead method correctly delegates to the backend.
- */
-TEST_F(ObsIOTest, CanRead) {
-  // Create an ObsIO object
-  auto config = Config<traits::MockBackendTag>(config_file_);
-  ObsIO<traits::MockBackendTag> obsIO(std::move(config));
-  auto& backend = obsIO.backend();
-
-  // Setup expectation
-  const std::string filename = "observations.bufr";
-  EXPECT_CALL(backend, canRead(filename)).WillOnce(Return(true));
-
-  // Call the method and verify
-  EXPECT_TRUE(obsIO.canRead(filename));
-}
-
-/**
- * @brief Test canWrite method
- *
- * Verifies that the canWrite method correctly delegates to the backend.
- */
-TEST_F(ObsIOTest, CanWrite) {
-  // Create an ObsIO object
-  auto config = Config<traits::MockBackendTag>(config_file_);
-  ObsIO<traits::MockBackendTag> obsIO(std::move(config));
-  auto& backend = obsIO.backend();
-
-  // Setup expectation
-  EXPECT_CALL(backend, canWrite()).WillOnce(Return(true));
-
-  // Call the method and verify
-  EXPECT_TRUE(obsIO.canWrite());
-}
-
-/**
- * @brief Test getFormatName method
- *
- * Verifies that the getFormatName method correctly delegates to the backend.
- */
-TEST_F(ObsIOTest, GetFormatName) {
-  // Create an ObsIO object
-  auto config = Config<traits::MockBackendTag>(config_file_);
-  ObsIO<traits::MockBackendTag> obsIO(std::move(config));
-  auto& backend = obsIO.backend();
-
-  // Setup expectation
-  const std::string formatName = "BUFR";
-  EXPECT_CALL(backend, getFormatName()).WillOnce(Return(formatName));
-
-  // Call the method and verify
-  EXPECT_EQ(obsIO.getFormatName(), formatName);
-}
-
-/**
- * @brief Test getFileExtensions method
- *
- * Verifies that the getFileExtensions method correctly delegates to the
- * backend.
- */
-TEST_F(ObsIOTest, GetFileExtensions) {
-  // Create an ObsIO object
-  auto config = Config<traits::MockBackendTag>(config_file_);
-  ObsIO<traits::MockBackendTag> obsIO(std::move(config));
-  auto& backend = obsIO.backend();
-
-  // Setup expectation
-  const std::vector<std::string> extensions = {".bufr", ".BUFR", ".bfr"};
-  EXPECT_CALL(backend, getFileExtensions()).WillOnce(Return(extensions));
-
-  // Call the method and verify
-  EXPECT_EQ(obsIO.getFileExtensions(), extensions);
-}
-
-/**
- * @brief Test readObservations method
- *
- * Verifies that the readObservations method correctly delegates to the backend
+ * Verifies that the read method correctly delegates to the backend
  * and handles errors appropriately.
  */
 TEST_F(ObsIOTest, ReadObservations) {
@@ -242,13 +164,11 @@ TEST_F(ObsIOTest, ReadObservations) {
   ObsIO<traits::MockBackendTag> obsIO(std::move(config));
   auto& backend = obsIO.backend();
 
-  // Setup expectations
-  const std::string filename = "observations.bufr";
-  EXPECT_CALL(backend, canRead(filename)).WillOnce(Return(true));
-  EXPECT_CALL(backend, read(filename)).WillOnce(Return(records_));
+  // Setup expectation
+  EXPECT_CALL(backend, read()).WillOnce(Return(records_));
 
   // Call the method and verify
-  std::vector<ObsRecord> result = obsIO.read(filename);
+  std::vector<ObsRecord> result = obsIO.read();
   EXPECT_EQ(result.size(), records_.size());
   EXPECT_EQ(result[0].type, records_[0].type);
   EXPECT_EQ(result[0].value, records_[0].value);
@@ -257,29 +177,29 @@ TEST_F(ObsIOTest, ReadObservations) {
 }
 
 /**
- * @brief Test readObservations method with unsupported file
+ * @brief Test read method with backend errors
  *
- * Verifies that the readObservations method throws an exception when trying to
- * read an unsupported file format.
+ * Verifies that the read method properly propagates exceptions from the
+ * backend.
  */
-TEST_F(ObsIOTest, ReadObservationsUnsupportedFormat) {
+TEST_F(ObsIOTest, ReadObservationsError) {
   // Create an ObsIO object
   auto config = Config<traits::MockBackendTag>(config_file_);
   ObsIO<traits::MockBackendTag> obsIO(std::move(config));
   auto& backend = obsIO.backend();
 
-  // Setup expectation
-  const std::string filename = "observations.unsupported";
-  EXPECT_CALL(backend, canRead(filename)).WillOnce(Return(false));
+  // Setup expectation to throw an exception
+  EXPECT_CALL(backend, read())
+      .WillOnce(::testing::Throw(std::runtime_error("Test error")));
 
-  // Call the method and verify exception
-  EXPECT_THROW(obsIO.read(filename), std::runtime_error);
+  // Call the method and verify exception is propagated
+  EXPECT_THROW(obsIO.read(), std::runtime_error);
 }
 
 /**
- * @brief Test writeObservations method
+ * @brief Test write method
  *
- * Verifies that the writeObservations method correctly delegates to the backend
+ * Verifies that the write method correctly delegates to the backend
  * and handles errors appropriately.
  */
 TEST_F(ObsIOTest, WriteObservations) {
@@ -288,32 +208,31 @@ TEST_F(ObsIOTest, WriteObservations) {
   ObsIO<traits::MockBackendTag> obsIO(std::move(config));
   auto& backend = obsIO.backend();
 
-  // Setup expectations
-  const std::string filename = "output.bufr";
-  EXPECT_CALL(backend, canWrite()).WillOnce(Return(true));
-  EXPECT_CALL(backend, write(filename, _)).Times(1);
+  // Setup expectation
+  EXPECT_CALL(backend, write(_)).Times(1);
 
   // Call the method
-  obsIO.write(filename, records_);
+  obsIO.write(records_);
 }
 
 /**
- * @brief Test writeObservations method with unsupported backend
+ * @brief Test write method with backend errors
  *
- * Verifies that the writeObservations method throws an exception when trying to
- * write with a backend that doesn't support writing.
+ * Verifies that the write method properly propagates exceptions from the
+ * backend.
  */
-TEST_F(ObsIOTest, WriteObservationsUnsupported) {
+TEST_F(ObsIOTest, WriteObservationsError) {
   // Create an ObsIO object
   auto config = Config<traits::MockBackendTag>(config_file_);
   ObsIO<traits::MockBackendTag> obsIO(std::move(config));
   auto& backend = obsIO.backend();
 
-  // Setup expectation
-  EXPECT_CALL(backend, canWrite()).WillOnce(Return(false));
+  // Setup expectation to throw an exception
+  EXPECT_CALL(backend, write(_))
+      .WillOnce(::testing::Throw(std::runtime_error("Test error")));
 
-  // Call the method and verify exception
-  EXPECT_THROW(obsIO.write("output.bufr", records_), std::runtime_error);
+  // Call the method and verify exception is propagated
+  EXPECT_THROW(obsIO.write(records_), std::runtime_error);
 }
 
 }  // namespace metada::tests

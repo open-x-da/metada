@@ -37,10 +37,8 @@ namespace metada::framework {
  * copying, but supports move semantics for efficient resource management.
  *
  * Features:
- * - File format detection and validation
- * - Reading observations from various file formats
- * - Writing observations to various file formats
- * - Format metadata access (extensions, capabilities)
+ * - Reading observations from various formats
+ * - Writing observations to various formats
  * - Move semantics for efficient resource management
  *
  * @tparam BackendTag The backend tag type that must satisfy
@@ -112,68 +110,18 @@ class ObsIO : public NonCopyable {
   ObsIOBackend& backend() { return backend_; }
 
   /**
-   * @brief Check if the backend can read the specified file
-   *
-   * @details Delegates to the backend implementation to check if it
-   * supports reading the specified file format.
-   *
-   * @param filename Path to the file to check
-   * @return True if the backend can read the file, false otherwise
-   */
-  bool canRead(const std::string& filename) const {
-    return backend_.canRead(filename);
-  }
-
-  /**
-   * @brief Check if the backend can write observations
-   *
-   * @details Delegates to the backend implementation to check if it
-   * supports writing observations in its format.
-   *
-   * @return True if the backend can write observations, false otherwise
-   */
-  bool canWrite() const { return backend_.canWrite(); }
-
-  /**
-   * @brief Get the name of the file format supported by this backend
-   *
-   * @details Delegates to the backend implementation to get the name
-   * of the file format it supports.
-   *
-   * @return The name of the file format (e.g., "Bufr", "NetCDF", "HDF5")
-   */
-  std::string getFormatName() const { return backend_.getFormatName(); }
-
-  /**
-   * @brief Get the file extensions supported by this backend
-   *
-   * @details Delegates to the backend implementation to get the list
-   * of file extensions it supports.
-   *
-   * @return Vector of supported file extensions (e.g., {".bufr", ".nc", ".h5"})
-   */
-  std::vector<std::string> getFileExtensions() const {
-    return backend_.getFileExtensions();
-  }
-
-  /**
-   * @brief Read observations from a file
+   * @brief Read observations from the configured data source
    *
    * @details Delegates to the backend implementation to read observation
-   * data from the specified file. Throws an exception if the file cannot
-   * be read or is not in a supported format.
+   * data. The backend will throw appropriate exceptions if the operation
+   * is not supported or fails.
    *
-   * @param filename Path to the file to read
-   * @return Vector of observation records read from the file
-   * @throws std::runtime_error If the file cannot be read
+   * @return Vector of observation records read from the data source
+   * @throws std::runtime_error If the reading operation fails
    */
-  std::vector<ObsRecord> read(const std::string& filename) {
-    if (!canRead(filename)) {
-      throw std::runtime_error("Cannot read file format: " + filename);
-    }
-
+  std::vector<ObsRecord> read() {
     try {
-      return backend_.read(filename);
+      return backend_.read();
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to read observations: " +
                                std::string(e.what()));
@@ -181,25 +129,18 @@ class ObsIO : public NonCopyable {
   }
 
   /**
-   * @brief Write observations to a file
+   * @brief Write observations to the configured data destination
    *
    * @details Delegates to the backend implementation to write observation
-   * data to the specified file. Throws an exception if the backend does
-   * not support writing or if writing fails.
+   * data. The backend will throw appropriate exceptions if the operation
+   * is not supported or fails.
    *
-   * @param filename Path to the file to write
    * @param records Vector of observation records to write
-   * @throws std::runtime_error If writing fails or is not supported
+   * @throws std::runtime_error If the writing operation fails
    */
-  void write(const std::string& filename,
-             const std::vector<ObsRecord>& records) {
-    if (!canWrite()) {
-      throw std::runtime_error(
-          "This backend does not support writing observations");
-    }
-
+  void write(const std::vector<ObsRecord>& records) {
     try {
-      backend_.write(filename, records);
+      backend_.write(records);
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to write observations: " +
                                std::string(e.what()));

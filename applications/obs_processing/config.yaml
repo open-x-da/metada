@@ -1,11 +1,11 @@
 logger:
-  app_name: "forecast"
+  app_name: "obs_processing"
   level: "debug"
   color: true
   console: true
 
 observation:
-  filename: "D:/linux/metada/applications/forecast/wrfinput_d01"
+  filename: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
   lats: [30, -30]      # Latitudes from North to South
   lons: [190, 270]     # Longitudes from 0 to 360
   station_ids:         # Station IDs (overrides lat/lon selections)

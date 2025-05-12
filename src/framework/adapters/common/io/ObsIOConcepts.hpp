@@ -31,35 +31,27 @@ namespace metada::framework {
  * implementation
  *
  * @details A valid observation I/O backend implementation must provide:
- * - Methods for reading observation data from files
- * - Methods for writing observation data to files
- * - Support for querying file format capabilities
- * - Support for checking if a file is of a supported format
+ * - Methods for reading observation data from configured sources
+ * - Methods for writing observation data to configured destinations
  *
- * These requirements enable the ObsIO adapter to perform file I/O
- * operations with different file formats like Bufr, NetCDF, HDF5, etc.
+ * These requirements enable the ObsIO adapter to perform I/O
+ * operations with different formats like Bufr, NetCDF, HDF5, etc.
  *
  * @tparam T The observation I/O backend implementation type
  * @tparam ConfigBackend The configuration backend type
  */
 template <typename T, typename ConfigBackend>
 concept ObsIOBackendImpl =
-    requires(T& t, const T& ct, const std::string& filename,
-             const std::vector<ObsRecord>& records, ConfigBackend&& config) {
+    requires(T& t, const T& ct, const std::vector<ObsRecord>& records,
+             ConfigBackend&& config) {
       // Constructor from Config
       { T(std::move(config)) } -> std::same_as<T>;
 
-      // Reading methods
-      { t.read(filename) } -> std::same_as<std::vector<ObsRecord>>;
-      { ct.canRead(filename) } -> std::same_as<bool>;
+      // Reading method
+      { t.read() } -> std::same_as<std::vector<ObsRecord>>;
 
-      // Writing methods
-      { t.write(filename, records) } -> std::same_as<void>;
-      { ct.canWrite() } -> std::same_as<bool>;
-
-      // Format information
-      { ct.getFormatName() } -> std::same_as<std::string>;
-      { ct.getFileExtensions() } -> std::same_as<std::vector<std::string>>;
+      // Writing method
+      { t.write(records) } -> std::same_as<void>;
 
       // Proper implementation constraints
       requires HasDeletedDefaultConstructor<T>;

@@ -7,10 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Add the executable with Fortran source
 add_executable(obs_processing 
-    prepbufr_constants.f90
-    prepbufr_data.f90
-    prepbufr_utils.f90
-    read_prepbufr.f90
+    obs_processing.cpp
 )
 
 # Link with required libraries

@@ -35,18 +35,10 @@ namespace metada::backends::gmock {
  * @brief Mock implementation of ObsIO for testing
  *
  * @details
- * Provides mock methods for all ObsIO interface operations, organized
- * into the following categories:
+ * Provides mock methods for all ObsIO interface operations:
  *
- * @par File Operations
- * - readObservations() - Read observations from a file
- * - writeObservations() - Write observations to a file
- * - canRead() - Check if a file can be read
- * - canWrite() - Check if observations can be written
- *
- * @par Format Information
- * - getFormatName() - Get the name of the format
- * - getFileExtensions() - Get the file extensions supported by this backend
+ * - read() - Read observations from the configured data source
+ * - write() - Write observations to the configured data destination
  *
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
@@ -104,52 +96,18 @@ class MockObsIO {
   explicit MockObsIO(ConfigBackend&& config) : config_(std::move(config)) {}
 
   /**
-   * @brief Read observations from a file
+   * @brief Read observations from the configured data source
    *
-   * @param filename Path to the file to read
    * @return Vector of observation records
    */
-  MOCK_METHOD(std::vector<framework::ObsRecord>, read,
-              (const std::string& filename));
+  MOCK_METHOD(std::vector<framework::ObsRecord>, read, ());
 
   /**
-   * @brief Check if a file can be read by this backend
+   * @brief Write observations to the configured data destination
    *
-   * @param filename Path to the file to check
-   * @return True if the file can be read, false otherwise
-   */
-  MOCK_METHOD(bool, canRead, (const std::string& filename), (const));
-
-  /**
-   * @brief Write observations to a file
-   *
-   * @param filename Path to the file to write
    * @param records Vector of observation records to write
    */
-  MOCK_METHOD(void, write,
-              (const std::string& filename,
-               const std::vector<framework::ObsRecord>& records));
-
-  /**
-   * @brief Check if this backend can write observations
-   *
-   * @return True if observations can be written, false otherwise
-   */
-  MOCK_METHOD(bool, canWrite, (), (const));
-
-  /**
-   * @brief Get the name of the format supported by this backend
-   *
-   * @return The format name
-   */
-  MOCK_METHOD(std::string, getFormatName, (), (const));
-
-  /**
-   * @brief Get the file extensions supported by this backend
-   *
-   * @return Vector of supported file extensions
-   */
-  MOCK_METHOD(std::vector<std::string>, getFileExtensions, (), (const));
+  MOCK_METHOD(void, write, (const std::vector<framework::ObsRecord>& records));
 
  private:
   ConfigBackend config_; /**< Initialization parameters */

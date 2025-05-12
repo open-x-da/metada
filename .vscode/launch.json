@@ -127,12 +127,12 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/obs_processing",
-            "args": ["${workspaceFolder}/applications/obs_processing/prepbufr.gdas.2025010100.nr", "${workspaceFolder}/build/bin/prepbufr", "${workspaceFolder}/applications/obs_processing/prepbufr_config"],
+            "args": ["${workspaceFolder}/applications/obs_processing/config.yaml"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "environment": [],
-            "externalConsole": false
+            "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
             "setupCommands": [
@@ -153,7 +153,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/readpb_config",
-            "args": ["${workspaceFolder}/applications/obs_processing/prepbufr.gdas.2025010100.nr", "${workspaceFolder}/build/bin/prepbufr", "${workspaceFolder}/applications/obs_processing/prepbufr_config"],
+            "args": ["${workspaceFolder}/applications/obs_processing/prepbufr.gdas.2025050700.nr", "${workspaceFolder}/build/bin/prepbufr", "${workspaceFolder}/applications/obs_processing/prepbufr_config"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

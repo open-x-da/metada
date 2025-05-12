@@ -25,19 +25,11 @@ int main(int argc, char* argv[]) {
     logger.Info() << "Using configuration file: " << argv[1];
 
     // Create an ObsIO object using BufrObsIO as the backend
-    ObsIO<BackendTag> obsIO(std::move(config.GetSubsection("observation")));
+    // The filename is already provided in the observation config section
+    ObsIO<BackendTag> obsIO(config.GetSubsection("observation"));
 
-    auto filename =
-        config.GetSubsection("observation").Get("filename").asString();
-
-    // Check if the file can be read
-    if (!obsIO.canRead(filename)) {
-      std::cerr << "Cannot read the specified file: " << filename << std::endl;
-      return 1;
-    }
-
-    // Read observation records from the file
-    std::vector<ObsRecord> records = obsIO.read(filename);
+    // Read observation records from the configured data source
+    std::vector<ObsRecord> records = obsIO.read();
 
     // Iterate over the records and print the required information
     for (const auto& record : records) {

@@ -76,7 +76,14 @@ __pycache__/
 # Build directories
 build/ 
 
-#wrf test files
+# wrf test files
 wrfinput_d0*
 wrfbdy_d0*
 wrfout_d0*
+
+# prepbufr files
+prepbufr*.nr
+
+# fortran files
+*.mod
+fort.*
