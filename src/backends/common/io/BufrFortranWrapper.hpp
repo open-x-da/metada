@@ -111,6 +111,9 @@ class BufrFortranWrapper {
     // Initialize the subset buffer with spaces (Fortran-friendly)
     memset(subsetBuffer_, ' ', 8);
     subsetBuffer_[8] = '\0';
+
+    // Initialize the temporary header buffer to zeros
+    memset(tempHeader_, 0, sizeof(tempHeader_));
   }
 
   /**
@@ -186,10 +189,8 @@ class BufrFortranWrapper {
     int idate = 0;
     int iret = 0;
 
-    // Create a temporary header buffer if caller didn't provide one
-    constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
-    double tempHeader[NHR8PM] = {0.0};
-    double* headerPtr = header ? header : tempHeader;
+    // Use the provided header or the class member
+    double* headerPtr = header ? header : tempHeader_;
 
     // Call the Fortran function - using persistent subsetBuffer_
     readpb_(&unitNumber_, subsetBuffer_, &idate, headerPtr, &iret, 8);
@@ -232,6 +233,8 @@ class BufrFortranWrapper {
   bool isOpen_ = false;
   std::string filename_;
   char subsetBuffer_[9];  // Persistent buffer for Fortran string exchange
+  static constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
+  double tempHeader_[NHR8PM];       // Persistent buffer for header data
 };
 
 }  // namespace metada::backends::io
