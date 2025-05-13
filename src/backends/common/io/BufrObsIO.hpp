@@ -123,6 +123,7 @@ class BufrObsIO {
   std::vector<ObsRecord> read() {
     // Create a vector to hold the observation records
     std::vector<ObsRecord> records;
+    records.reserve(100);  // Pre-allocate space to avoid reallocations
 
     try {
       // Open the BUFR file using the Fortran wrapper
@@ -133,24 +134,23 @@ class BufrObsIO {
       int date;
       int ret;
 
+      // Reuse the same ObsRecord to avoid constructor calls
+      ObsRecord record;
+      char stid[9] = {0};  // 8 chars + null terminator
+
       // Header values array for station information
       constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
       double header[NHR8PM] = {0.0};
 
       // Process BUFR file using readpb
       while ((ret = bufrWrapper_->readPrepbufr(subset, date, header)) >= 0) {
-        // Convert the subset data to ObsRecord objects
-        // Create record with data from BUFR header
-        ObsRecord record;
-
         // Basic observation info
         record.type = subset;
         record.value = 0.0;  // Placeholder
 
         // Station information (HDR indices 1-4)
-        char stid[9] = {0};  // 8 chars + null terminator
         std::memcpy(stid, &header[0], 8);
-        record.station_id = stid;      // Properly limited to 8 characters
+        record.station_id = stid;
         record.longitude = header[1];  // XOB
         record.latitude = header[2];   // YOB
         record.elevation = header[3];  // ELV
@@ -160,29 +160,25 @@ class BufrObsIO {
 
         // If there's a time offset, adjust the datetime using Duration
         if (header[4] != 0.0) {
-          // Convert float DHR (hours) to Duration and adjust datetime
-          Duration dhrOffset = Duration::fromHoursF(header[4]);
-          record.datetime += dhrOffset;
+          record.datetime += Duration::fromHoursF(header[4]);
         }
 
         // Report metadata (HDR indices 6-8)
-        record.report_type =
-            std::to_string(static_cast<int>(header[5]));  // TYP
-        record.input_report_type =
-            std::to_string(static_cast<int>(header[6]));  // T29
-        record.instrument_type =
-            std::to_string(static_cast<int>(header[7]));  // ITP
+        record.report_type = std::to_string(static_cast<int>(header[5]));
+        record.input_report_type = std::to_string(static_cast<int>(header[6]));
+        record.instrument_type = std::to_string(static_cast<int>(header[7]));
 
         // Quality control
         record.qc_marker = 0;  // Default QC marker
 
-        std::cout << std::left << std::setw(15) << record.type << std::setw(10)
-                  << record.value << std::setw(15) << record.station_id
-                  << std::setw(10) << record.longitude << std::setw(10)
-                  << record.latitude << std::setw(10) << record.elevation
-                  << record.datetime.iso8601() << std::endl;
+        // std::cout << record << std::endl;
 
-        records.push_back(record);
+        // Add record to the collection using move semantics
+        records.emplace_back(std::move(record));
+
+        // Since we moved from record, we need to reset it for the next
+        // iteration
+        record = ObsRecord();
 
         // If this is the last subset, break
         if (ret == 1) break;
