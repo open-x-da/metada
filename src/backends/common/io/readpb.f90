@@ -64,7 +64,7 @@ C*                  prepbufr file
 C*
         INCLUDE         'readpb.prm'
 C*
-        CHARACTER*(*)   subset
+        CHARACTER*(8)   subset
 C* 
         CHARACTER*(MXSTRL)      head
    

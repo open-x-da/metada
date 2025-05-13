@@ -13,6 +13,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstring>
 #include <memory>
 #include <optional>
 #include <string>
@@ -147,8 +148,9 @@ class BufrObsIO {
         record.value = 0.0;  // Placeholder
 
         // Station information (HDR indices 1-4)
-        record.station_id =
-            std::string(reinterpret_cast<char*>(&header[0])).c_str();
+        char stid[9] = {0};  // 8 chars + null terminator
+        std::memcpy(stid, &header[0], 8);
+        record.station_id = stid;      // Properly limited to 8 characters
         record.longitude = header[1];  // XOB
         record.latitude = header[2];   // YOB
         record.elevation = header[3];  // ELV
@@ -173,6 +175,12 @@ class BufrObsIO {
 
         // Quality control
         record.qc_marker = 0;  // Default QC marker
+
+        std::cout << std::left << std::setw(15) << record.type << std::setw(10)
+                  << record.value << std::setw(15) << record.station_id
+                  << std::setw(10) << record.longitude << std::setw(10)
+                  << record.latitude << std::setw(10) << record.elevation
+                  << record.datetime.iso8601() << std::endl;
 
         records.push_back(record);
 
