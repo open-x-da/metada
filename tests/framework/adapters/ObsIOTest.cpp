@@ -66,15 +66,29 @@ class ObsIOTest : public ::testing::Test {
     ObsRecord record1;
     record1.type = "temperature";
     record1.value = 25.5;
-    record1.location = "STATION_001";
+    record1.station_id = "STATION_001";
+    record1.longitude = -75.0;
+    record1.latitude = 40.0;
+    record1.elevation = 100.0;
     record1.datetime = DateTime();
+    record1.time_offset = 0.0;
+    record1.report_type = "1";
+    record1.input_report_type = "0";
+    record1.instrument_type = "0";
     record1.qc_marker = 0;
 
     ObsRecord record2;
     record2.type = "pressure";
     record2.value = 1013.2;
-    record2.location = "STATION_001";
+    record2.station_id = "STATION_001";
+    record2.longitude = -75.0;
+    record2.latitude = 40.0;
+    record2.elevation = 100.0;
     record2.datetime = DateTime();
+    record2.time_offset = 0.0;
+    record2.report_type = "1";
+    record2.input_report_type = "0";
+    record2.instrument_type = "0";
     record2.qc_marker = 0;
 
     records_.push_back(record1);

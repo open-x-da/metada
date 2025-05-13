@@ -34,15 +34,17 @@ int main(int argc, char* argv[]) {
 
     // Print header
     std::cout << std::left << std::setw(15) << "Type" << std::setw(10)
-              << "Value" << std::setw(40) << "Location"
+              << "Value" << std::setw(15) << "Station" << std::setw(10)
+              << "Longitude" << std::setw(10) << "Latitude"
               << "DateTime" << std::endl;
     std::cout << std::string(80, '-') << std::endl;
 
     // Iterate over the records and print the information
     for (const auto& record : records) {
       std::cout << std::left << std::setw(15) << record.type << std::setw(10)
-                << record.value << std::setw(40) << record.location
-                << record.datetime.iso8601() << std::endl;
+                << record.value << std::setw(15) << record.station_id
+                << std::setw(10) << record.longitude << std::setw(10)
+                << record.latitude << record.datetime.iso8601() << std::endl;
     }
 
     std::cout << "\nTotal records: " << records.size() << std::endl;

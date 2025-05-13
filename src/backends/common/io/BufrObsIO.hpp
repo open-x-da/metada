@@ -138,26 +138,34 @@ class BufrObsIO {
       // Process BUFR file using readpb
       while ((ret = bufrWrapper_->readPrepbufr(subset, date, header)) >= 0) {
         // Convert the subset data to ObsRecord objects
-        // In a real implementation, you would access the common block data
-        // populated by readpb_ and extract the observations
-
-        // Create sample records based on the subset data and header information
+        // Create record with data from BUFR header
         ObsRecord record;
+
+        // Basic observation info
         record.type = subset;
         record.value = 0.0;  // Placeholder
 
-        // Use header information if available:
-        // HDR(1) = Station ID, HDR(2) = Longitude, HDR(3) = Latitude
-        std::string stationId(reinterpret_cast<char*>(&header[0]));
-        double lon = header[1];
-        double lat = header[2];
+        // Station information (HDR indices 1-4)
+        record.station_id =
+            std::string(reinterpret_cast<char*>(&header[0])).c_str();
+        record.longitude = header[1];  // XOB
+        record.latitude = header[2];   // YOB
+        record.elevation = header[3];  // ELV
 
-        record.location = stationId.empty()
-                              ? "UNKNOWN"
-                              : (stationId + " (Lon: " + std::to_string(lon) +
-                                 ", Lat: " + std::to_string(lat) + ")");
-        record.datetime = DateTime();
-        record.qc_marker = 0;
+        // Time information
+        record.datetime = DateTime();    // TODO: Convert date from BUFR format
+        record.time_offset = header[4];  // DHR
+
+        // Report metadata (HDR indices 6-8)
+        record.report_type =
+            std::to_string(static_cast<int>(header[5]));  // TYP
+        record.input_report_type =
+            std::to_string(static_cast<int>(header[6]));  // T29
+        record.instrument_type =
+            std::to_string(static_cast<int>(header[7]));  // ITP
+
+        // Quality control
+        record.qc_marker = 0;  // Default QC marker
 
         records.push_back(record);
 
