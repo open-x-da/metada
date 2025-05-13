@@ -1,5 +1,6 @@
 #include "Duration.hpp"
 
+#include <cmath>
 #include <format>
 #include <regex>
 #include <sstream>
@@ -126,6 +127,13 @@ Duration Duration::fromDays(int64_t days) noexcept {
 
 Duration Duration::fromHours(int64_t hours) noexcept {
   return Duration(hours * 60 * 60);
+}
+
+Duration Duration::fromHoursF(double hours) noexcept {
+  // Convert float hours to seconds with proper rounding for both positive and
+  // negative values
+  int64_t seconds = static_cast<int64_t>(std::round(hours * 3600.0));
+  return Duration(seconds);
 }
 
 Duration Duration::fromMinutes(int64_t minutes) noexcept {

@@ -46,6 +46,8 @@ class Duration {
   // Static factory methods
   [[nodiscard]] static Duration fromDays(int64_t days) noexcept;
   [[nodiscard]] static Duration fromHours(int64_t hours) noexcept;
+  [[nodiscard]] static Duration fromHoursF(
+      double hours) noexcept;  // For float DHR values
   [[nodiscard]] static Duration fromMinutes(int64_t minutes) noexcept;
   [[nodiscard]] static Duration fromSeconds(int64_t seconds) noexcept;
 

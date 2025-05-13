@@ -28,8 +28,7 @@ struct ObsRecord {
   double elevation;        ///< Station elevation (ELV)
 
   // Time information
-  DateTime datetime;   ///< Date and time of observation
-  double time_offset;  ///< Observation time minus cycle time (DHR)
+  DateTime datetime;  ///< Date and time of observation
 
   // Report metadata
   std::string report_type;        ///< PREPBUFR report type (TYP)

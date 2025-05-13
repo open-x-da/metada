@@ -71,7 +71,6 @@ class ObsIOTest : public ::testing::Test {
     record1.latitude = 40.0;
     record1.elevation = 100.0;
     record1.datetime = DateTime();
-    record1.time_offset = 0.0;
     record1.report_type = "1";
     record1.input_report_type = "0";
     record1.instrument_type = "0";
@@ -85,7 +84,6 @@ class ObsIOTest : public ::testing::Test {
     record2.latitude = 40.0;
     record2.elevation = 100.0;
     record2.datetime = DateTime();
-    record2.time_offset = 0.0;
     record2.report_type = "1";
     record2.input_report_type = "0";
     record2.instrument_type = "0";

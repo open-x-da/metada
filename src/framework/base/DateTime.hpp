@@ -25,6 +25,10 @@ class DateTime {
   DateTime(int year, int month, int day, int hour = 0, int minute = 0,
            int second = 0) noexcept;
 
+  // Construct from integer in format YYYYMMDDHH (e.g., 2025050700 for May 7,
+  // 2025, 00UTC)
+  explicit DateTime(int datetime_int) noexcept;
+
   // Construct from timepoint
   explicit DateTime(
       const std::chrono::system_clock::time_point& timepoint) noexcept;

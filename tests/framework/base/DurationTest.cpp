@@ -226,3 +226,38 @@ TEST(DurationTest, DateTimeIntegration) {
   EXPECT_EQ(result.day(), 17);
   EXPECT_EQ(result.hour(), 17);
 }
+
+TEST(DurationTest, FromHoursF) {
+  // Test with exact hour values
+  auto dur1 = Duration::fromHoursF(2.0);
+  EXPECT_EQ(dur1.totalSeconds(), 7200);  // 2 hours = 7200 seconds
+  EXPECT_EQ(dur1.hours(), 2);
+  EXPECT_EQ(dur1.minutes(), 0);
+  EXPECT_EQ(dur1.seconds(), 0);
+
+  // Test with fractional hour values
+  auto dur2 = Duration::fromHoursF(1.5);  // 1 hour 30 minutes
+  EXPECT_EQ(dur2.totalSeconds(), 5400);   // 1.5 hours = 5400 seconds
+  EXPECT_EQ(dur2.hours(), 1);
+  EXPECT_EQ(dur2.minutes(), 30);
+  EXPECT_EQ(dur2.seconds(), 0);
+
+  // Test with small fractional value
+  auto dur3 = Duration::fromHoursF(0.25);  // 15 minutes
+  EXPECT_EQ(dur3.totalSeconds(), 900);     // 0.25 hours = 900 seconds
+  EXPECT_EQ(dur3.hours(), 0);
+  EXPECT_EQ(dur3.minutes(), 15);
+  EXPECT_EQ(dur3.seconds(), 0);
+
+  // Test with negative value
+  auto dur4 = Duration::fromHoursF(-3.75);  // -3 hours 45 minutes
+  EXPECT_EQ(dur4.totalSeconds(), -13500);   // -3.75 hours = -13500 seconds
+
+  // Test rounding (2.501 should round to 2 hours 30 minutes 4 seconds)
+  auto dur5 = Duration::fromHoursF(2.501);
+  EXPECT_EQ(dur5.totalSeconds(),
+            9004);  // 2.501 hours ≈ 9004 seconds with rounding
+  EXPECT_EQ(dur5.hours(), 2);
+  EXPECT_EQ(dur5.minutes(), 30);
+  EXPECT_EQ(dur5.seconds(), 4);
+}

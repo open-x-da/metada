@@ -367,3 +367,43 @@ TEST(DateTimeTest, StreamInsertionOperator) {
   ss2 << "DateTime: " << dt << " is valid";
   EXPECT_EQ(ss2.str(), "DateTime: " + expected + " is valid");
 }
+
+TEST(DateTimeTest, IntegerConstructor) {
+  // Test basic case: May 7, 2025, 00UTC
+  DateTime dt1(2025050700);
+  EXPECT_EQ(dt1.year(), 2025);
+  EXPECT_EQ(dt1.month(), 5);
+  EXPECT_EQ(dt1.day(), 7);
+  EXPECT_EQ(dt1.hour(), 0);
+  EXPECT_EQ(dt1.minute(), 0);
+  EXPECT_EQ(dt1.second(), 0);
+
+  // Test with non-zero hour: December 31, 2023, 23UTC
+  DateTime dt2(2023123123);
+  EXPECT_EQ(dt2.year(), 2023);
+  EXPECT_EQ(dt2.month(), 12);
+  EXPECT_EQ(dt2.day(), 31);
+  EXPECT_EQ(dt2.hour(), 23);
+  EXPECT_EQ(dt2.minute(), 0);
+  EXPECT_EQ(dt2.second(), 0);
+
+  // Test single-digit month and day: January 1, 2024, 12UTC
+  DateTime dt3(2024010112);
+  EXPECT_EQ(dt3.year(), 2024);
+  EXPECT_EQ(dt3.month(), 1);
+  EXPECT_EQ(dt3.day(), 1);
+  EXPECT_EQ(dt3.hour(), 12);
+
+  // Verify ISO8601 formatting works correctly
+  EXPECT_EQ(dt1.iso8601(), "2025-05-07T00:00:00Z");
+  EXPECT_EQ(dt2.iso8601(), "2023-12-31T23:00:00Z");
+  EXPECT_EQ(dt3.iso8601(), "2024-01-01T12:00:00Z");
+
+  // Verify date arithmetic works with this constructor
+  DateTime dt4(2024010100);
+  DateTime nextDay = dt4 + std::chrono::hours(24);
+  EXPECT_EQ(nextDay.year(), 2024);
+  EXPECT_EQ(nextDay.month(), 1);
+  EXPECT_EQ(nextDay.day(), 2);
+  EXPECT_EQ(nextDay.hour(), 0);
+}

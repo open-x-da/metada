@@ -20,6 +20,7 @@
 
 #include "BufrFortranWrapper.hpp"
 #include "DateTime.hpp"
+#include "Duration.hpp"
 #include "ObsIOConcepts.hpp"
 
 namespace metada::backends::io {
@@ -152,9 +153,15 @@ class BufrObsIO {
         record.latitude = header[2];   // YOB
         record.elevation = header[3];  // ELV
 
-        // Time information
-        record.datetime = DateTime();    // TODO: Convert date from BUFR format
-        record.time_offset = header[4];  // DHR
+        // Time information - use DateTime constructor for date integer
+        record.datetime = DateTime(date);
+
+        // If there's a time offset, adjust the datetime using Duration
+        if (header[4] != 0.0) {
+          // Convert float DHR (hours) to Duration and adjust datetime
+          Duration dhrOffset = Duration::fromHoursF(header[4]);
+          record.datetime += dhrOffset;
+        }
 
         // Report metadata (HDR indices 6-8)
         record.report_type =

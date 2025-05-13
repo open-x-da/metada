@@ -28,6 +28,29 @@ DateTime::DateTime(int year, int month, int day, int hour, int minute,
   m_timePoint = dp + m_time.hours() + m_time.minutes() + m_time.seconds();
 }
 
+DateTime::DateTime(int datetime_int) noexcept {
+  // Parse components from YYYYMMDDHH format
+  int year = datetime_int / 1000000;
+  int month = (datetime_int / 10000) % 100;
+  int day = (datetime_int / 100) % 100;
+  int hour = datetime_int % 100;
+
+  // Create date components
+  auto y = std::chrono::year{year};
+  auto m = std::chrono::month{static_cast<unsigned>(month)};
+  auto d = std::chrono::day{static_cast<unsigned>(day)};
+  m_date = std::chrono::year_month_day{y, m, d};
+
+  // Create time components
+  m_time = std::chrono::hh_mm_ss<std::chrono::seconds>{
+      std::chrono::hours{hour} + std::chrono::minutes{0} +
+      std::chrono::seconds{0}};
+
+  // Convert to timepoint
+  auto dp = std::chrono::sys_days(m_date);
+  m_timePoint = dp + m_time.hours() + m_time.minutes() + m_time.seconds();
+}
+
 DateTime::DateTime(
     const std::chrono::system_clock::time_point& timepoint) noexcept
     : m_timePoint(timepoint) {
