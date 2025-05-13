@@ -1,3 +1,4 @@
+#include <iomanip>  // For formatting output
 #include <iostream>
 #include <string>
 #include <vector>
@@ -31,12 +32,21 @@ int main(int argc, char* argv[]) {
     // Read observation records from the configured data source
     std::vector<ObsRecord> records = obsIO.read();
 
-    // Iterate over the records and print the required information
+    // Print header
+    std::cout << std::left << std::setw(15) << "Type" << std::setw(10)
+              << "Value" << std::setw(40) << "Location"
+              << "DateTime" << std::endl;
+    std::cout << std::string(80, '-') << std::endl;
+
+    // Iterate over the records and print the information
     for (const auto& record : records) {
-      std::cout << "Type: " << record.type << ", Value: " << record.value
-                << ", Location: " << record.location
-                << ", DateTime: " << record.datetime.iso8601() << std::endl;
+      std::cout << std::left << std::setw(15) << record.type << std::setw(10)
+                << record.value << std::setw(40) << record.location
+                << record.datetime.iso8601() << std::endl;
     }
+
+    std::cout << "\nTotal records: " << records.size() << std::endl;
+
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
     return 1;

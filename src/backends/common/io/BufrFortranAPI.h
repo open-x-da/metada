@@ -29,11 +29,13 @@ void open_bufr_file_(const char* filename, int unit_num, int* status);
  * @param lunit Logical unit number for the file
  * @param subset Subset name output
  * @param idate Date output
+ * @param hdr_out Output array containing header information
  * @param iret Return code (0=OK, 1=last subset, -1=EOF)
  * @param subset_len Length of the subset string buffer (passed implicitly by
  * Fortran)
  */
-void readpb_(int* lunit, char* subset, int* idate, int* iret, int subset_len);
+void readpb_(int* lunit, char* subset, int* idate, double* hdr_out, int* iret,
+             int subset_len);
 
 /**
  * @brief Close a BUFR file

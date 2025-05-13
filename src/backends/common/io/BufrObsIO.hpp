@@ -131,17 +131,31 @@ class BufrObsIO {
       int date;
       int ret;
 
+      // Header values array for station information
+      constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
+      double header[NHR8PM] = {0.0};
+
       // Process BUFR file using readpb
-      while ((ret = bufrWrapper_->readPrepbufr(subset, date)) >= 0) {
+      while ((ret = bufrWrapper_->readPrepbufr(subset, date, header)) >= 0) {
         // Convert the subset data to ObsRecord objects
         // In a real implementation, you would access the common block data
         // populated by readpb_ and extract the observations
 
-        // Create sample records based on the subset data
+        // Create sample records based on the subset data and header information
         ObsRecord record;
         record.type = subset;
         record.value = 0.0;  // Placeholder
-        record.location = "UNKNOWN";
+
+        // Use header information if available:
+        // HDR(1) = Station ID, HDR(2) = Longitude, HDR(3) = Latitude
+        std::string stationId(reinterpret_cast<char*>(&header[0]));
+        double lon = header[1];
+        double lat = header[2];
+
+        record.location = stationId.empty()
+                              ? "UNKNOWN"
+                              : (stationId + " (Lon: " + std::to_string(lon) +
+                                 ", Lat: " + std::to_string(lat) + ")");
         record.datetime = DateTime();
         record.qc_marker = 0;
 

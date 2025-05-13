@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -106,7 +107,11 @@ class BufrFortranWrapper {
   /**
    * @brief Constructor
    */
-  BufrFortranWrapper() = default;
+  BufrFortranWrapper() {
+    // Initialize the subset buffer with spaces (Fortran-friendly)
+    memset(subsetBuffer_, ' ', 8);
+    subsetBuffer_[8] = '\0';
+  }
 
   /**
    * @brief Destructor - ensures all files are closed
@@ -166,61 +171,31 @@ class BufrFortranWrapper {
   }
 
   /**
-   * @brief Read the next subset from a BUFR file
-   *
-   * @param subset Output parameter that will contain the subset name
-   * @param date Output parameter that will contain the date
-   * @return true if a subset was read, false if end of file
-   */
-  bool readNextSubset(std::string& subset, int& date) {
-    if (!isOpen_) {
-      throw std::runtime_error("BUFR file not open");
-    }
-
-    // Allocate buffers for Fortran
-    char subsetBuffer[9] = {0};  // Typically 8 chars plus null terminator
-    int idate = 0;
-    int iret = 0;
-
-    // Call the Fortran function
-    readpb_(&unitNumber_, subsetBuffer, &idate, &iret,
-            sizeof(subsetBuffer) - 1);
-
-    // Check for EOF
-    if (iret != 0) {
-      return false;
-    }
-
-    // Copy results to output parameters
-    subset = std::string(subsetBuffer);
-    date = idate;
-
-    return true;
-  }
-
-  /**
    * @brief Read and process the next station report from a PREPBUFR file
    *
    * @param subset Output parameter that will contain the subset name
    * @param date Output parameter that will contain the date
+   * @param header Output parameter that will contain the header data
    * @return int 0 if OK, 1 if last subset, -1 if EOF
    */
-  int readPrepbufr(std::string& subset, int& date) {
+  int readPrepbufr(std::string& subset, int& date, double* header = nullptr) {
     if (!isOpen_) {
       throw std::runtime_error("BUFR file not open");
     }
 
-    // Allocate buffers for Fortran
-    char subsetBuffer[9] = {0};  // Typically 8 chars plus null terminator
     int idate = 0;
     int iret = 0;
 
-    // Call the Fortran function
-    readpb_(&unitNumber_, subsetBuffer, &idate, &iret,
-            sizeof(subsetBuffer) - 1);
+    // Create a temporary header buffer if caller didn't provide one
+    constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
+    double tempHeader[NHR8PM] = {0.0};
+    double* headerPtr = header ? header : tempHeader;
+
+    // Call the Fortran function - using persistent subsetBuffer_
+    readpb_(&unitNumber_, subsetBuffer_, &idate, headerPtr, &iret, 8);
 
     // Copy results to output parameters
-    subset = std::string(subsetBuffer);
+    subset = std::string(subsetBuffer_);
     date = idate;
 
     return iret;
@@ -256,6 +231,7 @@ class BufrFortranWrapper {
   int tableUnit_ = -1;
   bool isOpen_ = false;
   std::string filename_;
+  char subsetBuffer_[9];  // Persistent buffer for Fortran string exchange
 };
 
 }  // namespace metada::backends::io

@@ -1,6 +1,6 @@
 C-----------------------------------------------------------------------
 C-----------------------------------------------------------------------
-        SUBROUTINE READPB  ( lunit, subset, idate, iret )
+        SUBROUTINE READPB  ( lunit, subset, idate, hdr_out, iret )
 C
 C*      This subroutine will read and combine the mass and wind subsets
 C*      of the next station report in the prepbufr file.  It is styled
@@ -93,6 +93,8 @@ C*
         EQUIVALENCE     ( r8sid, csid ), ( r8sid2, csid2 )
 C*
         SAVE            match, subst2, idate2
+
+        REAL*8          hdr_out ( NHR8PM )  ! Output parameter for header data
 C-----------------------------------------------------------------------
         iret = 0
 C*
@@ -119,6 +121,11 @@ C*
         DO ii = 1, MXR8VT
             CALL UFBEVN  ( lunit, evns ( 1, 1, 1, ii ), MXR8PM, MXR8LV,
      +                     MXR8VN, nlev, ostr (ii) )
+        END DO
+
+C*      Copy the header data to the output parameter
+        DO ii = 1, NHR8PM
+            hdr_out(ii) = hdr(ii)
         END DO
 C
 C*      Now, advance the subset pointer to the following subset and
