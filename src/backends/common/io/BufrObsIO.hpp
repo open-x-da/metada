@@ -17,7 +17,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -30,7 +29,12 @@ namespace metada::backends::io {
 
 using ObsRecord = framework::ObsRecord;
 
-// Helper function for comparing doubles with BUFR missing value
+/**
+ * @brief Helper function for comparing doubles with BUFR missing value
+ *
+ * @param value The value to check
+ * @return true if the value is not a BUFR missing value or NaN
+ */
 inline bool isValidValue(double value) {
   // Use machine epsilon from standard library
   const double epsilon = std::numeric_limits<double>::epsilon() * 100.0;
@@ -49,6 +53,9 @@ inline bool isValidValue(double value) {
  *
  * BUFR is a binary format standardized by the World Meteorological Organization
  * (WMO) for the representation and exchange of meteorological data.
+ *
+ * @tparam ConfigBackend Configuration backend type that provides access to
+ * configuration parameters
  */
 template <typename ConfigBackend>
 class BufrObsIO {
@@ -69,7 +76,6 @@ class BufrObsIO {
    * @param config Configuration parameters for BUFR processing
    */
   explicit BufrObsIO(ConfigBackend&& config) : config_(std::move(config)) {
-    // Parse and store configuration parameters
     // Extract filename from config
     filename_ = config_.Get("filename").asString();
     bufrWrapper_ = std::make_unique<BufrFortranWrapper>();
@@ -133,143 +139,13 @@ class BufrObsIO {
    * @throws std::runtime_error If the data cannot be read or parsed
    */
   std::vector<ObsRecord> read() {
-    // Create a vector to hold the observation records
     std::vector<ObsRecord> records;
     records.reserve(100);  // Pre-allocate space to avoid reallocations
 
     try {
-      // Open the BUFR file using the Fortran wrapper
-      bufrWrapper_->open(filename_, 'r');
-
-      // Read subsets until the end of file is reached
-      std::string subset;
-      int date;
-      int ret;
-      int nlev;
-
-      // Reuse the same ObsRecord to avoid constructor calls
-      ObsRecord record;
-      char stid[9] = {0};  // 8 chars + null terminator
-
-      // Header values array for station information
-      constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
-      double header[NHR8PM] = {0.0};
-
-      // Allocate an array for events data
-      const int evnsSize = MXR8PM * MXR8LV * MXR8VN * MXR8VT;
-      std::unique_ptr<double[]> events(new double[evnsSize]());
-
-      // Process BUFR file using readpb
-      while ((ret = bufrWrapper_->readPrepbufr(subset, date, header,
-                                               events.get(), &nlev)) >= 0) {
-        // Basic observation info
-        record.type = subset;
-
-        // Station information (HDR indices 1-4)
-        std::memcpy(stid, &header[0], 8);
-        record.station_id = stid;
-        record.longitude = header[1];  // XOB
-        record.latitude = header[2];   // YOB
-        record.elevation = header[3];  // ELV
-
-        // Time information - use DateTime constructor for date integer
-        record.datetime = DateTime(date);
-
-        // If there's a time offset, adjust the datetime using Duration
-        if (header[4] != 0.0) {
-          record.datetime += Duration::fromHoursF(header[4]);
-        }
-
-        // Report metadata (HDR indices 6-8)
-        record.report_type = std::to_string(static_cast<int>(header[5]));
-        record.input_report_type = std::to_string(static_cast<int>(header[6]));
-        record.instrument_type = std::to_string(static_cast<int>(header[7]));
-
-        // Process each level of data
-        for (int lv = 1; lv <= nlev; ++lv) {
-          // Get observation values (first event, ii=1) for this level
-          // kk=1: Pressure, kk=2: Humidity, kk=3: Temperature, kk=4: Height,
-          // kk=5: U-wind, kk=6: V-wind
-          double pressure =
-              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 1);
-          if (isValidValue(pressure)) {
-            ObsRecord levelRecord = record;
-            levelRecord.type = "PRES";
-            levelRecord.value = pressure;
-            double pqm =
-                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 1);
-            levelRecord.qc_marker = static_cast<std::size_t>(pqm);
-            records.emplace_back(std::move(levelRecord));
-            continue;
-          }
-          double humidity =
-              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 2);
-          if (isValidValue(humidity)) {
-            ObsRecord levelRecord = record;
-            levelRecord.type = "HUMID";
-            levelRecord.value = humidity;
-            double qqm =
-                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 2);
-            levelRecord.qc_marker = static_cast<std::size_t>(qqm);
-            records.emplace_back(std::move(levelRecord));
-            continue;
-          }
-          double temp =
-              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 3);
-          if (isValidValue(temp)) {
-            ObsRecord levelRecord = record;
-            levelRecord.type = "TEMP";
-            levelRecord.value = temp;
-            double tqm =
-                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 3);
-            levelRecord.qc_marker = static_cast<std::size_t>(tqm);
-            records.emplace_back(std::move(levelRecord));
-            continue;
-          }
-          double height =
-              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 4);
-          if (isValidValue(height)) {
-            ObsRecord levelRecord = record;
-            levelRecord.type = "HEIGHT";
-            levelRecord.value = height;
-            double zqm =
-                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 4);
-            levelRecord.qc_marker = static_cast<std::size_t>(zqm);
-            records.emplace_back(std::move(levelRecord));
-            continue;
-          }
-          double uwind =
-              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 5);
-          if (isValidValue(uwind)) {
-            ObsRecord levelRecord = record;
-            levelRecord.type = "UWIND";
-            levelRecord.value = uwind;
-            double wqm =
-                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 5);
-            levelRecord.qc_marker = static_cast<std::size_t>(wqm);
-            records.emplace_back(std::move(levelRecord));
-            continue;
-          }
-          double vwind =
-              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 6);
-          if (isValidValue(vwind)) {
-            ObsRecord levelRecord = record;
-            levelRecord.type = "VWIND";
-            levelRecord.value = vwind;
-            double wqm =
-                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 6);
-            levelRecord.qc_marker = static_cast<std::size_t>(wqm);
-            records.emplace_back(std::move(levelRecord));
-            continue;
-          }
-        }
-
-        // If this is the last subset, break
-        if (ret == 1) break;
-      }
-
-      // Close the BUFR file
-      bufrWrapper_->close();
+      openBufrFile('r');
+      records = readBufrRecords();
+      closeBufrFile();
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to read BUFR data: " +
                                std::string(e.what()));
@@ -286,18 +162,15 @@ class BufrObsIO {
    *
    * @param records Vector of observation records to write
    * @throws std::runtime_error If writing fails
+   *
+   * @note Current implementation is a placeholder. Actual BUFR encoding
+   * requires implementation of the appropriate BUFR encoding API calls.
    */
   void write(const std::vector<ObsRecord>& records) {
-    // Placeholder implementation
     try {
-      // Open the BUFR file for writing
-      bufrWrapper_->open(filename_, 'w');
-
-      // In a real implementation, would encode each record into BUFR format
-      // using the appropriate BUFR API functions
-
-      // Close the BUFR file
-      bufrWrapper_->close();
+      openBufrFile('w');
+      writeBufrRecords(records);
+      closeBufrFile();
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to write BUFR data: " +
                                std::string(e.what()));
@@ -305,12 +178,161 @@ class BufrObsIO {
   }
 
  private:
+  /**
+   * @brief Open the BUFR file for reading or writing
+   *
+   * @param mode File access mode: 'r' for reading, 'w' for writing
+   */
+  void openBufrFile(char mode) { bufrWrapper_->open(filename_, mode); }
+
+  /**
+   * @brief Close the BUFR file
+   */
+  void closeBufrFile() { bufrWrapper_->close(); }
+
+  /**
+   * @brief Read and process all records from a BUFR file
+   *
+   * @return Vector of observation records
+   */
+  std::vector<ObsRecord> readBufrRecords() {
+    std::vector<ObsRecord> records;
+
+    // Read subsets until the end of file is reached
+    std::string subset;
+    int date;
+    int ret;
+    int nlev;
+
+    // Reuse the same ObsRecord to avoid constructor calls
+    ObsRecord record;
+    char stid[9] = {0};  // 8 chars + null terminator
+
+    // Header values array for station information
+    double header[NHR8PM] = {0.0};
+
+    // Allocate an array for events data
+    const int evnsSize = MXR8PM * MXR8LV * MXR8VN * MXR8VT;
+    std::unique_ptr<double[]> events(new double[evnsSize]());
+
+    // Process BUFR file using readpb
+    while ((ret = bufrWrapper_->readPrepbufr(subset, date, header, events.get(),
+                                             &nlev)) >= 0) {
+      // Populate base record information
+      populateBaseRecord(record, subset, date, header, stid);
+
+      // Process each level of data
+      processLevels(records, record, events.get(), nlev);
+
+      // If this is the last subset, break
+      if (ret == 1) break;
+    }
+
+    return records;
+  }
+
+  /**
+   * @brief Populate basic record information from BUFR header
+   *
+   * @param record The record to populate
+   * @param subset The BUFR subset identifier
+   * @param date The observation date
+   * @param header The BUFR header array
+   * @param stid Buffer to store station ID
+   */
+  void populateBaseRecord(ObsRecord& record, const std::string& subset,
+                          int date, const double header[], char* stid) {
+    // Basic observation info
+    record.type = subset;
+
+    // Station information (HDR indices 1-4)
+    std::memcpy(stid, &header[0], 8);
+    record.station_id = stid;
+    record.longitude = header[1];  // XOB
+    record.latitude = header[2];   // YOB
+    record.elevation = header[3];  // ELV
+
+    // Time information - use DateTime constructor for date integer
+    record.datetime = DateTime(date);
+
+    // If there's a time offset, adjust the datetime using Duration
+    if (header[4] != 0.0) {
+      record.datetime += Duration::fromHoursF(header[4]);
+    }
+
+    // Report metadata (HDR indices 6-8)
+    record.report_type = std::to_string(static_cast<int>(header[5]));
+    record.input_report_type = std::to_string(static_cast<int>(header[6]));
+    record.instrument_type = std::to_string(static_cast<int>(header[7]));
+  }
+
+  /**
+   * @brief Process all observation levels from BUFR data
+   *
+   * @param records Vector to store the processed records
+   * @param baseRecord Base record with common information
+   * @param events Events data array
+   * @param nlev Number of levels in the data
+   */
+  void processLevels(std::vector<ObsRecord>& records,
+                     const ObsRecord& baseRecord, double* events, int nlev) {
+    // Process each level of data
+    for (int lv = 1; lv <= nlev; ++lv) {
+      processObservationType(records, baseRecord, events, lv, 1, "PRES");
+      processObservationType(records, baseRecord, events, lv, 2, "HUMID");
+      processObservationType(records, baseRecord, events, lv, 3, "TEMP");
+      processObservationType(records, baseRecord, events, lv, 4, "HEIGHT");
+      processObservationType(records, baseRecord, events, lv, 5, "UWIND");
+      processObservationType(records, baseRecord, events, lv, 6, "VWIND");
+    }
+  }
+
+  /**
+   * @brief Process a specific observation type from BUFR data
+   *
+   * @param records Vector to store the processed records
+   * @param baseRecord Base record with common information
+   * @param events Events data array
+   * @param lv Level index
+   * @param kk Variable type index
+   * @param typeName Name of the observation type
+   */
+  void processObservationType(std::vector<ObsRecord>& records,
+                              const ObsRecord& baseRecord, double* events,
+                              int lv, int kk, const std::string& typeName) {
+    double value = BufrFortranWrapper::getEvnsValue(events, 1, lv, 1, kk);
+    if (isValidValue(value)) {
+      ObsRecord levelRecord = baseRecord;
+      levelRecord.type = typeName;
+      levelRecord.value = value;
+      double qm = BufrFortranWrapper::getEvnsValue(events, 2, lv, 1, kk);
+      levelRecord.qc_marker = static_cast<std::size_t>(qm);
+      records.emplace_back(std::move(levelRecord));
+    }
+  }
+
+  /**
+   * @brief Write records to a BUFR file
+   *
+   * @param records Records to write
+   *
+   * @note Current implementation is a placeholder
+   */
+  void writeBufrRecords(const std::vector<ObsRecord>& records) {
+    // In a real implementation, would encode each record into BUFR format
+    // using the appropriate BUFR API functions
+  }
+
   ConfigBackend config_;
   std::string filename_;  // Store the filename from config
   std::unique_ptr<BufrFortranWrapper> bufrWrapper_;
 };
 
-// Static assertion to verify the backend meets the concept requirements
+/**
+ * @brief Static assertion to verify the backend meets the concept requirements
+ *
+ * @tparam T Configuration backend type
+ */
 template <typename T>
 struct BufrObsIOConceptCheck {
   static_assert(framework::ObsIOBackendImpl<BufrObsIO<T>, T>,

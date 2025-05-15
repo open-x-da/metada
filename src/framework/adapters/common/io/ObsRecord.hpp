@@ -39,8 +39,6 @@ struct ObsRecord {
 
   // Quality control information
   std::size_t qc_marker;  ///< Quality control marker/flag
-  std::optional<std::string>
-      error_message;  ///< Optional error message or additional information
 };
 
 /**
@@ -51,10 +49,11 @@ struct ObsRecord {
  * @return std::ostream& Reference to the output stream
  */
 inline std::ostream& operator<<(std::ostream& os, const ObsRecord& record) {
-  os << std::left << std::setw(15) << record.type << std::setw(10)
-     << record.value << std::setw(15) << record.station_id << std::setw(10)
-     << record.longitude << std::setw(10) << record.latitude << std::setw(10)
-     << record.elevation << record.datetime.iso8601();
+  os << std::left << std::setw(15) << record.report_type << std::setw(15)
+     << record.station_id << std::setw(10) << record.longitude << std::setw(10)
+     << record.latitude << std::setw(10) << record.elevation
+     << record.datetime.iso8601() << std::setw(15) << record.type
+     << std::setw(10) << record.value;
   return os;
 }
 

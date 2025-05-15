@@ -274,11 +274,6 @@ class BufrFortranWrapper {
     return events[idx];
   }
 
-  /**
-   * @brief Get the current number of levels from the last read
-   */
-  int getNumLevels() const { return tempNlev_; }
-
  private:
   int unitNumber_ = -1;
   int tableUnit_ = -1;
