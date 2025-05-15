@@ -1,15 +1,31 @@
-# Find required dependencies
-metada_find_package(HDF5 Fortran)
-metada_find_package(netCDF Fortran)
-metada_find_package(CURL)
+cmake_minimum_required(VERSION 3.12)
+project(MACOM_MODEL LANGUAGES Fortran)
 
+# # Find required dependencies
+# metada_find_package(HDF5 Fortran)
+# metada_find_package(netCDF Fortran)
+# metada_find_package(CURL)
 
-set(MSYS2_PREFIX "/mingw64")
-set(ZLIB_LIB ${MSYS2_PREFIX}/lib/libz.a)
-set(SZIP_LIB ${MSYS2_PREFIX}/lib/libsz.a)
-set(MPI_LIB  ${MSYS2_PREFIX}/lib/libmsmpi.a)
+# find_package(HDF5 Fortran REQUIRED)
+# find_package(netCDF Fortran REQUIRED)
+find_package(CURL REQUIRED)
 
-set(COMMON_INCLUDE ${MSYS2_PREFIX}/include)
+set(ONEAPI_ROOT "/mingw64")
+set(ONEAPI_ROOT "C:/msys64/mingw64")
+set(NETCDF_ROOT "${ONEAPI_ROOT}")
+set(HDF5_ROOT "${ONEAPI_ROOT}")
+set(SZIP_ROOT "${ONEAPI_ROOT}")
+set(ZLIB_ROOT "${ONEAPI_ROOT}")
+
+set(NETCDF_C_LIB "${NETCDF_ROOT}/lib/libnetcdf.a")
+set(NETCDF_F_LIB "${NETCDF_ROOT}/lib/libnetcdff.dll.a")
+set(HDF5_C_LIB "${HDF5_ROOT}/lib/libhdf5.a")
+set(HDF5_HL_LIB "${HDF5_ROOT}/lib/libhdf5_hl.a")
+set(SZIP_LIB "${SZIP_ROOT}/lib/libsz.a")
+set(ZLIB_LIB "${ZLIB_ROOT}/lib/libz.a")
+set(MPI_LIB  "${ONEAPI_ROOT}/lib/libmsmpi.dll.a")
+
+set(COMMON_INCLUDE ${ONEAPI_ROOT}/include)
 
 # CAT Preprocessing Flags
 option(SEAICE_VARIABLE_SALINITY "Variable salinity" ON)
@@ -70,20 +86,16 @@ add_executable(macom_run ${MACOM_MAIN_SOURCE} ${MACOM_FORTRAN_SOURCES})
 # 使用直接路径而不是目标
 target_link_libraries(macom_run
     PUBLIC
-        ${MSYS2_PREFIX}/lib/libhdf5.a
-        ${MSYS2_PREFIX}/lib/libhdf5_hl.a
-        ${MSYS2_PREFIX}/lib/libnetcdf.a
-        ${MSYS2_PREFIX}/lib/libnetcdff.a
+        ${NETCDF_F_LIB}
+        ${NETCDF_C_LIB}
         ${SZIP_LIB}
+        ${HDF5_HL_LIB}
+        ${HDF5_C_LIB}
         ${ZLIB_LIB}
-        ${CURL_LIBRARIES}
         ${MPI_LIB}
-        -lsz
-        -lmpi
-        -lmpifort
-        -lcurl
-        -ldl
-        -lm
+        curl
+        dl
+        m
 )
 
 target_include_directories(macom_run
@@ -91,13 +103,4 @@ target_include_directories(macom_run
         $<BUILD_INTERFACE:${COMMON_INCLUDE}>
         ${CMAKE_CURRENT_SOURCE_DIR}/modules
 )
-
-# Set output directory
-set_target_properties(macom_run
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-
-
 
