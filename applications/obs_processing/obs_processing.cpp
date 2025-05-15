@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
     //     std::cout << record << std::endl;
     //   }
     // }
-    std::cout << "\nTotal records: " << records.size() << std::endl;
+    logger.Info() << "\nTotal records: " << records.size();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
     return 1;

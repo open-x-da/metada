@@ -13,7 +13,9 @@
 #pragma once
 
 #include <chrono>
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -27,6 +29,16 @@
 namespace metada::backends::io {
 
 using ObsRecord = framework::ObsRecord;
+
+// Helper function for comparing doubles with BUFR missing value
+inline bool isValidValue(double value) {
+  // Use machine epsilon from standard library
+  const double epsilon = std::numeric_limits<double>::epsilon() * 100.0;
+  // Scale factor applied to handle typical meteorological data precision needs
+  return (std::abs(value - R8BFMS) > std::abs(R8BFMS) * epsilon) &&
+         !std::isnan(value);
+}
+
 /**
  * @brief Backend implementation for handling BUFR format observation I/O
  *
@@ -133,6 +145,7 @@ class BufrObsIO {
       std::string subset;
       int date;
       int ret;
+      int nlev;
 
       // Reuse the same ObsRecord to avoid constructor calls
       ObsRecord record;
@@ -142,11 +155,15 @@ class BufrObsIO {
       constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
       double header[NHR8PM] = {0.0};
 
+      // Allocate an array for events data
+      const int evnsSize = MXR8PM * MXR8LV * MXR8VN * MXR8VT;
+      std::unique_ptr<double[]> events(new double[evnsSize]());
+
       // Process BUFR file using readpb
-      while ((ret = bufrWrapper_->readPrepbufr(subset, date, header)) >= 0) {
+      while ((ret = bufrWrapper_->readPrepbufr(subset, date, header,
+                                               events.get(), &nlev)) >= 0) {
         // Basic observation info
         record.type = subset;
-        record.value = 0.0;  // Placeholder
 
         // Station information (HDR indices 1-4)
         std::memcpy(stid, &header[0], 8);
@@ -168,17 +185,84 @@ class BufrObsIO {
         record.input_report_type = std::to_string(static_cast<int>(header[6]));
         record.instrument_type = std::to_string(static_cast<int>(header[7]));
 
-        // Quality control
-        record.qc_marker = 0;  // Default QC marker
-
-        // std::cout << record << std::endl;
-
-        // Add record to the collection using move semantics
-        records.emplace_back(std::move(record));
-
-        // Since we moved from record, we need to reset it for the next
-        // iteration
-        record = ObsRecord();
+        // Process each level of data
+        for (int lv = 1; lv <= nlev; ++lv) {
+          // Get observation values (first event, ii=1) for this level
+          // kk=1: Pressure, kk=2: Humidity, kk=3: Temperature, kk=4: Height,
+          // kk=5: U-wind, kk=6: V-wind
+          double pressure =
+              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 1);
+          if (isValidValue(pressure)) {
+            ObsRecord levelRecord = record;
+            levelRecord.type = "PRES";
+            levelRecord.value = pressure;
+            double pqm =
+                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 1);
+            levelRecord.qc_marker = static_cast<std::size_t>(pqm);
+            records.emplace_back(std::move(levelRecord));
+            continue;
+          }
+          double humidity =
+              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 2);
+          if (isValidValue(humidity)) {
+            ObsRecord levelRecord = record;
+            levelRecord.type = "HUMID";
+            levelRecord.value = humidity;
+            double qqm =
+                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 2);
+            levelRecord.qc_marker = static_cast<std::size_t>(qqm);
+            records.emplace_back(std::move(levelRecord));
+            continue;
+          }
+          double temp =
+              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 3);
+          if (isValidValue(temp)) {
+            ObsRecord levelRecord = record;
+            levelRecord.type = "TEMP";
+            levelRecord.value = temp;
+            double tqm =
+                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 3);
+            levelRecord.qc_marker = static_cast<std::size_t>(tqm);
+            records.emplace_back(std::move(levelRecord));
+            continue;
+          }
+          double height =
+              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 4);
+          if (isValidValue(height)) {
+            ObsRecord levelRecord = record;
+            levelRecord.type = "HEIGHT";
+            levelRecord.value = height;
+            double zqm =
+                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 4);
+            levelRecord.qc_marker = static_cast<std::size_t>(zqm);
+            records.emplace_back(std::move(levelRecord));
+            continue;
+          }
+          double uwind =
+              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 5);
+          if (isValidValue(uwind)) {
+            ObsRecord levelRecord = record;
+            levelRecord.type = "UWIND";
+            levelRecord.value = uwind;
+            double wqm =
+                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 5);
+            levelRecord.qc_marker = static_cast<std::size_t>(wqm);
+            records.emplace_back(std::move(levelRecord));
+            continue;
+          }
+          double vwind =
+              BufrFortranWrapper::getEvnsValue(events.get(), 1, lv, 1, 6);
+          if (isValidValue(vwind)) {
+            ObsRecord levelRecord = record;
+            levelRecord.type = "VWIND";
+            levelRecord.value = vwind;
+            double wqm =
+                BufrFortranWrapper::getEvnsValue(events.get(), 2, lv, 1, 6);
+            levelRecord.qc_marker = static_cast<std::size_t>(wqm);
+            records.emplace_back(std::move(levelRecord));
+            continue;
+          }
+        }
 
         // If this is the last subset, break
         if (ret == 1) break;

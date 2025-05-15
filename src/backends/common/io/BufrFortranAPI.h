@@ -30,12 +30,15 @@ void open_bufr_file_(const char* filename, int unit_num, int* status);
  * @param subset Subset name output
  * @param idate Date output
  * @param hdr_out Output array containing header information
+ * @param evns_out Output 4D array containing events data (MXR8PM x MXR8LV x
+ * MXR8VN x MXR8VT)
+ * @param nlev_out Number of levels in the report
  * @param iret Return code (0=OK, 1=last subset, -1=EOF)
  * @param subset_len Length of the subset string buffer (passed implicitly by
  * Fortran)
  */
-void readpb_(int* lunit, char* subset, int* idate, double* hdr_out, int* iret,
-             int subset_len);
+void readpb_(int* lunit, char* subset, int* idate, double* hdr_out,
+             double* evns_out, int* nlev_out, int* iret, int subset_len);
 
 /**
  * @brief Close a BUFR file

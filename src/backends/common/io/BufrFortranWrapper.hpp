@@ -12,6 +12,15 @@
 
 namespace metada::backends::io {
 
+// Constants for BUFR array dimensions from readpb.prm
+constexpr int MXR8PM = 10;   // Number of event data types
+constexpr int MXR8LV = 400;  // Maximum number of levels
+constexpr int MXR8VN = 10;   // Maximum number of event stacks
+constexpr int MXR8VT = 6;    // Number of variable types (P,Q,T,Z,U,V)
+constexpr int NHR8PM = 8;    // Number of header elements
+
+constexpr double R8BFMS = 10.0E10;  // Missing value for real*8
+
 /**
  * @brief Manages Fortran logical unit numbers to avoid conflicts
  *
@@ -114,6 +123,11 @@ class BufrFortranWrapper {
 
     // Initialize the temporary header buffer to zeros
     memset(tempHeader_, 0, sizeof(tempHeader_));
+
+    // Initialize the events buffer and level count
+    evnsSize_ = MXR8PM * MXR8LV * MXR8VN * MXR8VT;
+    tempEvns_ = new double[evnsSize_]();
+    tempNlev_ = 0;
   }
 
   /**
@@ -123,6 +137,9 @@ class BufrFortranWrapper {
     if (isOpen_) {
       close_bufr_file_(unitNumber_);
     }
+
+    // Clean up the events buffer
+    delete[] tempEvns_;
   }
 
   /**
@@ -179,21 +196,34 @@ class BufrFortranWrapper {
    * @param subset Output parameter that will contain the subset name
    * @param date Output parameter that will contain the date
    * @param header Output parameter that will contain the header data
+   * @param events Output parameter that will contain event data (can be
+   * nullptr)
+   * @param nlev Output parameter that will contain the number of levels (can be
+   * nullptr)
    * @return int 0 if OK, 1 if last subset, -1 if EOF
    */
-  int readPrepbufr(std::string& subset, int& date, double* header = nullptr) {
+  int readPrepbufr(std::string& subset, int& date, double* header = nullptr,
+                   double* events = nullptr, int* nlev = nullptr) {
     if (!isOpen_) {
       throw std::runtime_error("BUFR file not open");
     }
 
     int idate = 0;
     int iret = 0;
+    int inlev = 0;
 
     // Use the provided header or the class member
     double* headerPtr = header ? header : tempHeader_;
 
-    // Call the Fortran function - using persistent subsetBuffer_
-    readpb_(&unitNumber_, subsetBuffer_, &idate, headerPtr, &iret, 8);
+    // Use the provided events array or the class member
+    double* eventsPtr = events ? events : tempEvns_;
+
+    // Use the provided nlev or the class member
+    int* nlevPtr = nlev ? nlev : &tempNlev_;
+
+    // Call the Fortran function
+    readpb_(&unitNumber_, subsetBuffer_, &idate, headerPtr, eventsPtr, nlevPtr,
+            &iret, 8);
 
     // Copy results to output parameters
     subset = std::string(subsetBuffer_);
@@ -227,14 +257,38 @@ class BufrFortranWrapper {
    */
   int getUnitNumber() const { return unitNumber_; }
 
+  /**
+   * @brief Get the event data for a specific variable, level, and event type
+   *
+   * @param events The events array returned from readPrepbufr
+   * @param ii Event type index (1-8: OBS, QM, PGM, RSN, FCT, ANL, ERR, CAT)
+   * @param lv Level index (1-based)
+   * @param jj Event stack index (1-based)
+   * @param kk Variable type index (1-6: P, Q, T, Z, U, V)
+   * @return The event data value
+   */
+  static double getEvnsValue(const double* events, int ii, int lv, int jj,
+                             int kk) {
+    int idx = (ii - 1) + (lv - 1) * MXR8PM + (jj - 1) * MXR8PM * MXR8LV +
+              (kk - 1) * MXR8PM * MXR8LV * MXR8VN;
+    return events[idx];
+  }
+
+  /**
+   * @brief Get the current number of levels from the last read
+   */
+  int getNumLevels() const { return tempNlev_; }
+
  private:
   int unitNumber_ = -1;
   int tableUnit_ = -1;
   bool isOpen_ = false;
   std::string filename_;
-  char subsetBuffer_[9];  // Persistent buffer for Fortran string exchange
-  static constexpr int NHR8PM = 8;  // NHR8PM from readpb.prm
-  double tempHeader_[NHR8PM];       // Persistent buffer for header data
+  char subsetBuffer_[9];        // Persistent buffer for Fortran string exchange
+  double tempHeader_[NHR8PM];   // Persistent buffer for header data
+  double* tempEvns_ = nullptr;  // Persistent buffer for event data
+  int evnsSize_ = 0;            // Size of the events array
+  int tempNlev_ = 0;            // Number of levels in the current report
 };
 
 }  // namespace metada::backends::io
