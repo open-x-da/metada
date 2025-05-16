@@ -10,6 +10,7 @@ target_sources(base
         ${CMAKE_CURRENT_SOURCE_DIR}/DateTime.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Duration.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/UnitNumberManager.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/isValidValue.hpp
 )
 
 target_include_directories(base

@@ -25,11 +25,11 @@
 #include "Duration.hpp"
 #include "ObsIOConcepts.hpp"
 #include "UnitNumberManager.hpp"
+#include "isValidValue.hpp"
 
 namespace metada::backends::io {
 
 using ObsRecord = framework::ObsRecord;
-using UnitManager = framework::base::UnitNumberManager;
 
 // Constants for BUFR array dimensions from readpb.prm
 constexpr int MXR8PM = 10;   // Number of event data types
@@ -39,20 +39,6 @@ constexpr int MXR8VT = 6;    // Number of variable types (P,Q,T,Z,U,V)
 constexpr int NHR8PM = 8;    // Number of header elements
 
 constexpr double R8BFMS = 10.0E10;  // Missing value for real*8
-
-/**
- * @brief Helper function for comparing doubles with BUFR missing value
- *
- * @param value The value to check
- * @return true if the value is not a BUFR missing value or NaN
- */
-inline bool isValidValue(double value) {
-  // Use machine epsilon from standard library
-  const double epsilon = std::numeric_limits<double>::epsilon() * 100.0;
-  // Scale factor applied to handle typical meteorological data precision needs
-  return (std::abs(value - R8BFMS) > std::abs(R8BFMS) * epsilon) &&
-         !std::isnan(value);
-}
 
 /**
  * @brief Backend implementation for handling BUFR format observation I/O
@@ -356,12 +342,12 @@ class BufrObsIO {
     if (isOpen_) {
       close_bufr_file_(unitNumber_);
     }
-    unitNumber_ = UnitManager::getInstance().allocate();
+    unitNumber_ = UnitNumberManager::getInstance().allocate();
     tableUnit_ = unitNumber_;
     int status = 0;
     open_bufr_file_(filename.c_str(), unitNumber_, &status);
     if (status != 0) {
-      UnitManager::getInstance().release(unitNumber_);
+      UnitNumberManager::getInstance().release(unitNumber_);
       throw std::runtime_error("Cannot open BUFR file: " + filename);
     }
     isOpen_ = true;
@@ -388,7 +374,7 @@ class BufrObsIO {
   void close() {
     if (isOpen_) {
       close_bufr_file_(unitNumber_);
-      UnitManager::getInstance().release(unitNumber_);
+      UnitNumberManager::getInstance().release(unitNumber_);
       unitNumber_ = -1;
       tableUnit_ = -1;
       isOpen_ = false;

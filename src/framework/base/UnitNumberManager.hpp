@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace metada::framework::base {
+namespace metada {
 
 /**
  * @brief Manages Fortran logical unit numbers to avoid conflicts
@@ -91,4 +91,4 @@ class UnitNumberManager {
   std::mutex mutex_;         // For thread safety
 };
 
-}  // namespace metada::framework::base
+}  // namespace metada
