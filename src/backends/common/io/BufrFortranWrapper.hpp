@@ -9,6 +9,7 @@
 #include <string>
 
 #include "BufrFortranAPI.h"
+#include "UnitNumberManager.hpp"
 
 namespace metada::backends::io {
 
@@ -20,90 +21,6 @@ constexpr int MXR8VT = 6;    // Number of variable types (P,Q,T,Z,U,V)
 constexpr int NHR8PM = 8;    // Number of header elements
 
 constexpr double R8BFMS = 10.0E10;  // Missing value for real*8
-
-/**
- * @brief Manages Fortran logical unit numbers to avoid conflicts
- *
- * This class handles allocation and deallocation of Fortran logical unit
- * numbers in a thread-safe manner, preventing conflicts when multiple files are
- * opened.
- */
-class UnitNumberManager {
- public:
-  /**
-   * @brief Get the singleton instance of the unit number manager
-   */
-  static UnitNumberManager& getInstance() {
-    static UnitNumberManager instance;
-    return instance;
-  }
-
-  /**
-   * @brief Allocate a unit number
-   *
-   * @return int An available unit number
-   * @throws std::runtime_error If no unit numbers are available
-   */
-  int allocateUnit() {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    // Look for an unused unit number
-    for (int unit = MIN_UNIT; unit <= MAX_UNIT; ++unit) {
-      if (usedUnits_.find(unit) == usedUnits_.end()) {
-        usedUnits_.insert(unit);
-        return unit;
-      }
-    }
-
-    throw std::runtime_error("No available Fortran logical unit numbers");
-  }
-
-  /**
-   * @brief Release a unit number
-   *
-   * @param unit The unit number to release
-   */
-  void releaseUnit(int unit) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    usedUnits_.erase(unit);
-  }
-
-  /**
-   * @brief Check if a unit number is in use
-   *
-   * @param unit The unit number to check
-   * @return true if the unit is in use, false otherwise
-   */
-  bool isUnitInUse(int unit) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return usedUnits_.find(unit) != usedUnits_.end();
-  }
-
-  /**
-   * @brief Manually register a unit number
-   *
-   * @param unit The unit number to register
-   */
-  void manuallyRegisterUnit(int unit) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    usedUnits_.insert(unit);
-  }
-
- private:
-  // Private constructor to ensure singleton pattern
-  UnitNumberManager() = default;
-
-  // Prevent copying
-  UnitNumberManager(const UnitNumberManager&) = delete;
-  UnitNumberManager& operator=(const UnitNumberManager&) = delete;
-
-  // Typical range of unit numbers (avoid 0, 5, 6 which are often reserved)
-  static constexpr int MIN_UNIT = 10;
-  static constexpr int MAX_UNIT = 99;
-
-  std::set<int> usedUnits_;  // Set of currently used unit numbers
-  std::mutex mutex_;         // For thread safety
-};
 
 /**
  * @brief C++ wrapper for the Fortran BUFR API
@@ -161,16 +78,19 @@ class BufrFortranWrapper {
     // Check if we need to allocate or use a specific unit number
     if (requestedUnit < 0) {
       // Auto-allocate a unit number
-      unitNumber_ = UnitNumberManager::getInstance().allocateUnit();
+      unitNumber_ = metada::framework::base::UnitNumberManager::getInstance()
+                        .allocateUnit();
     } else {
       // Use the requested unit number if available
-      if (UnitNumberManager::getInstance().isUnitInUse(requestedUnit)) {
+      if (metada::framework::base::UnitNumberManager::getInstance().isUnitInUse(
+              requestedUnit)) {
         throw std::runtime_error("Unit number " +
                                  std::to_string(requestedUnit) +
                                  " is already in use");
       }
       // Register the requested unit number
-      UnitNumberManager::getInstance().manuallyRegisterUnit(requestedUnit);
+      metada::framework::base::UnitNumberManager::getInstance()
+          .manuallyRegisterUnit(requestedUnit);
       unitNumber_ = requestedUnit;
     }
 
@@ -182,7 +102,8 @@ class BufrFortranWrapper {
 
     if (status != 0) {
       // Release the allocated unit number if opening fails
-      UnitNumberManager::getInstance().releaseUnit(unitNumber_);
+      metada::framework::base::UnitNumberManager::getInstance().releaseUnit(
+          unitNumber_);
       throw std::runtime_error("Cannot open BUFR file: " + filename);
     }
 
@@ -241,7 +162,8 @@ class BufrFortranWrapper {
       close_bufr_file_(unitNumber_);
 
       // Release the unit number back to the pool
-      UnitNumberManager::getInstance().releaseUnit(unitNumber_);
+      metada::framework::base::UnitNumberManager::getInstance().releaseUnit(
+          unitNumber_);
       unitNumber_ = -1;
       tableUnit_ = -1;
 
@@ -249,13 +171,6 @@ class BufrFortranWrapper {
       filename_.clear();
     }
   }
-
-  /**
-   * @brief Get the unit number currently in use
-   *
-   * @return int The current unit number, or -1 if no file is open
-   */
-  int getUnitNumber() const { return unitNumber_; }
 
   /**
    * @brief Get the event data for a specific variable, level, and event type

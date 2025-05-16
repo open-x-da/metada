@@ -60,6 +60,7 @@ configure_file(
 target_link_libraries(common_io
     PUBLIC
         bufr::bufr_4
+        metada::base
 )
 
 # Add format target
