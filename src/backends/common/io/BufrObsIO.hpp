@@ -31,15 +31,6 @@ namespace metada::backends::io {
 
 using ObsRecord = framework::ObsRecord;
 
-// Constants for BUFR array dimensions from readpb.prm
-constexpr int MXR8PM = 10;   // Number of event data types
-constexpr int MXR8LV = 400;  // Maximum number of levels
-constexpr int MXR8VN = 10;   // Maximum number of event stacks
-constexpr int MXR8VT = 6;    // Number of variable types (P,Q,T,Z,U,V)
-constexpr int NHR8PM = 8;    // Number of header elements
-
-constexpr double R8BFMS = 10.0E10;  // Missing value for real*8
-
 /**
  * @brief Backend implementation for handling BUFR format observation I/O
  *
@@ -200,6 +191,13 @@ class BufrObsIO {
   }
 
  private:
+  // Constants for BUFR array dimensions from readpb.prm
+  static constexpr int MXR8PM = 10;   // Number of event data types
+  static constexpr int MXR8LV = 400;  // Maximum number of levels
+  static constexpr int MXR8VN = 10;   // Maximum number of event stacks
+  static constexpr int MXR8VT = 6;    // Number of variable types (P,Q,T,Z,U,V)
+  static constexpr int NHR8PM = 8;    // Number of header elements
+
   /**
    * @brief Read and process all records from a BUFR file
    *
