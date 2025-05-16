@@ -20,14 +20,25 @@
 #include <string>
 #include <vector>
 
-#include "BufrFortranWrapper.hpp"
+#include "BufrFortranAPI.h"
 #include "DateTime.hpp"
 #include "Duration.hpp"
 #include "ObsIOConcepts.hpp"
+#include "UnitNumberManager.hpp"
 
 namespace metada::backends::io {
 
 using ObsRecord = framework::ObsRecord;
+using UnitManager = framework::base::UnitNumberManager;
+
+// Constants for BUFR array dimensions from readpb.prm
+constexpr int MXR8PM = 10;   // Number of event data types
+constexpr int MXR8LV = 400;  // Maximum number of levels
+constexpr int MXR8VN = 10;   // Maximum number of event stacks
+constexpr int MXR8VT = 6;    // Number of variable types (P,Q,T,Z,U,V)
+constexpr int NHR8PM = 8;    // Number of header elements
+
+constexpr double R8BFMS = 10.0E10;  // Missing value for real*8
 
 /**
  * @brief Helper function for comparing doubles with BUFR missing value
@@ -76,9 +87,14 @@ class BufrObsIO {
    * @param config Configuration parameters for BUFR processing
    */
   explicit BufrObsIO(ConfigBackend&& config) : config_(std::move(config)) {
-    // Extract filename from config
     filename_ = config_.Get("filename").asString();
-    bufrWrapper_ = std::make_unique<BufrFortranWrapper>();
+    // Initialize Fortran buffer fields
+    memset(subsetBuffer_, ' ', 8);
+    subsetBuffer_[8] = '\0';
+    memset(tempHeader_, 0, sizeof(tempHeader_));
+    evnsSize_ = MXR8PM * MXR8LV * MXR8VN * MXR8VT;
+    tempEvns_ = new double[evnsSize_]();
+    tempNlev_ = 0;
   }
 
   /**
@@ -105,7 +121,15 @@ class BufrObsIO {
   BufrObsIO(BufrObsIO&& other) noexcept
       : config_(std::move(other.config_)),
         filename_(std::move(other.filename_)),
-        bufrWrapper_(std::move(other.bufrWrapper_)) {}
+        unitNumber_(other.unitNumber_),
+        tableUnit_(other.tableUnit_),
+        isOpen_(other.isOpen_),
+        tempEvns_(other.tempEvns_),
+        evnsSize_(other.evnsSize_),
+        tempNlev_(other.tempNlev_) {
+    std::memcpy(subsetBuffer_, other.subsetBuffer_, sizeof(subsetBuffer_));
+    std::memcpy(tempHeader_, other.tempHeader_, sizeof(tempHeader_));
+  }
 
   /**
    * @brief Move assignment
@@ -119,7 +143,14 @@ class BufrObsIO {
     if (this != &other) {
       config_ = std::move(other.config_);
       filename_ = std::move(other.filename_);
-      bufrWrapper_ = std::move(other.bufrWrapper_);
+      unitNumber_ = other.unitNumber_;
+      tableUnit_ = other.tableUnit_;
+      isOpen_ = other.isOpen_;
+      std::memcpy(subsetBuffer_, other.subsetBuffer_, sizeof(subsetBuffer_));
+      std::memcpy(tempHeader_, other.tempHeader_, sizeof(tempHeader_));
+      tempEvns_ = other.tempEvns_;
+      evnsSize_ = other.evnsSize_;
+      tempNlev_ = other.tempNlev_;
     }
     return *this;
   }
@@ -127,7 +158,12 @@ class BufrObsIO {
   /**
    * @brief Destructor
    */
-  ~BufrObsIO() = default;
+  ~BufrObsIO() {
+    if (isOpen_) {
+      close_bufr_file_(unitNumber_);
+    }
+    delete[] tempEvns_;
+  }
 
   /**
    * @brief Read observations from the configured data source
@@ -143,9 +179,9 @@ class BufrObsIO {
     records.reserve(100);  // Pre-allocate space to avoid reallocations
 
     try {
-      openBufrFile('r');
+      open(filename_);
       records = readBufrRecords();
-      closeBufrFile();
+      close();
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to read BUFR data: " +
                                std::string(e.what()));
@@ -168,9 +204,9 @@ class BufrObsIO {
    */
   void write(const std::vector<ObsRecord>& records) {
     try {
-      openBufrFile('w');
+      open(filename_);
       writeBufrRecords(records);
-      closeBufrFile();
+      close();
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to write BUFR data: " +
                                std::string(e.what()));
@@ -178,18 +214,6 @@ class BufrObsIO {
   }
 
  private:
-  /**
-   * @brief Open the BUFR file for reading or writing
-   *
-   * @param mode File access mode: 'r' for reading, 'w' for writing
-   */
-  void openBufrFile(char mode) { bufrWrapper_->open(filename_, mode); }
-
-  /**
-   * @brief Close the BUFR file
-   */
-  void closeBufrFile() { bufrWrapper_->close(); }
-
   /**
    * @brief Read and process all records from a BUFR file
    *
@@ -211,18 +235,13 @@ class BufrObsIO {
     // Header values array for station information
     double header[NHR8PM] = {0.0};
 
-    // Allocate an array for events data
-    const int evnsSize = MXR8PM * MXR8LV * MXR8VN * MXR8VT;
-    std::unique_ptr<double[]> events(new double[evnsSize]());
-
     // Process BUFR file using readpb
-    while ((ret = bufrWrapper_->readPrepbufr(subset, date, header, events.get(),
-                                             &nlev)) >= 0) {
+    while ((ret = readPrepbufr(subset, date, header, tempEvns_, &nlev)) >= 0) {
       // Populate base record information
       populateBaseRecord(record, subset, date, header, stid);
 
       // Process each level of data
-      processLevels(records, record, events.get(), nlev);
+      processLevels(records, record, nlev);
 
       // If this is the last subset, break
       if (ret == 1) break;
@@ -271,19 +290,18 @@ class BufrObsIO {
    *
    * @param records Vector to store the processed records
    * @param baseRecord Base record with common information
-   * @param events Events data array
    * @param nlev Number of levels in the data
    */
   void processLevels(std::vector<ObsRecord>& records,
-                     const ObsRecord& baseRecord, double* events, int nlev) {
+                     const ObsRecord& baseRecord, int nlev) {
     // Process each level of data
     for (int lv = 1; lv <= nlev; ++lv) {
-      processObservationType(records, baseRecord, events, lv, 1, "PRES");
-      processObservationType(records, baseRecord, events, lv, 2, "HUMID");
-      processObservationType(records, baseRecord, events, lv, 3, "TEMP");
-      processObservationType(records, baseRecord, events, lv, 4, "HEIGHT");
-      processObservationType(records, baseRecord, events, lv, 5, "UWIND");
-      processObservationType(records, baseRecord, events, lv, 6, "VWIND");
+      processObservationType(records, baseRecord, lv, 1, "PRES");
+      processObservationType(records, baseRecord, lv, 2, "HUMID");
+      processObservationType(records, baseRecord, lv, 3, "TEMP");
+      processObservationType(records, baseRecord, lv, 4, "HEIGHT");
+      processObservationType(records, baseRecord, lv, 5, "UWIND");
+      processObservationType(records, baseRecord, lv, 6, "VWIND");
     }
   }
 
@@ -292,20 +310,20 @@ class BufrObsIO {
    *
    * @param records Vector to store the processed records
    * @param baseRecord Base record with common information
-   * @param events Events data array
+   * @param header Header array
    * @param lv Level index
    * @param kk Variable type index
    * @param typeName Name of the observation type
    */
   void processObservationType(std::vector<ObsRecord>& records,
-                              const ObsRecord& baseRecord, double* events,
-                              int lv, int kk, const std::string& typeName) {
-    double value = BufrFortranWrapper::getEvnsValue(events, 1, lv, 1, kk);
+                              const ObsRecord& baseRecord, int lv, int kk,
+                              const std::string& typeName) {
+    double value = getEvnsValue(tempEvns_, 1, lv, 1, kk);
     if (isValidValue(value)) {
       ObsRecord levelRecord = baseRecord;
       levelRecord.type = typeName;
       levelRecord.value = value;
-      double qm = BufrFortranWrapper::getEvnsValue(events, 2, lv, 1, kk);
+      double qm = getEvnsValue(tempEvns_, 2, lv, 1, kk);
       levelRecord.qc_marker = static_cast<std::size_t>(qm);
       records.emplace_back(std::move(levelRecord));
     }
@@ -324,8 +342,66 @@ class BufrObsIO {
   }
 
   ConfigBackend config_;
-  std::string filename_;  // Store the filename from config
-  std::unique_ptr<BufrFortranWrapper> bufrWrapper_;
+  int unitNumber_ = -1;
+  int tableUnit_ = -1;
+  bool isOpen_ = false;
+  std::string filename_;
+  char subsetBuffer_[9];
+  double tempHeader_[NHR8PM];
+  double* tempEvns_ = nullptr;
+  int evnsSize_ = 0;
+  int tempNlev_ = 0;
+
+  void open(const std::string& filename) {
+    if (isOpen_) {
+      close_bufr_file_(unitNumber_);
+    }
+    unitNumber_ = UnitManager::getInstance().allocate();
+    tableUnit_ = unitNumber_;
+    int status = 0;
+    open_bufr_file_(filename.c_str(), unitNumber_, &status);
+    if (status != 0) {
+      UnitManager::getInstance().release(unitNumber_);
+      throw std::runtime_error("Cannot open BUFR file: " + filename);
+    }
+    isOpen_ = true;
+    filename_ = filename;
+  }
+
+  int readPrepbufr(std::string& subset, int& date, double* header = nullptr,
+                   double* events = nullptr, int* nlev = nullptr) {
+    if (!isOpen_) {
+      throw std::runtime_error("BUFR file not open");
+    }
+    int idate = 0;
+    int iret = 0;
+    double* headerPtr = header ? header : tempHeader_;
+    double* eventsPtr = events ? events : tempEvns_;
+    int* nlevPtr = nlev ? nlev : &tempNlev_;
+    readpb_(&unitNumber_, subsetBuffer_, &idate, headerPtr, eventsPtr, nlevPtr,
+            &iret, 8);
+    subset = std::string(subsetBuffer_);
+    date = idate;
+    return iret;
+  }
+
+  void close() {
+    if (isOpen_) {
+      close_bufr_file_(unitNumber_);
+      UnitManager::getInstance().release(unitNumber_);
+      unitNumber_ = -1;
+      tableUnit_ = -1;
+      isOpen_ = false;
+      filename_.clear();
+    }
+  }
+
+  static double getEvnsValue(const double* events, int ii, int lv, int jj,
+                             int kk) {
+    int idx = (ii - 1) + (lv - 1) * MXR8PM + (jj - 1) * MXR8PM * MXR8LV +
+              (kk - 1) * MXR8PM * MXR8LV * MXR8VN;
+    return events[idx];
+  }
 };
 
 /**

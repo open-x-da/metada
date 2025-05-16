@@ -39,7 +39,6 @@ set_source_files_properties(
 # Add C++ header files for IDE integration
 set(HEADER_FILES
     BufrFortranAPI.h
-    BufrFortranWrapper.hpp
     BufrObsIO.hpp
 )
 

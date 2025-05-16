@@ -30,7 +30,7 @@ class UnitNumberManager {
    * @return int An available unit number
    * @throws std::runtime_error If no unit numbers are available
    */
-  int allocateUnit() {
+  int allocate() {
     std::lock_guard<std::mutex> lock(mutex_);
 
     // Look for an unused unit number
@@ -49,7 +49,7 @@ class UnitNumberManager {
    *
    * @param unit The unit number to release
    */
-  void releaseUnit(int unit) {
+  void release(int unit) {
     std::lock_guard<std::mutex> lock(mutex_);
     usedUnits_.erase(unit);
   }
@@ -60,7 +60,7 @@ class UnitNumberManager {
    * @param unit The unit number to check
    * @return true if the unit is in use, false otherwise
    */
-  bool isUnitInUse(int unit) {
+  bool isInUse(int unit) {
     std::lock_guard<std::mutex> lock(mutex_);
     return usedUnits_.find(unit) != usedUnits_.end();
   }
@@ -70,7 +70,7 @@ class UnitNumberManager {
    *
    * @param unit The unit number to register
    */
-  void manuallyRegisterUnit(int unit) {
+  void manuallyRegister(int unit) {
     std::lock_guard<std::mutex> lock(mutex_);
     usedUnits_.insert(unit);
   }
