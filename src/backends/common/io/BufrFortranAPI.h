@@ -7,35 +7,34 @@ extern "C" {
 /**
  * @brief Open a BUFR file for processing
  *
- * Note: While the Fortran OPENBF function has 3 visible parameters, the 4th
- * parameter is an implicit string length parameter that Fortran automatically
- * adds for any character string arguments. This is required for proper
- * C/Fortran interoperability.
+ * @details Opens a BUFR file for reading or writing using the specified unit
+ * number. The function handles the Fortran/C interoperability layer for BUFR
+ * file operations.
  *
- * @param lunit Logical unit number for the file
- * @param io_method I/O method ('IN' for input, 'OUT' for output, etc.)
- * @param lundx Table unit number
- * @param io_method_len Length of the io_method string (passed implicitly by
- * Fortran)
+ * @param filename Path to the BUFR file to open
+ * @param unit_num Logical unit number to associate with the file
+ * @param status Output status code (0=success, non-zero=error)
+ * @throws std::runtime_error If file cannot be opened
  */
-
 void open_bufr_file_(const char* filename, int unit_num, int* status);
+
 /**
  * @brief Read and process the next station report from a PREPBUFR file
  *
- * Note: The subset_len parameter is an implicit string length parameter added
- * by Fortran.
+ * @details Reads a single station report from a PREPBUFR file, including all
+ * associated levels and variables. The function handles the Fortran/C
+ * interoperability layer for BUFR data reading.
  *
  * @param lunit Logical unit number for the file
- * @param subset Subset name output
- * @param idate Date output
- * @param hdr_out Output array containing header information
- * @param evns_out Output 4D array containing events data (MXR8PM x MXR8LV x
- * MXR8VN x MXR8VT)
- * @param nlev_out Number of levels in the report
+ * @param subset Output buffer for subset name
+ * @param idate Output date value
+ * @param hdr_out Output array for header information (NHR8PM elements)
+ * @param evns_out Output 4D array for events data (MXR8PM x MXR8LV x MXR8VN x
+ * MXR8VT)
+ * @param nlev_out Output number of levels in the report
  * @param iret Return code (0=OK, 1=last subset, -1=EOF)
- * @param subset_len Length of the subset string buffer (passed implicitly by
- * Fortran)
+ * @param subset_len Length of the subset string buffer
+ * @throws std::runtime_error If reading fails
  */
 void readpb_(int* lunit, char* subset, int* idate, double* hdr_out,
              double* evns_out, int* nlev_out, int* iret, int subset_len);
@@ -43,7 +42,12 @@ void readpb_(int* lunit, char* subset, int* idate, double* hdr_out,
 /**
  * @brief Close a BUFR file
  *
- * @param lunit Logical unit number for the file
+ * @details Closes a previously opened BUFR file and releases associated
+ * resources. The function handles the Fortran/C interoperability layer for BUFR
+ * file cleanup.
+ *
+ * @param unit_num Logical unit number of the file to close
+ * @throws std::runtime_error If file cannot be closed
  */
 void close_bufr_file_(int unit_num);
 

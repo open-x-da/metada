@@ -35,13 +35,13 @@ int main(int argc, char* argv[]) {
     logger.Info() << "Records read";
 
     // Iterate over the records and print the information
-    // int count = 0;
-    // for (const auto& record : records) {
-    //   if (count % 100 == 0) {
-    //     std::cout << record << std::endl;
-    //   }
-    //   count++;
-    // }
+    int count = 0;
+    for (const auto& record : records) {
+      if (count % 100 == 0) {
+        std::cout << record << std::endl;
+      }
+      count++;
+    }
 
     logger.Info() << "\nTotal records: " << records.size();
   } catch (const std::exception& e) {

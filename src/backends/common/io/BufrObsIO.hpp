@@ -30,6 +30,8 @@
 namespace metada::backends::io {
 
 using ObsRecord = framework::ObsRecord;
+using ObsRecordShared = framework::ObsRecordShared;
+using ObsLevelRecord = framework::ObsLevelRecord;
 
 /**
  * @brief Backend implementation for handling BUFR format observation I/O
@@ -222,10 +224,10 @@ class BufrObsIO {
     // Process BUFR file using readpb
     while ((ret = readPrepbufr(subset, date, header, tempEvns_, &nlev)) >= 0) {
       // Populate base record information
-      populateBaseRecord(record, subset, date, header, stid);
+      populateBaseRecord(record.shared, date, header, stid);
 
       // Process each level of data
-      processLevels(records, record, nlev);
+      processLevels(records, record.shared, nlev);
 
       // If this is the last subset, break
       if (ret == 1) break;
@@ -237,79 +239,56 @@ class BufrObsIO {
   /**
    * @brief Populate basic record information from BUFR header
    *
-   * @param record The record to populate
-   * @param subset The BUFR subset identifier
+   * @param shared The shared record to populate
    * @param date The observation date
    * @param header The BUFR header array
    * @param stid Buffer to store station ID
    */
-  void populateBaseRecord(ObsRecord& record, const std::string& subset,
-                          int date, const double header[], char* stid) {
-    // Basic observation info
-    record.type = subset;
-
-    // Station information (HDR indices 1-4)
+  void populateBaseRecord(ObsRecordShared& shared, int date,
+                          const double header[], char* stid) {
     std::memcpy(stid, &header[0], 8);
-    record.station_id = stid;
-    record.longitude = header[1];  // XOB
-    record.latitude = header[2];   // YOB
-    record.elevation = header[3];  // ELV
-
-    // Time information - use DateTime constructor for date integer
-    record.datetime = DateTime(date);
-
-    // If there's a time offset, adjust the datetime using Duration
+    shared.station_id = stid;
+    shared.longitude = header[1];  // XOB
+    shared.latitude = header[2];   // YOB
+    shared.elevation = header[3];  // ELV
+    shared.datetime = DateTime(date);
     if (header[4] != 0.0) {
-      record.datetime += Duration::fromHoursF(header[4]);
+      shared.datetime += Duration::fromHoursF(header[4]);
     }
-
-    // Report metadata (HDR indices 6-8)
-    record.report_type = std::to_string(static_cast<int>(header[5]));
-    record.input_report_type = std::to_string(static_cast<int>(header[6]));
-    record.instrument_type = std::to_string(static_cast<int>(header[7]));
+    shared.report_type = std::to_string(static_cast<int>(header[5]));
+    shared.input_report_type = std::to_string(static_cast<int>(header[6]));
+    shared.instrument_type = std::to_string(static_cast<int>(header[7]));
   }
 
   /**
    * @brief Process all observation levels from BUFR data
    *
    * @param records Vector to store the processed records
-   * @param baseRecord Base record with common information
+   * @param shared The shared record with common information
    * @param nlev Number of levels in the data
    */
   void processLevels(std::vector<ObsRecord>& records,
-                     const ObsRecord& baseRecord, int nlev) {
-    // Process each level of data
+                     const ObsRecordShared& shared, int nlev) {
+    static const char* types[] = {"PRES",   "HUMID", "TEMP",
+                                  "HEIGHT", "UWIND", "VWIND"};
     for (int lv = 1; lv <= nlev; ++lv) {
-      processObservationType(records, baseRecord, lv, 1, "PRES");
-      processObservationType(records, baseRecord, lv, 2, "HUMID");
-      processObservationType(records, baseRecord, lv, 3, "TEMP");
-      processObservationType(records, baseRecord, lv, 4, "HEIGHT");
-      processObservationType(records, baseRecord, lv, 5, "UWIND");
-      processObservationType(records, baseRecord, lv, 6, "VWIND");
-    }
-  }
-
-  /**
-   * @brief Process a specific observation type from BUFR data
-   *
-   * @param records Vector to store the processed records
-   * @param baseRecord Base record with common information
-   * @param header Header array
-   * @param lv Level index
-   * @param kk Variable type index
-   * @param typeName Name of the observation type
-   */
-  void processObservationType(std::vector<ObsRecord>& records,
-                              const ObsRecord& baseRecord, int lv, int kk,
-                              const std::string& typeName) {
-    double value = getEvnsValue(tempEvns_, 1, lv, 1, kk);
-    if (isValidValue(value)) {
-      ObsRecord levelRecord = baseRecord;
-      levelRecord.type = typeName;
-      levelRecord.value = value;
-      double qm = getEvnsValue(tempEvns_, 2, lv, 1, kk);
-      levelRecord.qc_marker = static_cast<std::size_t>(qm);
-      records.emplace_back(std::move(levelRecord));
+      ObsRecord rec;
+      rec.shared = shared;
+      for (int kk = 1; kk <= 6; ++kk) {
+        double value = getEvnsValue(tempEvns_, 1, lv, 1, kk);
+        if (isValidValue(value)) {
+          ObsLevelRecord level;
+          level.type = types[kk - 1];
+          level.value = value;
+          double qm = getEvnsValue(tempEvns_, 2, lv, 1, kk);
+          level.qc_marker = static_cast<std::size_t>(qm);
+          rec.levels.push_back(level);
+        }
+      }
+      // Only add if at least one variable is present for this level
+      if (!rec.levels.empty()) {
+        records.push_back(std::move(rec));
+      }
     }
   }
 

@@ -37,6 +37,7 @@ using ::testing::ReturnRef;
 
 using framework::Config;
 using framework::ObsIO;
+using framework::ObsLevelRecord;
 using framework::ObsRecord;
 
 /**
@@ -64,30 +65,34 @@ class ObsIOTest : public ::testing::Test {
 
     // Create sample observation records
     ObsRecord record1;
-    record1.type = "temperature";
-    record1.value = 25.5;
-    record1.station_id = "STATION_001";
-    record1.longitude = -75.0;
-    record1.latitude = 40.0;
-    record1.elevation = 100.0;
-    record1.datetime = DateTime();
-    record1.report_type = "1";
-    record1.input_report_type = "0";
-    record1.instrument_type = "0";
-    record1.qc_marker = 0;
+    record1.shared.station_id = "STATION_001";
+    record1.shared.longitude = -75.0;
+    record1.shared.latitude = 40.0;
+    record1.shared.elevation = 100.0;
+    record1.shared.datetime = DateTime();
+    record1.shared.report_type = "1";
+    record1.shared.input_report_type = "0";
+    record1.shared.instrument_type = "0";
+    ObsLevelRecord level1;
+    level1.type = "temperature";
+    level1.value = 25.5;
+    level1.qc_marker = 0;
+    record1.levels.push_back(level1);
 
     ObsRecord record2;
-    record2.type = "pressure";
-    record2.value = 1013.2;
-    record2.station_id = "STATION_001";
-    record2.longitude = -75.0;
-    record2.latitude = 40.0;
-    record2.elevation = 100.0;
-    record2.datetime = DateTime();
-    record2.report_type = "1";
-    record2.input_report_type = "0";
-    record2.instrument_type = "0";
-    record2.qc_marker = 0;
+    record2.shared.station_id = "STATION_001";
+    record2.shared.longitude = -75.0;
+    record2.shared.latitude = 40.0;
+    record2.shared.elevation = 100.0;
+    record2.shared.datetime = DateTime();
+    record2.shared.report_type = "1";
+    record2.shared.input_report_type = "0";
+    record2.shared.instrument_type = "0";
+    ObsLevelRecord level2;
+    level2.type = "pressure";
+    level2.value = 1013.2;
+    level2.qc_marker = 0;
+    record2.levels.push_back(level2);
 
     records_.push_back(record1);
     records_.push_back(record2);
@@ -182,10 +187,10 @@ TEST_F(ObsIOTest, ReadObservations) {
   // Call the method and verify
   std::vector<ObsRecord> result = obsIO.read();
   EXPECT_EQ(result.size(), records_.size());
-  EXPECT_EQ(result[0].type, records_[0].type);
-  EXPECT_EQ(result[0].value, records_[0].value);
-  EXPECT_EQ(result[1].type, records_[1].type);
-  EXPECT_EQ(result[1].value, records_[1].value);
+  EXPECT_EQ(result[0].levels[0].type, records_[0].levels[0].type);
+  EXPECT_EQ(result[0].levels[0].value, records_[0].levels[0].value);
+  EXPECT_EQ(result[1].levels[0].type, records_[1].levels[0].type);
+  EXPECT_EQ(result[1].levels[0].value, records_[1].levels[0].value);
 }
 
 /**

@@ -17,28 +17,31 @@ namespace metada::framework {
  * observation point, including type, value, location, timestamp, and quality
  * information. Extended to fully support BUFR data structures.
  */
+
+// Shared part (station/report metadata)
+struct ObsRecordShared {
+  std::string station_id;
+  double longitude;
+  double latitude;
+  double elevation;
+  std::string report_type;
+  std::string input_report_type;
+  std::string instrument_type;
+  DateTime datetime;
+};
+
+// Per-level part (variables for each level)
+struct ObsLevelRecord {
+  std::string type;  // e.g., "PRESS", "HUMID", etc.
+  double value;
+  std::size_t qc_marker;
+  std::optional<std::string> unit;
+};
+
+// Main record: shared + all levels
 struct ObsRecord {
-  // Basic observation data
-  std::string type;  ///< Type of observation (e.g., "temperature", "pressure")
-  double value;      ///< Observed value
-  std::optional<std::string> unit;  ///< Unit of the observation
-
-  // Station information
-  std::string station_id;  ///< Station identifier (SID)
-  double longitude;        ///< Station longitude (XOB)
-  double latitude;         ///< Station latitude (YOB)
-  double elevation;        ///< Station elevation (ELV)
-
-  // Time information
-  DateTime datetime;  ///< Date and time of observation
-
-  // Report metadata
-  std::string report_type;        ///< PREPBUFR report type (TYP)
-  std::string input_report_type;  ///< Input report type (T29)
-  std::string instrument_type;    ///< Instrument type (ITP)
-
-  // Quality control information
-  std::size_t qc_marker;  ///< Quality control marker/flag
+  ObsRecordShared shared;
+  std::vector<ObsLevelRecord> levels;
 };
 
 /**
@@ -49,11 +52,14 @@ struct ObsRecord {
  * @return std::ostream& Reference to the output stream
  */
 inline std::ostream& operator<<(std::ostream& os, const ObsRecord& record) {
-  os << std::left << std::setw(15) << record.report_type << std::setw(15)
-     << record.station_id << std::setw(10) << record.longitude << std::setw(10)
-     << record.latitude << std::setw(10) << record.elevation
-     << record.datetime.iso8601() << std::setw(15) << record.type
-     << std::setw(10) << record.value;
+  const auto& s = record.shared;
+  os << std::left << std::setw(15) << s.report_type << std::setw(15)
+     << s.station_id << std::setw(10) << s.longitude << std::setw(10)
+     << s.latitude << std::setw(10) << s.elevation << std::setw(25)
+     << s.datetime.iso8601();
+  for (const auto& level : record.levels) {
+    os << std::setw(10) << level.type << std::setw(10) << level.value;
+  }
   return os;
 }
 
