@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -67,6 +68,30 @@ class BufrObsIO {
    */
   explicit BufrObsIO(ConfigBackend&& config) : config_(std::move(config)) {
     filename_ = config_.Get("filename").asString();
+    // Load station_ids from config if present
+    if (config_.HasKey("station_ids")) {
+      auto station_ids_val = config_.Get("station_ids");
+      if (station_ids_val.isVectorString()) {
+        station_ids_ = station_ids_val.asVectorString();
+      } else if (station_ids_val.isVectorInt()) {
+        const auto& int_ids = station_ids_val.asVectorInt();
+        station_ids_.clear();
+        station_ids_.reserve(int_ids.size());
+        for (const auto& id : int_ids) {
+          station_ids_.emplace_back(std::to_string(id));
+        }
+      } else {
+        throw std::runtime_error(
+            "station_ids must be a vector of strings or ints");
+      }
+    }
+    // Load data_types (subsets) from config if present
+    if (config_.HasKey("data_types")) {
+      auto data_types_val = config_.Get("data_types");
+      if (data_types_val.isVectorString()) {
+        data_types_ = data_types_val.asVectorString();
+      }
+    }
     // Initialize Fortran buffer fields
     memset(subsetBuffer_, ' ', 8);
     subsetBuffer_[8] = '\0';
@@ -105,7 +130,9 @@ class BufrObsIO {
         isOpen_(other.isOpen_),
         tempEvns_(other.tempEvns_),
         evnsSize_(other.evnsSize_),
-        tempNlev_(other.tempNlev_) {
+        tempNlev_(other.tempNlev_),
+        station_ids_(std::move(other.station_ids_)),
+        data_types_(std::move(other.data_types_)) {
     std::memcpy(subsetBuffer_, other.subsetBuffer_, sizeof(subsetBuffer_));
     std::memcpy(tempHeader_, other.tempHeader_, sizeof(tempHeader_));
   }
@@ -130,6 +157,8 @@ class BufrObsIO {
       tempEvns_ = other.tempEvns_;
       evnsSize_ = other.evnsSize_;
       tempNlev_ = other.tempNlev_;
+      station_ids_ = std::move(other.station_ids_);
+      data_types_ = std::move(other.data_types_);
     }
     return *this;
   }
@@ -223,11 +252,30 @@ class BufrObsIO {
 
     // Process BUFR file using readpb
     while ((ret = readPrepbufr(subset, date, header, tempEvns_, &nlev)) >= 0) {
+      // Filter by data_types (subset) if not empty
+      if (!data_types_.empty() &&
+          std::find(data_types_.begin(), data_types_.end(), trim(subset)) ==
+              data_types_.end()) {
+        if (ret == 1) break;
+        continue;
+      }
       // Populate base record information
       populateBaseRecord(record.shared, date, header, stid);
 
+      // Filter by station_id if station_ids_ is not empty
+      if (!station_ids_.empty() &&
+          std::find(station_ids_.begin(), station_ids_.end(),
+                    trim(record.shared.station_id)) == station_ids_.end()) {
+        if (ret == 1) break;
+        continue;
+      }
+
       // Process each level of data
-      processLevels(records, record.shared, nlev);
+      record.levels.clear();
+      processLevels(record.levels, nlev);
+
+      // Add the record to our collection
+      records.push_back(record);
 
       // If this is the last subset, break
       if (ret == 1) break;
@@ -264,30 +312,31 @@ class BufrObsIO {
    * @brief Process all observation levels from BUFR data
    *
    * @param records Vector to store the processed records
-   * @param shared The shared record with common information
    * @param nlev Number of levels in the data
    */
-  void processLevels(std::vector<ObsRecord>& records,
-                     const ObsRecordShared& shared, int nlev) {
+  void processLevels(std::vector<std::vector<ObsLevelRecord>>& levels,
+                     int nlev) {
     static const char* types[] = {"PRES",   "HUMID", "TEMP",
                                   "HEIGHT", "UWIND", "VWIND"};
     for (int lv = 1; lv <= nlev; ++lv) {
-      ObsRecord rec;
-      rec.shared = shared;
-      for (int kk = 1; kk <= 6; ++kk) {
+      std::vector<ObsLevelRecord> level_records;
+      for (int kk = 1; kk <= 6;
+           ++kk) {  // Iterate through variable types (P, Q, T, Z, U, V)
         double value = getEvnsValue(tempEvns_, 1, lv, 1, kk);
         if (isValidValue(value)) {
-          ObsLevelRecord level;
-          level.type = types[kk - 1];
-          level.value = value;
+          // Create a new ObsLevelRecord for each valid variable at this level
+          ObsLevelRecord level_record;
+          level_record.type = types[kk - 1];
+          level_record.value = value;
           double qm = getEvnsValue(tempEvns_, 2, lv, 1, kk);
-          level.qc_marker = static_cast<std::size_t>(qm);
-          rec.levels.push_back(level);
+          level_record.qc_marker = static_cast<std::size_t>(qm);
+          // Add this variable's data to the current level's records
+          level_records.push_back(std::move(level_record));
         }
       }
-      // Only add if at least one variable is present for this level
-      if (!rec.levels.empty()) {
-        records.push_back(std::move(rec));
+      // Only add the level records if we have data
+      if (!level_records.empty()) {
+        levels.push_back(std::move(level_records));
       }
     }
   }
@@ -314,6 +363,8 @@ class BufrObsIO {
   double* tempEvns_ = nullptr;
   int evnsSize_ = 0;
   int tempNlev_ = 0;
+  std::vector<std::string> station_ids_;
+  std::vector<std::string> data_types_;  // Store allowed data_types (subsets)
 
   void open(const std::string& filename) {
     if (isOpen_) {
@@ -364,6 +415,12 @@ class BufrObsIO {
     int idx = (ii - 1) + (lv - 1) * MXR8PM + (jj - 1) * MXR8PM * MXR8LV +
               (kk - 1) * MXR8PM * MXR8LV * MXR8VN;
     return events[idx];
+  }
+
+  static std::string trim(const std::string& s) {
+    auto start = s.find_first_not_of(" \t\n\r");
+    auto end = s.find_last_not_of(" \t\n\r");
+    return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
   }
 };
 

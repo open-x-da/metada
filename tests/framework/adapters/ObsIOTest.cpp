@@ -77,7 +77,7 @@ class ObsIOTest : public ::testing::Test {
     level1.type = "temperature";
     level1.value = 25.5;
     level1.qc_marker = 0;
-    record1.levels.push_back(level1);
+    record1.levels.push_back(std::vector<ObsLevelRecord>{level1});
 
     ObsRecord record2;
     record2.shared.station_id = "STATION_001";
@@ -92,7 +92,7 @@ class ObsIOTest : public ::testing::Test {
     level2.type = "pressure";
     level2.value = 1013.2;
     level2.qc_marker = 0;
-    record2.levels.push_back(level2);
+    record2.levels.push_back(std::vector<ObsLevelRecord>{level2});
 
     records_.push_back(record1);
     records_.push_back(record2);
@@ -187,10 +187,10 @@ TEST_F(ObsIOTest, ReadObservations) {
   // Call the method and verify
   std::vector<ObsRecord> result = obsIO.read();
   EXPECT_EQ(result.size(), records_.size());
-  EXPECT_EQ(result[0].levels[0].type, records_[0].levels[0].type);
-  EXPECT_EQ(result[0].levels[0].value, records_[0].levels[0].value);
-  EXPECT_EQ(result[1].levels[0].type, records_[1].levels[0].type);
-  EXPECT_EQ(result[1].levels[0].value, records_[1].levels[0].value);
+  EXPECT_EQ(result[0].levels[0][0].type, records_[0].levels[0][0].type);
+  EXPECT_EQ(result[0].levels[0][0].value, records_[0].levels[0][0].value);
+  EXPECT_EQ(result[1].levels[0][0].type, records_[1].levels[0][0].type);
+  EXPECT_EQ(result[1].levels[0][0].value, records_[1].levels[0][0].value);
 }
 
 /**

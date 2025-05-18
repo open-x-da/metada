@@ -41,7 +41,7 @@ struct ObsLevelRecord {
 // Main record: shared + all levels
 struct ObsRecord {
   ObsRecordShared shared;
-  std::vector<ObsLevelRecord> levels;
+  std::vector<std::vector<ObsLevelRecord>> levels;
 };
 
 /**
@@ -53,13 +53,25 @@ struct ObsRecord {
  */
 inline std::ostream& operator<<(std::ostream& os, const ObsRecord& record) {
   const auto& s = record.shared;
-  os << std::left << std::setw(15) << s.report_type << std::setw(15)
-     << s.station_id << std::setw(10) << s.longitude << std::setw(10)
-     << s.latitude << std::setw(10) << s.elevation << std::setw(25)
-     << s.datetime.iso8601();
+  os << "Report Type : " << s.report_type << "\n"
+     << "Station ID  : " << s.station_id << "\n"
+     << "Longitude   : " << s.longitude << "\n"
+     << "Latitude    : " << s.latitude << "\n"
+     << "Elevation   : " << s.elevation << "\n"
+     << "Datetime    : " << s.datetime.iso8601() << "\n";
+  os << "----------------------------------------\n";
+  os << std::setw(12) << "Var" << std::setw(15) << "Value" << std::setw(10)
+     << "QC" << std::setw(10) << "Unit" << "\n";
+  os << "----------------------------------------\n";
   for (const auto& level : record.levels) {
-    os << std::setw(10) << level.type << std::setw(10) << level.value;
+    for (const auto& rec : level) {
+      os << std::setw(12) << rec.type << std::setw(15) << rec.value
+         << std::setw(10) << rec.qc_marker << std::setw(10)
+         << (rec.unit ? *rec.unit : "") << "\n";
+    }
+    os << "----------------------------------------\n";
   }
+  os << "========================================\n";
   return os;
 }
 
