@@ -12,7 +12,7 @@ observation:
     #- "KMSP "          # 4 letter METAR code with trailing space
     #- 57494
     #- 58203
-  variables: ["P", "Q", "T", "Z", "U", "V"]   # Selected parameters
+  variables: ["PRES", "HUMID", "TEMP", "HEIGHT", "UWIND", "VWIND"]   # Selected parameters
   data_types:          # Data types to be selected
     #- "ADPUPA"
     #- "AIRCAR"

@@ -125,6 +125,14 @@ class BufrObsIO {
         for (auto v : int_lons) lons_.push_back(static_cast<float>(v));
       }
     }
+    // Load variables from config if present
+    variables_.clear();
+    if (config_.HasKey("variables")) {
+      auto variables_val = config_.Get("variables");
+      if (variables_val.isVectorString()) {
+        variables_ = variables_val.asVectorString();
+      }
+    }
     // Initialize Fortran buffer fields
     memset(subsetBuffer_, ' ', 8);
     subsetBuffer_[8] = '\0';
@@ -168,7 +176,8 @@ class BufrObsIO {
         data_types_(std::move(other.data_types_)),
         include_virtual_temp_(other.include_virtual_temp_),
         lats_(std::move(other.lats_)),
-        lons_(std::move(other.lons_)) {
+        lons_(std::move(other.lons_)),
+        variables_(std::move(other.variables_)) {
     std::memcpy(subsetBuffer_, other.subsetBuffer_, sizeof(subsetBuffer_));
     std::memcpy(tempHeader_, other.tempHeader_, sizeof(tempHeader_));
   }
@@ -198,6 +207,7 @@ class BufrObsIO {
       include_virtual_temp_ = other.include_virtual_temp_;
       lats_ = std::move(other.lats_);
       lons_ = std::move(other.lons_);
+      variables_ = std::move(other.variables_);
     }
     return *this;
   }
@@ -378,7 +388,6 @@ class BufrObsIO {
            ++kk) {  // Iterate through variable types (P, Q, T, Z, U, V)
         int ievn = 0;
         if (!include_virtual_temp_ && kk == 3) {  // TEMP
-          // Call virtmp Fortran subroutine to check for sensible temperature
           int flag = 1;
           virtmp_(&lv, &kk, &ievn, &flag);
           if (flag == -1) {
@@ -387,17 +396,20 @@ class BufrObsIO {
         }
         double value = getEvnsValue(tempEvns_, 1, lv, ievn + 1, kk);
         if (isValidValue(value)) {
-          // Create a new ObsLevelRecord for each valid variable at this level
           ObsLevelRecord level_record;
           level_record.type = types[kk - 1];
+          // Filter by variables if specified
+          if (!variables_.empty() &&
+              std::find(variables_.begin(), variables_.end(),
+                        trim(level_record.type)) == variables_.end()) {
+            continue;
+          }
           level_record.value = value;
           double qm = getEvnsValue(tempEvns_, 2, lv, ievn + 1, kk);
           level_record.qc_marker = static_cast<std::size_t>(qm);
-          // Add this variable's data to the current level's records
           level_records.push_back(std::move(level_record));
         }
       }
-      // Only add the level records if we have data
       if (!level_records.empty()) {
         levels.push_back(std::move(level_records));
       }
@@ -431,6 +443,7 @@ class BufrObsIO {
   bool include_virtual_temp_ = false;
   std::vector<float> lats_;
   std::vector<float> lons_;
+  std::vector<std::string> variables_;
 
   void open(const std::string& filename) {
     if (isOpen_) {
