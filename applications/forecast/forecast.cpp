@@ -12,10 +12,12 @@
 #include "Geometry.hpp"
 #include "Model.hpp"
 #include "State.hpp"
-#include "WRFBackendTraits.hpp"
+// #include "WRFBackendTraits.hpp"
+#include "MACOMBackendTraits.hpp"
 
 // Default backends, can be changed with template parameters
-using BackendTag = metada::traits::WRFBackendTag;
+// using BackendTag = metada::traits::WRFBackendTag;
+using BackendTag = metada::traits::MACOMBackendTag;
 using namespace metada;
 using namespace metada::framework;
 

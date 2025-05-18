@@ -7,8 +7,11 @@
 
 #pragma once
 
+#include <algorithm>  // For std::equal, std::find
 #include <cmath>
 #include <memory>
+#include <numeric>    // For std::inner_product (potentially for dot product)
+#include <stdexcept>  // For std::runtime_error
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -153,7 +156,7 @@ class MACOMState {
    *
    * @return True if initialized, false otherwise
    */
-  bool isInitialized() const;
+  bool isInitialized() const { return initialized_; }
 
   /**
    * @brief Calculate the norm of this state
@@ -161,19 +164,13 @@ class MACOMState {
    * @return Norm of the state
    */
   double norm() const {
-    double sum = 0.0;
-
-    // Calculate the Euclidean norm of all variables
-    for (const auto& varName : variableNames_) {
-      if (variables_.count(varName) > 0) {
-        const auto& var = variables_.at(varName);
-        for (const auto& val : var) {
-          sum += val * val;
-        }
+    double sum_sq = 0.0;
+    for (const auto& pair : variables_) {
+      for (double val : pair.second) {
+        sum_sq += val * val;
       }
     }
-
-    return std::sqrt(sum);
+    return std::sqrt(sum_sq);
   }
 
   /**
@@ -183,24 +180,23 @@ class MACOMState {
    * @return double 点积结果
    */
   double dot(const MACOMState& other) const {
-    double result = 0.0;
-
-    // 简单实现：假设有相同的变量名和维度
-    for (const auto& varName : variableNames_) {
-      if (variables_.count(varName) > 0 &&
-          other.variables_.count(varName) > 0) {
-        const auto& thisVar = variables_.at(varName);
-        const auto& otherVar = other.variables_.at(varName);
-
-        // 计算点积
-        const size_t size = std::min(thisVar.size(), otherVar.size());
-        for (size_t i = 0; i < size; ++i) {
-          result += thisVar[i] * otherVar[i];
-        }
-      }
+    if (variableNames_.size() != other.variableNames_.size()) {
+      // Or handle more gracefully if some variables might be missing
+      throw std::runtime_error(
+          "MACOMState::dot: States have different number of variables.");
     }
-
-    return result;
+    double total_dot_product = 0.0;
+    for (const auto& name : variableNames_) {
+      const auto& vec_this = this->variables_.at(name);
+      const auto& vec_other = other.variables_.at(name);
+      if (vec_this.size() != vec_other.size()) {
+        throw std::runtime_error("MACOMState::dot: Variable '" + name +
+                                 "' has different sizes.");
+      }
+      total_dot_product += std::inner_product(vec_this.begin(), vec_this.end(),
+                                              vec_other.begin(), 0.0);
+    }
+    return total_dot_product;
   }
 
   /**
@@ -210,48 +206,36 @@ class MACOMState {
    * @return bool 如果相等返回true，否则返回false
    */
   bool equals(const MACOMState& other) const {
-    // 检查基本属性
     if (initialized_ != other.initialized_ ||
+        activeVariable_ != other.activeVariable_ ||
         variableNames_.size() != other.variableNames_.size() ||
-        activeVariable_ != other.activeVariable_) {
+        variables_.size() != other.variables_.size() ||
+        dimensions_.size() != other.dimensions_.size()) {
       return false;
     }
 
-    // 检查变量名称
+    // Check variable names
+    std::vector<std::string> vn1 = variableNames_;
+    std::vector<std::string> vn2 = other.variableNames_;
+    std::sort(vn1.begin(), vn1.end());
+    std::sort(vn2.begin(), vn2.end());
+    if (vn1 != vn2) return false;
+
     for (const auto& name : variableNames_) {
-      if (std::find(other.variableNames_.begin(), other.variableNames_.end(),
-                    name) == other.variableNames_.end()) {
+      if (variables_.at(name).size() != other.variables_.at(name).size() ||
+          dimensions_.at(name) != other.dimensions_.at(name)) {
         return false;
       }
-    }
-
-    // 检查变量数据
-    for (const auto& [name, data] : variables_) {
-      // 检查变量是否存在
-      if (other.variables_.count(name) == 0) {
-        return false;
-      }
-
-      // 检查维度
-      if (dimensions_.at(name) != other.dimensions_.at(name)) {
-        return false;
-      }
-
-      // 检查数据
-      const auto& otherData = other.variables_.at(name);
-      if (data.size() != otherData.size()) {
-        return false;
-      }
-
-      // 比较每个值
-      for (size_t i = 0; i < data.size(); ++i) {
-        // 使用近似相等检查浮点数
-        if (std::abs(data[i] - otherData[i]) > 1e-10) {
+      // Approx equals for floating point data
+      const auto& data_this = variables_.at(name);
+      const auto& data_other = other.variables_.at(name);
+      for (size_t i = 0; i < data_this.size(); ++i) {
+        if (std::abs(data_this[i] - data_other[i]) >
+            1e-9) {  // Tolerance for float comparison
           return false;
         }
       }
     }
-
     return true;
   }
 
@@ -374,11 +358,6 @@ void MACOMState<ConfigBackend>::subtract(
 template <typename ConfigBackend>
 void MACOMState<ConfigBackend>::multiply([[maybe_unused]] double scalar) {
   // 实现框架
-}
-
-template <typename ConfigBackend>
-bool MACOMState<ConfigBackend>::isInitialized() const {
-  return initialized_;
 }
 
 }  // namespace metada::backends::macom

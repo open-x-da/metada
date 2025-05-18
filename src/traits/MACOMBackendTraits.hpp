@@ -19,10 +19,12 @@
 #endif
 
 // Include MACOM backend headers
-#include "../backends/macom/MACOMModel.hpp"
-#include "../backends/macom/MACOMState.hpp"
-#include "../backends/macom/MACOMGeometry.hpp"
-#include "../backends/macom/MACOMGeometryIterator.hpp"
+#include "../backends/macom/include/MACOMModel.hpp"
+#include "../backends/macom/include/MACOMState.hpp"
+#include "../backends/macom/include/MACOMGeometry.hpp"
+#include "../backends/macom/include/MACOMGeometryIterator.hpp"
+
+
 
 namespace metada::traits {
 
