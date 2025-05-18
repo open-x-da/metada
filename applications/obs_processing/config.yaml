@@ -6,22 +6,22 @@ logger:
 
 observation:
   filename: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
-  lats: [30, -30]      # Latitudes from North to South
-  lons: [190, 270]     # Longitudes from 0 to 360
+  lats: [90, -90]      # Latitudes from North to South
+  lons: [0, 360]       # Longitudes from 0 to 360
   station_ids:         # Station IDs (overrides lat/lon selections)
     #- "KMSP "          # 4 letter METAR code with trailing space
-    - 57494
+    #- 57494
     #- 58203
   variables: ["P", "Q", "T", "Z", "U", "V"]   # Selected parameters
   data_types:          # Data types to be selected
-    - "ADPUPA"
+    #- "ADPUPA"
     #- "AIRCAR"
-    #- "AIRCFT"
+    - "AIRCFT"
     #- "SATWND"
     #- "PROFLR"
     #- "VADWND"
     #- "SATEMP"
-    - "ADPSFC"
+    #- "ADPSFC"
     #- "SFCSHP"
     #- "SFCBOG"
     #- "SPSSMI"

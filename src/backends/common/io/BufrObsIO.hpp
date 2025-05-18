@@ -80,6 +80,8 @@ class BufrObsIO {
         for (const auto& id : int_ids) {
           station_ids_.emplace_back(std::to_string(id));
         }
+      } else if (station_ids_val.isNull()) {
+        station_ids_.clear();
       } else {
         throw std::runtime_error(
             "station_ids must be a vector of strings or ints");
@@ -98,6 +100,29 @@ class BufrObsIO {
       auto virtmp_val = config_.Get("include_virtual_temp");
       if (virtmp_val.isBool()) {
         include_virtual_temp_ = virtmp_val.asBool();
+      }
+    }
+    // Load lats and lons from config if present
+    lats_.clear();
+    lons_.clear();
+    if (config_.HasKey("lats")) {
+      auto lats_val = config_.Get("lats");
+      if (lats_val.isVectorFloat()) {
+        lats_ = lats_val.asVectorFloat();
+      } else if (lats_val.isVectorInt()) {
+        const auto& int_lats = lats_val.asVectorInt();
+        lats_.reserve(int_lats.size());
+        for (auto v : int_lats) lats_.push_back(static_cast<float>(v));
+      }
+    }
+    if (config_.HasKey("lons")) {
+      auto lons_val = config_.Get("lons");
+      if (lons_val.isVectorFloat()) {
+        lons_ = lons_val.asVectorFloat();
+      } else if (lons_val.isVectorInt()) {
+        const auto& int_lons = lons_val.asVectorInt();
+        lons_.reserve(int_lons.size());
+        for (auto v : int_lons) lons_.push_back(static_cast<float>(v));
       }
     }
     // Initialize Fortran buffer fields
@@ -141,7 +166,9 @@ class BufrObsIO {
         tempNlev_(other.tempNlev_),
         station_ids_(std::move(other.station_ids_)),
         data_types_(std::move(other.data_types_)),
-        include_virtual_temp_(other.include_virtual_temp_) {
+        include_virtual_temp_(other.include_virtual_temp_),
+        lats_(std::move(other.lats_)),
+        lons_(std::move(other.lons_)) {
     std::memcpy(subsetBuffer_, other.subsetBuffer_, sizeof(subsetBuffer_));
     std::memcpy(tempHeader_, other.tempHeader_, sizeof(tempHeader_));
   }
@@ -169,6 +196,8 @@ class BufrObsIO {
       station_ids_ = std::move(other.station_ids_);
       data_types_ = std::move(other.data_types_);
       include_virtual_temp_ = other.include_virtual_temp_;
+      lats_ = std::move(other.lats_);
+      lons_ = std::move(other.lons_);
     }
     return *this;
   }
@@ -280,6 +309,21 @@ class BufrObsIO {
         continue;
       }
 
+      // Filter by lat/lon if specified
+      if (lats_.size() == 2 && lons_.size() == 2) {
+        float min_lat = std::min(lats_[0], lats_[1]);
+        float max_lat = std::max(lats_[0], lats_[1]);
+        float min_lon = std::min(lons_[0], lons_[1]);
+        float max_lon = std::max(lons_[0], lons_[1]);
+        if (!(record.shared.latitude >= min_lat &&
+              record.shared.latitude <= max_lat &&
+              record.shared.longitude >= min_lon &&
+              record.shared.longitude <= max_lon)) {
+          if (ret == 1) break;
+          continue;
+        }
+      }
+
       // Process each level of data
       record.levels.clear();
       processLevels(record.levels, nlev);
@@ -385,6 +429,8 @@ class BufrObsIO {
   std::vector<std::string> station_ids_;
   std::vector<std::string> data_types_;  // Store allowed data_types (subsets)
   bool include_virtual_temp_ = false;
+  std::vector<float> lats_;
+  std::vector<float> lons_;
 
   void open(const std::string& filename) {
     if (isOpen_) {
