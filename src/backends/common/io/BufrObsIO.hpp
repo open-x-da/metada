@@ -92,6 +92,14 @@ class BufrObsIO {
         data_types_ = data_types_val.asVectorString();
       }
     }
+    // Load include_virtual_temp from config if present
+    include_virtual_temp_ = false;
+    if (config_.HasKey("include_virtual_temp")) {
+      auto virtmp_val = config_.Get("include_virtual_temp");
+      if (virtmp_val.isBool()) {
+        include_virtual_temp_ = virtmp_val.asBool();
+      }
+    }
     // Initialize Fortran buffer fields
     memset(subsetBuffer_, ' ', 8);
     subsetBuffer_[8] = '\0';
@@ -132,7 +140,8 @@ class BufrObsIO {
         evnsSize_(other.evnsSize_),
         tempNlev_(other.tempNlev_),
         station_ids_(std::move(other.station_ids_)),
-        data_types_(std::move(other.data_types_)) {
+        data_types_(std::move(other.data_types_)),
+        include_virtual_temp_(other.include_virtual_temp_) {
     std::memcpy(subsetBuffer_, other.subsetBuffer_, sizeof(subsetBuffer_));
     std::memcpy(tempHeader_, other.tempHeader_, sizeof(tempHeader_));
   }
@@ -159,6 +168,7 @@ class BufrObsIO {
       tempNlev_ = other.tempNlev_;
       station_ids_ = std::move(other.station_ids_);
       data_types_ = std::move(other.data_types_);
+      include_virtual_temp_ = other.include_virtual_temp_;
     }
     return *this;
   }
@@ -322,13 +332,22 @@ class BufrObsIO {
       std::vector<ObsLevelRecord> level_records;
       for (int kk = 1; kk <= 6;
            ++kk) {  // Iterate through variable types (P, Q, T, Z, U, V)
-        double value = getEvnsValue(tempEvns_, 1, lv, 1, kk);
+        int ievn = 0;
+        if (!include_virtual_temp_ && kk == 3) {  // TEMP
+          // Call virtmp Fortran subroutine to check for sensible temperature
+          int flag = 1;
+          virtmp_(&lv, &kk, &ievn, &flag);
+          if (flag == -1) {
+            continue;  // Skip virtual temperature
+          }
+        }
+        double value = getEvnsValue(tempEvns_, 1, lv, ievn + 1, kk);
         if (isValidValue(value)) {
           // Create a new ObsLevelRecord for each valid variable at this level
           ObsLevelRecord level_record;
           level_record.type = types[kk - 1];
           level_record.value = value;
-          double qm = getEvnsValue(tempEvns_, 2, lv, 1, kk);
+          double qm = getEvnsValue(tempEvns_, 2, lv, ievn + 1, kk);
           level_record.qc_marker = static_cast<std::size_t>(qm);
           // Add this variable's data to the current level's records
           level_records.push_back(std::move(level_record));
@@ -365,6 +384,7 @@ class BufrObsIO {
   int tempNlev_ = 0;
   std::vector<std::string> station_ids_;
   std::vector<std::string> data_types_;  // Store allowed data_types (subsets)
+  bool include_virtual_temp_ = false;
 
   void open(const std::string& filename) {
     if (isOpen_) {

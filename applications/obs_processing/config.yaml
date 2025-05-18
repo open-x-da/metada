@@ -14,7 +14,7 @@ observation:
     #- 58203
   variables: ["P", "Q", "T", "Z", "U", "V"]   # Selected parameters
   data_types:          # Data types to be selected
-    #- "ADPUPA"
+    - "ADPUPA"
     #- "AIRCAR"
     #- "AIRCFT"
     #- "SATWND"

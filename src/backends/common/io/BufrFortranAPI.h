@@ -51,6 +51,21 @@ void readpb_(int* lunit, char* subset, int* idate, double* hdr_out,
  */
 void close_bufr_file_(int unit_num);
 
+/**
+ * @brief Process virtual temperature observations
+ *
+ * @details Handles virtual temperature observations according to PREPBUFR
+ * Table 14. For VIRTMP program code 8 with reason code 3, the observation is
+ * skipped. For VIRTMP program code 8 with any other reason code, steps down the
+ * event stack index to find sensible temperature.
+ *
+ * @param lev Level index in the event stack
+ * @param k Variable type index
+ * @param idx Output index of the virtual temperature event (0 if not found)
+ * @param flag Output flag (-1 to skip observation, 1 to process)
+ */
+void virtmp_(int* lev, int* k, int* idx, int* flag);
+
 #ifdef __cplusplus
 }
 #endif
