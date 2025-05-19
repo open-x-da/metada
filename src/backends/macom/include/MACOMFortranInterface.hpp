@@ -7,11 +7,6 @@
 
 #pragma once
 
-#include <mpi.h>
-
-#include <stdexcept>  // For std::runtime_error
-#include <string>
-
 // Forward declare the C functions from the Fortran wrapper
 extern "C" {
 void c_macom_initialize_mpi(int comm_c);
@@ -29,13 +24,11 @@ class MACOMFortranInterface {
  public:
   /**
    * @brief Constructor.
-   * @param comm The MPI communicator to be used (typically MPI_COMM_WORLD).
    */
-  explicit MACOMFortranInterface(MPI_Comm comm = MPI_COMM_WORLD);
+  explicit MACOMFortranInterface();
 
   /**
    * @brief Destructor.
-   * Ensures MPI is finalized if initialized by this interface.
    */
   ~MACOMFortranInterface();
 
@@ -46,13 +39,13 @@ class MACOMFortranInterface {
   MACOMFortranInterface& operator=(MACOMFortranInterface&&) = delete;
 
   /**
-   * @brief Initializes the MPI environment through Fortran.
+   * @brief Initializes the environment through Fortran.
    */
   void initializeMPI();
 
   /**
-   * @brief Gets the MPI rank of the current process from Fortran.
-   * @return The MPI rank.
+   * @brief Gets the rank of the current process from Fortran.
+   * @return The rank.
    */
   int getRank() const;
 
@@ -79,18 +72,16 @@ class MACOMFortranInterface {
   void finalizeModelComponents();
 
   /**
-   * @brief Finalizes the MPI environment through Fortran.
+   * @brief Finalizes the environment through Fortran.
    */
   void finalizeMPI();
 
   /**
-   * @brief Checks if the MPI environment was initialized by this interface.
+   * @brief Checks if the environment was initialized by this interface.
    */
   bool isMPIInitialized() const { return mpi_initialized_by_this_instance_; }
 
  private:
-  MPI_Comm mpi_comm_;
-  int fortran_mpi_comm_;  // MPI_Comm converted for Fortran (usually an int)
   int rank_;
   bool mpi_initialized_by_this_instance_;
   bool model_components_initialized_;

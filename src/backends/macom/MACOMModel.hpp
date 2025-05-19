@@ -13,8 +13,8 @@
 #include <vector>
 
 // Include MACOM specific interfaces
-#include "MACOMFortranInterface.hpp"  // Changed from FortranInterface.hpp
 #include "MACOMState.hpp"
+#include "include/MACOMFortranInterface.hpp"  // Changed from FortranInterface.hpp
 
 // Metada framework utilities (if needed)
 // #include "DateTime.hpp"
@@ -139,12 +139,18 @@ class MACOMModel {
   DateTime currentTime_;  // Current model time in seconds
   DateTime endTime_;      // End time in seconds
   Duration timeStep_;     // Time step in seconds
+
+  // Fortran interface
+  std::unique_ptr<MACOMFortranInterface> fortranInterface_;
+  int mpi_rank_;
 };
 
 // Constructor implementation with ConfigBackend
 template <typename ConfigBackend>
 MACOMModel<ConfigBackend>::MACOMModel(const ConfigBackend& config)
     : initialized_(false) {
+  // Create Fortran interface
+  fortranInterface_ = std::make_unique<MACOMFortranInterface>();
   initialize(config);
 }
 
@@ -185,14 +191,66 @@ MACOMModel<ConfigBackend>::~MACOMModel() {
 }
 
 template <typename ConfigBackend>
-void MACOMModel<ConfigBackend>::initialize(
-    [[maybe_unused]] const ConfigBackend& config) {}
+void MACOMModel<ConfigBackend>::initialize(const ConfigBackend& config) {
+  if (initialized_) {
+    std::cout
+        << "[MACOMModel] Already initialized. Finalize first to re-initialize."
+        << std::endl;
+    return;
+  }
+
+  std::cout << "[MACOMModel] Initializing..." << std::endl;
+  try {
+    // Initialize MPI through Fortran interface
+    fortranInterface_->initializeMPI();
+    mpi_rank_ = fortranInterface_->getRank();
+    std::cout << "[MACOMModel] MPI Initialized via Fortran. Model Rank: "
+              << mpi_rank_ << std::endl;
+
+    // Read namelist
+    fortranInterface_->readNamelist();
+    std::cout << "[MACOMModel] Fortran Namelist Read." << std::endl;
+
+    // Initialize model components
+    fortranInterface_->initializeModelComponents();
+    std::cout << "[MACOMModel] Fortran model components initialized."
+              << std::endl;
+
+    initialized_ = true;
+    std::cout << "[MACOMModel] Initialization complete." << std::endl;
+
+  } catch (const std::exception& e) {
+    initialized_ = false;
+    throw std::runtime_error(
+        std::string("[MACOMModel] Initialization failed: ") + e.what());
+  }
+}
 
 template <typename ConfigBackend>
 void MACOMModel<ConfigBackend>::reset() {}
 
 template <typename ConfigBackend>
-void MACOMModel<ConfigBackend>::finalize() {}
+void MACOMModel<ConfigBackend>::finalize() {
+  if (!initialized_ || !fortranInterface_) {
+    return;
+  }
+  std::cout << "[MACOMModel] Finalizing..." << std::endl;
+  try {
+    fortranInterface_->finalizeModelComponents();
+    std::cout << "[MACOMModel] Fortran model components finalized."
+              << std::endl;
+
+    fortranInterface_->finalizeMPI();
+    std::cout << "[MACOMModel] Fortran MPI finalized." << std::endl;
+
+  } catch (const std::exception& e) {
+    std::cerr << "[MACOMModel] Error during finalization: " << e.what()
+              << std::endl;
+  }
+  initialized_ = false;
+  mpi_rank_ = -1;
+  std::cout << "[MACOMModel] Finalization complete." << std::endl;
+}
 
 template <typename ConfigBackend>
 void MACOMModel<ConfigBackend>::run(
