@@ -67,6 +67,7 @@ endif()
 # Set include directories
 target_include_directories(macom_backends 
     INTERFACE  
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${COMMON_INCLUDE}>
 )
@@ -74,8 +75,8 @@ target_include_directories(macom_backends
 # Set headers as interface sources to show them in IDE
 target_sources(macom_backends
     INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/MACOMModel.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/MACOMState.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/MACOMModel.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/MACOMState.hpp
 )
 
 # Link dependencies
