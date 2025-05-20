@@ -34,6 +34,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Geometry.hpp"
 #include "NonCopyable.hpp"
 #include "StateConcepts.hpp"
 
@@ -66,7 +67,8 @@ class Config;
  * Example usage:
  * @code
  * Config<T> config;
- * State<Backend> state(config);
+ * Geometry<T> geometry(config);
+ * State<Backend> state(config, geometry);
  * state.zero();
  * auto& data = state.getData<double>();
  * @endcode
@@ -83,6 +85,7 @@ template <typename BackendTag>
 class State : private NonCopyable {
  public:
   using StateBackend = typename traits::BackendTraits<BackendTag>::StateBackend;
+  using Geometry = Geometry<BackendTag>;
 
   // Constructors
   State() = delete;  // Disable default constructor since we need a backend
@@ -91,21 +94,27 @@ class State : private NonCopyable {
   ~State() = default;
 
   /**
-   * @brief Constructor that initializes state with configuration
+   * @brief Constructor that initializes state with configuration and geometry
    *
    * @param[in] config Configuration object containing initialization parameters
+   * @param[in] geometry Geometry object providing grid information
    * @throws std::runtime_error If backend initialization fails
    */
-  explicit State(const Config<BackendTag>& config)
-      : backend_(config.backend()), initialized_(true) {}
+  State(const Config<BackendTag>& config, const Geometry& geometry)
+      : backend_(config.backend(), geometry.backend()),
+        geometry_(&geometry),
+        initialized_(true) {}
 
   /**
    * @brief Move constructor
    * @param other State instance to move from
    */
   State(State&& other) noexcept
-      : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
+      : backend_(std::move(other.backend_)),
+        geometry_(other.geometry_),
+        initialized_(other.initialized_) {
     // Reset the moved-from object's state
+    other.geometry_ = nullptr;
     other.initialized_ = false;
   }
 
@@ -118,11 +127,12 @@ class State : private NonCopyable {
     if (this != &other) {
       // Move the backend state
       backend_ = std::move(other.backend_);
-
+      // Transfer geometry reference
+      geometry_ = other.geometry_;
       // Transfer initialization state
       initialized_ = other.initialized_;
-
       // Reset the moved-from object's state
+      other.geometry_ = nullptr;
       other.initialized_ = false;
     }
     return *this;
@@ -337,15 +347,23 @@ class State : private NonCopyable {
    */
   const StateBackend& backend() const { return backend_; }
 
+  /**
+   * @brief Get the associated geometry (if any)
+   * @return Pointer to the geometry instance, or nullptr if not set
+   */
+  const Geometry* geometry() const { return geometry_; }
+
  private:
   /**
    * @brief Private constructor to be used internally by clone
    * @param backend Backend instance to move from
    */
   explicit State(StateBackend&& backend)
-      : backend_(std::move(backend)), initialized_(true) {}
+      : backend_(std::move(backend)), geometry_(nullptr), initialized_(true) {}
 
-  StateBackend backend_;     ///< Instance of the state backend
+  StateBackend backend_;  ///< Instance of the state backend
+  const Geometry* geometry_ =
+      nullptr;               ///< Pointer to associated geometry (optional)
   bool initialized_{false};  ///< Initialization flag
 };
 

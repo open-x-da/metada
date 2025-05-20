@@ -45,6 +45,7 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 
 using framework::Config;
+using framework::Geometry;
 using framework::State;
 
 /**
@@ -61,6 +62,7 @@ class StateTest : public ::testing::Test {
  protected:
   std::string config_file_;
   std::unique_ptr<Config<traits::MockBackendTag>> config_;
+  std::unique_ptr<Geometry<traits::MockBackendTag>> geometry_;
 
   // Common State objects for tests
   std::unique_ptr<State<traits::MockBackendTag>> state1_;  ///< First test state
@@ -73,6 +75,7 @@ class StateTest : public ::testing::Test {
    * Initializes:
    * - Configuration file path
    * - Mock configuration object
+   * - Geometry object
    * - Common State objects for testing
    */
   void SetUp() override {
@@ -80,10 +83,13 @@ class StateTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     config_file_ = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
+    geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
 
     // Create common State objects
-    state1_ = std::make_unique<State<traits::MockBackendTag>>(*config_);
-    state2_ = std::make_unique<State<traits::MockBackendTag>>(*config_);
+    state1_ =
+        std::make_unique<State<traits::MockBackendTag>>(*config_, *geometry_);
+    state2_ =
+        std::make_unique<State<traits::MockBackendTag>>(*config_, *geometry_);
   }
 
   /**
@@ -91,6 +97,7 @@ class StateTest : public ::testing::Test {
    */
   void TearDown() override {
     config_.reset();
+    geometry_.reset();
     state1_.reset();
     state2_.reset();
   }
@@ -101,7 +108,7 @@ class StateTest : public ::testing::Test {
    */
   State<traits::MockBackendTag> createState() {
     // Since Config is non-copyable, we pass a reference to the config
-    return State<traits::MockBackendTag>(*config_);
+    return State<traits::MockBackendTag>(*config_, *geometry_);
   }
 };
 
