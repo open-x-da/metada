@@ -9,12 +9,15 @@
 
 #include <algorithm>  // For std::equal, std::find
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <numeric>    // For std::inner_product (potentially for dot product)
 #include <stdexcept>  // For std::runtime_error
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "MACOMGeometry.hpp"
 
 namespace metada::backends::macom {
 
@@ -246,6 +249,7 @@ class MACOMState {
   // State information
   bool initialized_ = false;
   std::string inputFile_;                   // Input data file path
+  std::string timestamp_;                   // Timestamp of the data
   std::vector<std::string> variableNames_;  // Available variables
   std::string activeVariable_;              // Currently active variable
 
@@ -254,9 +258,39 @@ class MACOMState {
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
 };
 
+// ConfigBackend constructor implementation
 template <typename ConfigBackend>
 MACOMState<ConfigBackend>::MACOMState(const ConfigBackend& config)
-    : config_(config), initialized_(false) {}
+    : config_(config), initialized_(false) {
+  std::string input_filename = config.Get("input_file").asString();
+  if (input_filename.empty()) {
+    throw std::runtime_error(
+        "MACOM state input file path not specified in configuration");
+  }
+  inputFile_ = input_filename;
+
+  std::string timestamp_ = config.Get("timestamp").asString();
+
+  // Get variables to load from config
+  std::vector<std::string> variables;
+
+  // Try to get variables list from config, otherwise use defaults
+  try {
+    variables = config.Get("variables").asVectorString();
+  } catch (const std::exception&) {
+    std::cerr << "Warning: No variables specified in configuration"
+              << std::endl;
+  }
+
+  variableNames_ = variables;
+
+  // Set the active variable to the first one if available
+  if (!variables.empty()) {
+    activeVariable_ = variables[0];
+  }
+
+  initialized_ = true;
+}
 
 // Constructor implementation with ConfigBackend
 template <typename ConfigBackend>

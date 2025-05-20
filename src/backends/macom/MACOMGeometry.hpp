@@ -143,10 +143,10 @@ class MACOMGeometry {
   bool isPeriodicZ() const { return false; }
 
   /**
-   * @brief Dummy halo exchange implementation
-   *
-   * @param state The state (ignored in this implementation)
+   * @brief Get the number of grid points (nlpb)
+   * @return nlpb_
    */
+
   template <typename StateBackend>
   void haloExchange([[maybe_unused]] StateBackend& state) {}
 
@@ -226,7 +226,7 @@ MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
   std::string input_filename = config.Get("input_file").asString();
   if (input_filename.empty()) {
     throw std::runtime_error(
-        "MACOM input file path not specified in configuration");
+        "MACOM input grid file path not specified in configuration");
   }
 
   // Load geometry data from MACOM NetCDF file
