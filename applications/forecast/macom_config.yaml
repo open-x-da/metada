@@ -11,9 +11,12 @@ state:
   input_file: "D:/macom/glo_1_6/exp/nmefc_macom_csp_initinal_d01.nc"
   timestamp: "2000-01-24T12:00:00Z"
   variables:
-    - U
-    - V
-    - T
+    - u
+    - v
+    - w
+    - t
+    - s
+    - pbt
 
 
 model:

@@ -39,7 +39,6 @@ contains
   subroutine c_macom_initialize_mpi(comm_c) bind(C, name="c_macom_initialize_mpi")
     ! Initializes MPI environment for MACOM using a communicator from C.
     integer(C_INT), value, intent(in) :: comm_c
-    integer :: mpi_comm_f ! Fortran MPI communicator
 
     ! Convert C MPI communicator to Fortran communicator
     ! mpi_comm_f = MPI_Comm_f2c(comm_c) ! Or use directly if types match, be careful.
@@ -52,6 +51,7 @@ contains
     
     ! For now, a placeholder:
     print *, "[FortranWrapper] c_macom_initialize_mpi called with C communicator: ", comm_c
+    print *, "11111111111111111111111111"
     ! call MPI_Comm_rank(mpi_comp_comm, mpi_rank, ierr)
     ! print *, "[FortranWrapper] MPI Initialized. Rank: ", mpi_rank
   end subroutine c_macom_initialize_mpi
@@ -77,6 +77,7 @@ contains
   subroutine c_macom_read_namelist() bind(C, name="c_macom_read_namelist")
     ! Reads the model configuration (namelist).
     ! call misc_namelist_read() ! Your existing namelist reading routine
+    ! call misc_namelist_read()
     print *, "[FortranWrapper] c_macom_read_namelist called."
   end subroutine c_macom_read_namelist
 
