@@ -19,6 +19,11 @@
 
 #include "MACOMGeometry.hpp"
 
+// namespace metada::backends::macom {
+// template <typename ConfigBackend>
+// class MACOMGeometry;
+// }
+
 namespace metada::backends::macom {
 
 /**
@@ -32,6 +37,27 @@ namespace metada::backends::macom {
 template <typename ConfigBackend>
 class MACOMState {
  public:
+  // /**
+  //  * @brief Set the associated geometry object
+  //  *
+  //  * @param geometry Pointer to a MACOMGeometry object
+  //  */
+  // void setGeometry(const Geometry_MACOM* geometry) {
+  //   if (!geometry) {
+  //     throw std::runtime_error("setGeometry: null pointer passed");
+  //   }
+  //   if (!geometry->isInitialized()) {
+  //     throw std::runtime_error("setGeometry: geometry not initialized");
+  //   }
+  //   geometry_ptr_ = geometry;
+  //   // now pull the numbers out of the geometry
+  //   nlpb_ = geometry_ptr_->getNlpb();
+  //   nk_ = geometry_ptr_->getNk();
+  //   // (if you need nkp1 you can grab that too)
+  //   std::cout << "State bound to geometry: nlpb=" << nlpb_ << " nk=" << nk_
+  //             << "\n";
+  // }
+
   /**
    * @brief Default constructor is deleted
    */
@@ -243,6 +269,46 @@ class MACOMState {
   }
 
  private:
+  using Geometry_MACOM = MACOMGeometry<ConfigBackend>;
+  const Geometry_MACOM* geometry_ptr_ = nullptr;
+  /**
+   * @brief Load variable dimensions from NetCDF file
+   *
+   * @param ncFile NetCDF file handle
+   */
+  void loadVariableDimensions(netCDF::NcFile& ncFile);
+
+  /**
+   * @brief Load variable arrays from NetCDF file
+   *
+   * @param ncFile NetCDF file handle
+   */
+  void loadVariableArrays(netCDF::NcFile& ncFile,
+                          const std::vector<std::string>& variables);
+
+  /**
+   * @brief Initialize grid from NetCDF file
+   *
+   * @param filename Path to the NetCDF grid file
+   */
+  void loadVariableData(const std::string& filename,
+                        const std::vector<std::string>& variables);
+
+  // Variable dimensions
+  std::size_t nlpb_ = 0;  // Number of grid points
+  std::size_t nk_ = 0;    // Number of vertical levels
+
+  std::size_t nlpb_grid = 0;  // Number of grid points
+  std::size_t nk_grid = 0;    // Number of vertical levels
+  const ConfigBackend* config_ptr_ = nullptr;
+
+  // Variable data
+  std::vector<double> u;  // u-velocity
+  std::vector<double> v;  // v-velocity
+  std::vector<double> t;  // temperature
+  std::vector<double> s;  // salinity
+  std::vector<double> w;  // w-velocity
+
   // Reference to configuration
   const ConfigBackend& config_;
 
@@ -256,7 +322,7 @@ class MACOMState {
   // Data storage (this would be filled by the actual implementation)
   std::unordered_map<std::string, std::vector<double>> variables_;
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
-};
+};  // namespace metada::backends::macom
 
 // ConfigBackend constructor implementation
 template <typename ConfigBackend>
@@ -282,14 +348,19 @@ MACOMState<ConfigBackend>::MACOMState(const ConfigBackend& config)
               << std::endl;
   }
 
-  variableNames_ = variables;
+  std::cout << "nlpb_grid = " << nlpb_grid << ", nk_grid = " << nk_grid
+            << std::endl;
 
-  // Set the active variable to the first one if available
-  if (!variables.empty()) {
-    activeVariable_ = variables[0];
-  }
+  loadVariableData(input_filename, variables);
 
-  initialized_ = true;
+  std::cout << "MACOMState initialized = " << initialized_ << std::endl;
+
+  // variableNames_ = variables;
+
+  // // Set the active variable to the first one if available
+  // if (!variables.empty()) {
+  //   activeVariable_ = variables[0];
+  // }
 }
 
 // Constructor implementation with ConfigBackend
@@ -367,6 +438,27 @@ template <typename ConfigBackend>
 const std::vector<size_t>& MACOMState<ConfigBackend>::getDimensions(
     const std::string& name) const {
   try {
+    // auto it = dimensions_.find(name);
+    // if (it != dimensions_.end()) {
+    //   return it->second;
+    // }
+
+    // if (geometry_ptr_ && geometry_ptr_->isInitialized()) {
+    //   std::vector<size_t> dims;
+
+    //   if (name == "u" || name == "v" || name == "t" || name == "s") {
+    //     dims = {geometry_ptr_->nlpb_, geometry_ptr_->nk_};
+    //   } else if (name == "w") {
+    //     dims = {geometry_ptr_->nlpb_, geometry_ptr_->nkp1_};
+    //   } else {
+    //     throw std::out_of_range("Unknown variable: " + name);
+    //   }
+
+    //   dimensions_[name] = dims;
+    //   return dimensions_[name];
+    // }
+
+    throw std::out_of_range("No dimension information available for: " + name);
     return dimensions_.at(name);
   } catch (const std::out_of_range&) {
     throw std::out_of_range("Variable not found: " + name);
@@ -392,6 +484,104 @@ void MACOMState<ConfigBackend>::subtract(
 template <typename ConfigBackend>
 void MACOMState<ConfigBackend>::multiply([[maybe_unused]] double scalar) {
   // 实现框架
+}
+
+// Implementation of loadVariableDimensions
+template <typename ConfigBackend>
+void MACOMState<ConfigBackend>::loadVariableDimensions(netCDF::NcFile& ncFile) {
+  auto readDimension = [&ncFile](const std::string& name, std::size_t& value) {
+    std::cout << "Attempting to read dimension: " << name << std::endl;
+    auto dim = ncFile.getDim(name);
+    if (dim.isNull()) {
+      throw std::runtime_error("Dimension '" + name +
+                               "' not found in grid file");
+    }
+    std::cout << "Found dimension: " << name << std::endl;
+    value = dim.getSize();
+    std::cout << "Read size for " << name << ": " << value << std::endl;
+  };
+
+  // Read all variable dimensions
+  readDimension("nlpb", nlpb_);
+  readDimension("nk", nk_);
+
+  std::cout << "Loaded variable dimensions:" << std::endl;
+  std::cout << "  nlpb=" << nlpb_ << ", nk=" << nk_ << std::endl;
+}
+
+// Implementation of loadVariableArrays
+template <typename ConfigBackend>
+void MACOMState<ConfigBackend>::loadVariableArrays(
+    netCDF::NcFile& ncFile, const std::vector<std::string>& variables) {
+  for (const auto& variable : variables) {
+    if (variable == "u") {
+      u.resize(nlpb_ * nk_);
+    } else if (variable == "v") {
+      v.resize(nlpb_ * nk_);
+    } else if (variable == "t") {
+      t.resize(nlpb_ * nk_);
+    } else if (variable == "s") {
+      s.resize(nlpb_ * nk_);
+    } else if (variable == "w") {
+      w.resize(nlpb_ * nk_);
+    }
+  }
+
+  // Read variables
+  auto readVar = [&ncFile](const std::string& name, std::vector<double>& data) {
+    auto var = ncFile.getVar(name);
+    if (var.isNull()) {
+      throw std::runtime_error("Variable '" + name +
+                               "' not found in initial data file");
+    }
+    var.getVar(data.data());
+  };
+
+  // Read grid data
+  for (const auto& variable : variables) {
+    readVar(variable, variables_[variable]);
+  }
+
+  std::cout << "Loaded variable arrays" << std::endl;
+}
+
+// Implementation of loadVariableData
+template <typename ConfigBackend>
+void MACOMState<ConfigBackend>::loadVariableData(
+    const std::string& filename, const std::vector<std::string>& variables) {
+  try {
+    std::cout << "Attempting to open NetCDF file: " << filename << std::endl;
+
+    // Open the NetCDF file
+    netCDF::NcFile ncFile(filename, netCDF::NcFile::read);
+
+    if (ncFile.isNull()) {
+      throw std::runtime_error("Failed to open NetCDF file: " + filename);
+    }
+
+    std::cout << "Successfully opened NetCDF file" << std::endl;
+
+    // Step 1: Load grid dimensions
+    loadVariableDimensions(ncFile);
+
+    // Step 2: Load grid arrays
+    loadVariableArrays(ncFile, variables);
+
+    // Close the file
+    ncFile.close();
+
+    initialized_ = true;
+
+    std::cout << "Successfully initialized variable data from " << filename
+              << std::endl;
+
+  } catch (const netCDF::exceptions::NcException& e) {
+    throw std::runtime_error("NetCDF error while reading variable data file: " +
+                             std::string(e.what()));
+  } catch (const std::exception& e) {
+    throw std::runtime_error("Error initializing variable data: " +
+                             std::string(e.what()));
+  }
 }
 
 }  // namespace metada::backends::macom

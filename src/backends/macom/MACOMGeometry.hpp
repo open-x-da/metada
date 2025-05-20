@@ -119,7 +119,7 @@ class MACOMGeometry {
    *
    * @return True if initialized, false otherwise
    */
-  bool isInitialized() const;
+  bool isInitialized() const { return initialized_; }
 
   /**
    * @brief Check if the geometry is periodic in X dimension
@@ -146,6 +146,49 @@ class MACOMGeometry {
    * @brief Get the number of grid points (nlpb)
    * @return nlpb_
    */
+  std::size_t getNlpb() const { return nlpb_; }
+
+  /**
+   * @brief Get the number of vertical levels (nk)
+   * @return nk_
+   */
+  std::size_t getNk() const { return nk_; }
+
+  /**
+   * @brief Get the number of vertical levels + 1 (nkp1)
+   * @return nkp1_
+   */
+  std::size_t getNkp1() const { return nkp1_; }
+
+  /**
+   * @brief Get the total number of grid points (nl)
+   * @return nl_
+   */
+  std::size_t getNl() const { return nl_; }
+
+  /**
+   * @brief Get the number of grid points for vorticity (nlpbz)
+   * @return nlpbz_
+   */
+  std::size_t getNlpbz() const { return nlpbz_; }
+
+  /**
+   * @brief Get the total number of grid points for vorticity (nlz)
+   * @return nlz_
+   */
+  std::size_t getNlz() const { return nlz_; }
+
+  /**
+   * @brief Get the number of boundary points (nlbdy)
+   * @return nlbdy_
+   */
+  std::size_t getNlbdy() const { return nlbdy_; }
+
+  /**
+   * @brief Get the number of iterations (ni)
+   * @return ni_
+   */
+  std::size_t getNi() const { return ni_; }
 
   template <typename StateBackend>
   void haloExchange([[maybe_unused]] StateBackend& state) {}
@@ -179,9 +222,6 @@ class MACOMGeometry {
    * @param nk Number of vertical levels
    * @param init Initialization status
    */
-  MACOMGeometry(std::size_t nlpb, std::size_t nk, bool init,
-                const ConfigBackend* cfg)
-      : nlpb_(nlpb), nk_(nk), initialized_(init), config_ptr_(cfg) {}
 
   // Grid dimensions
   std::size_t nlpb_ = 0;   // Number of grid points

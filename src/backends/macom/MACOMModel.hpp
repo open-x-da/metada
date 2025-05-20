@@ -192,7 +192,15 @@ MACOMModel<ConfigBackend>::~MACOMModel() {
 
 template <typename ConfigBackend>
 void MACOMModel<ConfigBackend>::initialize(const ConfigBackend& config) {
+  std::string start_datetime = config.Get("start_datetime").asString();
+  std::string end_datetime = config.Get("end_datetime").asString();
+  std::string time_step = config.Get("time_step").asString();
+
   if (initialized_) {
+    std::cout << "[MACOMModel] Start time: " << start_datetime << std::endl;
+    std::cout << "[MACOMModel] End time: " << end_datetime << std::endl;
+    std::cout << "[MACOMModel] Time step: " << time_step << std::endl;
+
     std::cout
         << "[MACOMModel] Already initialized. Finalize first to re-initialize."
         << std::endl;
