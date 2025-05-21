@@ -1,31 +1,6 @@
 {
     "tasks": [
         {
-            "type": "cppbuild",
-            "label": "C/C++: MinGW build active file",
-            "command": "C:/msys64/mingw64/bin/g++.exe",
-            "args": [
-                "-g",
-                "-Wall",
-                "-Wextra",
-                "-std=c++17",
-                "-o",
-                "${fileDirname}/${fileBasenameNoExtension}.exe",
-                "${file}"
-            ],
-            "options": {
-                "cwd": "${fileDirname}"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "detail": "compiler: g++.exe"
-        },
-        {
             "type": "shell",
             "label": "CMake: Build",
             "command": "cmake --build ${workspaceFolder}/build",
