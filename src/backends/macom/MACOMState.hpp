@@ -7,17 +7,13 @@
 
 #pragma once
 
-#include <algorithm>  // For std::equal, std::find
-#include <cmath>
-#include <iostream>
 #include <memory>
-#include <numeric>    // For std::inner_product (potentially for dot product)
-#include <stdexcept>  // For std::runtime_error
+#include <netcdf>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "MACOMGeometry.hpp"
+// #include "MACOMGeometry.hpp"
 
 // namespace metada::backends::macom {
 // template <typename ConfigBackend>
@@ -34,7 +30,7 @@ namespace metada::backends::macom {
  * oceanographic state variables and provides operations required by the State
  * adapter.
  */
-template <typename ConfigBackend>
+template <typename ConfigBackend, typename GeometryBackend>
 class MACOMState {
  public:
   // /**
@@ -78,7 +74,7 @@ class MACOMState {
    *
    * @param config Configuration containing MACOM file path and variables
    */
-  explicit MACOMState(const ConfigBackend& config);
+  MACOMState(const ConfigBackend& config, const GeometryBackend& geometry);
 
   /**
    * @brief Move constructor
@@ -134,7 +130,7 @@ class MACOMState {
    * @param name Name of the variable to set as active
    * @throws std::out_of_range If variable doesn't exist
    */
-  void setActiveVariable([[maybe_unused]] const std::string& name);
+  void setActiveVariable(const std::string& name);
 
   /**
    * @brief Get all variable names in this state
@@ -156,14 +152,36 @@ class MACOMState {
    * @brief Set all values to zero
    */
   void zero();
+  /**
+   * @brief Calculate dot product with another state
+   *
+   * @param other State to calculate dot product with
+   * @return Scalar dot product result
+   * @throws std::runtime_error If states are incompatible
+   */
+  double dot(const MACOMState& other) const;
 
+  /**
+   * @brief Calculate norm of the state
+   *
+   * @return Norm of the state
+   */
+  double norm() const;
+
+  /**
+   * @brief Check if this state equals another
+   *
+   * @param other State to compare with
+   * @return True if states are equal, false otherwise
+   */
+  bool equals(const MACOMState& other) const;
   /**
    * @brief Add another state to this one
    *
    * @param other State to add
    * @throws std::runtime_error If states are incompatible
    */
-  void add([[maybe_unused]] const MACOMState& other);
+  void add(const MACOMState& other);
 
   /**
    * @brief Subtract another state from this one
@@ -171,14 +189,14 @@ class MACOMState {
    * @param other State to subtract
    * @throws std::runtime_error If states are incompatible
    */
-  void subtract([[maybe_unused]] const MACOMState& other);
+  void subtract(const MACOMState& other);
 
   /**
    * @brief Multiply this state by a scalar
    *
    * @param scalar Value to multiply by
    */
-  void multiply([[maybe_unused]] double scalar);
+  void multiply(double scalar);
 
   /**
    * @brief Check if state is properly initialized
@@ -187,90 +205,7 @@ class MACOMState {
    */
   bool isInitialized() const { return initialized_; }
 
-  /**
-   * @brief Calculate the norm of this state
-   *
-   * @return Norm of the state
-   */
-  double norm() const {
-    double sum_sq = 0.0;
-    for (const auto& pair : variables_) {
-      for (double val : pair.second) {
-        sum_sq += val * val;
-      }
-    }
-    return std::sqrt(sum_sq);
-  }
-
-  /**
-   * @brief 计算与另一个状态的点积
-   *
-   * @param other 另一个状态
-   * @return double 点积结果
-   */
-  double dot(const MACOMState& other) const {
-    if (variableNames_.size() != other.variableNames_.size()) {
-      // Or handle more gracefully if some variables might be missing
-      throw std::runtime_error(
-          "MACOMState::dot: States have different number of variables.");
-    }
-    double total_dot_product = 0.0;
-    for (const auto& name : variableNames_) {
-      const auto& vec_this = this->variables_.at(name);
-      const auto& vec_other = other.variables_.at(name);
-      if (vec_this.size() != vec_other.size()) {
-        throw std::runtime_error("MACOMState::dot: Variable '" + name +
-                                 "' has different sizes.");
-      }
-      total_dot_product += std::inner_product(vec_this.begin(), vec_this.end(),
-                                              vec_other.begin(), 0.0);
-    }
-    return total_dot_product;
-  }
-
-  /**
-   * @brief 检查两个状态是否相等
-   *
-   * @param other 要比较的另一个状态
-   * @return bool 如果相等返回true，否则返回false
-   */
-  bool equals(const MACOMState& other) const {
-    if (initialized_ != other.initialized_ ||
-        activeVariable_ != other.activeVariable_ ||
-        variableNames_.size() != other.variableNames_.size() ||
-        variables_.size() != other.variables_.size() ||
-        dimensions_.size() != other.dimensions_.size()) {
-      return false;
-    }
-
-    // Check variable names
-    std::vector<std::string> vn1 = variableNames_;
-    std::vector<std::string> vn2 = other.variableNames_;
-    std::sort(vn1.begin(), vn1.end());
-    std::sort(vn2.begin(), vn2.end());
-    if (vn1 != vn2) return false;
-
-    for (const auto& name : variableNames_) {
-      if (variables_.at(name).size() != other.variables_.at(name).size() ||
-          dimensions_.at(name) != other.dimensions_.at(name)) {
-        return false;
-      }
-      // Approx equals for floating point data
-      const auto& data_this = variables_.at(name);
-      const auto& data_other = other.variables_.at(name);
-      for (size_t i = 0; i < data_this.size(); ++i) {
-        if (std::abs(data_this[i] - data_other[i]) >
-            1e-9) {  // Tolerance for float comparison
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
  private:
-  using Geometry_MACOM = MACOMGeometry<ConfigBackend>;
-  const Geometry_MACOM* geometry_ptr_ = nullptr;
   /**
    * @brief Load variable dimensions from NetCDF file
    *
@@ -287,12 +222,16 @@ class MACOMState {
                           const std::vector<std::string>& variables);
 
   /**
-   * @brief Initialize grid from NetCDF file
+   * @brief Initialize variable data from NetCDF file
    *
-   * @param filename Path to the NetCDF grid file
+   * @param filename Path to the NetCDF variable data file
    */
   void loadVariableData(const std::string& filename,
                         const std::vector<std::string>& variables);
+
+  // Reference to configuration
+  const ConfigBackend& config_;
+  const GeometryBackend& geometry_;
 
   // Variable dimensions
   std::size_t nlpb_ = 0;  // Number of grid points
@@ -300,7 +239,6 @@ class MACOMState {
 
   std::size_t nlpb_grid = 0;  // Number of grid points
   std::size_t nk_grid = 0;    // Number of vertical levels
-  const ConfigBackend* config_ptr_ = nullptr;
 
   // Variable data
   std::vector<double> u;  // u-velocity
@@ -308,9 +246,6 @@ class MACOMState {
   std::vector<double> t;  // temperature
   std::vector<double> s;  // salinity
   std::vector<double> w;  // w-velocity
-
-  // Reference to configuration
-  const ConfigBackend& config_;
 
   // State information
   bool initialized_ = false;
@@ -324,10 +259,11 @@ class MACOMState {
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
 };  // namespace metada::backends::macom
 
-// ConfigBackend constructor implementation
-template <typename ConfigBackend>
-MACOMState<ConfigBackend>::MACOMState(const ConfigBackend& config)
-    : config_(config), initialized_(false) {
+// ConfigBackend constructor implementation and GeometryBackend constructor
+template <typename ConfigBackend, typename GeometryBackend>
+MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
+    const ConfigBackend& config, const GeometryBackend& geometry)
+    : config_(config), geometry_(geometry), initialized_(false) {
   std::string input_filename = config.Get("input_file").asString();
   if (input_filename.empty()) {
     throw std::runtime_error(
@@ -364,9 +300,11 @@ MACOMState<ConfigBackend>::MACOMState(const ConfigBackend& config)
 }
 
 // Constructor implementation with ConfigBackend
-template <typename ConfigBackend>
-MACOMState<ConfigBackend>::MACOMState(MACOMState&& other) noexcept
+template <typename ConfigBackend, typename GeometryBackend>
+MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
+    MACOMState<ConfigBackend, GeometryBackend>&& other) noexcept
     : config_(other.config_),
+      geometry_(other.geometry_),
       initialized_(other.initialized_),
       inputFile_(std::move(other.inputFile_)),
       variableNames_(std::move(other.variableNames_)),
@@ -374,11 +312,15 @@ MACOMState<ConfigBackend>::MACOMState(MACOMState&& other) noexcept
       variables_(std::move(other.variables_)),
       dimensions_(std::move(other.dimensions_)) {
   other.initialized_ = false;
+  other.variableNames_.clear();
+  other.activeVariable_.clear();
 }
 
-template <typename ConfigBackend>
-MACOMState<ConfigBackend>& MACOMState<ConfigBackend>::operator=(
-    MACOMState&& other) noexcept {
+// Move assignment operator implementation
+template <typename ConfigBackend, typename GeometryBackend>
+MACOMState<ConfigBackend, GeometryBackend>&
+MACOMState<ConfigBackend, GeometryBackend>::operator=(
+    MACOMState<ConfigBackend, GeometryBackend>&& other) noexcept {
   if (this != &other) {
     initialized_ = other.initialized_;
     inputFile_ = std::move(other.inputFile_);
@@ -388,14 +330,17 @@ MACOMState<ConfigBackend>& MACOMState<ConfigBackend>::operator=(
     dimensions_ = std::move(other.dimensions_);
 
     other.initialized_ = false;
+    other.variableNames_.clear();
+    other.activeVariable_.clear();
   }
   return *this;
 }
 
-template <typename ConfigBackend>
-std::unique_ptr<MACOMState<ConfigBackend>> MACOMState<ConfigBackend>::clone()
-    const {
-  auto cloned = std::make_unique<MACOMState>(config_);
+template <typename ConfigBackend, typename GeometryBackend>
+std::unique_ptr<MACOMState<ConfigBackend, GeometryBackend>>
+MACOMState<ConfigBackend, GeometryBackend>::clone() const {
+  auto cloned = std::make_unique<MACOMState<ConfigBackend, GeometryBackend>>(
+      config_, geometry_);
   cloned->initialized_ = this->initialized_;
   cloned->inputFile_ = this->inputFile_;
   cloned->variableNames_ = this->variableNames_;
@@ -405,37 +350,60 @@ std::unique_ptr<MACOMState<ConfigBackend>> MACOMState<ConfigBackend>::clone()
   return cloned;
 }
 
-template <typename ConfigBackend>
-void* MACOMState<ConfigBackend>::getData() {
-  // 基本实现框架
-  return nullptr;
+template <typename ConfigBackend, typename GeometryBackend>
+void* MACOMState<ConfigBackend, GeometryBackend>::getData() {
+  if (!initialized_ || activeVariable_.empty()) {
+    return nullptr;
+  }
+
+  try {
+    return variables_.at(activeVariable_).data();
+  } catch (const std::out_of_range&) {
+    return nullptr;
+  }
 }
 
-template <typename ConfigBackend>
-const void* MACOMState<ConfigBackend>::getData() const {
-  // 基本实现框架
-  return nullptr;
+// Const data access implementation
+template <typename ConfigBackend, typename GeometryBackend>
+const void* MACOMState<ConfigBackend, GeometryBackend>::getData() const {
+  if (!initialized_ || activeVariable_.empty()) {
+    return nullptr;
+  }
+
+  try {
+    return variables_.at(activeVariable_).data();
+  } catch (const std::out_of_range&) {
+    return nullptr;
+  }
 }
 
-template <typename ConfigBackend>
-const std::string& MACOMState<ConfigBackend>::getActiveVariable() const {
+// Get active variable implementation
+template <typename ConfigBackend, typename GeometryBackend>
+const std::string&
+MACOMState<ConfigBackend, GeometryBackend>::getActiveVariable() const {
   return activeVariable_;
 }
 
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::setActiveVariable(
-    [[maybe_unused]] const std::string& name) {
-  // 实现框架
+// Set active variable implementation
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::setActiveVariable(
+    const std::string& name) {
+  if (variables_.find(name) == variables_.end()) {
+    throw std::out_of_range("Variable not found: " + name);
+  }
+  activeVariable_ = name;
 }
 
-template <typename ConfigBackend>
-const std::vector<std::string>& MACOMState<ConfigBackend>::getVariableNames()
-    const {
+// Get variable names implementation
+template <typename ConfigBackend, typename GeometryBackend>
+const std::vector<std::string>&
+MACOMState<ConfigBackend, GeometryBackend>::getVariableNames() const {
   return variableNames_;
 }
 
-template <typename ConfigBackend>
-const std::vector<size_t>& MACOMState<ConfigBackend>::getDimensions(
+template <typename ConfigBackend, typename GeometryBackend>
+const std::vector<size_t>&
+MACOMState<ConfigBackend, GeometryBackend>::getDimensions(
     const std::string& name) const {
   try {
     // auto it = dimensions_.find(name);
@@ -465,30 +433,35 @@ const std::vector<size_t>& MACOMState<ConfigBackend>::getDimensions(
   }
 }
 
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::zero() {
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::zero() {
   // 基本实现框架
 }
 
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::add([[maybe_unused]] const MACOMState& other) {
-  // 实现框架
-}
-
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::subtract(
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::add(
     [[maybe_unused]] const MACOMState& other) {
   // 实现框架
 }
 
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::multiply([[maybe_unused]] double scalar) {
-  // 实现框架
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::subtract(
+    const MACOMState<ConfigBackend, GeometryBackend>& other) {
+  // Subtract each variable
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
+  // Multiply each variable by the scalar
+  // for (auto& [name, data] : variables_) {
+  //   data *= scalar;
+  // }
 }
 
 // Implementation of loadVariableDimensions
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::loadVariableDimensions(netCDF::NcFile& ncFile) {
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::loadVariableDimensions(
+    netCDF::NcFile& ncFile) {
   auto readDimension = [&ncFile](const std::string& name, std::size_t& value) {
     std::cout << "Attempting to read dimension: " << name << std::endl;
     auto dim = ncFile.getDim(name);
@@ -510,8 +483,8 @@ void MACOMState<ConfigBackend>::loadVariableDimensions(netCDF::NcFile& ncFile) {
 }
 
 // Implementation of loadVariableArrays
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::loadVariableArrays(
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::loadVariableArrays(
     netCDF::NcFile& ncFile, const std::vector<std::string>& variables) {
   for (const auto& variable : variables) {
     if (variable == "u") {
@@ -546,8 +519,8 @@ void MACOMState<ConfigBackend>::loadVariableArrays(
 }
 
 // Implementation of loadVariableData
-template <typename ConfigBackend>
-void MACOMState<ConfigBackend>::loadVariableData(
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::loadVariableData(
     const std::string& filename, const std::vector<std::string>& variables) {
   try {
     std::cout << "Attempting to open NetCDF file: " << filename << std::endl;

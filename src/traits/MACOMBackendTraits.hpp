@@ -19,12 +19,10 @@
 #endif
 
 // Include MACOM backend headers
-#include "../backends/macom/MACOMModel.hpp"
-#include "../backends/macom/MACOMState.hpp"
 #include "../backends/macom/MACOMGeometry.hpp"
 #include "../backends/macom/MACOMGeometryIterator.hpp"
-
-
+#include "../backends/macom/MACOMState.hpp"
+#include "../backends/macom/MACOMModel.hpp"
 
 namespace metada::traits {
 
@@ -53,8 +51,8 @@ struct BackendTraits<MACOMBackendTag> {
     // MACOM specific backend components
     using GeometryBackend = backends::macom::MACOMGeometry<ConfigBackend>;
     using GeometryIteratorBackend = backends::macom::MACOMGeometryIterator<ConfigBackend>;
-    using StateBackend = backends::macom::MACOMState<ConfigBackend>;
-    using ModelBackend = backends::macom::MACOMModel<ConfigBackend>;
+    using StateBackend = backends::macom::MACOMState<ConfigBackend, GeometryBackend>;
+    using ModelBackend = backends::macom::MACOMModel<ConfigBackend, StateBackend>;
 };
 
-}  // namespace metada::traits 
+}  // namespace metada::traits

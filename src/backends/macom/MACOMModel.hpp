@@ -10,19 +10,20 @@
 #include <memory>
 #include <stdexcept>  // For std::runtime_error
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // Include MACOM specific interfaces
-#include "MACOMState.hpp"
+// #include "MACOMState.hpp"
 #include "include/MACOMFortranInterface.hpp"  // Changed from FortranInterface.hpp
 
 // Metada framework utilities (if needed)
-// #include "DateTime.hpp"
-// #include "Duration.hpp"
+#include "DateTime.hpp"
+#include "Duration.hpp"
 
 namespace metada::backends::macom {
 
-template <typename ConfigBackend>
+template <typename ConfigBackend, typename GeometryBackend>
 class MACOMState;
 
 /**
@@ -31,7 +32,7 @@ class MACOMState;
  *          making it compatible with the Metada framework via
  * MACOMFortranInterface.
  */
-template <typename ConfigBackend>
+template <typename ConfigBackend, typename StateBackend>
 class MACOMModel {
  public:
   /**
@@ -82,7 +83,7 @@ class MACOMModel {
    * @param config Configuration (already passed to constructor, can be used for
    * re-init or verification).
    */
-  void initialize([[maybe_unused]] const ConfigBackend& config);
+  void initialize(const ConfigBackend& config);
 
   /**
    * @brief Reset the model to its initial state (placeholder).
@@ -106,8 +107,7 @@ class MACOMModel {
    * unused placeholder).
    * @throws std::runtime_error If model run fails.
    */
-  void run([[maybe_unused]] const MACOMState<ConfigBackend>& initialState,
-           [[maybe_unused]] MACOMState<ConfigBackend>& finalState);
+  void run(const StateBackend& initialState, StateBackend& finalState);
 
   /**
    * @brief Check if the model is initialized.
@@ -123,9 +123,10 @@ class MACOMModel {
    * @param outState Output state after time step
    * @param dt Time step size (in seconds)
    */
-  void timeStep([[maybe_unused]] const MACOMState<ConfigBackend>& inState,
-                [[maybe_unused]] MACOMState<ConfigBackend>& outState,
-                [[maybe_unused]] double dt);
+  void timeStep(const StateBackend& inState, StateBackend& outState,
+                Duration dt);
+
+  void applyBoundaryConditions(StateBackend& state) const;
 
   // Model configuration
   bool initialized_ = false;
@@ -146,16 +147,16 @@ class MACOMModel {
 };
 
 // Constructor implementation with ConfigBackend
-template <typename ConfigBackend>
-MACOMModel<ConfigBackend>::MACOMModel(const ConfigBackend& config)
+template <typename ConfigBackend, typename StateBackend>
+MACOMModel<ConfigBackend, StateBackend>::MACOMModel(const ConfigBackend& config)
     : initialized_(false) {
   // Create Fortran interface
   fortranInterface_ = std::make_unique<MACOMFortranInterface>();
   initialize(config);
 }
 
-template <typename ConfigBackend>
-MACOMModel<ConfigBackend>::MACOMModel(MACOMModel&& other) noexcept
+template <typename ConfigBackend, typename StateBackend>
+MACOMModel<ConfigBackend, StateBackend>::MACOMModel(MACOMModel&& other) noexcept
     : initialized_(other.initialized_),
       configFile_(std::move(other.configFile_)),
       outputDir_(std::move(other.outputDir_)) {
@@ -163,9 +164,10 @@ MACOMModel<ConfigBackend>::MACOMModel(MACOMModel&& other) noexcept
   other.currentTime_ = startTime_;
 }
 
-template <typename ConfigBackend>
-MACOMModel<ConfigBackend>& MACOMModel<ConfigBackend>::operator=(
-    MACOMModel&& other) noexcept {
+template <typename ConfigBackend, typename StateBackend>
+MACOMModel<ConfigBackend, StateBackend>&
+MACOMModel<ConfigBackend, StateBackend>::operator=(
+    MACOMModel<ConfigBackend, StateBackend>&& other) noexcept {
   if (this != &other) {
     initialized_ = other.initialized_;
     configFile_ = std::move(other.configFile_);
@@ -178,8 +180,8 @@ MACOMModel<ConfigBackend>& MACOMModel<ConfigBackend>::operator=(
   return *this;
 }
 
-template <typename ConfigBackend>
-MACOMModel<ConfigBackend>::~MACOMModel() {
+template <typename ConfigBackend, typename StateBackend>
+MACOMModel<ConfigBackend, StateBackend>::~MACOMModel() {
   if (initialized_) {
     try {
       finalize();
@@ -190,8 +192,9 @@ MACOMModel<ConfigBackend>::~MACOMModel() {
   }
 }
 
-template <typename ConfigBackend>
-void MACOMModel<ConfigBackend>::initialize(const ConfigBackend& config) {
+template <typename ConfigBackend, typename StateBackend>
+void MACOMModel<ConfigBackend, StateBackend>::initialize(
+    const ConfigBackend& config) {
   std::string start_datetime = config.Get("start_datetime").asString();
   std::string end_datetime = config.Get("end_datetime").asString();
   std::string time_step = config.Get("time_step").asString();
@@ -234,11 +237,11 @@ void MACOMModel<ConfigBackend>::initialize(const ConfigBackend& config) {
   }
 }
 
-template <typename ConfigBackend>
-void MACOMModel<ConfigBackend>::reset() {}
+template <typename ConfigBackend, typename StateBackend>
+void MACOMModel<ConfigBackend, StateBackend>::reset() {}
 
-template <typename ConfigBackend>
-void MACOMModel<ConfigBackend>::finalize() {
+template <typename ConfigBackend, typename StateBackend>
+void MACOMModel<ConfigBackend, StateBackend>::finalize() {
   if (!initialized_ || !fortranInterface_) {
     return;
   }
@@ -260,30 +263,30 @@ void MACOMModel<ConfigBackend>::finalize() {
   std::cout << "[MACOMModel] Finalization complete." << std::endl;
 }
 
-template <typename ConfigBackend>
-void MACOMModel<ConfigBackend>::run(
-    [[maybe_unused]] const MACOMState<ConfigBackend>& initialState,
-    [[maybe_unused]] MACOMState<ConfigBackend>& finalState) {}
+template <typename ConfigBackend, typename StateBackend>
+void MACOMModel<ConfigBackend, StateBackend>::run(
+    const StateBackend& initialState, StateBackend& finalState) {
+  // TODO: Implement the run method
+}
 
-template <typename ConfigBackend>
-void MACOMModel<ConfigBackend>::timeStep(
-    [[maybe_unused]] const MACOMState<ConfigBackend>& inState,
-    [[maybe_unused]] MACOMState<ConfigBackend>& outState,
-    [[maybe_unused]] double dt) {}
+template <typename ConfigBackend, typename StateBackend>
+void MACOMModel<ConfigBackend, StateBackend>::timeStep(
+    const StateBackend& inState, StateBackend& outState,
+    [[maybe_unused]] Duration dt) {
+  // // Apply boundary conditions implementation
+  // template <typename ConfigBackend>
+  // void MACOMModel<ConfigBackend>::applyBoundaryConditions(
+  //     MACOMState<ConfigBackend>& state) const {
+  //   // Apply appropriate boundary conditions to each variable
+  //   // For demonstration purposes, we'll just apply simple conditions
 
-// // Apply boundary conditions implementation
-// template <typename ConfigBackend>
-// void MACOMModel<ConfigBackend>::applyBoundaryConditions(
-//     MACOMState<ConfigBackend>& state) const {
-//   // Apply appropriate boundary conditions to each variable
-//   // For demonstration purposes, we'll just apply simple conditions
+  //   const auto& varNames = state.getVariableNames();
 
-//   const auto& varNames = state.getVariableNames();
+  //   for (const auto& varName : varNames) {
+  //     state.setActiveVariable(varName);
 
-//   for (const auto& varName : varNames) {
-//     state.setActiveVariable(varName);
-
-//     // In a real implementation, this would apply periodic, open, or fixed
-//     // boundary conditions depending on the variable and domain configuration
-//   }
+  //     // In a real implementation, this would apply periodic, open, or fixed
+  //     // boundary conditions depending on the variable and domain
+  //     configuration
+  //   }
 }  // namespace metada::backends::macom
