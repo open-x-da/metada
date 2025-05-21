@@ -50,8 +50,8 @@ struct BackendTraits<WRFBackendTag> {
   using GeometryBackend = backends::wrf::WRFGeometry<ConfigBackend>;
   using GeometryIteratorBackend =
       backends::wrf::WRFGeometryIterator<ConfigBackend>;
-  using StateBackend = backends::wrf::WRFState<ConfigBackend>;
-  using ModelBackend = backends::wrf::WRFModel<ConfigBackend>;
+  using StateBackend = backends::wrf::WRFState<ConfigBackend, GeometryBackend>;
+  using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend>;
 };
 
 }  // namespace metada::traits

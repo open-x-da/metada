@@ -19,8 +19,9 @@
 namespace metada::backends::wrf {
 
 // Forward declaration
-template <typename ConfigBackend>
+template <typename ConfigBackend, typename GeometryBackend>
 class WRFState;
+
 /**
  * @brief WRF model backend implementation
  *
@@ -29,7 +30,7 @@ class WRFState;
  * Forecasting) model. It provides methods for time stepping and integration of
  * the WRF dynamical core.
  */
-template <typename ConfigBackend>
+template <typename ConfigBackend, typename StateBackend>
 class WRFModel {
  public:
   /**
@@ -98,8 +99,7 @@ class WRFModel {
    * @param finalState Final state after model integration (output)
    * @throws std::runtime_error If model run fails
    */
-  void run(const WRFState<ConfigBackend>& initialState,
-           WRFState<ConfigBackend>& finalState);
+  void run(const StateBackend& initialState, StateBackend& finalState);
 
   /**
    * @brief Check if the model is initialized
@@ -116,15 +116,15 @@ class WRFModel {
    * @param outState Output state after time step
    * @param dt Time step size
    */
-  void timeStep(const WRFState<ConfigBackend>& inState,
-                WRFState<ConfigBackend>& outState, Duration dt);
+  void timeStep(const StateBackend& inState, StateBackend& outState,
+                Duration dt);
 
   /**
    * @brief Apply boundary conditions to the model state
    *
    * @param state State to apply boundary conditions to
    */
-  void applyBoundaryConditions(WRFState<ConfigBackend>& state) const;
+  void applyBoundaryConditions(StateBackend& state) const;
 
   // Model configuration
   bool initialized_ = false;
@@ -149,17 +149,18 @@ class WRFModel {
   float diffusionCoefficient_ = 0.0;
 };
 
-// Constructor implementation with ConfigBackend
-template <typename ConfigBackend>
-WRFModel<ConfigBackend>::WRFModel(const ConfigBackend& config)
+// Constructor implementation with ConfigBackend and StateBackend
+template <typename ConfigBackend, typename StateBackend>
+WRFModel<ConfigBackend, StateBackend>::WRFModel(const ConfigBackend& config)
     : initialized_(false) {
   // Initialize the model with the provided config
   initialize(config);
 }
 
 // Move constructor implementation
-template <typename ConfigBackend>
-WRFModel<ConfigBackend>::WRFModel(WRFModel<ConfigBackend>&& other) noexcept
+template <typename ConfigBackend, typename StateBackend>
+WRFModel<ConfigBackend, StateBackend>::WRFModel(
+    WRFModel<ConfigBackend, StateBackend>&& other) noexcept
     : initialized_(other.initialized_),
       currentTime_(other.currentTime_),
       timeStep_(other.timeStep_),
@@ -178,9 +179,10 @@ WRFModel<ConfigBackend>::WRFModel(WRFModel<ConfigBackend>&& other) noexcept
 }
 
 // Move assignment operator implementation
-template <typename ConfigBackend>
-WRFModel<ConfigBackend>& WRFModel<ConfigBackend>::operator=(
-    WRFModel<ConfigBackend>&& other) noexcept {
+template <typename ConfigBackend, typename StateBackend>
+WRFModel<ConfigBackend, StateBackend>&
+WRFModel<ConfigBackend, StateBackend>::operator=(
+    WRFModel<ConfigBackend, StateBackend>&& other) noexcept {
   if (this != &other) {
     initialized_ = other.initialized_;
     currentTime_ = other.currentTime_;
@@ -203,8 +205,8 @@ WRFModel<ConfigBackend>& WRFModel<ConfigBackend>::operator=(
 }
 
 // Destructor implementation
-template <typename ConfigBackend>
-WRFModel<ConfigBackend>::~WRFModel() {
+template <typename ConfigBackend, typename StateBackend>
+WRFModel<ConfigBackend, StateBackend>::~WRFModel() {
   if (initialized_) {
     try {
       finalize();
@@ -220,8 +222,9 @@ WRFModel<ConfigBackend>::~WRFModel() {
  *
  * @param config Configuration containing model options
  */
-template <typename ConfigBackend>
-void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
+template <typename ConfigBackend, typename StateBackend>
+void WRFModel<ConfigBackend, StateBackend>::initialize(
+    const ConfigBackend& config) {
   if (initialized_) {
     return;  // Already initialized
   }
@@ -295,8 +298,8 @@ void WRFModel<ConfigBackend>::initialize(const ConfigBackend& config) {
 }
 
 // Reset implementation
-template <typename ConfigBackend>
-void WRFModel<ConfigBackend>::reset() {
+template <typename ConfigBackend, typename StateBackend>
+void WRFModel<ConfigBackend, StateBackend>::reset() {
   if (!initialized_) {
     throw std::runtime_error("Cannot reset uninitialized WRF model");
   }
@@ -308,8 +311,8 @@ void WRFModel<ConfigBackend>::reset() {
 }
 
 // Finalize implementation
-template <typename ConfigBackend>
-void WRFModel<ConfigBackend>::finalize() {
+template <typename ConfigBackend, typename StateBackend>
+void WRFModel<ConfigBackend, StateBackend>::finalize() {
   if (!initialized_) {
     return;  // Nothing to finalize
   }
@@ -321,9 +324,9 @@ void WRFModel<ConfigBackend>::finalize() {
 }
 
 // Run implementation
-template <typename ConfigBackend>
-void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
-                                  WRFState<ConfigBackend>& finalState) {
+template <typename ConfigBackend, typename StateBackend>
+void WRFModel<ConfigBackend, StateBackend>::run(
+    const StateBackend& initialState, StateBackend& finalState) {
   if (!initialized_) {
     throw std::runtime_error("Cannot run uninitialized WRF model");
   }
@@ -390,10 +393,10 @@ void WRFModel<ConfigBackend>::run(const WRFState<ConfigBackend>& initialState,
 }
 
 // Time step implementation
-template <typename ConfigBackend>
-void WRFModel<ConfigBackend>::timeStep(const WRFState<ConfigBackend>& inState,
-                                       WRFState<ConfigBackend>& outState,
-                                       [[maybe_unused]] Duration dt) {
+template <typename ConfigBackend, typename StateBackend>
+void WRFModel<ConfigBackend, StateBackend>::timeStep(
+    const StateBackend& inState, StateBackend& outState,
+    [[maybe_unused]] Duration dt) {
   // Clone input state to output state first
   outState = std::move(*inState.clone());
 
@@ -477,9 +480,9 @@ void WRFModel<ConfigBackend>::timeStep(const WRFState<ConfigBackend>& inState,
 }
 
 // Apply boundary conditions implementation
-template <typename ConfigBackend>
-void WRFModel<ConfigBackend>::applyBoundaryConditions(
-    WRFState<ConfigBackend>& state) const {
+template <typename ConfigBackend, typename StateBackend>
+void WRFModel<ConfigBackend, StateBackend>::applyBoundaryConditions(
+    StateBackend& state) const {
   // Apply appropriate boundary conditions to each variable
   // For demonstration purposes, we'll just apply simple conditions
 
