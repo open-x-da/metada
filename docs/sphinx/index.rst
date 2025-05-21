@@ -1,5 +1,5 @@
-Modern Data Assimilation System for Earth Sciences
-==================================================
+Modern Earth system Toolkit for Assimilation and Data Analysis
+==============================================================
 
 .. toctree::
    :maxdepth: 2

@@ -36,6 +36,7 @@ using ::testing::ReturnRef;
 using ::testing::Throw;
 
 using framework::Config;
+using framework::Geometry;
 using framework::Model;
 using framework::State;
 
@@ -46,6 +47,7 @@ class ModelTest : public ::testing::Test {
  protected:
   std::string config_file_;
   std::unique_ptr<Config<traits::MockBackendTag>> config_;
+  std::unique_ptr<Geometry<traits::MockBackendTag>> geometry_;
 
   // Test objects
   std::unique_ptr<Model<traits::MockBackendTag>> mockModel_;
@@ -55,12 +57,14 @@ class ModelTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     config_file_ = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
+    geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
     mockModel_ = std::make_unique<Model<traits::MockBackendTag>>(*config_);
   }
 
   void TearDown() override {
     // Clean up
     config_.reset();
+    geometry_.reset();
     mockModel_.reset();
   }
 };
@@ -94,8 +98,8 @@ TEST_F(ModelTest, ConstructAndInitialize) {
 TEST_F(ModelTest, ModelExecution) {
   // Create model and mock states
   Model<traits::MockBackendTag> model(*config_);
-  State<traits::MockBackendTag> initialState(*config_);
-  State<traits::MockBackendTag> finalState(*config_);
+  State<traits::MockBackendTag> initialState(*config_, *geometry_);
+  State<traits::MockBackendTag> finalState(*config_, *geometry_);
 
   // Setup expectations for initialization
   EXPECT_CALL(model.backend(), initialize(_));
@@ -135,8 +139,8 @@ TEST_F(ModelTest, InitializationError) {
 TEST_F(ModelTest, RunError) {
   // Create model and mock states
   Model<traits::MockBackendTag> model(*config_);
-  State<traits::MockBackendTag> initialState(*config_);
-  State<traits::MockBackendTag> finalState(*config_);
+  State<traits::MockBackendTag> initialState(*config_, *geometry_);
+  State<traits::MockBackendTag> finalState(*config_, *geometry_);
 
   // Initialize the model
   EXPECT_CALL(model.backend(), initialize(_));

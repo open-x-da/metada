@@ -28,7 +28,6 @@
 #include <vector>
 
 #include "Config.hpp"
-#include "Geometry.hpp"
 #include "GeometryIterator.hpp"
 #include "MockBackendTraits.hpp"
 #include "State.hpp"
@@ -73,7 +72,8 @@ class GeometryTest : public ::testing::Test {
 
     // Create test objects - we'll use a mock geometry through the adapter
     geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
-    state_ = std::make_unique<State<traits::MockBackendTag>>(*config_);
+    state_ =
+        std::make_unique<State<traits::MockBackendTag>>(*config_, *geometry_);
   }
 
   /**

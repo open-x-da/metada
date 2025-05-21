@@ -19,6 +19,7 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 
 using framework::Config;
+using framework::Geometry;
 using framework::Observation;
 using framework::ObsOperator;
 using framework::State;
@@ -42,6 +43,7 @@ class ObsOperatorTest : public ::testing::Test {
   std::vector<std::string> obs_vars_return_;
 
   std::unique_ptr<Config<traits::MockBackendTag>> config_;
+  std::unique_ptr<Geometry<traits::MockBackendTag>> geometry_;
 
   void SetUp() override {
     // Setup return values for metadata methods
@@ -51,9 +53,13 @@ class ObsOperatorTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     auto config_file = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file);
+    geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
   }
 
-  void TearDown() override { config_.reset(); }
+  void TearDown() override {
+    config_.reset();
+    geometry_.reset();
+  }
 };
 
 /**
@@ -167,7 +173,7 @@ TEST_F(ObsOperatorTest, Apply) {
   ObsOperator<traits::MockBackendTag> obsOp(*config_);
   auto& backend = obsOp.backend();
 
-  State<traits::MockBackendTag> state(*config_);
+  State<traits::MockBackendTag> state(*config_, *geometry_);
   Observation<traits::MockBackendTag> obs(*config_);
 
   EXPECT_CALL(backend, apply(_, _)).Times(1);
