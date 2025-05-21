@@ -39,6 +39,11 @@ int main(int argc, char** argv) {
     // Initialize initial state
     logger.Info() << "Initializing model state";
     State<BackendTag> initialState(config.GetSubsection("state"));
+
+    // 连接 geometry 和 state
+    // 注意：这里假设 State 适配器提供了这个方法来访问底层的 MACOMState
+    // initialState.backend().setGeometry(&geometry);
+
     auto currentState = initialState.clone();
 
     // Initialize model

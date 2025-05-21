@@ -2,10 +2,10 @@
 # Ensure FindMPI is robust. It should set MPI_FOUND and imported targets like MPI::MPI_C, MPI::MPI_Fortran.
 metada_find_package(MPI REQUIRED)
 metada_find_package(HDF5 REQUIRED)
-metada_find_package(netCDF REQUIRED)
 metada_find_package(CURL REQUIRED)
 
 metada_find_package(xtensor CONFIG)
+metada_find_package(netcdf-cxx4)
 
 
 # Create the MACOM backend interface library
@@ -30,6 +30,7 @@ target_sources(macom_backends
 # Link dependencies for C++ interface
 target_link_libraries(macom_backends 
     INTERFACE
+        NetCDF::CXX4
         xtensor
 )
 
@@ -144,7 +145,7 @@ target_compile_options(macom_fortran PRIVATE
 # Link Fortran dependencies
 target_link_libraries(macom_fortran PUBLIC
     HDF5
-    NetCDF
+    # NetCDF
     CURL
     MPI::MPI_C
     MPI::MPI_Fortran
@@ -162,7 +163,7 @@ target_include_directories(macom_impl
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# Link C++ implementation with Fortran implementation
+# Link C++ implementation with Fortran implementation and dependencies
 target_link_libraries(macom_impl PUBLIC
     macom_fortran
 )

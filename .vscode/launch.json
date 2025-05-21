@@ -84,10 +84,17 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/forecast",
-            "args": ["${workspaceFolder}/applications/forecast/config.yaml"],
+            "args": ["${workspaceFolder}/applications/forecast/macom_config.yaml"],
+            // "program": "C:/Program Files/Microsoft MPI/Bin/mpiexec.exe",
+            // "args": [
+            //     "-n", "1",
+            //     "${workspaceFolder}/build/bin/forecast",
+            //     "1"
+            //   ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
+            "externalConsole": false,
             "environment": [
                 {
                     "name": "GLOG_logtostderr",
@@ -106,7 +113,6 @@
                     "value": "0"
                 }
             ],
-            "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
             "setupCommands": [
