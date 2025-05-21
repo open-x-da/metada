@@ -16,7 +16,6 @@ state:
     - w
     - t
     - s
-    - pbt
 
 
 model:
