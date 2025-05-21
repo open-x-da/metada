@@ -58,7 +58,7 @@ struct BackendTraits<MockBackendTag> {
   using GeometryIteratorBackend = backends::gmock::MockGeometryIterator;
   
   /** @brief Mock implementation of state vector backend */
-  using StateBackend = backends::gmock::MockState<ConfigBackend>;
+  using StateBackend = backends::gmock::MockState<ConfigBackend, GeometryBackend>;
   
   /** @brief Mock implementation of model backend */
   using ModelBackend = backends::gmock::MockModel<ConfigBackend, StateBackend>;

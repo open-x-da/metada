@@ -30,7 +30,7 @@ namespace metada::backends::wrf {
  * meteorological state variables stored in NetCDF files and provides
  * operations required by the State adapter.
  */
-template <typename ConfigBackend>
+template <typename ConfigBackend, typename GeometryBackend>
 class WRFState {
  public:
   /**
@@ -49,11 +49,12 @@ class WRFState {
   WRFState& operator=(const WRFState&) = delete;
 
   /**
-   * @brief Constructor that takes a configuration backend
+   * @brief Constructor that takes a configuration backend and geometry backend
    *
    * @param config Configuration containing WRF file path and variables
+   * @param geometry Geometry backend providing grid information
    */
-  explicit WRFState(const ConfigBackend& config);
+  WRFState(const ConfigBackend& config, const GeometryBackend& geometry);
 
   /**
    * @brief Move constructor
@@ -228,6 +229,7 @@ class WRFState {
   bool isCompatible(const WRFState& other) const;
 
   const ConfigBackend& config_;
+  const GeometryBackend& geometry_;
 
   // WRF NetCDF file information
   std::string wrfFilename_;
@@ -241,10 +243,12 @@ class WRFState {
   std::string activeVariable_;  // Currently active variable for data access
 };
 
-// Constructor implementation with ConfigBackend
-template <typename ConfigBackend>
-WRFState<ConfigBackend>::WRFState(const ConfigBackend& config)
+// Constructor implementation with ConfigBackend and GeometryBackend
+template <typename ConfigBackend, typename GeometryBackend>
+WRFState<ConfigBackend, GeometryBackend>::WRFState(
+    const ConfigBackend& config, const GeometryBackend& geometry)
     : config_(config),
+      geometry_(geometry),
       wrfFilename_(config.Get("input_file").asString()),
       timestamp_(config.Get("timestamp").asString()),
       initialized_(false) {
@@ -275,9 +279,11 @@ WRFState<ConfigBackend>::WRFState(const ConfigBackend& config)
 }
 
 // Move constructor implementation
-template <typename ConfigBackend>
-WRFState<ConfigBackend>::WRFState(WRFState<ConfigBackend>&& other) noexcept
-    : config_(std::move(other.config_)),
+template <typename ConfigBackend, typename GeometryBackend>
+WRFState<ConfigBackend, GeometryBackend>::WRFState(
+    WRFState<ConfigBackend, GeometryBackend>&& other) noexcept
+    : config_(other.config_),
+      geometry_(other.geometry_),
       wrfFilename_(std::move(other.wrfFilename_)),
       timestamp_(std::move(other.timestamp_)),
       initialized_(other.initialized_),
@@ -292,10 +298,12 @@ WRFState<ConfigBackend>::WRFState(WRFState<ConfigBackend>&& other) noexcept
 }
 
 // Move assignment operator implementation
-template <typename ConfigBackend>
-WRFState<ConfigBackend>& WRFState<ConfigBackend>::operator=(
-    WRFState<ConfigBackend>&& other) noexcept {
+template <typename ConfigBackend, typename GeometryBackend>
+WRFState<ConfigBackend, GeometryBackend>&
+WRFState<ConfigBackend, GeometryBackend>::operator=(
+    WRFState<ConfigBackend, GeometryBackend>&& other) noexcept {
   if (this != &other) {
+    // config_ and geometry_ are references, so no assignment needed
     wrfFilename_ = std::move(other.wrfFilename_);
     timestamp_ = std::move(other.timestamp_);
     initialized_ = other.initialized_;
@@ -313,10 +321,11 @@ WRFState<ConfigBackend>& WRFState<ConfigBackend>::operator=(
 }
 
 // Clone implementation
-template <typename ConfigBackend>
-std::unique_ptr<WRFState<ConfigBackend>> WRFState<ConfigBackend>::clone()
-    const {
-  auto cloned = std::make_unique<WRFState<ConfigBackend>>(config_);
+template <typename ConfigBackend, typename GeometryBackend>
+std::unique_ptr<WRFState<ConfigBackend, GeometryBackend>>
+WRFState<ConfigBackend, GeometryBackend>::clone() const {
+  auto cloned = std::make_unique<WRFState<ConfigBackend, GeometryBackend>>(
+      config_, geometry_);
   // Copy all the state data to the cloned object
   cloned->wrfFilename_ = this->wrfFilename_;
   cloned->timestamp_ = this->timestamp_;
@@ -329,8 +338,8 @@ std::unique_ptr<WRFState<ConfigBackend>> WRFState<ConfigBackend>::clone()
 }
 
 // Data access implementation
-template <typename ConfigBackend>
-void* WRFState<ConfigBackend>::getData() {
+template <typename ConfigBackend, typename GeometryBackend>
+void* WRFState<ConfigBackend, GeometryBackend>::getData() {
   if (!initialized_ || activeVariable_.empty()) {
     return nullptr;
   }
@@ -343,8 +352,8 @@ void* WRFState<ConfigBackend>::getData() {
 }
 
 // Const data access implementation
-template <typename ConfigBackend>
-const void* WRFState<ConfigBackend>::getData() const {
+template <typename ConfigBackend, typename GeometryBackend>
+const void* WRFState<ConfigBackend, GeometryBackend>::getData() const {
   if (!initialized_ || activeVariable_.empty()) {
     return nullptr;
   }
@@ -357,14 +366,16 @@ const void* WRFState<ConfigBackend>::getData() const {
 }
 
 // Get active variable implementation
-template <typename ConfigBackend>
-const std::string& WRFState<ConfigBackend>::getActiveVariable() const {
+template <typename ConfigBackend, typename GeometryBackend>
+const std::string& WRFState<ConfigBackend, GeometryBackend>::getActiveVariable()
+    const {
   return activeVariable_;
 }
 
 // Set active variable implementation
-template <typename ConfigBackend>
-void WRFState<ConfigBackend>::setActiveVariable(const std::string& name) {
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::setActiveVariable(
+    const std::string& name) {
   if (variables_.find(name) == variables_.end()) {
     throw std::out_of_range("Variable not found: " + name);
   }
@@ -372,15 +383,16 @@ void WRFState<ConfigBackend>::setActiveVariable(const std::string& name) {
 }
 
 // Get variable names implementation
-template <typename ConfigBackend>
-const std::vector<std::string>& WRFState<ConfigBackend>::getVariableNames()
-    const {
+template <typename ConfigBackend, typename GeometryBackend>
+const std::vector<std::string>&
+WRFState<ConfigBackend, GeometryBackend>::getVariableNames() const {
   return variableNames_;
 }
 
 // Get dimensions implementation
-template <typename ConfigBackend>
-const std::vector<size_t>& WRFState<ConfigBackend>::getDimensions(
+template <typename ConfigBackend, typename GeometryBackend>
+const std::vector<size_t>&
+WRFState<ConfigBackend, GeometryBackend>::getDimensions(
     const std::string& name) const {
   try {
     return dimensions_.at(name);
@@ -390,17 +402,17 @@ const std::vector<size_t>& WRFState<ConfigBackend>::getDimensions(
 }
 
 // Zero implementation
-template <typename ConfigBackend>
-void WRFState<ConfigBackend>::zero() {
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::zero() {
   for (auto& [name, data] : variables_) {
     data.fill(0.0);
   }
 }
 
 // Dot product implementation
-template <typename ConfigBackend>
-double WRFState<ConfigBackend>::dot(
-    const WRFState<ConfigBackend>& other) const {
+template <typename ConfigBackend, typename GeometryBackend>
+double WRFState<ConfigBackend, GeometryBackend>::dot(
+    const WRFState<ConfigBackend, GeometryBackend>& other) const {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for dot product");
   }
@@ -420,8 +432,8 @@ double WRFState<ConfigBackend>::dot(
 }
 
 // Norm implementation
-template <typename ConfigBackend>
-double WRFState<ConfigBackend>::norm() const {
+template <typename ConfigBackend, typename GeometryBackend>
+double WRFState<ConfigBackend, GeometryBackend>::norm() const {
   double sumSquares = 0.0;
 
   // Sum squares of all variables
@@ -433,9 +445,9 @@ double WRFState<ConfigBackend>::norm() const {
 }
 
 // Equals implementation
-template <typename ConfigBackend>
-bool WRFState<ConfigBackend>::equals(
-    const WRFState<ConfigBackend>& other) const {
+template <typename ConfigBackend, typename GeometryBackend>
+bool WRFState<ConfigBackend, GeometryBackend>::equals(
+    const WRFState<ConfigBackend, GeometryBackend>& other) const {
   if (!isCompatible(other)) {
     return false;
   }
@@ -458,8 +470,9 @@ bool WRFState<ConfigBackend>::equals(
 }
 
 // Add implementation
-template <typename ConfigBackend>
-void WRFState<ConfigBackend>::add(const WRFState<ConfigBackend>& other) {
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::add(
+    const WRFState<ConfigBackend, GeometryBackend>& other) {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for addition");
   }
@@ -474,8 +487,9 @@ void WRFState<ConfigBackend>::add(const WRFState<ConfigBackend>& other) {
 }
 
 // Subtract implementation
-template <typename ConfigBackend>
-void WRFState<ConfigBackend>::subtract(const WRFState<ConfigBackend>& other) {
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::subtract(
+    const WRFState<ConfigBackend, GeometryBackend>& other) {
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for subtraction");
   }
@@ -490,8 +504,8 @@ void WRFState<ConfigBackend>::subtract(const WRFState<ConfigBackend>& other) {
 }
 
 // Multiply implementation
-template <typename ConfigBackend>
-void WRFState<ConfigBackend>::multiply(double scalar) {
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
   // Multiply each variable by the scalar
   for (auto& [name, data] : variables_) {
     data *= scalar;
@@ -499,15 +513,15 @@ void WRFState<ConfigBackend>::multiply(double scalar) {
 }
 
 // Is initialized implementation
-template <typename ConfigBackend>
-bool WRFState<ConfigBackend>::isInitialized() const {
+template <typename ConfigBackend, typename GeometryBackend>
+bool WRFState<ConfigBackend, GeometryBackend>::isInitialized() const {
   return initialized_;
 }
 
 // Set data implementation
-template <typename ConfigBackend>
-void WRFState<ConfigBackend>::setData(const std::vector<double>& values,
-                                      const std::string& variableName) {
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::setData(
+    const std::vector<double>& values, const std::string& variableName) {
   // Use active variable if none specified
   std::string varName = variableName.empty() ? activeVariable_ : variableName;
 
@@ -534,8 +548,8 @@ void WRFState<ConfigBackend>::setData(const std::vector<double>& values,
 }
 
 // Get data implementation
-template <typename ConfigBackend>
-const xt::xarray<double>& WRFState<ConfigBackend>::getData(
+template <typename ConfigBackend, typename GeometryBackend>
+const xt::xarray<double>& WRFState<ConfigBackend, GeometryBackend>::getData(
     const std::string& variableName) const {
   // Use active variable if none specified
   std::string varName = variableName.empty() ? activeVariable_ : variableName;
@@ -548,8 +562,8 @@ const xt::xarray<double>& WRFState<ConfigBackend>::getData(
 }
 
 // Private helper to load state data
-template <typename ConfigBackend>
-void WRFState<ConfigBackend>::loadStateData(
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
     const std::string& filename, const std::vector<std::string>& variables) {
   try {
     // Open NetCDF file
@@ -648,9 +662,9 @@ void WRFState<ConfigBackend>::loadStateData(
 }
 
 // Helper to check compatibility
-template <typename ConfigBackend>
-bool WRFState<ConfigBackend>::isCompatible(
-    const WRFState<ConfigBackend>& other) const {
+template <typename ConfigBackend, typename GeometryBackend>
+bool WRFState<ConfigBackend, GeometryBackend>::isCompatible(
+    const WRFState<ConfigBackend, GeometryBackend>& other) const {
   // Check if both states have the same variable names
   if (variableNames_.size() != other.variableNames_.size()) {
     return false;

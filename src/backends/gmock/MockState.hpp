@@ -39,7 +39,7 @@ namespace metada::backends::gmock {
  * the following categories:
  *
  * @par Core Operations
- * - initialize() - Initialize state from configuration
+ * - initialize() - Initialize state from configuration and geometry
  * - zero() - Set all values to zero
  * - clone() - Create a deep copy of the state
  *
@@ -72,7 +72,7 @@ namespace metada::backends::gmock {
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
-template <typename ConfigBackend>
+template <typename ConfigBackend, typename GeometryBackend>
 class MockState {
  public:
   // Disable default constructor
@@ -89,7 +89,8 @@ class MockState {
 
   // Move constructor
   MockState(MockState&& other) noexcept
-      : config_(std::move(other.config_)),
+      : config_(other.config_),
+        geometry_(other.geometry_),
         variableNames_(std::move(other.variableNames_)),
         dimensions_(std::move(other.dimensions_)),
         data_(std::move(other.data_)) {
@@ -111,15 +112,15 @@ class MockState {
     return *this;
   }
 
-  // Constructor that initializes state from config
-  explicit MockState(const ConfigBackend& config) : config_(config) {
+  // Constructor that initializes state from config and geometry
+  MockState(const ConfigBackend& config, const GeometryBackend& geometry)
+      : config_(config), geometry_(geometry) {
     initialize();
   }
 
   // Clone operation
   std::unique_ptr<MockState> clone() const {
-    auto cloned = std::make_unique<MockState>(config_);
-    return cloned;
+    return std::make_unique<MockState>(config_, geometry_);
   }
 
   // Core state operations
@@ -164,9 +165,12 @@ class MockState {
 
   // Get the config
   const ConfigBackend& config() const { return config_; }
+  // Get the geometry
+  const GeometryBackend& geometry() const { return geometry_; }
 
  private:
   const ConfigBackend& config_;
+  const GeometryBackend& geometry_;
   std::vector<std::string> variableNames_;
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
   std::vector<double> data_;

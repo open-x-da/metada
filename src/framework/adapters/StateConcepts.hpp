@@ -34,18 +34,20 @@ namespace metada::framework {
  * - Vector arithmetic operations (add, dot product, norm)
  * - Equality comparison
  * - Zero initialization
- * - Configuration constructor and proper resource management
+ * - Construction from configuration and geometry backends
+ * - Proper resource management
  *
  * These requirements enable the State adapter to perform common
  * state-space operations needed in data assimilation algorithms.
  *
  * @tparam T The state backend implementation type
  * @tparam ConfigBackend The configuration backend type
+ * @tparam GeometryBackend The geometry backend type
  */
-template <typename T, typename ConfigBackend>
+template <typename T, typename ConfigBackend, typename GeometryBackend>
 concept StateBackendImpl =
     requires(T& t, const T& ct, const T& other, const std::string& varName,
-             const ConfigBackend& config) {
+             const ConfigBackend& config, const GeometryBackend& geometry) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
       // TODO: Add const data access
@@ -58,7 +60,7 @@ concept StateBackendImpl =
       { ct.getDimensions(varName) } -> std::same_as<const std::vector<size_t>&>;
 
       // Construction and cloning
-      { T(config) } -> std::same_as<T>;
+      { T(config, geometry) } -> std::same_as<T>;
       { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;
 
       // Vector arithmetic
@@ -80,9 +82,10 @@ concept StateBackendImpl =
  * @brief Concept that defines requirements for a state backend tag type
  *
  * @details A valid backend tag must:
- * - Provide both StateBackend and ConfigBackend types via BackendTraits
+ * - Provide StateBackend, ConfigBackend, and GeometryBackend types via
+ * BackendTraits
  * - Ensure the StateBackend type satisfies the StateBackendImpl concept
- *   when paired with the ConfigBackend type
+ *   when paired with the ConfigBackend and GeometryBackend types
  *
  * This concept is used by the State adapter to validate that a backend
  * implementation provides all necessary functionality at compile time.
@@ -92,11 +95,13 @@ concept StateBackendImpl =
  * @see StateBackendImpl
  * @see HasStateBackend
  * @see HasConfigBackend
+ * @see HasGeometryBackend
  */
 template <typename T>
 concept StateBackendType =
-    HasStateBackend<T> && HasConfigBackend<T> &&
+    HasStateBackend<T> && HasConfigBackend<T> && HasGeometryBackend<T> &&
     StateBackendImpl<typename traits::BackendTraits<T>::StateBackend,
-                     typename traits::BackendTraits<T>::ConfigBackend>;
+                     typename traits::BackendTraits<T>::ConfigBackend,
+                     typename traits::BackendTraits<T>::GeometryBackend>;
 
 }  // namespace metada::framework
