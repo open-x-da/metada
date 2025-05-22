@@ -8,7 +8,7 @@
 #pragma once
 
 #include <iostream>
-#include <map>
+// #include <map>
 #include <memory>
 #include <netcdf>
 #include <stdexcept>
@@ -398,6 +398,38 @@ void MACOMGeometry<ConfigBackend>::loadGeometryData(
     throw std::runtime_error("Error initializing grid: " +
                              std::string(e.what()));
   }
+}
+
+}  // namespace metada::backends::macom
+
+// Include the iterator implementation first
+#include "MACOMGeometryIterator.hpp"
+
+// Then define the iterator methods
+namespace metada::backends::macom {
+
+template <typename ConfigBackend>
+inline typename MACOMGeometry<ConfigBackend>::iterator
+MACOMGeometry<ConfigBackend>::begin() {
+  return iterator(this, 0);
+}
+
+template <typename ConfigBackend>
+inline typename MACOMGeometry<ConfigBackend>::iterator
+MACOMGeometry<ConfigBackend>::end() {
+  return iterator(this, totalGridSize());
+}
+
+template <typename ConfigBackend>
+inline typename MACOMGeometry<ConfigBackend>::const_iterator
+MACOMGeometry<ConfigBackend>::begin() const {
+  return const_iterator(this, 0);
+}
+
+template <typename ConfigBackend>
+inline typename MACOMGeometry<ConfigBackend>::const_iterator
+MACOMGeometry<ConfigBackend>::end() const {
+  return const_iterator(this, totalGridSize());
 }
 
 }  // namespace metada::backends::macom

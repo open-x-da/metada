@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <iostream>
 #include <memory>
 #include <netcdf>
 #include <string>
@@ -14,6 +15,9 @@
 #include <vector>
 
 // #include "MACOMGeometry.hpp"
+
+#include <xtensor/containers/xadapt.hpp>
+#include <xtensor/containers/xarray.hpp>
 
 // namespace metada::backends::macom {
 // template <typename ConfigBackend>
@@ -196,7 +200,7 @@ class MACOMState {
    *
    * @param scalar Value to multiply by
    */
-  void multiply(double scalar);
+  void multiply();
 
   /**
    * @brief Check if state is properly initialized
@@ -229,6 +233,8 @@ class MACOMState {
   void loadVariableData(const std::string& filename,
                         const std::vector<std::string>& variables);
 
+  bool isCompatible(const MACOMState& other) const;
+
   // Reference to configuration
   const ConfigBackend& config_;
   const GeometryBackend& geometry_;
@@ -248,15 +254,16 @@ class MACOMState {
   std::vector<double> w;  // w-velocity
 
   // State information
+  std::string inputFile_;  // Input data file path
+  std::string timestamp_;  // Timestamp of the data
   bool initialized_ = false;
-  std::string inputFile_;                   // Input data file path
-  std::string timestamp_;                   // Timestamp of the data
-  std::vector<std::string> variableNames_;  // Available variables
-  std::string activeVariable_;              // Currently active variable
 
   // Data storage (this would be filled by the actual implementation)
   std::unordered_map<std::string, std::vector<double>> variables_;
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
+  std::vector<std::string> variableNames_;  // Available variables
+  std::string activeVariable_;              // Currently active variable
+
 };  // namespace metada::backends::macom
 
 // ConfigBackend constructor implementation and GeometryBackend constructor
@@ -305,12 +312,12 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
     MACOMState<ConfigBackend, GeometryBackend>&& other) noexcept
     : config_(other.config_),
       geometry_(other.geometry_),
-      initialized_(other.initialized_),
       inputFile_(std::move(other.inputFile_)),
-      variableNames_(std::move(other.variableNames_)),
-      activeVariable_(std::move(other.activeVariable_)),
+      initialized_(other.initialized_),
       variables_(std::move(other.variables_)),
-      dimensions_(std::move(other.dimensions_)) {
+      dimensions_(std::move(other.dimensions_)),
+      variableNames_(std::move(other.variableNames_)),
+      activeVariable_(std::move(other.activeVariable_)) {
   other.initialized_ = false;
   other.variableNames_.clear();
   other.activeVariable_.clear();
@@ -322,12 +329,12 @@ MACOMState<ConfigBackend, GeometryBackend>&
 MACOMState<ConfigBackend, GeometryBackend>::operator=(
     MACOMState<ConfigBackend, GeometryBackend>&& other) noexcept {
   if (this != &other) {
-    initialized_ = other.initialized_;
     inputFile_ = std::move(other.inputFile_);
-    variableNames_ = std::move(other.variableNames_);
-    activeVariable_ = std::move(other.activeVariable_);
+    initialized_ = other.initialized_;
     variables_ = std::move(other.variables_);
     dimensions_ = std::move(other.dimensions_);
+    variableNames_ = std::move(other.variableNames_);
+    activeVariable_ = std::move(other.activeVariable_);
 
     other.initialized_ = false;
     other.variableNames_.clear();
@@ -343,9 +350,9 @@ MACOMState<ConfigBackend, GeometryBackend>::clone() const {
       config_, geometry_);
   cloned->initialized_ = this->initialized_;
   cloned->inputFile_ = this->inputFile_;
-  cloned->variableNames_ = this->variableNames_;
-  cloned->activeVariable_ = this->activeVariable_;
   cloned->variables_ = this->variables_;
+  cloned->activeVariable_ = this->activeVariable_;
+  cloned->variableNames_ = this->variableNames_;
   cloned->dimensions_ = this->dimensions_;
   return cloned;
 }
@@ -401,6 +408,7 @@ MACOMState<ConfigBackend, GeometryBackend>::getVariableNames() const {
   return variableNames_;
 }
 
+// Get dimensions implementation
 template <typename ConfigBackend, typename GeometryBackend>
 const std::vector<size_t>&
 MACOMState<ConfigBackend, GeometryBackend>::getDimensions(
@@ -432,10 +440,67 @@ MACOMState<ConfigBackend, GeometryBackend>::getDimensions(
     throw std::out_of_range("Variable not found: " + name);
   }
 }
-
+// Zero implementation
 template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::zero() {
-  // 基本实现框架
+  // for (auto& [name, data] : variables_) {
+  //   data.fill(0.0);
+  // }
+}
+
+// Dot product implementation
+template <typename ConfigBackend, typename GeometryBackend>
+double MACOMState<ConfigBackend, GeometryBackend>::dot(
+    const MACOMState<ConfigBackend, GeometryBackend>& other) const {
+  if (!isCompatible(other)) {
+    throw std::runtime_error("States are incompatible for dot product");
+  }
+
+  double result = 0.0;
+
+  // // Sum dot products of all variables
+  // for (const auto& varName : variableNames_) {
+  //   const auto& thisVar = variables_.at(varName);
+  //   const auto& otherVar = other.variables_.at(varName);
+
+  //   // Use xtensor to compute element-wise multiplication and sum
+  //   result += xt::sum(thisVar * otherVar)();
+  // }
+
+  return result;
+}
+
+// Norm implementation
+template <typename ConfigBackend, typename GeometryBackend>
+double MACOMState<ConfigBackend, GeometryBackend>::norm() const {
+  double sumSquares = 0.0;
+
+  return std::sqrt(sumSquares);
+}
+
+// Equals implementation
+template <typename ConfigBackend, typename GeometryBackend>
+bool MACOMState<ConfigBackend, GeometryBackend>::equals(
+    const MACOMState<ConfigBackend, GeometryBackend>& other) const {
+  if (!isCompatible(other)) {
+    return false;
+  }
+
+  // // Check if all variables have the same values
+  // for (const auto& varName : variableNames_) {
+  //   const auto& thisVar = variables_.at(varName);
+  //   const auto& otherVar = other.variables_.at(varName);
+
+  //   // Check if arrays are equal within a small tolerance
+  //   auto diff = xt::abs(thisVar - otherVar);
+  //   double maxDiff = xt::amax(diff)();
+
+  //   if (maxDiff > 1e-10) {
+  //     return false;
+  //   }
+  // }
+
+  return true;
 }
 
 template <typename ConfigBackend, typename GeometryBackend>
@@ -448,10 +513,13 @@ template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::subtract(
     const MACOMState<ConfigBackend, GeometryBackend>& other) {
   // Subtract each variable
+  if (!isCompatible(other)) {
+    throw std::runtime_error("States are incompatible for subtraction");
+  }
 }
 
 template <typename ConfigBackend, typename GeometryBackend>
-void MACOMState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
+void MACOMState<ConfigBackend, GeometryBackend>::multiply() {
   // Multiply each variable by the scalar
   // for (auto& [name, data] : variables_) {
   //   data *= scalar;

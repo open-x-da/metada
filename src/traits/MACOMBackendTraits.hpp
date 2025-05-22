@@ -55,4 +55,4 @@ struct BackendTraits<MACOMBackendTag> {
     using ModelBackend = backends::macom::MACOMModel<ConfigBackend, StateBackend>;
 };
 
-}  // namespace metada::traits
+}     // namespace metada::traits
