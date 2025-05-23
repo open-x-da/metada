@@ -260,6 +260,51 @@ class MACOMGeometry {
   GeoQueryResult findGridPointsInRadius(double lon, double lat,
                                         double radius) const;
 
+  /**
+   * @brief Print statistics about the grid data to help with debugging
+   */
+  void debugGridData() {
+    if (!initialized_ || nlpb_ == 0) {
+      MACOM_LOG_WARNING(
+          "MACOMGeometry",
+          "Cannot debug grid data: Grid not initialized or empty");
+      return;
+    }
+
+    // Find min/max values
+    double min_lat = latC_[0], max_lat = latC_[0];
+    double min_lon = lonC_[0], max_lon = lonC_[0];
+
+    for (size_t i = 0; i < nlpb_; ++i) {
+      min_lat = std::min(min_lat, latC_[i]);
+      max_lat = std::max(max_lat, latC_[i]);
+      min_lon = std::min(min_lon, lonC_[i]);
+      max_lon = std::max(max_lon, lonC_[i]);
+    }
+
+    MACOM_LOG_INFO("MACOMGeometry", "Grid data statistics:");
+    MACOM_LOG_INFO("MACOMGeometry",
+                   "  Latitude range: " + std::to_string(min_lat) + " to " +
+                       std::to_string(max_lat));
+    MACOM_LOG_INFO("MACOMGeometry",
+                   "  Longitude range: " + std::to_string(min_lon) + " to " +
+                       std::to_string(max_lon));
+
+    // Print some sample points
+    MACOM_LOG_INFO("MACOMGeometry", "Sample grid points:");
+    size_t step = nlpb_ / 10;  // Print 10 points evenly distributed
+    if (step == 0) step = 1;
+
+    for (size_t i = 0; i < nlpb_ && i < 10 * step; i += step) {
+      MACOM_LOG_INFO("MACOMGeometry", "  Point " + std::to_string(i) +
+                                          ": lon=" + std::to_string(lonC_[i]) +
+                                          ", lat=" + std::to_string(latC_[i]));
+    }
+  }
+
+  // Alternative implementation for direct nearest point search using Haversine
+  GeoPoint findNearestGridPointDirect(double lon, double lat) const;
+
  private:
   /**
    * @brief Load grid dimensions from NetCDF file
@@ -383,31 +428,30 @@ MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
 
   // Load geometry data from MACOM NetCDF file
   loadGeometryData(input_filename);
-  // initialized_ = true;
+  initialized_ = true;
+
+  // // Add debug output
+  // debugGridData();
 
   // KD-tree can be initialized here, or deferred until the first query
   initializeKDTree();
   // kdtree_initialized_ = true;
 
-  GeoPoint result = findNearestGridPoint(114.0, 30.0);
+  double test_lon = 160.0, test_lat = 36.0;
+  GeoPoint kd_result = findNearestGridPoint(test_lon, test_lat);
+  GeoPoint direct_result = findNearestGridPointDirect(test_lon, test_lat);
 
+  MACOM_LOG_INFO("MACOMGeometry", "Comparison for point (" +
+                                      std::to_string(test_lon) + ", " +
+                                      std::to_string(test_lat) + "):");
   MACOM_LOG_INFO("MACOMGeometry",
-                 "Nearest grid point: index=" + std::to_string(result.index) +
-                     ", distance=" + std::to_string(result.distance) + " km");
-
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "lat_c: " + std::to_string(latC_[result.index]));
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "lon_c: " + std::to_string(lonC_[result.index]));
-
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "west edge: " + std::to_string(tw_[result.index]));
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "east edge: " + std::to_string(te_[result.index]));
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "north edge: " + std::to_string(tn_[result.index]));
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "south edge: " + std::to_string(ts_[result.index]));
+                 "  KD-tree result: index=" + std::to_string(kd_result.index) +
+                     ", distance=" + std::to_string(kd_result.distance) +
+                     " km");
+  MACOM_LOG_INFO(
+      "MACOMGeometry",
+      "  Direct result: index=" + std::to_string(direct_result.index) +
+          ", distance=" + std::to_string(direct_result.distance) + " km");
 }
 
 // Implementation of loadGridDimensions
@@ -564,20 +608,22 @@ void MACOMGeometry<ConfigBackend>::loadGeometryData(
   }
 }
 
-// Implementation of geoToCartesian for 2D coordinates
+// Better implementation of geoToCartesian for 2D coordinates
 template <typename ConfigBackend>
 void MACOMGeometry<ConfigBackend>::geoToCartesian(double lon, double lat,
                                                   double& x, double& y) {
-  // Normalize longitude to 0-360
-  lon = fmod(lon + 360.0, 360.0);
+  // Use the Mercator projection which better preserves distance relationships
+  // Normalize longitude to -180 to 180 for consistency
+  if (lon > 180.0) lon -= 360.0;
 
   // Convert to radians
   double lon_rad = lon * std::numbers::pi / 180.0;
-  double lat_rad = lat * std::numbers::pi / 180.0;
+  double lat_rad = std::clamp(lat, -85.0, 85.0) * std::numbers::pi /
+                   180.0;  // Clamp latitude to avoid singularities
 
-  // Calculate 2D Cartesian coordinates that preserve relative distances
-  x = EARTH_RADIUS_KM * lon_rad * cos(lat_rad);
-  y = EARTH_RADIUS_KM * lat_rad;
+  // Mercator projection (scaled by Earth's radius)
+  x = EARTH_RADIUS_KM * lon_rad;
+  y = EARTH_RADIUS_KM * log(tan(std::numbers::pi / 4.0 + lat_rad / 2.0));
 }
 
 // Calculate the great-circle distance between two points
@@ -643,7 +689,7 @@ void MACOMGeometry<ConfigBackend>::initializeKDTree() {
                                       std::to_string(nlpb_) + " points");
 }
 
-// Find nearest point implementation
+// Find nearest point implementation with improved search
 template <typename ConfigBackend>
 GeoPoint MACOMGeometry<ConfigBackend>::findNearestGridPoint(double lon,
                                                             double lat) const {
@@ -654,41 +700,91 @@ GeoPoint MACOMGeometry<ConfigBackend>::findNearestGridPoint(double lon,
   }
 
   if (!kdtree_initialized_) {
-    // KD-tree not initialized yet, initialize it first
     const_cast<MACOMGeometry*>(this)->initializeKDTree();
   }
 
-  // Convert query point to 2D Cartesian coordinates
+  // Normalize longitude to match dataset orientation (if needed)
+  if (lon > 180.0) lon -= 360.0;
+
+  // First, try direct search with KD-tree
   double query_x, query_y;
   geoToCartesian(lon, lat, query_x, query_y);
 
-  // Query for the nearest point
-  size_t index;
-  double distance_squared;
-  nanoflann::KNNResultSet<double> resultSet(1);
-  resultSet.init(&index, &distance_squared);
+  // We'll consider multiple points and choose the closest by actual great
+  // circle distance
+  const size_t knn = 5;  // Check 5 nearest neighbors
+  std::vector<size_t> indices(knn);
+  std::vector<double> distances_sq(knn);
 
-  double query_pt[2] = {query_x, query_y};  // 2D query point
+  nanoflann::KNNResultSet<double> resultSet(knn);
+  resultSet.init(indices.data(), distances_sq.data());
+
+  double query_pt[2] = {query_x, query_y};
   kdtree_->findNeighbors(resultSet, query_pt, nanoflann::SearchParameters());
 
-  // Construct the result
+  // Find closest point by actual great circle distance
   GeoPoint result;
-  if (resultSet.size() > 0) {
-    result = pointCloud_.pts[index];
-    result.distance = sqrt(distance_squared);  // Euclidean distance
+  double min_distance = std::numeric_limits<double>::max();
 
-    std::cout << "Euclidean distance=" << result.distance << " km" << std::endl;
+  // Log candidate points for debugging
+  MACOM_LOG_INFO("MACOMGeometry", "Candidates for nearest point to (" +
+                                      std::to_string(lon) + ", " +
+                                      std::to_string(lat) + "):");
 
-    // Calculate precise great circle distance
-    result.distance = haversineDistance(lon, lat, result.lon, result.lat);
+  for (size_t i = 0; i < resultSet.size(); ++i) {
+    size_t idx = indices[i];
+    double haversine_dist = haversineDistance(lon, lat, lonC_[idx], latC_[idx]);
 
+    MACOM_LOG_INFO(
+        "MACOMGeometry",
+        "  Candidate " + std::to_string(i) + ": index=" + std::to_string(idx) +
+            " lon=" + std::to_string(lonC_[idx]) +
+            " lat=" + std::to_string(latC_[idx]) +
+            " Euclidean dist=" + std::to_string(sqrt(distances_sq[i])) +
+            " Haversine dist=" + std::to_string(haversine_dist) + " km");
+
+    if (haversine_dist < min_distance) {
+      min_distance = haversine_dist;
+      result.index = idx;
+      result.lon = lonC_[idx];
+      result.lat = latC_[idx];
+      result.distance = haversine_dist;
+    }
+  }
+
+  // Check if a point was found
+  if (min_distance < std::numeric_limits<double>::max()) {
     std::string logMsg =
-        "Found nearest point to (" + std::to_string(lon) + ", " +
+        "Best nearest point to (" + std::to_string(lon) + ", " +
         std::to_string(lat) + "): index=" + std::to_string(result.index) +
+        ", coords=(" + std::to_string(result.lon) + ", " +
+        std::to_string(result.lat) + ")" +
         ", distance=" + std::to_string(result.distance) + " km";
     MACOM_LOG_INFO("MACOMGeometry", logMsg);
   } else {
-    MACOM_LOG_WARNING("MACOMGeometry", "No points found (unexpected)");
+    // Fall back to brute force search if no point found
+    MACOM_LOG_WARNING("MACOMGeometry",
+                      "KD-tree search failed, trying brute force search");
+
+    for (size_t i = 0; i < nlpb_; ++i) {
+      double dist = haversineDistance(lon, lat, lonC_[i], latC_[i]);
+      if (dist < min_distance) {
+        min_distance = dist;
+        result.index = i;
+        result.lon = lonC_[i];
+        result.lat = latC_[i];
+        result.distance = dist;
+      }
+    }
+
+    if (min_distance < std::numeric_limits<double>::max()) {
+      MACOM_LOG_INFO(
+          "MACOMGeometry",
+          "Found point by brute force: index=" + std::to_string(result.index) +
+              ", distance=" + std::to_string(result.distance) + " km");
+    } else {
+      MACOM_LOG_WARNING("MACOMGeometry", "No points found (unexpected)");
+    }
   }
 
   return result;
@@ -784,6 +880,41 @@ GeoQueryResult MACOMGeometry<ConfigBackend>::findGridPointsInRadius(
                          " km of (" + std::to_string(lon) + ", " +
                          std::to_string(lat) + ")";
     MACOM_LOG_INFO("MACOMGeometry", logMsg);
+  }
+
+  return result;
+}
+
+// Alternative implementation for direct nearest point search using Haversine
+template <typename ConfigBackend>
+GeoPoint MACOMGeometry<ConfigBackend>::findNearestGridPointDirect(
+    double lon, double lat) const {
+  if (!initialized_) {
+    throw std::runtime_error("Geometry not initialized");
+  }
+
+  GeoPoint result;
+  double min_distance = std::numeric_limits<double>::max();
+
+  // Brute force search using Haversine distance
+  for (size_t i = 0; i < nlpb_; ++i) {
+    double dist = haversineDistance(lon, lat, lonC_[i], latC_[i]);
+    if (dist < min_distance) {
+      min_distance = dist;
+      result.index = i;
+      result.lon = lonC_[i];
+      result.lat = latC_[i];
+      result.distance = dist;
+    }
+  }
+
+  if (min_distance < std::numeric_limits<double>::max()) {
+    MACOM_LOG_INFO(
+        "MACOMGeometry",
+        "Direct search found point: index=" + std::to_string(result.index) +
+            ", coords=(" + std::to_string(result.lon) + ", " +
+            std::to_string(result.lat) + ")" +
+            ", distance=" + std::to_string(result.distance) + " km");
   }
 
   return result;

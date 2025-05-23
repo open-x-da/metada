@@ -548,9 +548,7 @@ bool MACOMState<ConfigBackend, GeometryBackend>::equals(
 
 template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::add(
-    [[maybe_unused]] const MACOMState& other) {
-  // 实现框架
-}
+    [[maybe_unused]] const MACOMState& other) {}
 
 template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::subtract(
