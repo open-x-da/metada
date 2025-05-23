@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "include/MACOMlogging.hpp"
+
 // Include MACOM specific interfaces
 // #include "MACOMState.hpp"
 // #include "include/MACOMFortranInterface.hpp"  // Changed from
@@ -204,17 +206,16 @@ void MACOMModel<ConfigBackend, StateBackend>::initialize(
   std::string time_step = config.Get("time_step").asString();
 
   if (initialized_) {
-    std::cout << "[MACOMModel] Start time: " << start_datetime << std::endl;
-    std::cout << "[MACOMModel] End time: " << end_datetime << std::endl;
-    std::cout << "[MACOMModel] Time step: " << time_step << std::endl;
-
-    std::cout
-        << "[MACOMModel] Already initialized. Finalize first to re-initialize."
-        << std::endl;
+    MACOM_LOG_INFO("MACOMModel", "Start time: " + start_datetime);
+    MACOM_LOG_INFO("MACOMModel", "End time: " + end_datetime);
+    MACOM_LOG_INFO("MACOMModel", "Time step: " + time_step);
+    MACOM_LOG_WARNING("MACOMModel",
+                      "Already initialized. Finalize first to re-initialize.");
     return;
   }
 
-  std::cout << "[MACOMModel] Initializing..." << std::endl;
+  MACOM_LOG_INFO("MACOMModel", "Initializing...");
+
   // try {
   //   // Initialize MPI through Fortran interface
   //   fortranInterface_->initializeMPI();
@@ -249,7 +250,8 @@ void MACOMModel<ConfigBackend, StateBackend>::finalize() {
   // if (!initialized_ || !fortranInterface_) {
   //   return;
   // }
-  std::cout << "[MACOMModel] Finalizing..." << std::endl;
+  MACOM_LOG_INFO("MACOMModel", "Finalizing...");
+
   // try {
   //   fortranInterface_->finalizeModelComponents();
   //   std::cout << "[MACOMModel] Fortran model components finalized."
@@ -264,7 +266,7 @@ void MACOMModel<ConfigBackend, StateBackend>::finalize() {
   // }
   // initialized_ = false;
   // mpi_rank_ = -1;
-  std::cout << "[MACOMModel] Finalization complete." << std::endl;
+  MACOM_LOG_INFO("MACOMModel", "Finalization complete.");
 }
 
 template <typename ConfigBackend, typename StateBackend>
@@ -291,9 +293,6 @@ void MACOMModel<ConfigBackend, StateBackend>::run(
 
     // Use a temporary state for the time stepping process
     auto tempState = initialState.clone();
-
-    std::cout << "Starting MACOM model integration from t=" << startTime_
-              << " to t=" << endTime_ << std::endl;
 
     // Main time stepping loop
     while (currentTime_ < endTime_) {
@@ -329,7 +328,8 @@ void MACOMModel<ConfigBackend, StateBackend>::run(
     // Copy the final state
     finalState = std::move(*workingState);
 
-    std::cout << "MACOM model integration completed successfully" << std::endl;
+    MACOM_LOG_INFO("MACOMModel",
+                   "MACOM model integration completed successfully");
 
   } catch (const std::exception& e) {
     throw std::runtime_error(std::string("MACOM model run failed: ") +

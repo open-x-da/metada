@@ -8,6 +8,8 @@
 #pragma once
 
 #include <cstddef>
+
+#include "include/MACOMlogging.hpp"
 // #include <stdexcept>
 // #include <tuple>
 
@@ -42,7 +44,9 @@ class MACOMGeometryIterator {
   MACOMGeometryIterator(const MACOMGeometry<ConfigBackend>* geometry,
                         size_t index)
       : geometry_(geometry), index_(index) {
-    // TODO: Implement
+    MACOM_LOG_DEBUG(
+        "MACOMGeometryIterator",
+        "Created iterator for geometry with index " + std::to_string(index));
   }
 
   /**
