@@ -280,7 +280,7 @@ MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
 template <typename ConfigBackend>
 void MACOMGeometry<ConfigBackend>::loadGridDimensions(netCDF::NcFile& ncFile) {
   auto readDimension = [&ncFile](const std::string& name, std::size_t& value) {
-    MACOM_LOG_INFO("MACOMGeometry", "Attempting to read dimension: " + name);
+    // MACOM_LOG_INFO("MACOMGeometry", "Attempting to read dimension: " + name);
     auto dim = ncFile.getDim(name);
     if (dim.isNull()) {
       MACOM_LOG_ERROR("MACOMGeometry",
@@ -288,10 +288,10 @@ void MACOMGeometry<ConfigBackend>::loadGridDimensions(netCDF::NcFile& ncFile) {
       throw std::runtime_error("Dimension '" + name +
                                "' not found in grid file");
     }
-    MACOM_LOG_INFO("MACOMGeometry", "Found dimension: " + name);
+    // MACOM_LOG_INFO("MACOMGeometry", "Found dimension: " + name);
     value = dim.getSize();
-    MACOM_LOG_INFO("MACOMGeometry",
-                   "Read size for " + name + ": " + std::to_string(value));
+    // MACOM_LOG_INFO("MACOMGeometry",
+    //                "Read size for " + name + ": " + std::to_string(value));
   };
 
   // Read all grid dimensions
@@ -307,10 +307,10 @@ void MACOMGeometry<ConfigBackend>::loadGridDimensions(netCDF::NcFile& ncFile) {
   MACOM_LOG_INFO("MACOMGeometry", "  nlpb=" + std::to_string(nlpb_) +
                                       ", nk=" + std::to_string(nk_) +
                                       ", nkp1=" + std::to_string(nkp1_));
-  MACOM_LOG_INFO("MACOMGeometry", "  nl=" + std::to_string(nl_) +
-                                      ", nlpbz=" + std::to_string(nlpbz_) +
-                                      ", nlz=" + std::to_string(nlz_));
-  MACOM_LOG_INFO("MACOMGeometry", "  ni=" + std::to_string(ni_));
+  // MACOM_LOG_INFO("MACOMGeometry", "  nl=" + std::to_string(nl_) +
+  //                                     ", nlpbz=" + std::to_string(nlpbz_) +
+  //                                     ", nlz=" + std::to_string(nlz_));
+  // MACOM_LOG_INFO("MACOMGeometry", "  ni=" + std::to_string(ni_));
 }
 
 // Implementation of loadGridArrays
@@ -364,10 +364,11 @@ void MACOMGeometry<ConfigBackend>::loadGridArrays(netCDF::NcFile& ncFile) {
   readVar("h0FacW", hFacW_);
   readVar("h0FacS", hFacS_);
 
-  MACOM_LOG_INFO("MACOMGeometry", "Loaded grid arrays for " +
-                                      std::to_string(nlpb_) +
-                                      " grid points and " +
-                                      std::to_string(nk_) + " vertical levels");
+  // MACOM_LOG_INFO("MACOMGeometry", "Loaded grid arrays for " +
+  //                                     std::to_string(nlpb_) +
+  //                                     " grid points and " +
+  //                                     std::to_string(nk_) + " vertical
+  //                                     levels");
 }
 
 // Implementation of loadGeometryData
@@ -375,19 +376,19 @@ template <typename ConfigBackend>
 void MACOMGeometry<ConfigBackend>::loadGeometryData(
     const std::string& filename) {
   try {
-    MACOM_LOG_INFO("MACOMGeometry",
-                   "Attempting to open NetCDF file: " + filename);
+    // MACOM_LOG_INFO("MACOMGeometry",
+    //                "Attempting to open NetCDF file: " + filename);
 
     // Open the NetCDF file
     netCDF::NcFile ncFile(filename, netCDF::NcFile::read);
 
     if (ncFile.isNull()) {
-      MACOM_LOG_ERROR("MACOMGeometry",
-                      "Failed to open NetCDF file: " + filename);
+      // MACOM_LOG_ERROR("MACOMGeometry",
+      //                 "Failed to open NetCDF file: " + filename);
       throw std::runtime_error("Failed to open NetCDF file: " + filename);
     }
 
-    MACOM_LOG_INFO("MACOMGeometry", "Successfully opened NetCDF file");
+    // MACOM_LOG_INFO("MACOMGeometry", "Successfully opened NetCDF file");
 
     // Step 1: Load grid dimensions
     loadGridDimensions(ncFile);
@@ -400,8 +401,9 @@ void MACOMGeometry<ConfigBackend>::loadGeometryData(
 
     initialized_ = true;
 
-    MACOM_LOG_INFO("MACOMGeometry",
-                   "Successfully initialized hexagonal grid from " + filename);
+    // MACOM_LOG_INFO("MACOMGeometry",
+    //                "Successfully initialized hexagonal grid from " +
+    //                filename);
 
   } catch (const netCDF::exceptions::NcException& e) {
     MACOM_LOG_ERROR("MACOMGeometry", "NetCDF error while reading grid file: " +

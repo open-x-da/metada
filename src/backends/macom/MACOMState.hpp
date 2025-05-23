@@ -261,9 +261,9 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
     : config_(config), geometry_(geometry), initialized_(false) {
   inputFile_ = config.Get("input_file").asString();
   if (inputFile_.empty()) {
-    MACOM_LOG_ERROR(
-        "MACOMState",
-        "MACOM state input file path not specified in configuration");
+    // MACOM_LOG_ERROR(
+    //     "MACOMState",
+    //     "MACOM state input file path not specified in configuration");
     throw std::runtime_error(
         "MACOM state input file path not specified in configuration");
   }
@@ -275,35 +275,35 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
   try {
     vars_to_load_from_config = config.Get("variables").asVectorString();
   } catch (const std::exception&) {
-    MACOM_LOG_WARNING("MACOMState",
-                      "No variables specified in configuration, attempting to "
-                      "load all from file.");
+    // MACOM_LOG_WARNING("MACOMState",
+    //                   "No variables specified in configuration, attempting to
+    //                   " "load all from file.");
   }
 
   getDimensionsFromGeometry(&geometry_);  // Sets nlpb_grid, nk_grid
 
-  MACOM_LOG_INFO("MACOMState", "Dimensions from Geometry: nlpb_grid = " +
-                                   std::to_string(nlpb_grid) +
-                                   ", nk_grid = " + std::to_string(nk_grid));
+  // MACOM_LOG_INFO("MACOMState", "Dimensions from Geometry: nlpb_grid = " +
+  //                                  std::to_string(nlpb_grid) +
+  //                                  ", nk_grid = " + std::to_string(nk_grid));
 
   try {
-    MACOM_LOG_INFO(
-        "MACOMState",
-        "Attempting to open NetCDF file for state data: " + inputFile_);
+    // MACOM_LOG_INFO(
+    //     "MACOMState",
+    //     "Attempting to open NetCDF file for state data: " + inputFile_);
     netCDF::NcFile ncFile(inputFile_, netCDF::NcFile::read);
     if (ncFile.isNull()) {
       throw std::runtime_error("Failed to open NetCDF state file: " +
                                inputFile_);
     }
-    MACOM_LOG_INFO("MACOMState", "Successfully opened NetCDF state file.");
+    // MACOM_LOG_INFO("MACOMState", "Successfully opened NetCDF state file.");
 
     // Step 1: Load grid dimensions from the state file
     loadVariableDimensions(ncFile);  // Sets this->nlpb_ and this->nk_
 
     // Step 2: Compare dimensions with geometry
-    MACOM_LOG_INFO("MACOMState", "Dimensions from State File: nlpb_ = " +
-                                     std::to_string(this->nlpb_) +
-                                     ", nk_ = " + std::to_string(this->nk_));
+    // MACOM_LOG_INFO("MACOMState", "Dimensions from State File: nlpb_ = " +
+    //                                  std::to_string(this->nlpb_) +
+    //                                  ", nk_ = " + std::to_string(this->nk_));
     if (this->nlpb_ != this->nlpb_grid || this->nk_ != this->nk_grid) {
       std::ostringstream error_msg;
       error_msg
@@ -315,8 +315,8 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
       MACOM_LOG_ERROR("MACOMState", error_msg.str());
       throw std::runtime_error(error_msg.str());
     }
-    MACOM_LOG_INFO("MACOMState",
-                   "State file dimensions match geometry dimensions.");
+    // MACOM_LOG_INFO("MACOMState",
+    //                "State file dimensions match geometry dimensions.");
 
     // Step 3: Load variable arrays
     loadVariableArrays(ncFile, vars_to_load_from_config);
@@ -325,15 +325,15 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
     this->variableNames_ = vars_to_load_from_config;
     if (!this->variableNames_.empty()) {
       this->activeVariable_ = this->variableNames_[0];
-      MACOM_LOG_INFO("MACOMState",
-                     "Active variable set to: " + this->activeVariable_);
+      // MACOM_LOG_INFO("MACOMState",
+      //                "Active variable set to: " + this->activeVariable_);
     } else {
       MACOM_LOG_WARNING("MACOMState", "No variables loaded or specified.");
     }
 
     initialized_ = true;
-    MACOM_LOG_INFO("MACOMState",
-                   "MACOMState initialized successfully from " + inputFile_);
+    // MACOM_LOG_INFO("MACOMState",
+    //                "MACOMState initialized successfully from " + inputFile_);
 
   } catch (const netCDF::exceptions::NcException& e) {
     MACOM_LOG_ERROR(
@@ -578,27 +578,27 @@ template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::loadVariableDimensions(
     netCDF::NcFile& ncFile) {
   auto readDimension = [&ncFile](const std::string& name, std::size_t& value) {
-    MACOM_LOG_INFO("MACOMState", "Attempting to read dimension: " + name);
+    // MACOM_LOG_INFO("MACOMState", "Attempting to read dimension: " + name);
     auto dim = ncFile.getDim(name);
     if (dim.isNull()) {
-      MACOM_LOG_ERROR("MACOMState",
-                      "Dimension '" + name + "' not found in grid file");
+      // MACOM_LOG_ERROR("MACOMState",
+      //                 "Dimension '" + name + "' not found in grid file");
       throw std::runtime_error("Dimension '" + name +
                                "' not found in grid file");
     }
-    MACOM_LOG_INFO("MACOMState", "Found dimension: " + name);
+    // MACOM_LOG_INFO("MACOMState", "Found dimension: " + name);
     value = dim.getSize();
-    MACOM_LOG_INFO("MACOMState",
-                   "Read size for " + name + ": " + std::to_string(value));
+    // MACOM_LOG_INFO("MACOMState",
+    //                "Read size for " + name + ": " + std::to_string(value));
   };
 
   // Read all variable dimensions
   readDimension("nlpb", nlpb_);
   readDimension("nk", nk_);
 
-  MACOM_LOG_INFO("MACOMState", "Loaded variable dimensions:");
-  MACOM_LOG_INFO("MACOMState", "  nlpb=" + std::to_string(nlpb_) +
-                                   ", nk=" + std::to_string(nk_));
+  // MACOM_LOG_INFO("MACOMState", "Loaded variable dimensions:");
+  // MACOM_LOG_INFO("MACOMState", "  nlpb=" + std::to_string(nlpb_) +
+  //                                  ", nk=" + std::to_string(nk_));
 }
 
 // Implementation of loadVariableArrays
@@ -692,14 +692,14 @@ void MACOMState<ConfigBackend, GeometryBackend>::loadVariableArrays(
     }
   }
 
-  // 替换原来的输出语句
-  if (!variables_to_load.empty()) {
-    MACOM_LOG_INFO("MACOMState", "Successfully loaded " +
-                                     std::to_string(variables_to_load.size()) +
-                                     " variable arrays");
-  } else {
-    MACOM_LOG_WARNING("MACOMState", "No variables specified to load");
-  }
+  // // 替换原来的输出语句
+  // if (!variables_to_load.empty()) {
+  //   MACOM_LOG_INFO("MACOMState", "Successfully loaded " +
+  //                                    std::to_string(variables_to_load.size())
+  //                                    + " variable arrays");
+  // } else {
+  //   MACOM_LOG_WARNING("MACOMState", "No variables specified to load");
+  // }
   // Note: this->variableNames_ and this->activeVariable_ are set in the
   // constructor after this function successfully completes.
 }
@@ -713,13 +713,13 @@ template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::getDimensionsFromGeometry(
     const GeometryBackend* geometry) {
   if (!geometry) {
-    MACOM_LOG_ERROR("MACOMState",
-                    "getDimensionsFromGeometry: null pointer passed");
+    // MACOM_LOG_ERROR("MACOMState",
+    //                 "getDimensionsFromGeometry: null pointer passed");
     throw std::runtime_error("getDimensionsFromGeometry: null pointer passed");
   }
   if (!geometry->isInitialized()) {
-    MACOM_LOG_ERROR("MACOMState",
-                    "getDimensionsFromGeometry: geometry not initialized");
+    // MACOM_LOG_ERROR("MACOMState",
+    //                 "getDimensionsFromGeometry: geometry not initialized");
     throw std::runtime_error(
         "getDimensionsFromGeometry: geometry not initialized");
   }
@@ -727,9 +727,10 @@ void MACOMState<ConfigBackend, GeometryBackend>::getDimensionsFromGeometry(
   nlpb_grid = geometry->getNlpb();
   nk_grid = geometry->getNk();
   // (if you need nkp1 you can grab that too)
-  MACOM_LOG_INFO("MACOMState",
-                 "State bound to geometry: nlpb=" + std::to_string(nlpb_grid) +
-                     " nk=" + std::to_string(nk_grid));
+  // MACOM_LOG_INFO("MACOMState",
+  //                "State bound to geometry: nlpb=" + std::to_string(nlpb_grid)
+  //                +
+  //                    " nk=" + std::to_string(nk_grid));
 }
 
 }  // namespace metada::backends::macom
