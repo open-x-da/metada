@@ -9,13 +9,20 @@
 
 #include <iostream>
 // #include <map>
+#include <algorithm>  // for std::sort
+#include <cmath>
+#include <limits>
 #include <memory>
 #include <netcdf>
+#include <numbers>
 #include <stdexcept>
 #include <string>
+#include <utility>  // for std::pair
 #include <vector>
 
+// Include nanoflann library (add to project dependencies)
 #include "include/MACOMlogging.hpp"
+#include "nanoflann.hpp"
 
 // Forward declarations
 namespace metada::backends::macom {
@@ -23,6 +30,42 @@ template <typename ConfigBackend>
 class MACOMGeometryIterator;
 template <typename ConfigBackend>
 class MACOMGeometryConstIterator;
+
+// GeoPoint structure for geographical coordinates and 2D KD-tree needs
+struct GeoPoint {
+  size_t index;     // Grid point index
+  double lon;       // Longitude (degrees)
+  double lat;       // Latitude (degrees)
+  double x;         // Cartesian coordinate X
+  double y;         // Cartesian coordinate Y
+  double distance;  // Distance from query point (km)
+};
+
+// Query result structure
+struct GeoQueryResult {
+  std::vector<GeoPoint> points;
+};
+
+// Point cloud adapter for 2D KD-tree interface
+template <typename T>
+struct PointCloud {
+  std::vector<T> pts;
+
+  // Required interface methods
+  inline size_t kdtree_get_point_count() const { return pts.size(); }
+
+  inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
+    if (dim == 0)
+      return pts[idx].x;
+    else
+      return pts[idx].y;
+  }
+
+  template <class BBOX>
+  bool kdtree_get_bbox(BBOX&) const {
+    return false;
+  }
+};
 }  // namespace metada::backends::macom
 
 namespace metada::backends::macom {
@@ -195,6 +238,28 @@ class MACOMGeometry {
   template <typename StateBackend>
   void haloExchange([[maybe_unused]] StateBackend& state) {}
 
+  /**
+   * @brief Find the nearest grid point to the given latitude and longitude
+   *
+   * @param lon Longitude (degrees)
+   * @param lat Latitude (degrees)
+   * @return GeoPoint Containing index and coordinates of the nearest grid point
+   */
+  GeoPoint findNearestGridPoint(double lon, double lat) const;
+
+  /**
+   * @brief Find all grid points within the specified radius of the given
+   * coordinates
+   *
+   * @param lon Longitude (degrees)
+   * @param lat Latitude (degrees)
+   * @param radius Search radius (kilometers)
+   * @return GeoQueryResult Containing indices and coordinates of all points
+   * within radius
+   */
+  GeoQueryResult findGridPointsInRadius(double lon, double lat,
+                                        double radius) const;
+
  private:
   /**
    * @brief Load grid dimensions from NetCDF file
@@ -235,36 +300,81 @@ class MACOMGeometry {
   std::size_t nlbdy_ = 0;  // Number of boundary points
   std::size_t ni_ = 0;     // Number of iterations
   bool initialized_ = false;
+  bool kdtree_initialized_ = false;
   const ConfigBackend* config_ptr_ = nullptr;
 
   // Grid data
-  std::vector<double> latC_;   // Latitude at cell centers
-  std::vector<double> lonC_;   // Longitude at cell centers
-  std::vector<double> dxC_;    // Grid spacing in x direction at cell centers
-  std::vector<double> dyC_;    // Grid spacing in y direction at cell centers
-  std::vector<double> dxW_;    // Grid spacing in x direction at west edges
-  std::vector<double> dyW_;    // Grid spacing in y direction at west edges
-  std::vector<double> dxS_;    // Grid spacing in x direction at south edges
-  std::vector<double> dyS_;    // Grid spacing in y direction at south edges
-  std::vector<double> rAc_;    // Cell areas
-  std::vector<double> rAw_;    // Areas at west edges
-  std::vector<double> rAs_;    // Areas at south edges
-  std::vector<double> maskC_;  // Land/sea mask at cell centers
-  std::vector<double> maskW_;  // Land/sea mask at west edges
-  std::vector<double> maskS_;  // Land/sea mask at south edges
-  std::vector<double> hFacC_;  // Cell thickness factors
-  std::vector<double> hFacW_;  // West edge thickness factors
-  std::vector<double> hFacS_;  // South edge thickness factors
+  std::vector<double> latC_;  // Latitude at cell centers
+  std::vector<double> lonC_;  // Longitude at cell centers
+
+  std::vector<double> tw_;  // Latitude at west edges
+  std::vector<double> te_;  // Latitude at east edges
+  std::vector<double> tn_;  // Latitude at north edges
+  std::vector<double> ts_;  // Latitude at south edges
+
+  // std::vector<double> dxC_;    // Grid spacing in x direction at cell centers
+  // std::vector<double> dyC_;    // Grid spacing in y direction at cell centers
+  // std::vector<double> dxW_;    // Grid spacing in x direction at west edges
+  // std::vector<double> dyW_;    // Grid spacing in y direction at west edges
+  // std::vector<double> dxS_;    // Grid spacing in x direction at south edges
+  // std::vector<double> dyS_;    // Grid spacing in y direction at south edges
+  // std::vector<double> rAc_;    // Cell areas
+  // std::vector<double> rAw_;    // Areas at west edges
+  // std::vector<double> rAs_;    // Areas at south edges
+  // std::vector<double> maskC_;  // Land/sea mask at cell centers
+  // std::vector<double> maskW_;  // Land/sea mask at west edges
+  // std::vector<double> maskS_;  // Land/sea mask at south edges
+  // std::vector<double> hFacC_;  // Cell thickness factors
+  // std::vector<double> hFacW_;  // West edge thickness factors
+  // std::vector<double> hFacS_;  // South edge thickness factors
 
   // Friend declaration for iterator
   friend class MACOMGeometryIterator<ConfigBackend>;
   friend class MACOMGeometryConstIterator<ConfigBackend>;
+
+  // KD-tree related members and methods
+  using KDTreeType = nanoflann::KDTreeSingleIndexAdaptor<
+      nanoflann::L2_Simple_Adaptor<double, PointCloud<GeoPoint>>,
+      PointCloud<GeoPoint>, 2 /* dimensions - changed from 3 to 2 */
+      >;
+
+  /**
+   * @brief Initialize the KD-tree
+   */
+  void initializeKDTree();
+
+  /**
+   * @brief Convert latitude and longitude to 2D Cartesian coordinates
+   *
+   * @param lon Longitude (degrees)
+   * @param lat Latitude (degrees)
+   * @param x Output parameter, Cartesian coordinate x
+   * @param y Output parameter, Cartesian coordinate y
+   */
+  static void geoToCartesian(double lon, double lat, double& x, double& y);
+
+  /**
+   * @brief Calculate great-circle distance between two points
+   *
+   * @param lon1 First point longitude
+   * @param lat1 First point latitude
+   * @param lon2 Second point longitude
+   * @param lat2 Second point latitude
+   * @return double Distance (kilometers)
+   */
+  static double haversineDistance(double lon1, double lat1, double lon2,
+                                  double lat2);
+
+  // KD-tree members
+  PointCloud<GeoPoint> pointCloud_;
+  std::unique_ptr<KDTreeType> kdtree_;
+  static constexpr double EARTH_RADIUS_KM = 6371.0;
 };
 
 // ConfigBackend constructor implementation
 template <typename ConfigBackend>
 MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
-    : initialized_(false) {
+    : initialized_(false), kdtree_initialized_(false) {
   std::string input_filename = config.Get("input_file").asString();
   if (input_filename.empty()) {
     throw std::runtime_error(
@@ -273,7 +383,31 @@ MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
 
   // Load geometry data from MACOM NetCDF file
   loadGeometryData(input_filename);
-  initialized_ = true;
+  // initialized_ = true;
+
+  // KD-tree can be initialized here, or deferred until the first query
+  initializeKDTree();
+  // kdtree_initialized_ = true;
+
+  GeoPoint result = findNearestGridPoint(114.0, 30.0);
+
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "Nearest grid point: index=" + std::to_string(result.index) +
+                     ", distance=" + std::to_string(result.distance) + " km");
+
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "lat_c: " + std::to_string(latC_[result.index]));
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "lon_c: " + std::to_string(lonC_[result.index]));
+
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "west edge: " + std::to_string(tw_[result.index]));
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "east edge: " + std::to_string(te_[result.index]));
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "north edge: " + std::to_string(tn_[result.index]));
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "south edge: " + std::to_string(ts_[result.index]));
 }
 
 // Implementation of loadGridDimensions
@@ -319,21 +453,27 @@ void MACOMGeometry<ConfigBackend>::loadGridArrays(netCDF::NcFile& ncFile) {
   // Resize vectors
   latC_.resize(nlpb_);
   lonC_.resize(nlpb_);
-  dxC_.resize(nlpb_);
-  dyC_.resize(nlpb_);
-  dxW_.resize(nlpb_);
-  dyW_.resize(nlpb_);
-  dxS_.resize(nlpb_);
-  dyS_.resize(nlpb_);
-  rAc_.resize(nlpb_);
-  rAw_.resize(nlpb_);
-  rAs_.resize(nlpb_);
-  maskC_.resize(nlpb_ * nk_);
-  maskW_.resize(nlpb_ * nk_);
-  maskS_.resize(nlpb_ * nk_);
-  hFacC_.resize(nlpb_ * nk_);
-  hFacW_.resize(nlpb_ * nk_);
-  hFacS_.resize(nlpb_ * nk_);
+
+  tw_.resize(nlpb_);
+  te_.resize(nlpb_);
+  tn_.resize(nlpb_);
+  ts_.resize(nlpb_);
+
+  // dxC_.resize(nlpb_);
+  // dyC_.resize(nlpb_);
+  // dxW_.resize(nlpb_);
+  // dyW_.resize(nlpb_);
+  // dxS_.resize(nlpb_);
+  // dyS_.resize(nlpb_);
+  // rAc_.resize(nlpb_);
+  // rAw_.resize(nlpb_);
+  // rAs_.resize(nlpb_);
+  // maskC_.resize(nlpb_ * nk_);
+  // maskW_.resize(nlpb_ * nk_);
+  // maskS_.resize(nlpb_ * nk_);
+  // hFacC_.resize(nlpb_ * nk_);
+  // hFacW_.resize(nlpb_ * nk_);
+  // hFacS_.resize(nlpb_ * nk_);
 
   // Read variables
   auto readVar = [&ncFile](const std::string& name, std::vector<double>& data) {
@@ -348,21 +488,27 @@ void MACOMGeometry<ConfigBackend>::loadGridArrays(netCDF::NcFile& ncFile) {
   // Read grid data
   readVar("lat_c", latC_);
   readVar("lon_c", lonC_);
-  readVar("dxC", dxC_);
-  readVar("dyC", dyC_);
-  readVar("dxW", dxW_);
-  readVar("dyW", dyW_);
-  readVar("dxS", dxS_);
-  readVar("dyS", dyS_);
-  readVar("rAc", rAc_);
-  readVar("rAw", rAw_);
-  readVar("rAs", rAs_);
-  readVar("maskC", maskC_);
-  readVar("maskW", maskW_);
-  readVar("maskS", maskS_);
-  readVar("h0FacC", hFacC_);
-  readVar("h0FacW", hFacW_);
-  readVar("h0FacS", hFacS_);
+
+  readVar("tw", tw_);
+  readVar("te", te_);
+  readVar("tn", tn_);
+  readVar("ts", ts_);
+
+  // readVar("dxC", dxC_);
+  // readVar("dyC", dyC_);
+  // readVar("dxW", dxW_);
+  // readVar("dyW", dyW_);
+  // readVar("dxS", dxS_);
+  // readVar("dyS", dyS_);
+  // readVar("rAc", rAc_);
+  // readVar("rAw", rAw_);
+  // readVar("rAs", rAs_);
+  // readVar("maskC", maskC_);
+  // readVar("maskW", maskW_);
+  // readVar("maskS", maskS_);
+  // readVar("h0FacC", hFacC_);
+  // readVar("h0FacW", hFacW_);
+  // readVar("h0FacS", hFacS_);
 
   // MACOM_LOG_INFO("MACOMGeometry", "Loaded grid arrays for " +
   //                                     std::to_string(nlpb_) +
@@ -416,6 +562,231 @@ void MACOMGeometry<ConfigBackend>::loadGeometryData(
     throw std::runtime_error("Error initializing grid: " +
                              std::string(e.what()));
   }
+}
+
+// Implementation of geoToCartesian for 2D coordinates
+template <typename ConfigBackend>
+void MACOMGeometry<ConfigBackend>::geoToCartesian(double lon, double lat,
+                                                  double& x, double& y) {
+  // Normalize longitude to 0-360
+  lon = fmod(lon + 360.0, 360.0);
+
+  // Convert to radians
+  double lon_rad = lon * std::numbers::pi / 180.0;
+  double lat_rad = lat * std::numbers::pi / 180.0;
+
+  // Calculate 2D Cartesian coordinates that preserve relative distances
+  x = EARTH_RADIUS_KM * lon_rad * cos(lat_rad);
+  y = EARTH_RADIUS_KM * lat_rad;
+}
+
+// Calculate the great-circle distance between two points
+template <typename ConfigBackend>
+double MACOMGeometry<ConfigBackend>::haversineDistance(double lon1, double lat1,
+                                                       double lon2,
+                                                       double lat2) {
+  // Normalize longitude to 0-360
+  lon1 = fmod(lon1 + 360.0, 360.0);
+  lon2 = fmod(lon2 + 360.0, 360.0);
+
+  // Convert to radians
+  double lon1_rad = lon1 * std::numbers::pi / 180.0;
+  double lat1_rad = lat1 * std::numbers::pi / 180.0;
+  double lon2_rad = lon2 * std::numbers::pi / 180.0;
+  double lat2_rad = lat2 * std::numbers::pi / 180.0;
+
+  // Haversine equation
+  double dlon = lon2_rad - lon1_rad;
+  double dlat = lat2_rad - lat1_rad;
+  double a = sin(dlat / 2) * sin(dlat / 2) +
+             cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2) * sin(dlon / 2);
+  double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+  return EARTH_RADIUS_KM * c;
+}
+
+// KD-tree initialization implementation
+template <typename ConfigBackend>
+void MACOMGeometry<ConfigBackend>::initializeKDTree() {
+  if (kdtree_initialized_) {
+    return;
+  }
+
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "Initializing 2D KD-tree for spatial queries");
+
+  // Clear previous data
+  pointCloud_.pts.clear();
+
+  // Fill point cloud data
+  pointCloud_.pts.resize(nlpb_);
+  for (size_t i = 0; i < nlpb_; ++i) {
+    GeoPoint& point = pointCloud_.pts[i];
+    point.index = i;
+    point.lon = lonC_[i];
+    point.lat = latC_[i];
+
+    // Convert to 2D Cartesian coordinates
+    geoToCartesian(point.lon, point.lat, point.x, point.y);
+  }
+
+  MACOM_LOG_INFO("MACOMGeometry", "Point cloud data filled");
+
+  // Build KD-tree
+  const int leaf_size =
+      10;  // Adjust this value to affect tree balance and query performance
+  kdtree_.reset(new KDTreeType(
+      2, pointCloud_, nanoflann::KDTreeSingleIndexAdaptorParams(leaf_size)));
+  kdtree_->buildIndex();
+
+  kdtree_initialized_ = true;
+  MACOM_LOG_INFO("MACOMGeometry", "2D KD-tree initialized with " +
+                                      std::to_string(nlpb_) + " points");
+}
+
+// Find nearest point implementation
+template <typename ConfigBackend>
+GeoPoint MACOMGeometry<ConfigBackend>::findNearestGridPoint(double lon,
+                                                            double lat) const {
+  if (!initialized_) {
+    MACOM_LOG_ERROR("MACOMGeometry",
+                    "Cannot find nearest point: Geometry not initialized");
+    throw std::runtime_error("Geometry not initialized");
+  }
+
+  if (!kdtree_initialized_) {
+    // KD-tree not initialized yet, initialize it first
+    const_cast<MACOMGeometry*>(this)->initializeKDTree();
+  }
+
+  // Convert query point to 2D Cartesian coordinates
+  double query_x, query_y;
+  geoToCartesian(lon, lat, query_x, query_y);
+
+  // Query for the nearest point
+  size_t index;
+  double distance_squared;
+  nanoflann::KNNResultSet<double> resultSet(1);
+  resultSet.init(&index, &distance_squared);
+
+  double query_pt[2] = {query_x, query_y};  // 2D query point
+  kdtree_->findNeighbors(resultSet, query_pt, nanoflann::SearchParameters());
+
+  // Construct the result
+  GeoPoint result;
+  if (resultSet.size() > 0) {
+    result = pointCloud_.pts[index];
+    result.distance = sqrt(distance_squared);  // Euclidean distance
+
+    std::cout << "Euclidean distance=" << result.distance << " km" << std::endl;
+
+    // Calculate precise great circle distance
+    result.distance = haversineDistance(lon, lat, result.lon, result.lat);
+
+    std::string logMsg =
+        "Found nearest point to (" + std::to_string(lon) + ", " +
+        std::to_string(lat) + "): index=" + std::to_string(result.index) +
+        ", distance=" + std::to_string(result.distance) + " km";
+    MACOM_LOG_INFO("MACOMGeometry", logMsg);
+  } else {
+    MACOM_LOG_WARNING("MACOMGeometry", "No points found (unexpected)");
+  }
+
+  return result;
+}
+
+/**
+ * @brief Find all grid points within the specified radius of the given
+ * coordinates
+ *
+ * @param lon Longitude (degrees)
+ * @param lat Latitude (degrees)
+ * @param radius Search radius (kilometers)
+ * @return GeoQueryResult Containing indices and coordinates of all points
+ * within radius
+ */
+template <typename ConfigBackend>
+GeoQueryResult MACOMGeometry<ConfigBackend>::findGridPointsInRadius(
+    double lon, double lat, double radius) const {
+  GeoQueryResult result;
+
+  using IndexType = typename KDTreeType::IndexType;
+  using DistanceType = typename KDTreeType::DistanceType;
+  using MatchItem = nanoflann::ResultItem<IndexType, DistanceType>;
+
+  if (!initialized_) {
+    MACOM_LOG_ERROR("MACOMGeometry",
+                    "Cannot find points in radius: Geometry not initialized");
+    throw std::runtime_error("Geometry not initialized");
+  }
+
+  if (!kdtree_initialized_) {
+    // KD-tree not initialized yet, initialize it first
+    const_cast<MACOMGeometry*>(this)->initializeKDTree();
+  }
+
+  // Convert query point to 2D Cartesian coordinates
+  double query_x, query_y;
+  geoToCartesian(lon, lat, query_x, query_y);
+
+  // In Cartesian space, the search radius needs conversion
+  // Since we're using 2D Cartesian coordinates, the search radius needs to be
+  // slightly larger to ensure we capture all relevant points
+  double search_radius =
+      radius *
+      1.2;  // Add 20% to ensure all potentially in-range points are included
+
+  // Prepare query point
+  double query_pt[2] = {query_x, query_y};  // 2D query point
+
+  // This fixes the vector type error - using std::pair<size_t, double> instead
+  // of ResultItem
+  std::vector<MatchItem> matches;
+
+  // Create search params
+  nanoflann::SearchParameters params;
+  params.sorted = true;  // Sort results by distance
+
+  // Perform radius search
+  const size_t num_matches = kdtree_->radiusSearch(
+      query_pt, search_radius * search_radius, matches, params);
+
+  // Construct the result
+  if (num_matches > 0) {
+    result.points.reserve(num_matches);
+
+    for (size_t i = 0; i < num_matches; ++i) {
+      size_t idx = matches[i].first;
+      GeoPoint point = pointCloud_.pts[idx];
+
+      // Calculate precise great circle distance
+      double exact_distance = haversineDistance(lon, lat, point.lon, point.lat);
+
+      // Only keep points truly within range
+      if (exact_distance <= radius) {
+        point.distance = exact_distance;
+        result.points.push_back(point);
+      }
+    }
+
+    // Sort by distance
+    std::sort(result.points.begin(), result.points.end(),
+              [](const GeoPoint& a, const GeoPoint& b) {
+                return a.distance < b.distance;
+              });
+
+    std::string logMsg = "Found " + std::to_string(result.points.size()) +
+                         " points within " + std::to_string(radius) +
+                         " km of (" + std::to_string(lon) + ", " +
+                         std::to_string(lat) + ")";
+    MACOM_LOG_INFO("MACOMGeometry", logMsg);
+  } else {
+    std::string logMsg = "No points found within " + std::to_string(radius) +
+                         " km of (" + std::to_string(lon) + ", " +
+                         std::to_string(lat) + ")";
+    MACOM_LOG_INFO("MACOMGeometry", logMsg);
+  }
+
+  return result;
 }
 
 }  // namespace metada::backends::macom

@@ -7,6 +7,7 @@ metada_find_package(CURL REQUIRED)
 metada_find_package(xtensor CONFIG)
 metada_find_package(netcdf-cxx4)
 metada_find_package(xtl CONFIG)
+metada_find_package(nanoflann CONFIG)
 
 
 # Create the MACOM backend interface library
