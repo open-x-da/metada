@@ -1,5 +1,6 @@
 module macom_fortran_wrapper
   use iso_c_binding
+  use macom_logger
   ! Assuming your actual model logic is in other modules, e.g., mod_csp, mod_misc etc.
   ! You will need to add 'use' statements for any modules that these wrapper subroutines call.
   ! For example:
@@ -49,11 +50,9 @@ contains
     ! Call your existing MPI initialization routine, e.g., from mod_mpi_interfaces
     ! call mpi_process_init() ! This would typically set mpi_rank, mpi_comp_procs etc.
     
-    ! For now, a placeholder:
-    print *, "[FortranWrapper] c_macom_initialize_mpi called with C communicator: ", comm_c
-    print *, "11111111111111111111111111"
+    call macom_log_info("FortranWrapper", "c_macom_initialize_mpi called with C communicator: " // trim(adjustl(c_int_to_string(comm_c))))
     ! call MPI_Comm_rank(mpi_comp_comm, mpi_rank, ierr)
-    ! print *, "[FortranWrapper] MPI Initialized. Rank: ", mpi_rank
+    ! call log_info("FortranWrapper", "MPI Initialized. Rank: " // trim(adjustl(c_int_to_string(mpi_rank))))
   end subroutine c_macom_initialize_mpi
 
   subroutine c_macom_get_mpi_rank(rank) bind(C, name="c_macom_get_mpi_rank")
@@ -61,13 +60,13 @@ contains
     integer(C_INT), intent(out) :: rank
     ! rank = mpi_rank ! Assuming mpi_rank is set in mpi_process_init
     rank = 0 ! Placeholder
-    ! print *, "[FortranWrapper] c_macom_get_mpi_rank called. Returning rank: ", rank
+    call macom_log_debug("FortranWrapper", "c_macom_get_mpi_rank called. Returning rank: 0")
   end subroutine c_macom_get_mpi_rank
 
   subroutine c_macom_finalize_mpi() bind(C, name="c_macom_finalize_mpi")
     ! Finalizes the MPI environment for MACOM.
     ! call mpi_final_operations() ! Your existing MPI finalization
-    print *, "[FortranWrapper] c_macom_finalize_mpi called."
+    call macom_log_info("FortranWrapper", "c_macom_finalize_mpi called")
     ! call MPI_Finalize(ierr)
   end subroutine c_macom_finalize_mpi
 
@@ -78,7 +77,7 @@ contains
     ! Reads the model configuration (namelist).
     ! call misc_namelist_read() ! Your existing namelist reading routine
     ! call misc_namelist_read()
-    print *, "[FortranWrapper] c_macom_read_namelist called."
+    call macom_log_info("FortranWrapper", "c_macom_read_namelist called")
   end subroutine c_macom_read_namelist
 
   subroutine c_macom_initialize_model_components() bind(C, name="c_macom_initialize_model_components")
@@ -112,7 +111,7 @@ contains
     !    ! IO processes might also participate or lead restart read
     ! end if
     ! call MPI_Barrier(mpi_comp_comm, ierr)
-    print *, "[FortranWrapper] c_macom_initialize_model_components called."
+    call macom_log_info("FortranWrapper", "c_macom_initialize_model_components called")
   end subroutine c_macom_initialize_model_components
 
   !-----------------------------------------------------------------------------
@@ -127,17 +126,19 @@ contains
     model_status_c = 0 ! Assume success
 
     ! if (mpi_rank < mpi_comp_procs) then
-    !   print *, "[FortranWrapper] Rank ", mpi_rank, " running model step for iter: ", myIter
+    !   call log_info("FortranWrapper", "Rank " // trim(adjustl(c_int_to_string(mpi_rank))) &
+    !               // " running model step for iter: " // trim(adjustl(c_int_to_string(myIter))))
     !   call csp() ! This is your main computation subroutine for one step/loop
     !   ! Potentially call mitice_main() if sea ice is on and integrated per step
     !   ! call mpi_csp_io_send_output() ! If output is per step
     ! else ! IO Process
-    !   print *, "[FortranWrapper] Rank ", mpi_rank, " (IO) waiting/processing for iter: ", myIter
+    !   call log_info("FortranWrapper", "Rank " // trim(adjustl(c_int_to_string(mpi_rank))) &
+    !               // " (IO) waiting/processing for iter: " // trim(adjustl(c_int_to_string(myIter))))
     !   ! call mpi_csp_io_main() ! This might be a loop itself, or a part of it
     ! end if
     ! call MPI_Barrier(mpi_comp_comm, ierr) ! Sync after step
     
-    print *, "[FortranWrapper] c_macom_run_model_step called for iter: ", current_iter_c
+    call macom_log_info("FortranWrapper", "c_macom_run_model_step called for iter: " // trim(adjustl(c_int_to_string(current_iter_c))))
   end subroutine c_macom_run_model_step
 
   !-----------------------------------------------------------------------------
@@ -156,7 +157,17 @@ contains
     !    call misc_run_info_close()
     ! end if
     ! call MPI_Barrier(mpi_comp_comm, ierr) ! Ensure all tasks done before MPI_Finalize
-    print *, "[FortranWrapper] c_macom_finalize_model_components called."
+    call macom_log_info("FortranWrapper", "c_macom_finalize_model_components called")
   end subroutine c_macom_finalize_model_components
+
+  !-----------------------------------------------------------------------------
+  ! Utility functions
+  !-----------------------------------------------------------------------------
+  function c_int_to_string(i) result(str)
+    integer(C_INT), intent(in) :: i
+    character(len=20) :: str
+    
+    write(str, '(I0)') i
+  end function c_int_to_string
 
 end module macom_fortran_wrapper 

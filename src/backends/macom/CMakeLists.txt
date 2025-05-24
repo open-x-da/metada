@@ -82,9 +82,14 @@ endif()
 
 string(REPLACE ";" " " DEF_FLAGS_STR "${DEF_FLAGS}")
 
-# Create Fortran implementation library
+# 确保在 CMakeLists.txt 中明确设置 Fortran 模块目录
+set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
+
+# 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
 add_library(macom_fortran STATIC
+    fortran/macom_logger.f90           # 确保这是第一个
     fortran/macom_fortran_wrapper.f90
+    # fortran/macom_logger.f90
     # fortran/src/mod_mpi_variables.f90
     # fortran/src/mod_mpi_test_variables.f90
     # fortran/src/mod_mpi_test.f90
@@ -136,8 +141,13 @@ add_library(macom_fortran STATIC
     # fortran/src/mitice_advdiff_module.f90
 )
 
-# Set Fortran module output directory
-set_property(TARGET macom_fortran PROPERTY Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules/macom)
+# 设置 Fortran 模块输出目录
+set_property(TARGET macom_fortran PROPERTY Fortran_MODULE_DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY})
+
+# 添加模块目录到包含路径
+target_include_directories(macom_fortran PUBLIC
+    ${CMAKE_Fortran_MODULE_DIRECTORY}
+)
 
 # Set Fortran compiler flags and macros
 target_compile_options(macom_fortran PRIVATE

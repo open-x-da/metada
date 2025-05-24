@@ -17,8 +17,7 @@
 
 // Include MACOM specific interfaces
 // #include "MACOMState.hpp"
-// #include "include/MACOMFortranInterface.hpp"  // Changed from
-// FortranInterface.hpp
+#include "include/MACOMFortranInterface.hpp"  // Changed from MACOMFortranInterface.hpp
 
 // Metada framework utilities (if needed)
 #include "DateTime.hpp"
@@ -144,9 +143,9 @@ class MACOMModel {
   DateTime endTime_;      // End time in seconds
   Duration timeStep_;     // Time step in seconds
 
-  // // Fortran interface
-  // std::unique_ptr<MACOMFortranInterface> fortranInterface_;
-  // int mpi_rank_;
+  // Fortran interface
+  std::unique_ptr<MACOMFortranInterface> fortranInterface_;
+  int mpi_rank_;
 
   // Dynamical core options
   std::string advectionScheme_ = "WENO";
@@ -157,7 +156,7 @@ template <typename ConfigBackend, typename StateBackend>
 MACOMModel<ConfigBackend, StateBackend>::MACOMModel(const ConfigBackend& config)
     : initialized_(false) {
   // Create Fortran interface
-  // fortranInterface_ = std::make_unique<MACOMFortranInterface>();
+  fortranInterface_ = std::make_unique<MACOMFortranInterface>();
   initialize(config);
 }
 
@@ -201,45 +200,56 @@ MACOMModel<ConfigBackend, StateBackend>::~MACOMModel() {
 template <typename ConfigBackend, typename StateBackend>
 void MACOMModel<ConfigBackend, StateBackend>::initialize(
     const ConfigBackend& config) {
-  std::string start_datetime = config.Get("start_datetime").asString();
-  std::string end_datetime = config.Get("end_datetime").asString();
-  std::string time_step = config.Get("time_step").asString();
+  // Access the nested configuration structure correctly
+  try {
+    // First, check if we have a time_control subsection in the config
+    if (config.HasKey("time_control")) {
+      // Direct access to time_control subsection
+      auto time_control = config.CreateSubsection("time_control");
+      startTime_ = DateTime(time_control.Get("start_datetime").asString());
+      endTime_ = DateTime(time_control.Get("end_datetime").asString());
+      timeStep_ = Duration(time_control.Get("time_step").asString());
 
-  if (initialized_) {
-    MACOM_LOG_INFO("MACOMModel", "Start time: " + start_datetime);
-    MACOM_LOG_INFO("MACOMModel", "End time: " + end_datetime);
-    MACOM_LOG_INFO("MACOMModel", "Time step: " + time_step);
-    MACOM_LOG_WARNING("MACOMModel",
-                      "Already initialized. Finalize first to re-initialize.");
-    return;
+      MACOM_LOG_INFO(
+          "MACOMModel",
+          "Forecast period: " + time_control.Get("start_datetime").asString() +
+              " to " + time_control.Get("end_datetime").asString());
+    } else {
+      MACOM_LOG_WARNING("MACOMModel",
+                        "Configuration does not contain time_control or "
+                        "model.time_control sections");
+    }
+
+    if (initialized_) {
+      MACOM_LOG_WARNING(
+          "MACOMModel",
+          "Already initialized. Finalize first to re-initialize.");
+      return;
+    }
+
+    MACOM_LOG_INFO("MACOMModel", "Initializing...");
+
+    // Initialize MPI through Fortran interface
+    fortranInterface_->initializeMPI();
+    mpi_rank_ = fortranInterface_->getRank();
+    MACOM_LOG_INFO("MACOMModel", "MPI Initialized via Fortran. Model Rank: " +
+                                     std::to_string(mpi_rank_));
+
+    // Read namelist
+    fortranInterface_->readNamelist();
+    MACOM_LOG_INFO("MACOMModel", "Fortran Namelist Read.");
+
+    // Initialize model components
+    fortranInterface_->initializeModelComponents();
+    MACOM_LOG_INFO("MACOMModel", "Fortran model components initialized.");
+
+    initialized_ = true;
+    MACOM_LOG_INFO("MACOMModel", "Initialization complete.");
+  } catch (const std::exception& e) {
+    initialized_ = false;
+    throw std::runtime_error(std::string("MACOMModel initialization failed: ") +
+                             e.what());
   }
-
-  MACOM_LOG_INFO("MACOMModel", "Initializing...");
-
-  // try {
-  //   // Initialize MPI through Fortran interface
-  //   fortranInterface_->initializeMPI();
-  //   mpi_rank_ = fortranInterface_->getRank();
-  //   std::cout << "[MACOMModel] MPI Initialized via Fortran. Model Rank: "
-  //             << mpi_rank_ << std::endl;
-
-  //   // Read namelist
-  //   fortranInterface_->readNamelist();
-  //   std::cout << "[MACOMModel] Fortran Namelist Read." << std::endl;
-
-  //   // Initialize model components
-  //   fortranInterface_->initializeModelComponents();
-  //   std::cout << "[MACOMModel] Fortran model components initialized."
-  //             << std::endl;
-
-  //   initialized_ = true;
-  //   std::cout << "[MACOMModel] Initialization complete." << std::endl;
-
-  // } catch (const std::exception& e) {
-  //   initialized_ = false;
-  //   throw std::runtime_error(
-  //       std::string("[MACOMModel] Initialization failed: ") + e.what());
-  // }
 }
 
 template <typename ConfigBackend, typename StateBackend>
@@ -247,25 +257,24 @@ void MACOMModel<ConfigBackend, StateBackend>::reset() {}
 
 template <typename ConfigBackend, typename StateBackend>
 void MACOMModel<ConfigBackend, StateBackend>::finalize() {
-  // if (!initialized_ || !fortranInterface_) {
-  //   return;
-  // }
+  if (!initialized_ || !fortranInterface_) {
+    return;
+  }
   MACOM_LOG_INFO("MACOMModel", "Finalizing...");
 
-  // try {
-  //   fortranInterface_->finalizeModelComponents();
-  //   std::cout << "[MACOMModel] Fortran model components finalized."
-  //             << std::endl;
+  try {
+    fortranInterface_->finalizeModelComponents();
+    MACOM_LOG_INFO("MACOMModel", "Fortran model components finalized.");
 
-  //   fortranInterface_->finalizeMPI();
-  //   std::cout << "[MACOMModel] Fortran MPI finalized." << std::endl;
+    fortranInterface_->finalizeMPI();
+    MACOM_LOG_INFO("MACOMModel", "Fortran MPI finalized.");
 
-  // } catch (const std::exception& e) {
-  //   std::cerr << "[MACOMModel] Error during finalization: " << e.what()
-  //             << std::endl;
-  // }
-  // initialized_ = false;
-  // mpi_rank_ = -1;
+  } catch (const std::exception& e) {
+    MACOM_LOG_ERROR("MACOMModel",
+                    "Error during finalization: " + std::string(e.what()));
+  }
+  initialized_ = false;
+  mpi_rank_ = -1;
   MACOM_LOG_INFO("MACOMModel", "Finalization complete.");
 }
 
@@ -291,8 +300,8 @@ void MACOMModel<ConfigBackend, StateBackend>::run(
     // Calculate the total simulation time
     Duration totalSimTime = endTime_ - startTime_;
 
-    // Use a temporary state for the time stepping process
-    auto tempState = initialState.clone();
+    // // Use a temporary state for the time stepping process
+    // auto tempState = initialState.clone();
 
     // Main time stepping loop
     while (currentTime_ < endTime_) {
@@ -301,11 +310,11 @@ void MACOMModel<ConfigBackend, StateBackend>::run(
         timeStep_ = endTime_ - currentTime_;
       }
 
-      // Perform a single time step
-      timeStep(*workingState, *tempState, timeStep_);
+      // // Perform a single time step
+      // timeStep(*workingState, *tempState, timeStep_);
 
-      // Swap states for next iteration
-      std::swap(workingState, tempState);
+      // // Swap states for next iteration
+      // std::swap(workingState, tempState);
 
       // Update current time
       currentTime_ += timeStep_;
@@ -319,9 +328,8 @@ void MACOMModel<ConfigBackend, StateBackend>::run(
         double totalSeconds = totalSimTime.totalSeconds();
         double progress = (elapsedSeconds / totalSeconds) * 100.0;
 
-        std::cout << "MACOM model integration: " << std::fixed
-                  << std::setprecision(1) << progress
-                  << "% complete (t=" << currentTime_ << ")" << std::endl;
+        MACOM_LOG_INFO("MACOMModel", "MACOM model integration: " +
+                                         std::to_string(progress) + ")");
       }
     }
 

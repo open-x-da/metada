@@ -651,43 +651,41 @@ void MACOMState<ConfigBackend, GeometryBackend>::loadVariableArrays(
     dimensions_[variable_name] = {
         this->nlpb_, this->nk_};  // Store dimensions for this variable
 
-    // 输出样本数据：从变量数据中间取10个值
-    std::stringstream sample_ss;
-    sample_ss << "Sample values for " << variable_name << ": ";
+    // // 输出样本数据：从变量数据中间取10个值
+    // std::stringstream sample_ss;
+    // sample_ss << "Sample values for " << variable_name << ": ";
 
-    size_t total_size = variables_[variable_name].size();
-    size_t mid_point = total_size / 2;
-    size_t start_idx = (total_size <= 10) ? 0 : (mid_point - 5);
-    size_t end_idx = std::min(start_idx + 10, total_size);
+    // size_t total_size = variables_[variable_name].size();
+    // size_t mid_point = total_size / 2;
+    // size_t start_idx = (total_size <= 10) ? 0 : (mid_point - 5);
+    // size_t end_idx = std::min(start_idx + 10, total_size);
 
-    for (size_t i = start_idx; i < end_idx; ++i) {
-      sample_ss << variables_[variable_name][i];
-      if (i < end_idx - 1) sample_ss << ", ";
-    }
+    // for (size_t i = start_idx; i < end_idx; ++i) {
+    //   sample_ss << variables_[variable_name][i];
+    //   if (i < end_idx - 1) sample_ss << ", ";
+    // }
 
-    // 使用新的日志系统输出样本数据
-    MACOM_LOG_INFO("MACOMState", sample_ss.str());
+    // MACOM_LOG_INFO("MACOMState", sample_ss.str());
 
-    // 也可以添加简单的统计信息
-    if (!variables_[variable_name].empty()) {
-      double min_val = variables_[variable_name][0];
-      double max_val = variables_[variable_name][0];
-      double sum = 0.0;
+    // if (!variables_[variable_name].empty()) {
+    //   double min_val = variables_[variable_name][0];
+    //   double max_val = variables_[variable_name][0];
+    //   double sum = 0.0;
 
-      for (const auto& val : variables_[variable_name]) {
-        min_val = std::min(min_val, val);
-        max_val = std::max(max_val, val);
-        sum += val;
-      }
+    //   for (const auto& val : variables_[variable_name]) {
+    //     min_val = std::min(min_val, val);
+    //     max_val = std::max(max_val, val);
+    //     sum += val;
+    //   }
 
-      double avg = sum / total_size;
-      std::stringstream stats_ss;
-      stats_ss << "Statistics for " << variable_name << ": min=" << min_val
-               << ", max=" << max_val << ", avg=" << avg
-               << ", count=" << total_size;
+    //   double avg = sum / total_size;
+    //   std::stringstream stats_ss;
+    //   stats_ss << "Statistics for " << variable_name << ": min=" << min_val
+    //            << ", max=" << max_val << ", avg=" << avg
+    //            << ", count=" << total_size;
 
-      MACOM_LOG_INFO("MACOMState", stats_ss.str());
-    }
+    //   MACOM_LOG_INFO("MACOMState", stats_ss.str());
+    // }
   }
 
   // // 替换原来的输出语句

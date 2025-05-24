@@ -437,21 +437,22 @@ MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
   initializeKDTree();
   // kdtree_initialized_ = true;
 
-  double test_lon = 160.0, test_lat = 36.0;
-  GeoPoint kd_result = findNearestGridPoint(test_lon, test_lat);
-  GeoPoint direct_result = findNearestGridPointDirect(test_lon, test_lat);
+  // double test_lon = 160.0, test_lat = 36.0;
+  // GeoPoint kd_result = findNearestGridPoint(test_lon, test_lat);
+  // GeoPoint direct_result = findNearestGridPointDirect(test_lon, test_lat);
 
-  MACOM_LOG_INFO("MACOMGeometry", "Comparison for point (" +
-                                      std::to_string(test_lon) + ", " +
-                                      std::to_string(test_lat) + "):");
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "  KD-tree result: index=" + std::to_string(kd_result.index) +
-                     ", distance=" + std::to_string(kd_result.distance) +
-                     " km");
-  MACOM_LOG_INFO(
-      "MACOMGeometry",
-      "  Direct result: index=" + std::to_string(direct_result.index) +
-          ", distance=" + std::to_string(direct_result.distance) + " km");
+  // MACOM_LOG_INFO("MACOMGeometry", "Comparison for point (" +
+  //                                     std::to_string(test_lon) + ", " +
+  //                                     std::to_string(test_lat) + "):");
+  // MACOM_LOG_INFO("MACOMGeometry",
+  //                "  KD-tree result: index=" + std::to_string(kd_result.index)
+  //                +
+  //                    ", distance=" + std::to_string(kd_result.distance) +
+  //                    " km");
+  // MACOM_LOG_INFO(
+  //     "MACOMGeometry",
+  //     "  Direct result: index=" + std::to_string(direct_result.index) +
+  //         ", distance=" + std::to_string(direct_result.distance) + " km");
 }
 
 // Implementation of loadGridDimensions

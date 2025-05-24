@@ -8,52 +8,101 @@
 #include "../include/MACOMFortranInterface.hpp"
 
 #include <iostream>
-#include <stdexcept>
+#include <sstream>
+#include <string>
 
 namespace metada::backends::macom {
+
+// Internal logging functions to avoid direct dependency on MACOMlogging.hpp
+namespace {
+enum class LogLevel { DEBUG, INFO, WARNING, ERROR };
+
+void logMessage(LogLevel level, const std::string& component,
+                const std::string& message) {
+  std::string prefix;
+  switch (level) {
+    case LogLevel::DEBUG:
+      prefix = "[DEBUG]";
+      break;
+    case LogLevel::INFO:
+      prefix = "[INFO]";
+      break;
+    case LogLevel::WARNING:
+      prefix = "[WARNING]";
+      break;
+    case LogLevel::ERROR:
+      prefix = "[ERROR]";
+      break;
+  }
+
+  std::stringstream ss;
+  ss << prefix << " [" << component << "] " << message;
+
+  if (level == LogLevel::ERROR) {
+    std::cerr << ss.str() << std::endl;
+  } else {
+    std::cout << ss.str() << std::endl;
+  }
+}
+
+// void logDebug(const std::string& component, const std::string& message) {
+//   logMessage(LogLevel::DEBUG, component, message);
+// }
+
+void logInfo(const std::string& component, const std::string& message) {
+  logMessage(LogLevel::INFO, component, message);
+}
+
+// void logWarning(const std::string& component, const std::string& message) {
+//   logMessage(LogLevel::WARNING, component, message);
+// }
+
+void logError(const std::string& component, const std::string& message) {
+  logMessage(LogLevel::ERROR, component, message);
+}
+}  // namespace
 
 MACOMFortranInterface::MACOMFortranInterface()
     : rank_(0),
       mpi_initialized_by_this_instance_(false),
       model_components_initialized_(false) {
-  std::cout << "[MACOMFortranInterface] Constructor called." << std::endl;
+  logInfo("MACOMFortranInterface", "Constructor called");
 }
 
 MACOMFortranInterface::~MACOMFortranInterface() {
-  std::cout << "[MACOMFortranInterface] Destructor called." << std::endl;
+  logInfo("MACOMFortranInterface", "Destructor called");
   if (model_components_initialized_) {
     try {
       finalizeModelComponents();
     } catch (const std::exception& e) {
-      std::cerr << "[MACOMFortranInterface] Exception during "
-                   "finalizeModelComponents in destructor: "
-                << e.what() << std::endl;
+      logError("MACOMFortranInterface",
+               "Exception during finalizeModelComponents in destructor: " +
+                   std::string(e.what()));
     }
   }
   if (mpi_initialized_by_this_instance_) {
     try {
       finalizeMPI();
     } catch (const std::exception& e) {
-      std::cerr << "[MACOMFortranInterface] Exception during finalizeMPI in "
-                   "destructor: "
-                << e.what() << std::endl;
+      logError("MACOMFortranInterface",
+               "Exception during finalizeMPI in destructor: " +
+                   std::string(e.what()));
     }
   }
 }
 
 void MACOMFortranInterface::initializeMPI() {
   if (mpi_initialized_by_this_instance_) {
-    std::cout << "[MACOMFortranInterface] Already initialized by this instance."
-              << std::endl;
+    logInfo("MACOMFortranInterface",
+            "MPI already initialized by this instance");
     return;
   }
-  std::cout << "[MACOMFortranInterface] Initializing via Fortran..."
-            << std::endl;
+  logInfo("MACOMFortranInterface", "Initializing MPI via Fortran...");
   c_macom_initialize_mpi(0);  // Pass 0 as dummy communicator
   c_macom_get_mpi_rank(&rank_);
   mpi_initialized_by_this_instance_ = true;
-  std::cout << "[MACOMFortranInterface] Initialized by Fortran. Rank: " << rank_
-            << std::endl;
+  logInfo("MACOMFortranInterface",
+          "MPI initialized by Fortran. Rank: " + std::to_string(rank_));
 }
 
 int MACOMFortranInterface::getRank() const {
@@ -62,80 +111,66 @@ int MACOMFortranInterface::getRank() const {
 
 void MACOMFortranInterface::readNamelist() {
   if (!mpi_initialized_by_this_instance_) {
-    throw std::runtime_error(
-        "[MACOMFortranInterface] Must be initialized before reading "
-        "namelist.");
+    throw std::runtime_error("MPI must be initialized before reading namelist");
   }
-  std::cout << "[MACOMFortranInterface] Calling Fortran to read namelist..."
-            << std::endl;
+  logInfo("MACOMFortranInterface", "Calling Fortran to read namelist...");
   c_macom_read_namelist();
-  std::cout << "[MACOMFortranInterface] Fortran read namelist finished."
-            << std::endl;
+  logInfo("MACOMFortranInterface", "Fortran read namelist finished");
 }
 
 void MACOMFortranInterface::initializeModelComponents() {
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error(
-        "[MACOMFortranInterface] Must be initialized before model "
-        "components.");
+        "MPI must be initialized before initializing model components");
   }
-  std::cout << "[MACOMFortranInterface] Calling Fortran to initialize model "
-               "components..."
-            << std::endl;
+  logInfo("MACOMFortranInterface",
+          "Calling Fortran to initialize model components...");
   c_macom_initialize_model_components();
   model_components_initialized_ = true;
-  std::cout
-      << "[MACOMFortranInterface] Fortran initialize model components finished."
-      << std::endl;
+  logInfo("MACOMFortranInterface",
+          "Fortran initialize model components finished");
 }
 
 void MACOMFortranInterface::runModelStep(int current_iteration) {
   if (!model_components_initialized_) {
     throw std::runtime_error(
-        "[MACOMFortranInterface] Model components must be initialized before "
-        "running a step.");
+        "Model components must be initialized before running a step");
   }
-  std::cout << "[MACOMFortranInterface] Calling Fortran to run model step for "
-               "iteration: "
-            << current_iteration << std::endl;
+  logInfo("MACOMFortranInterface",
+          "Calling Fortran to run model step for iteration: " +
+              std::to_string(current_iteration));
   int status = 0;
   c_macom_run_model_step(current_iteration, &status);
   if (status != 0) {
-    throw std::runtime_error(
-        "[MACOMFortranInterface] Fortran model step reported an error. "
-        "Status: " +
-        std::to_string(status));
+    throw std::runtime_error("Fortran model step reported an error. Status: " +
+                             std::to_string(status));
   }
-  std::cout << "[MACOMFortranInterface] Fortran run model step finished for "
-               "iteration: "
-            << current_iteration << std::endl;
+  logInfo("MACOMFortranInterface",
+          "Fortran run model step finished for iteration: " +
+              std::to_string(current_iteration));
 }
 
 void MACOMFortranInterface::finalizeModelComponents() {
   if (!model_components_initialized_) {
     return;
   }
-  std::cout << "[MACOMFortranInterface] Calling Fortran to finalize model "
-               "components..."
-            << std::endl;
+  logInfo("MACOMFortranInterface",
+          "Calling Fortran to finalize model components...");
   c_macom_finalize_model_components();
   model_components_initialized_ = false;
-  std::cout
-      << "[MACOMFortranInterface] Fortran finalize model components finished."
-      << std::endl;
+  logInfo("MACOMFortranInterface",
+          "Fortran finalize model components finished");
 }
 
 void MACOMFortranInterface::finalizeMPI() {
   if (!mpi_initialized_by_this_instance_) {
     return;
   }
-  std::cout << "[MACOMFortranInterface] Calling Fortran to finalize..."
-            << std::endl;
+  logInfo("MACOMFortranInterface", "Calling Fortran to finalize MPI...");
   c_macom_finalize_mpi();
   mpi_initialized_by_this_instance_ = false;
   rank_ = 0;
-  std::cout << "[MACOMFortranInterface] Fortran finalize finished."
-            << std::endl;
+  logInfo("MACOMFortranInterface", "Fortran MPI finalize finished");
 }
 
 }  // namespace metada::backends::macom
