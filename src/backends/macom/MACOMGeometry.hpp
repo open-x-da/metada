@@ -263,47 +263,40 @@ class MACOMGeometry {
   /**
    * @brief Print statistics about the grid data to help with debugging
    */
-  void debugGridData() {
-    if (!initialized_ || nlpb_ == 0) {
-      MACOM_LOG_WARNING(
-          "MACOMGeometry",
-          "Cannot debug grid data: Grid not initialized or empty");
-      return;
-    }
+  void debugGridData();
 
-    // Find min/max values
-    double min_lat = latC_[0], max_lat = latC_[0];
-    double min_lon = lonC_[0], max_lon = lonC_[0];
-
-    for (size_t i = 0; i < nlpb_; ++i) {
-      min_lat = std::min(min_lat, latC_[i]);
-      max_lat = std::max(max_lat, latC_[i]);
-      min_lon = std::min(min_lon, lonC_[i]);
-      max_lon = std::max(max_lon, lonC_[i]);
-    }
-
-    MACOM_LOG_INFO("MACOMGeometry", "Grid data statistics:");
-    MACOM_LOG_INFO("MACOMGeometry",
-                   "  Latitude range: " + std::to_string(min_lat) + " to " +
-                       std::to_string(max_lat));
-    MACOM_LOG_INFO("MACOMGeometry",
-                   "  Longitude range: " + std::to_string(min_lon) + " to " +
-                       std::to_string(max_lon));
-
-    // Print some sample points
-    MACOM_LOG_INFO("MACOMGeometry", "Sample grid points:");
-    size_t step = nlpb_ / 10;  // Print 10 points evenly distributed
-    if (step == 0) step = 1;
-
-    for (size_t i = 0; i < nlpb_ && i < 10 * step; i += step) {
-      MACOM_LOG_INFO("MACOMGeometry", "  Point " + std::to_string(i) +
-                                          ": lon=" + std::to_string(lonC_[i]) +
-                                          ", lat=" + std::to_string(latC_[i]));
-    }
-  }
-
-  // Alternative implementation for direct nearest point search using Haversine
+  /**
+   * @brief Alternative implementation for direct nearest point search using
+   * Haversine
+   */
   GeoPoint findNearestGridPointDirect(double lon, double lat) const;
+
+  /**
+   * @brief Find nearest grid points for multiple query locations
+   *
+   * @param query_lons Vector of query longitudes
+   * @param query_lats Vector of query latitudes
+   * @param use_check_multiple_neighbors Whether to use multiple neighbors for
+   * more accurate results
+   * @return std::vector<GeoPoint> Vector of nearest points for each query
+   * location
+   */
+  std::vector<GeoPoint> findNearestGridPointsBatch(
+      const std::vector<double>& query_lons,
+      const std::vector<double>& query_lats) const;
+
+  /**
+   * @brief Find grid points within radius for multiple query locations
+   *
+   * @param query_lons Vector of query longitudes
+   * @param query_lats Vector of query latitudes
+   * @param radius Search radius in kilometers
+   * @return std::vector<GeoQueryResult> Vector of query results for each
+   * location
+   */
+  std::vector<GeoQueryResult> findGridPointsInRadiusBatch(
+      const std::vector<double>& query_lons,
+      const std::vector<double>& query_lats, double radius) const;
 
  private:
   /**
@@ -387,10 +380,20 @@ class MACOMGeometry {
   // bool kdtree_initialized_ = false;
 };
 
+}  // namespace metada::backends::macom
+
+// ===============================================================
+// Template Implementation Section
+// ===============================================================
+
+#include "MACOMGeometryIterator.hpp"
+
+namespace metada::backends::macom {
+
 // ConfigBackend constructor implementation
 template <typename ConfigBackend>
 MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
-    : initialized_(false) {
+    : initialized_(false), config_ptr_(&config) {
   std::string input_filename = config.Get("input_file").asString();
   if (input_filename.empty()) {
     throw std::runtime_error(
@@ -630,14 +633,140 @@ GeoPoint MACOMGeometry<ConfigBackend>::findNearestGridPointDirect(
   return iterator::findNearestGridPointDirect(lonC_, latC_, nlpb_, lon, lat);
 }
 
-}  // namespace metada::backends::macom
+// Debug grid data implementation
+template <typename ConfigBackend>
+void MACOMGeometry<ConfigBackend>::debugGridData() {
+  if (!initialized_ || nlpb_ == 0) {
+    MACOM_LOG_WARNING("MACOMGeometry",
+                      "Cannot debug grid data: Grid not initialized or empty");
+    return;
+  }
 
-// Include the iterator implementation first
-#include "MACOMGeometryIterator.hpp"
+  // Find min/max values
+  double min_lat = latC_[0], max_lat = latC_[0];
+  double min_lon = lonC_[0], max_lon = lonC_[0];
 
-// Then define the iterator methods
-namespace metada::backends::macom {
+  for (size_t i = 0; i < nlpb_; ++i) {
+    min_lat = std::min(min_lat, latC_[i]);
+    max_lat = std::max(max_lat, latC_[i]);
+    min_lon = std::min(min_lon, lonC_[i]);
+    max_lon = std::max(max_lon, lonC_[i]);
+  }
 
+  MACOM_LOG_INFO("MACOMGeometry", "Grid data statistics:");
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "  Latitude range: " + std::to_string(min_lat) + " to " +
+                     std::to_string(max_lat));
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "  Longitude range: " + std::to_string(min_lon) + " to " +
+                     std::to_string(max_lon));
+
+  // Print some sample points
+  MACOM_LOG_INFO("MACOMGeometry", "Sample grid points:");
+  size_t step = nlpb_ / 10;  // Print 10 points evenly distributed
+  if (step == 0) step = 1;
+
+  for (size_t i = 0; i < nlpb_ && i < 10 * step; i += step) {
+    MACOM_LOG_INFO("MACOMGeometry", "  Point " + std::to_string(i) +
+                                        ": lon=" + std::to_string(lonC_[i]) +
+                                        ", lat=" + std::to_string(latC_[i]));
+  }
+}
+
+// Move constructor implementation
+template <typename ConfigBackend>
+MACOMGeometry<ConfigBackend>::MACOMGeometry(MACOMGeometry&& other) noexcept
+    : nlpb_(other.nlpb_),
+      nk_(other.nk_),
+      nkp1_(other.nkp1_),
+      nl_(other.nl_),
+      nlpbz_(other.nlpbz_),
+      nlz_(other.nlz_),
+      nlbdy_(other.nlbdy_),
+      ni_(other.ni_),
+      initialized_(other.initialized_),
+      kdtree_initialized_(other.kdtree_initialized_),
+      config_ptr_(other.config_ptr_),
+      latC_(std::move(other.latC_)),
+      lonC_(std::move(other.lonC_)) {
+  other.initialized_ = false;
+  other.nlpb_ = 0;
+  other.nk_ = 0;
+  other.config_ptr_ = nullptr;
+}
+
+// Move assignment operator implementation
+template <typename ConfigBackend>
+MACOMGeometry<ConfigBackend>& MACOMGeometry<ConfigBackend>::operator=(
+    MACOMGeometry&& other) noexcept {
+  if (this != &other) {
+    nlpb_ = other.nlpb_;
+    nk_ = other.nk_;
+    nkp1_ = other.nkp1_;
+    nl_ = other.nl_;
+    nlpbz_ = other.nlpbz_;
+    nlz_ = other.nlz_;
+    nlbdy_ = other.nlbdy_;
+    ni_ = other.ni_;
+    initialized_ = other.initialized_;
+    kdtree_initialized_ = other.kdtree_initialized_;
+    config_ptr_ = other.config_ptr_;
+    latC_ = std::move(other.latC_);
+    lonC_ = std::move(other.lonC_);
+
+    other.initialized_ = false;
+    other.nlpb_ = 0;
+    other.nk_ = 0;
+    other.config_ptr_ = nullptr;
+  }
+  return *this;
+}
+
+// Clone implementation
+template <typename ConfigBackend>
+MACOMGeometry<ConfigBackend> MACOMGeometry<ConfigBackend>::clone() const {
+  if (!initialized_) {
+    throw std::runtime_error("Cannot clone uninitialized geometry");
+  }
+
+  if (!config_ptr_) {
+    throw std::runtime_error("Cannot clone: config pointer is null");
+  }
+
+  return MACOMGeometry(*config_ptr_);
+}
+
+// Batch spatial query implementations
+template <typename ConfigBackend>
+std::vector<GeoPoint> MACOMGeometry<ConfigBackend>::findNearestGridPointsBatch(
+    const std::vector<double>& query_lons,
+    const std::vector<double>& query_lats) const {
+  if (!initialized_) {
+    MACOM_LOG_ERROR("MACOMGeometry",
+                    "Cannot find nearest points: Geometry not initialized");
+    throw std::runtime_error("Geometry not initialized");
+  }
+
+  return iterator::findNearestGridPointsBatch(lonC_, latC_, nlpb_, query_lons,
+                                              query_lats);
+}
+
+template <typename ConfigBackend>
+std::vector<GeoQueryResult>
+MACOMGeometry<ConfigBackend>::findGridPointsInRadiusBatch(
+    const std::vector<double>& query_lons,
+    const std::vector<double>& query_lats, double radius) const {
+  if (!initialized_) {
+    MACOM_LOG_ERROR("MACOMGeometry",
+                    "Cannot find points in radius: Geometry not initialized");
+    throw std::runtime_error("Geometry not initialized");
+  }
+
+  return iterator::findGridPointsInRadiusBatch(lonC_, latC_, nlpb_, query_lons,
+                                               query_lats, radius);
+}
+
+// Iterator methods
 template <typename ConfigBackend>
 inline typename MACOMGeometry<ConfigBackend>::iterator
 MACOMGeometry<ConfigBackend>::begin() {
@@ -660,6 +789,11 @@ template <typename ConfigBackend>
 inline typename MACOMGeometry<ConfigBackend>::const_iterator
 MACOMGeometry<ConfigBackend>::end() const {
   return const_iterator(this, totalGridSize());
+}
+
+template <typename ConfigBackend>
+inline std::size_t MACOMGeometry<ConfigBackend>::totalGridSize() const {
+  return nlpb_ * nk_;
 }
 
 }  // namespace metada::backends::macom
