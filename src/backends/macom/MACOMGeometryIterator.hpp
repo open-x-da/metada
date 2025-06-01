@@ -274,6 +274,30 @@ class MACOMGeometryIterator {
       size_t nlpb, const std::vector<double>& query_lons,
       const std::vector<double>& query_lats, double radius);
 
+  /**
+   * @brief Find the nearest vertical grid points for a given depth
+   *
+   * @param rC_z Vector of vertical levels (depths, positive downward)
+   * @param nk Number of vertical levels
+   * @param depth Target depth (meters, positive downward)
+   * @return VerticalPoint Containing indices and interpolation information
+   */
+  static VerticalPoint findNearestVerticalPoints(
+      const std::vector<double>& rC_z, size_t nk, double depth);
+
+  /**
+   * @brief Find the nearest vertical grid points for multiple depths
+   *
+   * @param rC_z Vector of vertical levels (depths, positive downward)
+   * @param nk Number of vertical levels
+   * @param depths Vector of target depths (meters, positive downward)
+   * @return std::vector<VerticalPoint> Vector of vertical interpolation
+   * information
+   */
+  static std::vector<VerticalPoint> findNearestVerticalPointsBatch(
+      const std::vector<double>& rC_z, size_t nk,
+      const std::vector<double>& depths);
+
  private:
   const MACOMGeometry<ConfigBackend>* geometry_;  // Pointer to parent geometry
   size_t i_;                                      // X index
@@ -858,6 +882,81 @@ MACOMGeometryIterator<ConfigBackend>::findGridPointsInRadiusDirectBatch(
     // Use the existing direct radius search method
     results[q] =
         findGridPointsInRadiusDirect(lonC, latC, nlpb, lon, lat, radius);
+  }
+
+  return results;
+}
+
+// findNearestVerticalPoints implementation
+template <typename ConfigBackend>
+VerticalPoint MACOMGeometryIterator<ConfigBackend>::findNearestVerticalPoints(
+    const std::vector<double>& rC_z, size_t nk, double depth) {
+  VerticalPoint result;
+  result.target_depth = depth;
+  result.is_outside = false;
+
+  // Check if depth is outside the vertical range
+  if (depth < rC_z.back() || depth > rC_z.front()) {
+    result.is_outside = true;
+    result.lower_index = 0;
+    result.upper_index = 0;
+    result.interp_coef = 0.0;
+    result.lower_depth = rC_z.back();   // shallowest
+    result.upper_depth = rC_z.front();  // deepest
+    return result;
+  }
+
+  // Find the appropriate vertical levels for interpolation
+  // Note: rC_z is ordered from deep to shallow
+  auto it =
+      std::lower_bound(rC_z.begin(), rC_z.end(), depth, std::greater<double>());
+
+  if (it == rC_z.begin()) {
+    // Point is at or below the deepest level
+    result.lower_index = 0;
+    result.upper_index = 0;
+    result.interp_coef = 0.0;
+    result.lower_depth = rC_z[0];
+    result.upper_depth = rC_z[0];
+  } else if (it == rC_z.end()) {
+    // Point is at or above the shallowest level
+    result.lower_index = nk - 1;
+    result.upper_index = nk - 1;
+    result.interp_coef = 0.0;
+    result.lower_depth = rC_z[nk - 1];
+    result.upper_depth = rC_z[nk - 1];
+  } else {
+    // Point is between two levels
+    result.upper_index = std::distance(rC_z.begin(), it);
+    result.lower_index = result.upper_index - 1;
+    result.lower_depth = rC_z[result.lower_index];
+    result.upper_depth = rC_z[result.upper_index];
+
+    // Calculate interpolation coefficient
+    result.interp_coef = (depth - result.lower_depth) /
+                         (result.upper_depth - result.lower_depth);
+  }
+
+  return result;
+}
+
+// findNearestVerticalPointsBatch implementation
+template <typename ConfigBackend>
+std::vector<VerticalPoint>
+MACOMGeometryIterator<ConfigBackend>::findNearestVerticalPointsBatch(
+    const std::vector<double>& rC_z, size_t nk,
+    const std::vector<double>& depths) {
+  // Validate input
+  if (depths.size() == 0) {
+    throw std::invalid_argument("Depth array must have at least one element");
+  }
+
+  const size_t num_queries = depths.size();
+  std::vector<VerticalPoint> results(num_queries);
+
+  // 使用索引访问，可能更容易被编译器优化
+  for (size_t q = 0; q < num_queries; ++q) {
+    results[q] = findNearestVerticalPoints(rC_z, nk, depths[q]);
   }
 
   return results;

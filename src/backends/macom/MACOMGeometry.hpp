@@ -66,6 +66,19 @@ struct PointCloud {
     return false;
   }
 };
+
+/**
+ * @brief Structure to hold vertical interpolation information
+ */
+struct VerticalPoint {
+  size_t lower_index;   // Index of the lower grid point
+  size_t upper_index;   // Index of the upper grid point
+  double interp_coef;   // Interpolation coefficient (0-1)
+  bool is_outside;      // Whether the point is outside the vertical range
+  double lower_depth;   // Depth of the lower grid point
+  double upper_depth;   // Depth of the upper grid point
+  double target_depth;  // Target depth that was queried
+};
 }  // namespace metada::backends::macom
 
 namespace metada::backends::macom {
@@ -261,9 +274,15 @@ class MACOMGeometry {
                                         double radius) const;
 
   /**
-   * @brief Print statistics about the grid data to help with debugging
+   * @brief Print statistics about the horizontal grid data to help with
+   * debugging
    */
-  void debugGridData();
+  void debugGridDataHorizontal();
+
+  /**
+   * @brief Print statistics about the vertical grid data to help with debugging
+   */
+  void debugGridDataVertical();
 
   /**
    * @brief Alternative implementation for direct nearest point search using
@@ -297,6 +316,31 @@ class MACOMGeometry {
   std::vector<GeoQueryResult> findGridPointsInRadiusBatch(
       const std::vector<double>& query_lons,
       const std::vector<double>& query_lats, double radius) const;
+
+  /**
+   * @brief Get the vertical levels from the geometry
+   *
+   * @return Vector of vertical level depths (meters)
+   */
+  const std::vector<double>& getVerticalLevels() const { return rC_z_; }
+
+  /**
+   * @brief Find the nearest vertical grid points for a given depth
+   *
+   * @param depth Target depth (meters, positive downward)
+   * @return VerticalPoint Containing indices and interpolation information
+   */
+  VerticalPoint findNearestVerticalPoints(double depth) const;
+
+  /**
+   * @brief Find the nearest vertical grid points for multiple depths
+   *
+   * @param depths Vector of target depths (meters, positive downward)
+   * @return std::vector<VerticalPoint> Vector of vertical interpolation
+   * information
+   */
+  std::vector<VerticalPoint> findNearestVerticalPointsBatch(
+      const std::vector<double>& depths) const;
 
  private:
   /**
@@ -342,13 +386,22 @@ class MACOMGeometry {
   const ConfigBackend* config_ptr_ = nullptr;
 
   // Grid data
-  std::vector<double> latC_;  // Latitude at cell centers
-  std::vector<double> lonC_;  // Longitude at cell centers
+  std::vector<double> latC_;  // Latitude at tracer centers
+  std::vector<double> lonC_;  // Longitude at tracer centers
+  std::vector<double> latW_;  // Latitude of u point
+  std::vector<double> lonW_;  // Longitude of u point
+  std::vector<double> latS_;  // Latitude of v point
+  std::vector<double> lonS_;  // Longitude of v point
+  // std::vector<double> latZ_;  // Latitude of vorticity points
+  // std::vector<double> lonZ_;  // Longitude of vorticity points
 
   // std::vector<double> tw_;  // Latitude at west edges
   // std::vector<double> te_;  // Latitude at east edges
   // std::vector<double> tn_;  // Latitude at north edges
   // std::vector<double> ts_;  // Latitude at south edges
+
+  std::vector<double> rC_z_;  // Cell thickness at tracer centers
+  std::vector<double> rF_z_;  // Cell thickness at vorticity points
 
   // std::vector<double> dxC_;    // Grid spacing in x direction at cell centers
   // std::vector<double> dyC_;    // Grid spacing in y direction at cell centers
@@ -405,26 +458,48 @@ MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
   initialized_ = true;
 
   // // Add debug output
-  // debugGridData();
+  // debugGridDataHorizontal();
+  // debugGridDataVertical();
 
   // Initialize the static KD-tree in iterator (only initializes once)
   iterator::initializeKDTree(lonC_, latC_, nlpb_);
 
-  double test_lon = 160.0, test_lat = 36.0;
-  GeoPoint kd_result = findNearestGridPoint(test_lon, test_lat);
-  GeoPoint direct_result = findNearestGridPointDirect(test_lon, test_lat);
+  // double test_lon = 160.0, test_lat = 36.0;
+  // GeoPoint kd_result = findNearestGridPoint(test_lon, test_lat);
+  // GeoPoint direct_result = findNearestGridPointDirect(test_lon, test_lat);
 
-  MACOM_LOG_INFO("MACOMGeometry", "Comparison for point (" +
-                                      std::to_string(test_lon) + ", " +
-                                      std::to_string(test_lat) + "):");
-  MACOM_LOG_INFO("MACOMGeometry",
-                 "  KD-tree result: index=" + std::to_string(kd_result.index) +
-                     ", distance=" + std::to_string(kd_result.distance) +
-                     " km");
-  MACOM_LOG_INFO(
-      "MACOMGeometry",
-      "  Direct result: index=" + std::to_string(direct_result.index) +
-          ", distance=" + std::to_string(direct_result.distance) + " km");
+  // MACOM_LOG_INFO("MACOMGeometry", "Comparison for point (" +
+  //                                     std::to_string(test_lon) + ", " +
+  //                                     std::to_string(test_lat) + "):");
+  // MACOM_LOG_INFO("MACOMGeometry",
+  //                "  KD-tree result: index=" + std::to_string(kd_result.index)
+  //                +
+  //                    ", distance=" + std::to_string(kd_result.distance) +
+  //                    " km");
+  // MACOM_LOG_INFO(
+  //     "MACOMGeometry",
+  //     "  Direct result: index=" + std::to_string(direct_result.index) +
+  //         ", distance=" + std::to_string(direct_result.distance) + " km");
+
+  // double test_depth = 100.0;  // Test at 1000 meters
+  // VerticalPoint v_result = findNearestVerticalPoints(test_depth);
+
+  // MACOM_LOG_INFO("MACOMGeometry", "Vertical interpolation test for depth " +
+  //                                     std::to_string(test_depth) + "
+  //                                     meters:");
+  // MACOM_LOG_INFO("MACOMGeometry",
+  //                "  Lower level: " + std::to_string(v_result.lower_index) +
+  //                    " at " + std::to_string(v_result.lower_depth) + "
+  //                    meters");
+  // MACOM_LOG_INFO("MACOMGeometry",
+  //                "  Upper level: " + std::to_string(v_result.upper_index) +
+  //                    " at " + std::to_string(v_result.upper_depth) + "
+  //                    meters");
+  // MACOM_LOG_INFO("MACOMGeometry", "  Interpolation coefficient: " +
+  //                                     std::to_string(v_result.interp_coef));
+  // MACOM_LOG_INFO("MACOMGeometry",
+  //                "  Is outside range: " +
+  //                    std::string(v_result.is_outside ? "true" : "false"));
 }
 
 // Implementation of loadGridDimensions
@@ -470,11 +545,20 @@ void MACOMGeometry<ConfigBackend>::loadGridArrays(netCDF::NcFile& ncFile) {
   // Resize vectors
   latC_.resize(nlpb_);
   lonC_.resize(nlpb_);
+  latW_.resize(nlpb_);
+  lonW_.resize(nlpb_);
+  latS_.resize(nlpb_);
+  lonS_.resize(nlpb_);
+  // latZ_.resize(nlpb_);
+  // lonZ_.resize(nlpb_);
 
   // tw_.resize(nlpb_);
   // te_.resize(nlpb_);
   // tn_.resize(nlpb_);
   // ts_.resize(nlpb_);
+
+  rC_z_.resize(nk_);
+  rF_z_.resize(nkp1_);
 
   // dxC_.resize(nlpb_);
   // dyC_.resize(nlpb_);
@@ -505,11 +589,20 @@ void MACOMGeometry<ConfigBackend>::loadGridArrays(netCDF::NcFile& ncFile) {
   // Read grid data
   readVar("lat_c", latC_);
   readVar("lon_c", lonC_);
+  readVar("lat_w", latW_);
+  readVar("lon_w", lonW_);
+  readVar("lat_s", latS_);
+  readVar("lon_s", lonS_);
+  // readVar("lat_z", latZ_);
+  // readVar("lon_z", lonZ_);
 
   // readVar("tw", tw_);
   // readVar("te", te_);
   // readVar("tn", tn_);
   // readVar("ts", ts_);
+
+  readVar("rC_z", rC_z_);
+  readVar("rF_z", rF_z_);
 
   // readVar("dxC", dxC_);
   // readVar("dyC", dyC_);
@@ -635,10 +728,11 @@ GeoPoint MACOMGeometry<ConfigBackend>::findNearestGridPointDirect(
 
 // Debug grid data implementation
 template <typename ConfigBackend>
-void MACOMGeometry<ConfigBackend>::debugGridData() {
+void MACOMGeometry<ConfigBackend>::debugGridDataHorizontal() {
   if (!initialized_ || nlpb_ == 0) {
-    MACOM_LOG_WARNING("MACOMGeometry",
-                      "Cannot debug grid data: Grid not initialized or empty");
+    MACOM_LOG_WARNING(
+        "MACOMGeometry",
+        "Cannot debug horizontal grid data: Grid not initialized or empty");
     return;
   }
 
@@ -653,7 +747,7 @@ void MACOMGeometry<ConfigBackend>::debugGridData() {
     max_lon = std::max(max_lon, lonC_[i]);
   }
 
-  MACOM_LOG_INFO("MACOMGeometry", "Grid data statistics:");
+  MACOM_LOG_INFO("MACOMGeometry", "Horizontal grid data statistics:");
   MACOM_LOG_INFO("MACOMGeometry",
                  "  Latitude range: " + std::to_string(min_lat) + " to " +
                      std::to_string(max_lat));
@@ -662,7 +756,7 @@ void MACOMGeometry<ConfigBackend>::debugGridData() {
                      std::to_string(max_lon));
 
   // Print some sample points
-  MACOM_LOG_INFO("MACOMGeometry", "Sample grid points:");
+  MACOM_LOG_INFO("MACOMGeometry", "Sample horizontal grid points:");
   size_t step = nlpb_ / 10;  // Print 10 points evenly distributed
   if (step == 0) step = 1;
 
@@ -670,6 +764,44 @@ void MACOMGeometry<ConfigBackend>::debugGridData() {
     MACOM_LOG_INFO("MACOMGeometry", "  Point " + std::to_string(i) +
                                         ": lon=" + std::to_string(lonC_[i]) +
                                         ", lat=" + std::to_string(latC_[i]));
+  }
+}
+
+// Implementation of debugGridDataVertical
+template <typename ConfigBackend>
+void MACOMGeometry<ConfigBackend>::debugGridDataVertical() {
+  if (!initialized_ || nk_ == 0) {
+    MACOM_LOG_WARNING(
+        "MACOMGeometry",
+        "Cannot debug vertical grid data: Grid not initialized or empty");
+    return;
+  }
+
+  // Find min/max values
+  double min_depth = rC_z_[0], max_depth = rC_z_[0];
+  double total_depth = 0.0;
+
+  for (size_t i = 0; i < nk_; ++i) {
+    min_depth = std::min(min_depth, rC_z_[i]);
+    max_depth = std::max(max_depth, rC_z_[i]);
+    total_depth += rC_z_[i];
+  }
+
+  MACOM_LOG_INFO("MACOMGeometry", "Vertical grid data statistics:");
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "  Number of vertical levels: " + std::to_string(nk_));
+  MACOM_LOG_INFO("MACOMGeometry",
+                 "  Depth range: " + std::to_string(min_depth) + " to " +
+                     std::to_string(max_depth) + " meters");
+  MACOM_LOG_INFO("MACOMGeometry", "  Average level thickness: " +
+                                      std::to_string(total_depth / nk_) +
+                                      " meters");
+
+  // Print all vertical levels
+  MACOM_LOG_INFO("MACOMGeometry", "Vertical levels (depths in meters):");
+  for (size_t i = 0; i < nk_; ++i) {
+    MACOM_LOG_INFO("MACOMGeometry", "  Level " + std::to_string(i) +
+                                        ": depth=" + std::to_string(rC_z_[i]));
   }
 }
 
@@ -764,6 +896,25 @@ MACOMGeometry<ConfigBackend>::findGridPointsInRadiusBatch(
 
   return iterator::findGridPointsInRadiusBatch(lonC_, latC_, nlpb_, query_lons,
                                                query_lats, radius);
+}
+
+template <typename ConfigBackend>
+VerticalPoint MACOMGeometry<ConfigBackend>::findNearestVerticalPoints(
+    double depth) const {
+  if (!initialized_) {
+    throw std::runtime_error("Geometry not initialized");
+  }
+  return iterator::findNearestVerticalPoints(rC_z_, nk_, depth);
+}
+
+template <typename ConfigBackend>
+std::vector<VerticalPoint>
+MACOMGeometry<ConfigBackend>::findNearestVerticalPointsBatch(
+    const std::vector<double>& depths) const {
+  if (!initialized_) {
+    throw std::runtime_error("Geometry not initialized");
+  }
+  return iterator::findNearestVerticalPointsBatch(rC_z_, nk_, depths);
 }
 
 // Iterator methods

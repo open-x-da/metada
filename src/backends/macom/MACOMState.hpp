@@ -197,6 +197,21 @@ class MACOMState {
    */
   bool isInitialized() const { return initialized_; }
 
+  /**
+   * @brief Get the values of a variable at the nearest grid points for multiple
+   * locations (first vertical layer).
+   *
+   * @param lons Vector of longitudes (degrees)
+   * @param lats Vector of latitudes (degrees)
+   * @param depths Vector of depths (meters)
+   * @param var_name Name of the variable
+   * @return Vector of variable values at the nearest grid points (first layer)
+   * @throws std::runtime_error if not initialized or variable/points not found
+   */
+  std::vector<double> getValuesAtNearestPoints(
+      const std::vector<double>& lons, const std::vector<double>& lats,
+      const std::vector<double>& depths, const std::string& var_name) const;
+
  private:
   /**
    * @brief Load variable dimensions from NetCDF file
@@ -214,9 +229,10 @@ class MACOMState {
                           const std::vector<std::string>& variables);
 
   /**
-   * @brief Initialize variable data from NetCDF file
-   *
-   * @param filename Path to the NetCDF variable data file
+   * @brief Check compatibility with another state for operations
+   * (same variables and dimensions)
+   * @param other The other MACOMState to compare with
+   * @return True if compatible, false otherwise
    */
   // void loadVariableData(const std::string& filename,  // Removed this method
   //                       const std::vector<std::string>& variables);
@@ -334,6 +350,86 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
     initialized_ = true;
     // MACOM_LOG_INFO("MACOMState",
     //                "MACOMState initialized successfully from " + inputFile_);
+
+    // --- Test code for getValuesAtNearestPoints ---
+    if (initialized_ && geometry_.isInitialized()) {
+      MACOM_LOG_INFO("MACOMState",
+                     "--- Running test for getValuesAtNearestPoints ---");
+      std::vector<double> test_lons = {0.0, 150.5, 270.0, 20.0};  // Example
+      std::vector<double> test_lats = {0.0, 30.2, 60.0, -40.0};   // Example
+      std::vector<double> test_depths = {100.0, 200.0, 500.0,
+                                         1000.0};  // Example depths in meters
+      std::string test_var_name = "t";  // Test with temperature variable
+
+      // Check if the test variable is actually loaded
+      bool test_var_loaded = false;
+      if (!this->variableNames_.empty()) {
+        for (const auto& loaded_var : this->variableNames_) {
+          if (loaded_var == test_var_name) {
+            test_var_loaded = true;
+            break;
+          }
+        }
+      }
+
+      if (test_var_loaded) {
+        try {
+          MACOM_LOG_INFO("MACOMState",
+                         "Querying variable '" + test_var_name + "' at " +
+                             std::to_string(test_lons.size()) + " locations.");
+          for (size_t i = 0; i < test_lons.size(); ++i) {
+            MACOM_LOG_INFO("MACOMState",
+                           "Test point " + std::to_string(i + 1) +
+                               ": Lon=" + std::to_string(test_lons[i]) +
+                               ", Lat=" + std::to_string(test_lats[i]) +
+                               ", Depth=" + std::to_string(test_depths[i]) +
+                               "m");
+          }
+
+          std::vector<double> values = this->getValuesAtNearestPoints(
+              test_lons, test_lats, test_depths, test_var_name);
+
+          if (values.size() == test_lons.size()) {
+            for (size_t i = 0; i < values.size(); ++i) {
+              MACOM_LOG_INFO("MACOMState",
+                             "Value at (" + std::to_string(test_lons[i]) +
+                                 ", " + std::to_string(test_lats[i]) + ", " +
+                                 std::to_string(test_depths[i]) +
+                                 "m) for var '" + test_var_name +
+                                 "': " + std::to_string(values[i]));
+            }
+          } else {
+            MACOM_LOG_WARNING("MACOMState",
+                              "Test: Number of values returned (" +
+                                  std::to_string(values.size()) +
+                                  ") does not match number of query points (" +
+                                  std::to_string(test_lons.size()) + ").");
+          }
+        } catch (const std::exception& e) {
+          MACOM_LOG_ERROR("MACOMState",
+                          "Test code for getValuesAtNearestPoints failed: " +
+                              std::string(e.what()));
+        }
+      } else {
+        if (this->variableNames_.empty()) {
+          MACOM_LOG_WARNING("MACOMState",
+                            "Test for getValuesAtNearestPoints skipped: No "
+                            "variables loaded.");
+        } else {
+          MACOM_LOG_WARNING(
+              "MACOMState",
+              "Test for getValuesAtNearestPoints skipped: Test variable '" +
+                  test_var_name + "' not found among loaded variables.");
+          std::string loaded_vars_str = "Loaded variables: ";
+          for (const auto& v_name : this->variableNames_)
+            loaded_vars_str += v_name + " ";
+          MACOM_LOG_INFO("MACOMState", loaded_vars_str);
+        }
+      }
+      MACOM_LOG_INFO("MACOMState",
+                     "--- End of test for getValuesAtNearestPoints ---");
+    }
+    // --- End of test code ---
 
   } catch (const netCDF::exceptions::NcException& e) {
     MACOM_LOG_ERROR(
@@ -727,6 +823,82 @@ void MACOMState<ConfigBackend, GeometryBackend>::getDimensionsFromGeometry(
   //                "State bound to geometry: nlpb=" + std::to_string(nlpb_grid)
   //                +
   //                    " nk=" + std::to_string(nk_grid));
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+std::vector<double>
+MACOMState<ConfigBackend, GeometryBackend>::getValuesAtNearestPoints(
+    const std::vector<double>& lons, const std::vector<double>& lats,
+    const std::vector<double>& depths, const std::string& var_name) const {
+  if (!initialized_) {
+    throw std::runtime_error(
+        "MACOMState is not initialized. Cannot get values.");
+  }
+  if (!geometry_.isInitialized()) {
+    throw std::runtime_error(
+        "MACOMGeometry is not initialized. Cannot get values via geometry.");
+  }
+  if (lons.size() != lats.size() || lons.size() != depths.size()) {
+    throw std::invalid_argument(
+        "Longitude, latitude and depth arrays must have the same size for "
+        "batch get.");
+  }
+
+  auto var_it = variables_.find(var_name);
+  if (var_it == variables_.end()) {
+    throw std::runtime_error("Variable '" + var_name +
+                             "' not found in MACOMState.");
+  }
+  const std::vector<double>& var_data = var_it->second;
+
+  auto dim_it = dimensions_.find(var_name);
+  if (dim_it == dimensions_.end()) {
+    throw std::runtime_error("Dimensions for variable '" + var_name +
+                             "' not found.");
+  }
+
+  // Get nearest horizontal points
+  std::vector<metada::backends::macom::GeoPoint> nearest_points =
+      geometry_.findNearestGridPointsBatch(lons, lats);
+
+  // Get nearest vertical points
+  std::vector<metada::backends::macom::VerticalPoint> vertical_points =
+      geometry_.findNearestVerticalPointsBatch(depths);
+
+  // Pre-allocate result vector with the same size as input points
+  std::vector<double> result_values(lons.size());
+
+  for (size_t i = 0; i < nearest_points.size(); ++i) {
+    size_t horizontal_index = nearest_points[i].index;
+    const auto& vp = vertical_points[i];
+
+    // Handle points outside vertical range
+    if (vp.is_outside) {
+      result_values[i] = std::numeric_limits<double>::quiet_NaN();
+      continue;
+    }
+
+    // Calculate indices for lower and upper levels
+    size_t lower_index = horizontal_index * this->nk_ + vp.lower_index;
+    size_t upper_index = horizontal_index * this->nk_ + vp.upper_index;
+
+    // Check bounds
+    if (lower_index >= var_data.size() || upper_index >= var_data.size()) {
+      throw std::out_of_range(
+          "Batch: Calculated indices (" + std::to_string(lower_index) + ", " +
+          std::to_string(upper_index) + ") for variable '" + var_name +
+          "' at query " + std::to_string(i) + " are out of bounds (data size " +
+          std::to_string(var_data.size()) + ").");
+    }
+
+    // Perform linear interpolation
+    double lower_value = var_data[lower_index];
+    double upper_value = var_data[upper_index];
+    result_values[i] =
+        lower_value + vp.interp_coef * (upper_value - lower_value);
+  }
+
+  return result_values;
 }
 
 }  // namespace metada::backends::macom
