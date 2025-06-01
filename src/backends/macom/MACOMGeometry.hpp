@@ -342,6 +342,20 @@ class MACOMGeometry {
   std::vector<VerticalPoint> findNearestVerticalPointsBatch(
       const std::vector<double>& depths) const;
 
+  /**
+   * @brief Batch nearest neighbor search for U points (lonW/latW)
+   */
+  std::vector<GeoPoint> findNearestGridPointsBatchW(
+      const std::vector<double>& query_lons,
+      const std::vector<double>& query_lats) const;
+
+  /**
+   * @brief Batch nearest neighbor search for V points (lonS/latS)
+   */
+  std::vector<GeoPoint> findNearestGridPointsBatchS(
+      const std::vector<double>& query_lons,
+      const std::vector<double>& query_lats) const;
+
  private:
   /**
    * @brief Load grid dimensions from NetCDF file
@@ -395,10 +409,10 @@ class MACOMGeometry {
   // std::vector<double> latZ_;  // Latitude of vorticity points
   // std::vector<double> lonZ_;  // Longitude of vorticity points
 
-  // std::vector<double> tw_;  // Latitude at west edges
-  // std::vector<double> te_;  // Latitude at east edges
-  // std::vector<double> tn_;  // Latitude at north edges
-  // std::vector<double> ts_;  // Latitude at south edges
+  std::vector<double> tw_;  // Latitude at west edges
+  std::vector<double> te_;  // Latitude at east edges
+  std::vector<double> tn_;  // Latitude at north edges
+  std::vector<double> ts_;  // Latitude at south edges
 
   std::vector<double> rC_z_;  // Cell thickness at tracer centers
   std::vector<double> rF_z_;  // Cell thickness at vorticity points
@@ -552,10 +566,10 @@ void MACOMGeometry<ConfigBackend>::loadGridArrays(netCDF::NcFile& ncFile) {
   // latZ_.resize(nlpb_);
   // lonZ_.resize(nlpb_);
 
-  // tw_.resize(nlpb_);
-  // te_.resize(nlpb_);
-  // tn_.resize(nlpb_);
-  // ts_.resize(nlpb_);
+  tw_.resize(nlpb_);
+  te_.resize(nlpb_);
+  tn_.resize(nlpb_);
+  ts_.resize(nlpb_);
 
   rC_z_.resize(nk_);
   rF_z_.resize(nkp1_);
@@ -596,10 +610,10 @@ void MACOMGeometry<ConfigBackend>::loadGridArrays(netCDF::NcFile& ncFile) {
   // readVar("lat_z", latZ_);
   // readVar("lon_z", lonZ_);
 
-  // readVar("tw", tw_);
-  // readVar("te", te_);
-  // readVar("tn", tn_);
-  // readVar("ts", ts_);
+  readVar("tw", tw_);
+  readVar("te", te_);
+  readVar("tn", tn_);
+  readVar("ts", ts_);
 
   readVar("rC_z", rC_z_);
   readVar("rF_z", rF_z_);
@@ -896,6 +910,28 @@ MACOMGeometry<ConfigBackend>::findGridPointsInRadiusBatch(
 
   return iterator::findGridPointsInRadiusBatch(lonC_, latC_, nlpb_, query_lons,
                                                query_lats, radius);
+}
+
+// Batch nearest neighbor search for U points (lonW/latW)
+template <typename ConfigBackend>
+std::vector<metada::backends::macom::GeoPoint>
+MACOMGeometry<ConfigBackend>::findNearestGridPointsBatchW(
+    const std::vector<double>& query_lons,
+    const std::vector<double>& query_lats) const {
+  // Use static KD-tree for U points (lonW/latW)
+  return iterator::findNearestGridPointsBatchW(lonW_, latW_, nlpb_, query_lons,
+                                               query_lats);
+}
+
+// Batch nearest neighbor search for V points (lonS/latS)
+template <typename ConfigBackend>
+std::vector<metada::backends::macom::GeoPoint>
+MACOMGeometry<ConfigBackend>::findNearestGridPointsBatchS(
+    const std::vector<double>& query_lons,
+    const std::vector<double>& query_lats) const {
+  // Use static KD-tree for V points (lonS/latS)
+  return iterator::findNearestGridPointsBatchS(lonS_, latS_, nlpb_, query_lons,
+                                               query_lats);
 }
 
 template <typename ConfigBackend>

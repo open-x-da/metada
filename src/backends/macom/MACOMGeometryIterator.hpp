@@ -298,6 +298,34 @@ class MACOMGeometryIterator {
       const std::vector<double>& rC_z, size_t nk,
       const std::vector<double>& depths);
 
+  /**
+   * @brief Initialize KD-tree for U variable (using lon_w/lat_w)
+   */
+  static bool initializeKDTreeW(const std::vector<double>& lonW,
+                                const std::vector<double>& latW, size_t nlpb);
+
+  /**
+   * @brief Initialize KD-tree for V variable (using lon_s/lat_s)
+   */
+  static bool initializeKDTreeS(const std::vector<double>& lonS,
+                                const std::vector<double>& latS, size_t nlpb);
+
+  /**
+   * @brief Find nearest grid points for U variable
+   */
+  static std::vector<GeoPoint> findNearestGridPointsBatchW(
+      const std::vector<double>& lonW, const std::vector<double>& latW,
+      size_t nlpb, const std::vector<double>& query_lons,
+      const std::vector<double>& query_lats);
+
+  /**
+   * @brief Find nearest grid points for V variable
+   */
+  static std::vector<GeoPoint> findNearestGridPointsBatchS(
+      const std::vector<double>& lonS, const std::vector<double>& latS,
+      size_t nlpb, const std::vector<double>& query_lons,
+      const std::vector<double>& query_lats);
+
  private:
   const MACOMGeometry<ConfigBackend>* geometry_;  // Pointer to parent geometry
   size_t i_;                                      // X index
@@ -307,14 +335,26 @@ class MACOMGeometryIterator {
 
   // Static KD-tree related members
   static bool kdtree_initialized_;
+  static bool kdtree_w_initialized_;  // For U variable
+  static bool kdtree_s_initialized_;  // For V variable
   static std::mutex kdtree_mutex_;
   static PointCloud<GeoPoint> static_point_cloud_;
+  static PointCloud<GeoPoint> static_point_cloud_w_;  // For U variable
+  static PointCloud<GeoPoint> static_point_cloud_s_;  // For V variable
   static std::unique_ptr<KDTreeType> static_kdtree_;
+  static std::unique_ptr<KDTreeType> static_kdtree_w_;  // For U variable
+  static std::unique_ptr<KDTreeType> static_kdtree_s_;  // For V variable
 };
 
 // Initialize static member declarations
 template <typename ConfigBackend>
 bool MACOMGeometryIterator<ConfigBackend>::kdtree_initialized_ = false;
+
+template <typename ConfigBackend>
+bool MACOMGeometryIterator<ConfigBackend>::kdtree_w_initialized_ = false;
+
+template <typename ConfigBackend>
+bool MACOMGeometryIterator<ConfigBackend>::kdtree_s_initialized_ = false;
 
 template <typename ConfigBackend>
 std::mutex MACOMGeometryIterator<ConfigBackend>::kdtree_mutex_;
@@ -323,8 +363,24 @@ template <typename ConfigBackend>
 PointCloud<GeoPoint> MACOMGeometryIterator<ConfigBackend>::static_point_cloud_;
 
 template <typename ConfigBackend>
+PointCloud<GeoPoint>
+    MACOMGeometryIterator<ConfigBackend>::static_point_cloud_w_;
+
+template <typename ConfigBackend>
+PointCloud<GeoPoint>
+    MACOMGeometryIterator<ConfigBackend>::static_point_cloud_s_;
+
+template <typename ConfigBackend>
 std::unique_ptr<typename MACOMGeometryIterator<ConfigBackend>::KDTreeType>
     MACOMGeometryIterator<ConfigBackend>::static_kdtree_ = nullptr;
+
+template <typename ConfigBackend>
+std::unique_ptr<typename MACOMGeometryIterator<ConfigBackend>::KDTreeType>
+    MACOMGeometryIterator<ConfigBackend>::static_kdtree_w_ = nullptr;
+
+template <typename ConfigBackend>
+std::unique_ptr<typename MACOMGeometryIterator<ConfigBackend>::KDTreeType>
+    MACOMGeometryIterator<ConfigBackend>::static_kdtree_s_ = nullptr;
 
 /**
  * @brief Const iterator for MACOMGeometry grid
@@ -957,6 +1013,198 @@ MACOMGeometryIterator<ConfigBackend>::findNearestVerticalPointsBatch(
   // 使用索引访问，可能更容易被编译器优化
   for (size_t q = 0; q < num_queries; ++q) {
     results[q] = findNearestVerticalPoints(rC_z, nk, depths[q]);
+  }
+
+  return results;
+}
+
+// Initialize KD-tree for U variable
+template <typename ConfigBackend>
+bool MACOMGeometryIterator<ConfigBackend>::initializeKDTreeW(
+    const std::vector<double>& lonW, const std::vector<double>& latW,
+    size_t nlpb) {
+  std::lock_guard<std::mutex> lock(kdtree_mutex_);
+
+  if (kdtree_w_initialized_) {
+    return true;
+  }
+
+  try {
+    MACOM_LOG_INFO("MACOMGeometryIterator",
+                   "Initializing static KD-tree for U variable");
+
+    static_point_cloud_w_.pts.clear();
+    static_point_cloud_w_.pts.reserve(nlpb);
+
+    for (size_t i = 0; i < nlpb; ++i) {
+      GeoPoint point;
+      point.index = i;
+      point.lon = lonW[i];
+      point.lat = latW[i];
+      geoToCartesian(point.lon, point.lat, point.x, point.y);
+      static_point_cloud_w_.pts.push_back(point);
+    }
+
+    const int leaf_size = 10;
+    static_kdtree_w_.reset(
+        new KDTreeType(2, static_point_cloud_w_,
+                       nanoflann::KDTreeSingleIndexAdaptorParams(leaf_size)));
+    static_kdtree_w_->buildIndex();
+
+    kdtree_w_initialized_ = true;
+    MACOM_LOG_INFO("MACOMGeometryIterator",
+                   "Static KD-tree for U variable successfully initialized");
+    return true;
+
+  } catch (const std::exception& e) {
+    MACOM_LOG_ERROR("MACOMGeometryIterator",
+                    "Failed to initialize KD-tree for U variable: " +
+                        std::string(e.what()));
+    kdtree_w_initialized_ = false;
+    return false;
+  }
+}
+
+// Initialize KD-tree for V variable
+template <typename ConfigBackend>
+bool MACOMGeometryIterator<ConfigBackend>::initializeKDTreeS(
+    const std::vector<double>& lonS, const std::vector<double>& latS,
+    size_t nlpb) {
+  std::lock_guard<std::mutex> lock(kdtree_mutex_);
+
+  if (kdtree_s_initialized_) {
+    return true;
+  }
+
+  try {
+    MACOM_LOG_INFO("MACOMGeometryIterator",
+                   "Initializing static KD-tree for V variable");
+
+    static_point_cloud_s_.pts.clear();
+    static_point_cloud_s_.pts.reserve(nlpb);
+
+    for (size_t i = 0; i < nlpb; ++i) {
+      GeoPoint point;
+      point.index = i;
+      point.lon = lonS[i];
+      point.lat = latS[i];
+      geoToCartesian(point.lon, point.lat, point.x, point.y);
+      static_point_cloud_s_.pts.push_back(point);
+    }
+
+    const int leaf_size = 10;
+    static_kdtree_s_.reset(
+        new KDTreeType(2, static_point_cloud_s_,
+                       nanoflann::KDTreeSingleIndexAdaptorParams(leaf_size)));
+    static_kdtree_s_->buildIndex();
+
+    kdtree_s_initialized_ = true;
+    MACOM_LOG_INFO("MACOMGeometryIterator",
+                   "Static KD-tree for V variable successfully initialized");
+    return true;
+
+  } catch (const std::exception& e) {
+    MACOM_LOG_ERROR("MACOMGeometryIterator",
+                    "Failed to initialize KD-tree for V variable: " +
+                        std::string(e.what()));
+    kdtree_s_initialized_ = false;
+    return false;
+  }
+}
+
+// Find nearest grid points for U variable
+template <typename ConfigBackend>
+std::vector<GeoPoint>
+MACOMGeometryIterator<ConfigBackend>::findNearestGridPointsBatchW(
+    const std::vector<double>& lonW, const std::vector<double>& latW,
+    size_t nlpb, const std::vector<double>& query_lons,
+    const std::vector<double>& query_lats) {
+  if (query_lons.size() != query_lats.size()) {
+    throw std::invalid_argument(
+        "Longitude and latitude arrays must have the same size");
+  }
+
+  if (!kdtree_w_initialized_) {
+    if (!initializeKDTreeW(lonW, latW, nlpb)) {
+      throw std::runtime_error("Failed to initialize KD-tree for U variable");
+    }
+  }
+
+  const size_t num_queries = query_lons.size();
+  std::vector<GeoPoint> results(num_queries);
+
+  for (size_t q = 0; q < num_queries; ++q) {
+    double lon = query_lons[q];
+    double lat = query_lats[q];
+
+    double query_x, query_y;
+    geoToCartesian(lon, lat, query_x, query_y);
+
+    std::vector<size_t> indices(1);
+    std::vector<double> distances_sq(1);
+
+    nanoflann::KNNResultSet<double> resultSet(1);
+    resultSet.init(indices.data(), distances_sq.data());
+
+    double query_pt[2] = {query_x, query_y};
+    static_kdtree_w_->findNeighbors(resultSet, query_pt,
+                                    nanoflann::SearchParameters());
+
+    if (resultSet.size() > 0) {
+      size_t idx = indices[0];
+      results[q] = static_point_cloud_w_.pts[idx];
+      results[q].distance =
+          haversineDistance(lon, lat, results[q].lon, results[q].lat);
+    }
+  }
+
+  return results;
+}
+
+// Find nearest grid points for V variable
+template <typename ConfigBackend>
+std::vector<GeoPoint>
+MACOMGeometryIterator<ConfigBackend>::findNearestGridPointsBatchS(
+    const std::vector<double>& lonS, const std::vector<double>& latS,
+    size_t nlpb, const std::vector<double>& query_lons,
+    const std::vector<double>& query_lats) {
+  if (query_lons.size() != query_lats.size()) {
+    throw std::invalid_argument(
+        "Longitude and latitude arrays must have the same size");
+  }
+
+  if (!kdtree_s_initialized_) {
+    if (!initializeKDTreeS(lonS, latS, nlpb)) {
+      throw std::runtime_error("Failed to initialize KD-tree for V variable");
+    }
+  }
+
+  const size_t num_queries = query_lons.size();
+  std::vector<GeoPoint> results(num_queries);
+
+  for (size_t q = 0; q < num_queries; ++q) {
+    double lon = query_lons[q];
+    double lat = query_lats[q];
+
+    double query_x, query_y;
+    geoToCartesian(lon, lat, query_x, query_y);
+
+    std::vector<size_t> indices(1);
+    std::vector<double> distances_sq(1);
+
+    nanoflann::KNNResultSet<double> resultSet(1);
+    resultSet.init(indices.data(), distances_sq.data());
+
+    double query_pt[2] = {query_x, query_y};
+    static_kdtree_s_->findNeighbors(resultSet, query_pt,
+                                    nanoflann::SearchParameters());
+
+    if (resultSet.size() > 0) {
+      size_t idx = indices[0];
+      results[q] = static_point_cloud_s_.pts[idx];
+      results[q].distance =
+          haversineDistance(lon, lat, results[q].lon, results[q].lat);
+    }
   }
 
   return results;
