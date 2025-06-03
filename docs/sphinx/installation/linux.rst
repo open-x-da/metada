@@ -62,6 +62,8 @@ Setting up METADA Environment
       spack add eigen boost
       # Configuration packages
       spack add yaml-cpp nlohmann-json
+      # Logging library
+      spack add ng-log
 
 3. Configure environment:
 

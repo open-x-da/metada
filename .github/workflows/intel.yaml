@@ -70,6 +70,16 @@ jobs:
         echo "ICX path: $(which icx)"
         echo "IFX path: $(which ifx)"
 
+    - name: Install ng-log
+      run: |
+        git clone --depth 1 https://github.com/ng-log/ng-log.git
+        cd ng-log
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+        make -j$(nproc)
+        sudo make install
+
     - name: Configure with CMake
       shell: bash
       run: |

@@ -46,6 +46,16 @@ Installing Required Packages
       pacman -S mingw-w64-x86_64-yaml-cpp
       pacman -S mingw-w64-x86_64-nlohmann-json
 
+      # Logging library (install from source)
+      git clone --depth 1 https://github.com/ng-log/ng-log.git
+      cd ng-log
+      mkdir build
+      cd build
+      cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw64
+      ninja
+      ninja install
+      cd ../..
+
 IDE Setup
 ~~~~~~~~~
 

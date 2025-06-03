@@ -5,7 +5,7 @@
         "CMAKE_BUILD_TYPE": "Debug"
     },
     "cmake.configureArgs": [
-        "-DLOGGER_BACKEND=GLOG",
+        "-DLOGGER_BACKEND=NGLOG",
         "-DCONFIG_BACKEND=YAML"
     ],
     "terminal.integrated.defaultProfile.windows": "MSYS2 Bash",

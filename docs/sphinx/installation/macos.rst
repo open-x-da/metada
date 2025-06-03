@@ -33,7 +33,8 @@ Installing Dependencies
         llvm \
         lcov \
         yaml-cpp \
-        nlohmann-json
+        nlohmann-json \
+        ng-log
 
 Building METADA
 ~~~~~~~~~~~~~~~

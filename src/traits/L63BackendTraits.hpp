@@ -19,6 +19,10 @@
 #include "../backends/common/utils/logger/console/ConsoleLogger.hpp"
 #endif
 
+#ifdef LOGGER_BACKEND_NGLOG
+#include "../backends/common/utils/logger/nglog/NgLogger.hpp"
+#endif
+
 namespace metada::traits {
 
 struct L63BackendTag {};
@@ -35,12 +39,14 @@ struct BackendTraits<L63BackendTag> {
 #endif
 
   // Select LoggerBackend based on CMake configuration
-#ifdef LOGGER_BACKEND_GLOG
+#ifdef LOGGER_BACKEND_NGLOG
+  using LoggerBackend = backends::logger::NgLogger<ConfigBackend>;
+#elif defined(LOGGER_BACKEND_GLOG)
   using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>;
 #elif defined(LOGGER_BACKEND_CONSOLE)
   using LoggerBackend = backends::logger::ConsoleLogger<ConfigBackend>;
 #else
-  using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>; // Default
+  using LoggerBackend = backends::logger::NgLogger<ConfigBackend>; // Default
 #endif
 };
 
