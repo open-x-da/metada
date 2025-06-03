@@ -55,23 +55,36 @@ Setting up METADA Environment
    .. code-block:: bash
 
       # Core development tools
-      spack add cmake ninja gcc
+      spack add cmake@3.30: ninja gcc
       # GPU acceleration support
       spack add cuda@12.1.0
       # Scientific computing packages
       spack add eigen boost
       # Configuration packages
       spack add yaml-cpp nlohmann-json
-      # Logging library
-      spack add ng-log
+      # Testing and development tools
+      spack add googletest glog
+      spack add lcov
 
-3. Configure environment:
+3. Install ng-log from source (since it's not available in Spack):
+
+   .. code-block:: bash
+
+      git clone --depth 1 https://github.com/ng-log/ng-log.git
+      cd ng-log
+      mkdir build && cd build
+      cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$SPACK_ROOT/opt/spack/linux-ubuntu22.04-x86_64/gcc-12.2.0/ng-log-master
+      ninja
+      ninja install
+      cd ../..
+
+4. Configure environment:
 
    .. literalinclude:: ../../../environments/spack/spack.yaml
       :language: yaml
       :caption: spack.yaml
 
-4. Install the environment:
+5. Install the environment:
 
    .. code-block:: bash
 
@@ -94,6 +107,7 @@ IDE Setup
 
       code --install-extension ms-vscode.cpptools
       code --install-extension ms-vscode.cmake-tools
+      code --install-extension twxs.cmake
 
 Building METADA
 ~~~~~~~~~~~~~~~
@@ -102,7 +116,10 @@ Building METADA
 
    .. code-block:: bash
 
-      cmake -S . -B build
+      cmake -S . -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DCMAKE_PREFIX_PATH=$SPACK_ROOT/opt/spack/linux-ubuntu22.04-x86_64/gcc-12.2.0/ng-log-master
       cmake --build build
 
 Running Tests
@@ -122,4 +139,5 @@ Common issues and solutions:
 
 - **Spack environment issues**: Verify environment activation
 - **Build failures**: Check compiler compatibility
-- **Missing dependencies**: Use ``spack spec metada`` to verify package resolution 
+- **Missing dependencies**: Use ``spack spec metada`` to verify package resolution
+- **ng-log issues**: Ensure ng-log is properly installed and CMAKE_PREFIX_PATH includes its installation directory 

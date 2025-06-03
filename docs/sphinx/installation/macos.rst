@@ -24,7 +24,7 @@ Installing Dependencies
       
       # Install other dependencies
       brew install \
-        cmake \
+        cmake@3.30: \
         ninja \
         python \
         numpy \
@@ -33,8 +33,19 @@ Installing Dependencies
         llvm \
         lcov \
         yaml-cpp \
-        nlohmann-json \
-        ng-log
+        nlohmann-json
+
+2. Install ng-log from source:
+
+   .. code-block:: bash
+
+      git clone --depth 1 https://github.com/ng-log/ng-log.git
+      cd ng-log
+      mkdir build && cd build
+      cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+      ninja
+      ninja install
+      cd ../..
 
 Building METADA
 ~~~~~~~~~~~~~~~
