@@ -72,7 +72,7 @@ jobs:
 
     - name: Install ng-log
       run: |
-        git clone --depth 1 https://github.com/ng-log/ng-log.git
+        git clone --depth 1 --branch v0.8.0 https://github.com/ng-log/ng-log.git
         cd ng-log
         mkdir build
         cd build
