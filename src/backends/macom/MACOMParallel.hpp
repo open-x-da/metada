@@ -69,6 +69,7 @@ class MACOMParallel {
 #else
     rank_ = 0;
     size_ = 1;
+    io_procs_ = 0;
     initialized_ = true;
     return true;
 #endif
@@ -80,16 +81,10 @@ class MACOMParallel {
   void finalize() {
 #ifdef USE_MPI
     if (initialized_) {
-      int finalized;
-      MPI_Finalized(&finalized);
-      if (!finalized) {
-        if (use_fortran_mpi_) {
-          // Fortran finalization is handled by the Fortran code
-          MACOM_LOG_INFO("MACOMParallel",
-                         "Skipping MPI finalization in Fortran mode");
-        } else {
-          MPI_Finalize();
-        }
+      if (use_fortran_mpi_) {
+        finalizeFortranMPI();
+      } else {
+        finalizeCppMPI();
       }
       initialized_ = false;
     }
@@ -109,6 +104,13 @@ class MACOMParallel {
    * @return Number of processes
    */
   int getSize() const { return size_; }
+
+  /**
+   * @brief Get number of I/O processes
+   *
+   * @return Number of I/O processes
+   */
+  int getIOProcs() const { return io_procs_; }
 
   /**
    * @brief Check if running in parallel mode
@@ -131,6 +133,30 @@ class MACOMParallel {
    */
   bool isFortranMode() const { return use_fortran_mpi_; }
 
+  /**
+   * @brief Synchronize all processes using MPI_Barrier
+   *
+   * @details
+   * This function ensures all processes reach this point before proceeding.
+   * Useful for synchronizing processes before operations that should be
+   * coordinated across all ranks.
+   */
+  void barrier() {
+#ifdef USE_MPI
+    if (initialized_) {
+      // if (use_fortran_mpi_) {
+      //   // Use Fortran interface for barrier
+      //   if (fortranInterface_) {
+      //     fortranInterface_->barrier();
+      //   }
+      // } else {
+      // Use C++ MPI directly
+      MPI_Barrier(MPI_COMM_WORLD);
+      // }
+    }
+#endif
+  }
+
  private:
   // Fortran interface
   std::unique_ptr<MACOMFortranInterface> fortranInterface_;
@@ -138,7 +164,11 @@ class MACOMParallel {
 
   // Private constructor for singleton
   MACOMParallel()
-      : rank_(0), size_(1), initialized_(false), use_fortran_mpi_(false) {}
+      : rank_(0),
+        size_(1),
+        io_procs_(0),
+        initialized_(false),
+        use_fortran_mpi_(false) {}
 
   // Delete copy constructor and assignment operator
   MACOMParallel(const MACOMParallel&) = delete;
@@ -167,10 +197,14 @@ class MACOMParallel {
     // Get process info
     MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
     MPI_Comm_size(MPI_COMM_WORLD, &size_);
+    // Assuming I/O processes are the last quarter of total processes
+    io_procs_ = size_ / 4;
 
     if (rank_ == 0) {
       MACOM_LOG_INFO("MACOMParallel", "Running with " + std::to_string(size_) +
-                                          " MPI processes (C++ mode)");
+                                          " MPI processes (C++ mode), " +
+                                          std::to_string(io_procs_) +
+                                          " I/O processes");
     }
     initialized_ = true;
     return true;
@@ -188,7 +222,10 @@ class MACOMParallel {
     if (!fortranInterface_) {
       fortranInterface_ = std::make_unique<MACOMFortranInterface>();
     }
-    fortranInterface_->initializeMPI();
+
+    io_procs_ = 2;
+
+    fortranInterface_->initializeMPI(io_procs_);
 
     mpi_rank_ = fortranInterface_->getRank();
     MACOM_LOG_INFO("MACOMModel", "MPI Initialized via Fortran. Model Rank: " +
@@ -200,7 +237,9 @@ class MACOMParallel {
 
     if (rank_ == 0) {
       MACOM_LOG_INFO("MACOMParallel", "Running with " + std::to_string(size_) +
-                                          " MPI processes (Fortran mode)");
+                                          " MPI processes (Fortran mode), " +
+                                          std::to_string(io_procs_) +
+                                          " I/O processes");
     }
     initialized_ = true;
     return true;
@@ -209,8 +248,47 @@ class MACOMParallel {
 #endif
   }
 
+  /**
+   * @brief Finalize MPI using C++ interface
+   */
+  void finalizeCppMPI() {
+#ifdef USE_MPI
+    int finalized;
+    MPI_Finalized(&finalized);
+    if (!finalized) {
+      MACOM_LOG_INFO("MACOMParallel", "Finalizing MPI in C++ mode...");
+      MPI_Finalize();
+      MACOM_LOG_INFO("MACOMParallel", "MPI finalized in C++ mode");
+    } else {
+      MACOM_LOG_INFO("MACOMParallel", "MPI already finalized in C++ mode");
+    }
+#endif
+  }
+
+  /**
+   * @brief Finalize MPI using Fortran interface
+   */
+  void finalizeFortranMPI() {
+#ifdef USE_MPI
+    if (fortranInterface_) {
+      MACOM_LOG_INFO("MACOMParallel", "Finalizing MPI in Fortran mode...");
+      fortranInterface_->finalizeMPI();
+
+      // int finalized;
+      // MPI_Finalized(&finalized);
+      // if (!finalized) {
+      //   MACOM_LOG_INFO("MACOMParallel", "MPI finalized in Fortran mode");
+      // } else {
+      //   MACOM_LOG_INFO("MACOMParallel",
+      //                  "MPI already finalized in Fortran mode");
+      // }
+    }
+#endif
+  }
+
   int rank_;              // Process rank
   int size_;              // Total number of processes
+  int io_procs_;          // Number of I/O processes
   bool initialized_;      // Initialization status
   bool use_fortran_mpi_;  // Whether to use Fortran MPI initialization
 };

@@ -1755,11 +1755,11 @@ CONTAINS
       REAL(wp), DIMENSION(:), INTENT(INOUT) :: mpi_recv_data
 
       CALL mpi_wp_1d_prepare_sendbuf(mpi_recv_data, mpi_send_data)
-      !$acc host_data use_device(mpi_send_data, mpi_recv_data)
-      CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts, mpi_send_indexes_1d_displs, mpi_real_wp, &
-                                  mpi_recv_data(loc_nlpb + 1), mpi_recv_indexes_1d_counts, mpi_recv_indexes_1d_displs, &
-                                  mpi_real_wp, mpi_graph_comm, mpi_err)
-      !$acc end host_data
+      ! !$acc host_data use_device(mpi_send_data, mpi_recv_data)
+      ! CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts, mpi_send_indexes_1d_displs, mpi_real_wp, &
+      !                             mpi_recv_data(loc_nlpb + 1), mpi_recv_indexes_1d_counts, mpi_recv_indexes_1d_displs, &
+      !                             mpi_real_wp, mpi_graph_comm, mpi_err)
+      ! !$acc end host_data
 
    END SUBROUTINE mpi_wp_1d_block_exchange
 
@@ -1837,14 +1837,14 @@ CONTAINS
          dimen2, mpi_send_indexes_1d_counts_tmp, mpi_send_indexes_1d_displs_tmp)
       CALL mpi_dp_3d_prepare_recv_counts_displs(mpi_recv_indexes_counts_tmp, &
          mpi_recv_indexes_displs_tmp, dimen1, dimen2)
-      !$acc data present(mpi_recv_buf,mpi_send_data)
-      !$acc host_data use_device(mpi_send_data,mpi_recv_buf)
-      CALL MPI_INEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
-         mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf, &
-         mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
-         mpi_graph_comm, mpi_req, mpi_err)
-      !$acc end host_data
-      !$acc end data
+      ! !$acc data present(mpi_recv_buf,mpi_send_data)
+      ! !$acc host_data use_device(mpi_send_data,mpi_recv_buf)
+      ! CALL MPI_INEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
+      !    mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf, &
+      !    mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
+      !    mpi_graph_comm, mpi_req, mpi_err)
+      ! !$acc end host_data
+      ! !$acc end data
 
       DEALLOCATE (mpi_send_indexes_1d_counts_tmp)
       DEALLOCATE (mpi_send_indexes_1d_displs_tmp)
@@ -1921,14 +1921,14 @@ CONTAINS
       CALL mpi_wp_2d_prepare_sendbuf(mpi_source_data, mpi_send_data, dimen1, &
          mpi_send_indexes_1d_counts_tmp, mpi_send_indexes_1d_displs_tmp)
       CALL mpi_2d_prepare_recv_counts_displs(mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, dimen1)
-      !$acc data present(mpi_send_data,mpi_recv_buf)
-      !$acc host_data use_device(mpi_send_data,mpi_recv_buf)
-      CALL MPI_INEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
-         mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf, &
-         mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
-         mpi_graph_comm, mpi_req, mpi_err)
-      !$acc end host_data
-      !$acc end data
+      ! !$acc data present(mpi_send_data,mpi_recv_buf)
+      ! !$acc host_data use_device(mpi_send_data,mpi_recv_buf)
+      ! CALL MPI_INEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
+      !    mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf, &
+      !    mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
+      !    mpi_graph_comm, mpi_req, mpi_err)
+      ! !$acc end host_data
+      ! !$acc end data
 
       DEALLOCATE (mpi_send_indexes_1d_counts_tmp)
       DEALLOCATE (mpi_send_indexes_1d_displs_tmp)
@@ -1994,14 +1994,14 @@ CONTAINS
       REAL(wp), ALLOCATABLE, DIMENSION(:), INTENT(INOUT) :: mpi_recv_buf
       INTEGER, INTENT(INOUT) :: mpi_req
       CALL mpi_wp_1d_prepare_sendbuf(mpi_source_data, mpi_send_data)
-      !$acc data present(mpi_send_data,mpi_recv_buf)
-      !$acc host_data use_device(mpi_send_data,mpi_recv_buf)
-      CALL MPI_INEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts, &
-         mpi_send_indexes_1d_displs, mpi_real_wp, mpi_recv_buf, &
-         mpi_recv_indexes_1d_counts, mpi_recv_indexes_1d_displs, mpi_real_wp, &
-         mpi_graph_comm, mpi_req, mpi_err)
-      !$acc end host_data
-      !$acc end data
+      ! !$acc data present(mpi_send_data,mpi_recv_buf)
+      ! !$acc host_data use_device(mpi_send_data,mpi_recv_buf)
+      ! CALL MPI_INEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts, &
+      !    mpi_send_indexes_1d_displs, mpi_real_wp, mpi_recv_buf, &
+      !    mpi_recv_indexes_1d_counts, mpi_recv_indexes_1d_displs, mpi_real_wp, &
+      !    mpi_graph_comm, mpi_req, mpi_err)
+      ! !$acc end host_data
+      ! !$acc end data
 
    END SUBROUTINE mpi_wp_1d_nonblock_exchange
 
@@ -3179,7 +3179,7 @@ CONTAINS
    SUBROUTINE mpi_final_operations
 
       ! deallocate some arrays used in netcdf reading
-      CALL mpi_netcdf_read_finalize
+      ! CALL mpi_netcdf_read_finalize
       call mpi_barrier(mpi_comm_world,mpi_err)  !!!caoyu add for mpich
       CALL MPI_FINALIZE(mpi_err)
 

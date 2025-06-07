@@ -123,12 +123,12 @@
             ]
         },
         {
-            "name": "Debug forecast MPI 4 cores",
+            "name": "Debug forecast MPI 6 cores",
             "type": "cppdbg",
             "request": "launch",
             "program": "C:/Program Files/Microsoft MPI/Bin/mpiexec.exe",
             "args": [
-              "-n", "4",
+              "-n", "6",
               "${workspaceFolder}/build/bin/forecast",
               "${workspaceFolder}/applications/forecast/macom_config.yaml"
             ],

@@ -47,8 +47,17 @@ int main(int argc, char** argv) {
     logger.Info() << "Running in serial mode";
 #endif
 
-    logger.Info() << "Starting forecast application";
-    logger.Info() << "Using configuration file: " << argv[1];
+#ifdef USE_MPI
+    parallel.barrier();
+
+    if (parallel.getRank() == 0) {
+      logger.Info() << "Starting forecast application";
+      logger.Info() << "Using configuration file: " << argv[1];
+    } else {
+      parallel.finalize();
+      return 0;
+    }
+#endif
 
     // // Initialize geometry
     // logger.Info() << "Initializing geometry";

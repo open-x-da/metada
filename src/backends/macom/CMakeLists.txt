@@ -4,6 +4,11 @@ metada_find_package(MPI REQUIRED)
 metada_find_package(HDF5 REQUIRED)
 metada_find_package(CURL REQUIRED)
 
+# Find NetCDF Fortran for MSYS2/MINGW64
+set(NetCDF_Fortran_ROOT "C:/msys64/mingw64")
+set(NetCDF_Fortran_INCLUDE_DIRS "${NetCDF_Fortran_ROOT}/include")
+set(NetCDF_Fortran_LIBRARIES "${NetCDF_Fortran_ROOT}/lib/libnetcdff.dll.a")
+
 metada_find_package(xtensor CONFIG)
 metada_find_package(netcdf-cxx4)
 metada_find_package(netCDF CONFIG)
@@ -87,12 +92,17 @@ string(REPLACE ";" " " DEF_FLAGS_STR "${DEF_FLAGS}")
 # 确保在 CMakeLists.txt 中明确设置 Fortran 模块目录
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
+# 所有 MITgcm-style 样例
+file(GLOB SRC_FORTRAN_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src/*.f90"
+)
+
 # 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
 add_library(macom_fortran STATIC
     fortran/macom_logger.f90           
     fortran/macom_fortran_wrapper.f90
-    fortran/test.f90
-    fortran/src/mod_mpi_variables.f90
+    ${SRC_FORTRAN_FILES}
+    # fortran/src/mod_mpi_variables.f90
     # fortran/src/mod_mpi_test_variables.f90
     # fortran/src/mod_mpi_test.f90
     # fortran/src/mod_io_netcdf.f90
@@ -104,7 +114,7 @@ add_library(macom_fortran STATIC
     # fortran/src/mod_mpi_csp_io_misc.f90
     # fortran/src/mod_mpi_csp_io_bdy.f90
     # fortran/src/mod_mpi_csp_io.f90
-    fortran/src/mod_misc_basic.f90
+    # fortran/src/mod_misc_basic.f90
     # fortran/src/mod_misc.f90
     # fortran/src/mod_csp_vdiff_coef_gls.f90
     # fortran/src/mod_csp_vdiff.f90
@@ -159,7 +169,7 @@ target_compile_options(macom_fortran PRIVATE
 # Link Fortran dependencies
 target_link_libraries(macom_fortran PUBLIC
     HDF5
-    # NetCDF
+    ${NetCDF_Fortran_LIBRARIES}
     CURL
     MPI::MPI_C
     MPI::MPI_Fortran

@@ -42,20 +42,15 @@ class MACOMFortranInterface {
 
   /**
    * @brief Initializes the environment through Fortran.
+   * @param io_procs Number of I/O processes
    */
-  void initializeMPI();
+  void initializeMPI(int io_procs);
 
   /**
    * @brief Gets the rank of the current process from Fortran.
    * @return The rank.
    */
   int getRank() const;
-
-  /**
-   * @brief Gets the number of I/O processes.
-   * @return The number of I/O processes.
-   */
-  int getIOProcs() const;
 
   /**
    * @brief Gets the Fortran communicator.
@@ -91,6 +86,11 @@ class MACOMFortranInterface {
   void finalizeMPI();
 
   /**
+   * @brief Synchronize all processes using Fortran MPI_Barrier
+   */
+  void barrier();
+
+  /**
    * @brief Checks if the environment was initialized by this interface.
    */
   bool isMPIInitialized() const { return mpi_initialized_by_this_instance_; }
@@ -99,7 +99,6 @@ class MACOMFortranInterface {
   MPI_Comm mpi_comm_;  // C++ MPI communicator
   int f_comm_;         // Fortran format communicator
   int rank_;           // Current process rank
-  int io_procs_;       // Number of I/O processors
   bool mpi_initialized_by_this_instance_;
   bool model_components_initialized_;
 };  // class MACOMFortranInterface

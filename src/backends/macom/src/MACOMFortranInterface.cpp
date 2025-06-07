@@ -9,6 +9,7 @@
 
 #include <mpi.h>
 
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -66,7 +67,6 @@ void logError(const std::string& component, const std::string& message) {
 
 MACOMFortranInterface::MACOMFortranInterface()
     : rank_(0),
-      io_procs_(0),
       mpi_initialized_by_this_instance_(false),
       model_components_initialized_(false) {
   mpi_comm_ = MPI_COMM_NULL;
@@ -74,7 +74,7 @@ MACOMFortranInterface::MACOMFortranInterface()
 }
 
 MACOMFortranInterface::~MACOMFortranInterface() {
-  logInfo("MACOMFortranInterface", "Destructor called");
+  // logInfo("MACOMFortranInterface", "Destructor called");
   if (model_components_initialized_) {
     try {
       finalizeModelComponents();
@@ -95,12 +95,22 @@ MACOMFortranInterface::~MACOMFortranInterface() {
   }
 }
 
-void MACOMFortranInterface::initializeMPI() {
+void MACOMFortranInterface::initializeMPI(int io_procs) {
   if (mpi_initialized_by_this_instance_) {
     logInfo("MACOMFortranInterface",
             "MPI already initialized by this instance");
     return;
   }
+
+  // Set environment variable to tell Fortran the number of IO processors
+  std::string io_procs_str = std::to_string(io_procs);
+#ifdef _WIN32
+  // Windows environment uses _putenv_s
+  _putenv_s("MACOM_IO_PROCS", io_procs_str.c_str());
+#else
+  // Unix/Linux environment uses setenv
+  setenv("MACOM_IO_PROCS", io_procs_str.c_str(), 1);
+#endif
 
   // Get the C++ MPI communicator
   mpi_comm_ = MPI_COMM_WORLD;
@@ -115,24 +125,14 @@ void MACOMFortranInterface::initializeMPI() {
   // Get rank from Fortran
   c_macom_get_mpi_rank(&rank_);
 
-  // Get total number of processes
-  int total_procs;
-  MPI_Comm_size(mpi_comm_, &total_procs);
-  // Assuming I/O processes are the last quarter of total processes
-  io_procs_ = total_procs / 4;
-
   mpi_initialized_by_this_instance_ = true;
-  logInfo("MACOMFortranInterface",
-          "MPI initialized by Fortran. Rank: " + std::to_string(rank_) +
-              ", I/O Procs: " + std::to_string(io_procs_));
+  // logInfo("MACOMFortranInterface",
+  //         "MPI initialized by Fortran. Rank: " + std::to_string(rank_) +
+  //             ", I/O Procs: " + io_procs_str);
 }
 
 int MACOMFortranInterface::getRank() const {
   return rank_;
-}
-
-int MACOMFortranInterface::getIOProcs() const {
-  return io_procs_;
 }
 
 int MACOMFortranInterface::getFortranComm() const {
@@ -205,8 +205,14 @@ void MACOMFortranInterface::finalizeMPI() {
 
   mpi_initialized_by_this_instance_ = false;
   rank_ = 0;
-  io_procs_ = 0;
   logInfo("MACOMFortranInterface", "Fortran MPI finalize finished");
+}
+
+void MACOMFortranInterface::barrier() {
+  if (!mpi_initialized_by_this_instance_) {
+    return;
+  }
+  MPI_Barrier(mpi_comm_);
 }
 
 }  // namespace metada::backends::macom

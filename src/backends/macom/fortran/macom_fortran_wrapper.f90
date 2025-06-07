@@ -4,11 +4,20 @@ module macom_fortran_wrapper
   ! Assuming your actual model logic is in other modules, e.g., mod_csp, mod_misc etc.
   ! You will need to add 'use' statements for any modules that these wrapper subroutines call.
   ! For example:
-  ! use mod_csp
   ! use mod_misc
-  ! use mod_mpi_interfaces ! For mpi_comp_comm, mpi_rank etc.
-  ! use mitice_parameters  ! For mitice_on etc.
-  use mpi_initest
+  ! use mod_csp
+  ! use mod_csp_init
+  USE mod_mpi_interfaces
+  ! USE mod_mpi_variables
+  ! USE mod_mpi_csp_io
+  ! USE mod_mpi_test
+  !YY
+  ! USE mitice
+  ! USE mitice_parameters
+  ! USE mitice_utility
+  ! USE mitice_init
+  ! USE mitice_ave
+  ! use mod_csp_basic
   implicit none
 
   private ! Default to private, only expose BIND(C) interfaces
@@ -32,12 +41,6 @@ module macom_fortran_wrapper
   ! integer :: nIter0, nIterMax
   ! integer :: myIter ! Current iteration step
 
-  ! MPI related variables
-  integer :: wrapper_mpi_rank
-  integer :: wrapper_mpi_size
-  integer :: wrapper_mpi_comm
-  logical :: wrapper_mpi_initialized = .false.
-
 contains
 
   !-----------------------------------------------------------------------------
@@ -48,35 +51,29 @@ contains
     integer :: ierr
     
     ! Convert Cpp communicator to Fortran communicator
-    wrapper_mpi_comm = comm_cpp
-    
+    ! wrapper_mpi_comm = comm_cpp
+
+    ! Set MPI communicator
+    ! mpi_comp_comm = comm_cpp
+
     ! Call MACOM's MPI initialization
-    call init_mpi()
+    ! call init_mpi()
+    call mpi_process_init
     
-    ! Get rank and size using the Fortran communicator
-    call MPI_Comm_rank(wrapper_mpi_comm, wrapper_mpi_rank, ierr)
-    call MPI_Comm_size(wrapper_mpi_comm, wrapper_mpi_size, ierr)
-    
-    wrapper_mpi_initialized = .true.
-    
-    call macom_log_info("FortranWrapper", "MPI initialized in Fortran with rank: " // &
-                    trim(adjustl(c_int_to_string(wrapper_mpi_rank))) // &
-                    ", size: " // trim(adjustl(c_int_to_string(wrapper_mpi_size))))
   end subroutine c_macom_initialize_mpi
 
   subroutine c_macom_get_mpi_rank(rank) bind(C, name="c_macom_get_mpi_rank")
     integer(C_INT), intent(out) :: rank
-    rank = wrapper_mpi_rank
+    ! Return current process rank
+    rank = mpi_rank
+    ! rank = wrapper_mpi_rank
   end subroutine c_macom_get_mpi_rank
 
   subroutine c_macom_finalize_mpi() bind(C, name="c_macom_finalize_mpi")
     
-    if (wrapper_mpi_initialized) then
-      ! Call MACOM's MPI finalization if needed
-      ! call finalize_mpi()  ! If you have such a routine
-      wrapper_mpi_initialized = .false.
-      call macom_log_info("FortranWrapper", "MPI finalized in Fortran")
-    end if
+    ! Clean up MPI resources
+    call mpi_final_operations()
+
   end subroutine c_macom_finalize_mpi
 
   !-----------------------------------------------------------------------------
