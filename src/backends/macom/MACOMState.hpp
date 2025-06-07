@@ -69,6 +69,12 @@ class MACOMState {
   MACOMState(const ConfigBackend& config, const GeometryBackend& geometry);
 
   /**
+   * @brief CopySkipInitialization
+   */
+  MACOMState(const ConfigBackend& config, const GeometryBackend& geometry,
+             bool CopySkipInitialization);
+
+  /**
    * @brief Move constructor
    *
    * @param other MACOM state backend to move from
@@ -205,14 +211,25 @@ class MACOMState {
    * @param query_lats Vector of latitudes (degrees)
    * @param query_depths Vector of depths (meters)
    * @param var_name Name of the variable
+   * @param use_horizontal_interp Boolean to use horizontal interpolation
    * @return Vector of variable values at the nearest grid points (first layer)
    * @throws std::runtime_error if not initialized or variable/points not found
    */
   std::vector<double> getValuesAtNearestPoints(
       const std::vector<double>& query_lons,
       const std::vector<double>& query_lats,
-      const std::vector<double>& query_depths,
-      const std::string& var_name) const;
+      const std::vector<double>& query_depths, const std::string& var_name,
+      bool use_horizontal_interp = false) const;
+
+  /**
+   * @brief Initialize the state with configuration and geometry
+   *
+   * @param config Configuration containing MACOM file path and variables
+   * @param geometry Geometry object containing grid information
+   * @return bool True if initialization successful, false otherwise
+   */
+  bool CPPInitialization(const ConfigBackend& config,
+                         const GeometryBackend& geometry);
 
  private:
   /**
@@ -263,6 +280,7 @@ class MACOMState {
   std::string inputFile_;  // Input data file path
   std::string timestamp_;  // Timestamp of the data
   bool initialized_ = false;
+  bool CopySkipInitialization = true;
 
   // Data storage (this would be filled by the actual implementation)
   std::unordered_map<std::string, std::vector<double>> variables_;
@@ -276,166 +294,20 @@ class MACOMState {
 template <typename ConfigBackend, typename GeometryBackend>
 MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
     const ConfigBackend& config, const GeometryBackend& geometry)
-    : config_(config), geometry_(geometry), initialized_(false) {
-  inputFile_ = config.Get("input_file").asString();
-  if (inputFile_.empty()) {
-    // MACOM_LOG_ERROR(
-    //     "MACOMState",
-    //     "MACOM state input file path not specified in configuration");
-    throw std::runtime_error(
-        "MACOM state input file path not specified in configuration");
+    : config_(config), geometry_(geometry) {
+  if (!CPPInitialization(config, geometry)) {
+    throw std::runtime_error("Failed to initialize MACOM state");
   }
+}
 
-  timestamp_ = config.Get("timestamp").asString();
-
-  // Get variables to load from config
-  std::vector<std::string> vars_to_load_from_config;
-  try {
-    vars_to_load_from_config = config.Get("variables").asVectorString();
-  } catch (const std::exception&) {
-    // MACOM_LOG_WARNING("MACOMState",
-    //                   "No variables specified in configuration, attempting to
-    //                   " "load all from file.");
-  }
-
-  getDimensionsFromGeometry(&geometry_);  // Sets nlpb_grid, nk_grid
-
-  // MACOM_LOG_INFO("MACOMState", "Dimensions from Geometry: nlpb_grid = " +
-  //                                  std::to_string(nlpb_grid) +
-  //                                  ", nk_grid = " + std::to_string(nk_grid));
-
-  try {
-    // MACOM_LOG_INFO(
-    //     "MACOMState",
-    //     "Attempting to open NetCDF file for state data: " + inputFile_);
-    netCDF::NcFile ncFile(inputFile_, netCDF::NcFile::read);
-    if (ncFile.isNull()) {
-      throw std::runtime_error("Failed to open NetCDF state file: " +
-                               inputFile_);
-    }
-    // MACOM_LOG_INFO("MACOMState", "Successfully opened NetCDF state file.");
-
-    // Step 1: Load grid dimensions from the state file
-    loadVariableDimensions(ncFile);  // Sets this->nlpb_ and this->nk_
-
-    // Step 2: Compare dimensions with geometry
-    // MACOM_LOG_INFO("MACOMState", "Dimensions from State File: nlpb_ = " +
-    //                                  std::to_string(this->nlpb_) +
-    //                                  ", nk_ = " + std::to_string(this->nk_));
-    if (this->nlpb_ != this->nlpb_grid || this->nk_ != this->nk_grid) {
-      std::ostringstream error_msg;
-      error_msg
-          << "Dimension mismatch between MACOMState file and MACOMGeometry:\n"
-          << "  State File dimensions: nlpb=" << this->nlpb_
-          << ", nk=" << this->nk_ << "\n"
-          << "  Geometry dimensions:   nlpb=" << this->nlpb_grid
-          << ", nk=" << this->nk_grid;
-      MACOM_LOG_ERROR("MACOMState", error_msg.str());
-      throw std::runtime_error(error_msg.str());
-    }
-    // MACOM_LOG_INFO("MACOMState",
-    //                "State file dimensions match geometry dimensions.");
-
-    // Step 3: Load variable arrays
-    loadVariableArrays(ncFile, vars_to_load_from_config);
-
-    // Populate variableNames_ and activeVariable_
-    this->variableNames_ = vars_to_load_from_config;
-    if (!this->variableNames_.empty()) {
-      this->activeVariable_ = this->variableNames_[0];
-      // MACOM_LOG_INFO("MACOMState",
-      //                "Active variable set to: " + this->activeVariable_);
-    } else {
-      MACOM_LOG_WARNING("MACOMState", "No variables loaded or specified.");
-    }
-
-    initialized_ = true;
-    // MACOM_LOG_INFO("MACOMState",
-    //                "MACOMState initialized successfully from " + inputFile_);
-
-    // --- Test code for getValuesAtNearestPoints ---
-    if (initialized_ && geometry_.isInitialized()) {
-      MACOM_LOG_INFO(
-          "MACOMState",
-          "--- Running test for getValuesAtNearestPoints (T, U, V) ---");
-      std::vector<double> test_lons = {0.0, 150.5, 270.0, 20.0};
-      std::vector<double> test_lats = {0.0, 30.2, 60.0, -40.0};
-      std::vector<double> test_depths = {100.0, 200.0, 500.0, 1000.0};
-
-      // Test variables: temperature, u, v
-      std::vector<std::string> test_vars = {"t", "u", "v"};
-      for (const auto& test_var_name : test_vars) {
-        // Check if the test variable is loaded
-        bool test_var_loaded = false;
-        for (const auto& loaded_var : this->variableNames_) {
-          if (loaded_var == test_var_name) {
-            test_var_loaded = true;
-            break;
-          }
-        }
-        if (!test_var_loaded) {
-          MACOM_LOG_WARNING(
-              "MACOMState",
-              "Test for getValuesAtNearestPoints skipped: Test variable '" +
-                  test_var_name + "' not found among loaded variables.");
-          continue;
-        }
-
-        try {
-          MACOM_LOG_INFO("MACOMState",
-                         "Querying variable '" + test_var_name + "' at " +
-                             std::to_string(test_lons.size()) + " locations.");
-          for (size_t i = 0; i < test_lons.size(); ++i) {
-            MACOM_LOG_INFO("MACOMState",
-                           "Test point " + std::to_string(i + 1) +
-                               ": Lon=" + std::to_string(test_lons[i]) +
-                               ", Lat=" + std::to_string(test_lats[i]) +
-                               ", Depth=" + std::to_string(test_depths[i]) +
-                               "m");
-          }
-
-          std::vector<double> values = this->getValuesAtNearestPoints(
-              test_lons, test_lats, test_depths, test_var_name);
-
-          if (values.size() == test_lons.size()) {
-            for (size_t i = 0; i < values.size(); ++i) {
-              MACOM_LOG_INFO("MACOMState",
-                             "Value at (" + std::to_string(test_lons[i]) +
-                                 ", " + std::to_string(test_lats[i]) + ", " +
-                                 std::to_string(test_depths[i]) +
-                                 "m) for var '" + test_var_name +
-                                 "': " + std::to_string(values[i]));
-            }
-          } else {
-            MACOM_LOG_WARNING("MACOMState",
-                              "Test: Number of values returned (" +
-                                  std::to_string(values.size()) +
-                                  ") does not match number of query points (" +
-                                  std::to_string(test_lons.size()) + ").");
-          }
-        } catch (const std::exception& e) {
-          MACOM_LOG_ERROR(
-              "MACOMState",
-              "Test code for getValuesAtNearestPoints failed for variable '" +
-                  test_var_name + "': " + std::string(e.what()));
-        }
-      }
-      MACOM_LOG_INFO("MACOMState",
-                     "--- End of test for getValuesAtNearestPoints ---");
-    }
-    // --- End of test code ---
-
-  } catch (const netCDF::exceptions::NcException& e) {
-    MACOM_LOG_ERROR(
-        "MACOMState",
-        "NetCDF error while initializing MACOMState: " + std::string(e.what()));
-    throw std::runtime_error("NetCDF error while initializing MACOMState: " +
-                             std::string(e.what()));
-  } catch (const std::exception& e) {
-    MACOM_LOG_ERROR("MACOMState",
-                    "Error initializing MACOMState: " + std::string(e.what()));
-    throw std::runtime_error("Error initializing MACOMState: " +
-                             std::string(e.what()));
+// ConfigBackend constructor implementation and GeometryBackend constructor
+template <typename ConfigBackend, typename GeometryBackend>
+MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
+    const ConfigBackend& config, const GeometryBackend& geometry,
+    bool CopySkipInitialization)
+    : config_(config), geometry_(geometry) {
+  if (!CopySkipInitialization) {
+    CPPInitialization(config, geometry);
   }
 }
 
@@ -480,13 +352,25 @@ template <typename ConfigBackend, typename GeometryBackend>
 std::unique_ptr<MACOMState<ConfigBackend, GeometryBackend>>
 MACOMState<ConfigBackend, GeometryBackend>::clone() const {
   auto cloned = std::make_unique<MACOMState<ConfigBackend, GeometryBackend>>(
-      config_, geometry_);
+      config_, geometry_, CopySkipInitialization);
+
   cloned->initialized_ = this->initialized_;
   cloned->inputFile_ = this->inputFile_;
-  cloned->variables_ = this->variables_;
+  // cloned->variables_ = this->variables_;
   cloned->activeVariable_ = this->activeVariable_;
   cloned->variableNames_ = this->variableNames_;
   cloned->dimensions_ = this->dimensions_;
+
+  // cloned->nlpb_ = this->nlpb_;
+  // cloned->nk_ = this->nk_;
+  // cloned->nlpb_grid = this->nlpb_grid;
+  // cloned->nk_grid = this->nk_grid;
+  // cloned->u = this->u;
+  // cloned->v = this->v;
+  // cloned->t = this->t;
+  // cloned->s = this->s;
+  // cloned->w = this->w;
+
   return cloned;
 }
 
@@ -824,8 +708,8 @@ std::vector<double>
 MACOMState<ConfigBackend, GeometryBackend>::getValuesAtNearestPoints(
     const std::vector<double>& query_lons,
     const std::vector<double>& query_lats,
-    const std::vector<double>& query_depths,
-    const std::string& var_name) const {
+    const std::vector<double>& query_depths, const std::string& var_name,
+    bool use_horizontal_interp) const {
   if (!initialized_) {
     throw std::runtime_error(
         "MACOMState is not initialized. Cannot get values.");
@@ -860,13 +744,27 @@ MACOMState<ConfigBackend, GeometryBackend>::getValuesAtNearestPoints(
         geometry_.findNearestGridPointsBatch(query_lons, query_lats);
   }
 
+  // Print grid point information
+  MACOM_LOG_INFO("MACOMState",
+                 "Found nearest grid points for " + var_name + ":");
+  for (size_t i = 0; i < nearest_points.size(); ++i) {
+    MACOM_LOG_INFO(
+        "MACOMState",
+        "Point " + std::to_string(i) +
+            ": index=" + std::to_string(nearest_points[i].index) +
+            ", lon=" + std::to_string(nearest_points[i].lon) +
+            ", lat=" + std::to_string(nearest_points[i].lat) +
+            ", distance=" + std::to_string(nearest_points[i].distance) + " km");
+  }
+
   // Get nearest vertical points
   std::vector<metada::backends::macom::VerticalPoint> vertical_points =
       geometry_.findNearestVerticalPointsBatch(query_depths);
 
   std::vector<double> result_values(query_lons.size());
+
   for (size_t i = 0; i < nearest_points.size(); ++i) {
-    size_t horizontal_index = nearest_points[i].index;
+    size_t center_idx = nearest_points[i].index;
     const auto& vp = vertical_points[i];
 
     if (vp.is_outside) {
@@ -874,19 +772,219 @@ MACOMState<ConfigBackend, GeometryBackend>::getValuesAtNearestPoints(
       continue;
     }
 
-    size_t lower_index = horizontal_index * this->nk_ + vp.lower_index;
-    size_t upper_index = horizontal_index * this->nk_ + vp.upper_index;
+    // Horizontal interpolation
+    if (use_horizontal_interp) {
+      // Get neighbor indices (assume tw_, te_, tn_, ts_ are available and same
+      // size as grid)
+      size_t idx_west = geometry_.getTw()[center_idx];
+      size_t idx_east = geometry_.getTe()[center_idx];
+      size_t idx_north = geometry_.getTn()[center_idx];
+      size_t idx_south = geometry_.getTs()[center_idx];
 
-    if (lower_index >= var_data.size() || upper_index >= var_data.size()) {
-      throw std::out_of_range("Batch: Calculated indices out of bounds.");
+      // Collect indices
+      std::vector<size_t> idxs = {center_idx, idx_west, idx_east, idx_north,
+                                  idx_south};
+
+      // Compute horizontal distances (haversine or Euclidean)
+      std::vector<double> dists(5);
+      for (size_t j = 0; j < 5; ++j) {
+        // Get lon/lat for each neighbor
+        double lon_j, lat_j;
+        if (var_name == "u") {
+          lon_j = geometry_.getLonW()[idxs[j]];
+          lat_j = geometry_.getLatW()[idxs[j]];
+        } else if (var_name == "v") {
+          lon_j = geometry_.getLonS()[idxs[j]];
+          lat_j = geometry_.getLatS()[idxs[j]];
+        } else {
+          lon_j = geometry_.getLonC()[idxs[j]];
+          lat_j = geometry_.getLatC()[idxs[j]];
+        }
+
+        dists[j] = metada::backends::macom::MACOMGeometryIterator<
+            ConfigBackend>::haversineDistance(query_lons[i], query_lats[i],
+                                              lon_j, lat_j);
+        // Avoid zero distance (for center point)
+        if (dists[j] < 1e-8) dists[j] = 1e-8;
+      }
+
+      // Compute inverse distance weights
+      double wsum = 0.0;
+      std::vector<double> weights(5);
+      for (size_t j = 0; j < 5; ++j) {
+        weights[j] = 1.0 / dists[j] * dists[j];
+        wsum += weights[j];
+      }
+      for (size_t j = 0; j < 5; ++j) {
+        weights[j] /= wsum;
+      }
+
+      // Vertical interpolation for each neighbor
+      double interp_val = 0.0;
+      bool all_land = true;  // Flag to check if all points are land
+      for (size_t j = 0; j < 5; ++j) {
+        size_t lower_index = idxs[j] * this->nk_ + vp.lower_index;
+        size_t upper_index = idxs[j] * this->nk_ + vp.upper_index;
+        if (lower_index >= var_data.size() || upper_index >= var_data.size()) {
+          throw std::out_of_range("Batch: Calculated indices out of bounds.");
+        }
+        double lower_value = var_data[lower_index];
+        double upper_value = var_data[upper_index];
+
+        // Check if both levels are zero (land)
+        if (std::abs(lower_value) > 1e-10 || std::abs(upper_value) > 1e-10) {
+          all_land = false;
+        }
+
+        double v_interp =
+            lower_value + vp.interp_coef * (upper_value - lower_value);
+        interp_val += weights[j] * v_interp;
+      }
+
+      // If all points are land, set to -99999
+      result_values[i] = all_land ? -99999.0 : interp_val;
     }
+    // Nearest point method (default)
+    else {
+      size_t lower_index = center_idx * this->nk_ + vp.lower_index;
+      size_t upper_index = center_idx * this->nk_ + vp.upper_index;
+      if (lower_index >= var_data.size() || upper_index >= var_data.size()) {
+        throw std::out_of_range("Batch: Calculated indices out of bounds.");
+      }
+      double lower_value = var_data[lower_index];
+      double upper_value = var_data[upper_index];
 
-    double lower_value = var_data[lower_index];
-    double upper_value = var_data[upper_index];
-    result_values[i] =
-        lower_value + vp.interp_coef * (upper_value - lower_value);
+      // Check if both levels are zero (land)
+      if (std::abs(lower_value) < 1e-10 && std::abs(upper_value) < 1e-10) {
+        result_values[i] = -99999.0;  // Land point
+      } else {
+        result_values[i] =
+            lower_value + vp.interp_coef * (upper_value - lower_value);
+      }
+    }
   }
   return result_values;
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+bool MACOMState<ConfigBackend, GeometryBackend>::CPPInitialization(
+    const ConfigBackend& config, const GeometryBackend& geometry) {
+  try {
+    MACOM_LOG_INFO("MACOMState",
+                   "Initializing state with CPPInitialization...");
+
+    // Get input file path from config
+    inputFile_ = config.Get("input_file").asString();
+    if (inputFile_.empty()) {
+      MACOM_LOG_ERROR("MACOMState",
+                      "Input file path not specified in configuration");
+      return false;
+    }
+
+    // Get timestamp from file if available
+    timestamp_ = config.Get("timestamp").asString();
+
+    // Get dimensions from geometry
+    getDimensionsFromGeometry(&geometry);
+
+    // MACOM_LOG_INFO("MACOMState", "Dimensions from Geometry: nlpb_grid = " +
+    //                          std::to_string(nlpb_grid) +
+    //                          ", nk_grid = " + std::to_string(nk_grid));
+
+    // Open and validate NetCDF file
+    netCDF::NcFile ncFile(inputFile_, netCDF::NcFile::read);
+    if (ncFile.isNull()) {
+      MACOM_LOG_ERROR("MACOMState",
+                      "Failed to open NetCDF file: " + inputFile_);
+      return false;
+    }
+
+    // // Step 1: Load grid dimensions from the state file
+    // loadVariableDimensions(ncFile);  // Sets this->nlpb_ and this->nk_
+
+    // Step 2: Compare dimensions with geometry
+    // MACOM_LOG_INFO("MACOMState", "Dimensions from State File: nlpb_ = " +
+    //                                  std::to_string(this->nlpb_) +
+    //                                  ", nk_ = " + std::to_string(this->nk_));
+    // if (this->nlpb_ != this->nlpb_grid || this->nk_ != this->nk_grid) {
+    //   std::ostringstream error_msg;
+    //   error_msg
+    //       << "Dimension mismatch between MACOMState file and
+    //       MACOMGeometry:\n"
+    //       << "  State File dimensions: nlpb=" << this->nlpb_
+    //       << ", nk=" << this->nk_ << "\n"
+    //       << "  Geometry dimensions:   nlpb=" << this->nlpb_grid
+    //       << ", nk=" << this->nk_grid;
+    //   MACOM_LOG_ERROR("MACOMState", error_msg.str());
+    //   throw std::runtime_error(error_msg.str());
+    // }
+    // MACOM_LOG_INFO("MACOMState",
+    //                "State file dimensions match geometry dimensions.");
+    nlpb_ = nlpb_grid;
+    nk_ = nk_grid;
+
+    // Step 3: Load variable arrays
+    // Get variables to load from config
+    std::vector<std::string> variables;
+    variables = config.Get("variables").asVectorString();
+    loadVariableArrays(ncFile, variables);
+
+    // Populate variableNames_ and activeVariable_
+    this->variableNames_ = variables;
+    if (!this->variableNames_.empty()) {
+      this->activeVariable_ = this->variableNames_[0];
+      // MACOM_LOG_INFO("MACOMState",
+      //                "Active variable set to: " + this->activeVariable_);
+    } else {
+      MACOM_LOG_WARNING("MACOMState", "No variables loaded or specified.");
+    }
+
+    // --- Test code for getValuesAtNearestPoints ---
+    try {
+      MACOM_LOG_INFO("MACOMState", "Testing getValuesAtNearestPoints...");
+
+      // Test points
+      std::vector<double> test_lons = {160.0, 161.0, 162.0};
+      std::vector<double> test_lats = {36.0, 37.0, 38.0};
+      std::vector<double> test_depths = {100.0, 200.0, 300.0};
+
+      // Test each variable
+      for (const auto& var_name : variables) {
+        if (variables_.find(var_name) != variables_.end()) {
+          auto values = getValuesAtNearestPoints(test_lons, test_lats,
+                                                 test_depths, var_name, true);
+
+          MACOM_LOG_INFO("MACOMState",
+                         "Test results for variable " + var_name + ":");
+          for (size_t i = 0; i < values.size(); ++i) {
+            MACOM_LOG_INFO("MACOMState",
+                           "  Point " + std::to_string(i) + " (" +
+                               std::to_string(test_lons[i]) + ", " +
+                               std::to_string(test_lats[i]) + ", " +
+                               std::to_string(test_depths[i]) +
+                               "): " + std::to_string(values[i]));
+          }
+        }
+      }
+    } catch (const std::exception& e) {
+      MACOM_LOG_WARNING("MACOMState",
+                        "Test code for getValuesAtNearestPoints failed: " +
+                            std::string(e.what()));
+    }
+
+    initialized_ = true;
+    MACOM_LOG_INFO("MACOMState", "State initialization completed successfully");
+    return true;
+
+  } catch (const netCDF::exceptions::NcException& e) {
+    MACOM_LOG_ERROR("MACOMState", "NetCDF error during initialization: " +
+                                      std::string(e.what()));
+    return false;
+  } catch (const std::exception& e) {
+    MACOM_LOG_ERROR("MACOMState",
+                    "Error during initialization: " + std::string(e.what()));
+    return false;
+  }
 }
 
 }  // namespace metada::backends::macom

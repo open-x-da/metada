@@ -13,7 +13,7 @@ MODULE mod_mpi_interfaces
    IMPLICIT NONE
 
    ! exchanging variables in computing processes in blocking communication or non - blocking communication
-   INTERFACE mpi_data_exchange
+   INTERFACE mpi_data_exchange !数据交换！！！！！！！！！！！！！！！！！！！
 !      MODULE PROCEDURE mpi_i2_1d_block_exchange
       MODULE PROCEDURE mpi_i2_2d_block_exchange
       MODULE PROCEDURE mpi_wp_1d_block_exchange
@@ -475,8 +475,8 @@ CONTAINS
                                                         mpi_nlpb_shadow_nlpbz_counts_all)
         CALL MPI_SCATTERV(mpi_zone_index_all_sendbuf, mpi_nlpb_shadow_nlpbz_counts_all, &
                           mpi_nlpb_shadow_nlpbz_displs_all, MPI_INTEGER, &
-                          mpi_zone_index, mpi_nlpb_shadow_nlpbz(3), MPI_INTEGER, &
-                          0, mpi_comp_comm, mpi_err)
+                          mpi_zone_index, mpi_nlpb_shadow_nlpbz(3), &
+                          MPI_INTEGER, 0, mpi_comp_comm,mpi_err)
 
       ELSE
         ! receive size of nlpb, nlpb + shadow, nlpb + shadow + z grids
@@ -1769,11 +1769,11 @@ CONTAINS
       INTEGER(i2), DIMENSION(:), INTENT(INOUT) :: mpi_recv_data
       CALL mpi_i2_1d_prepare_sendbuf(mpi_recv_data, mpi_send_data)
       !$acc host_data use_device(mpi_send_data,mpi_recv_data)
-      CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts, &
-         mpi_send_indexes_1d_displs, MPI_I2, mpi_recv_data(loc_nlpb + 1), &
-         mpi_recv_indexes_1d_counts, mpi_recv_indexes_1d_displs, MPI_I2, &
-         mpi_graph_comm, mpi_err)
-      !$acc end host_data
+      ! CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts, &
+      !    mpi_send_indexes_1d_displs, MPI_I2, mpi_recv_data(loc_nlpb + 1), &
+      !    mpi_recv_indexes_1d_counts, mpi_recv_indexes_1d_displs, MPI_I2, &
+      !    mpi_graph_comm, mpi_err)
+      ! !$acc end host_data
 
    END SUBROUTINE mpi_i2_1d_block_exchange
 
@@ -1800,10 +1800,10 @@ CONTAINS
       !$acc data create(mpi_recv_buf_tmp),  &
       !$acc      present(mpi_send_data,mpi_recv_data)
       !$acc host_data use_device(mpi_send_data,mpi_recv_buf_tmp)
-      CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
-         mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf_tmp, &
-         mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
-         mpi_graph_comm, mpi_err)
+      ! CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
+      !    mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf_tmp, &
+      !    mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
+      !    mpi_graph_comm, mpi_err)
       !$acc end host_data
       CALL mpi_wp_3d_prepare_recvbuf(mpi_recv_buf_tmp, mpi_recv_data, dimen1, dimen2)
       !$acc end data
@@ -1886,10 +1886,10 @@ CONTAINS
       !$acc data create(mpi_recv_buf_tmp),  &
       !$acc      present(mpi_send_data,mpi_recv_data)
       !$acc host_data use_device(mpi_send_data,mpi_recv_buf_tmp)
-      CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
-         mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf_tmp, &
-         mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
-         mpi_graph_comm, mpi_err)
+      ! CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
+      !    mpi_send_indexes_1d_displs_tmp, mpi_real_wp, mpi_recv_buf_tmp, &
+      !    mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, mpi_real_wp, &
+      !    mpi_graph_comm, mpi_err)
       !$acc end host_data
       CALL mpi_wp_2d_prepare_recvbuf(mpi_recv_buf_tmp, mpi_recv_data, dimen1)
       !$acc end data
@@ -1971,9 +1971,9 @@ CONTAINS
       !$acc data create(mpi_recv_buf_tmp),  &
       !$acc      present(mpi_send_data,mpi_recv_data)
       !$acc host_data use_device(mpi_send_data,mpi_recv_buf_tmp)
-      CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
-         mpi_send_indexes_1d_displs_tmp, MPI_I2, mpi_recv_buf_tmp, &
-         mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, MPI_I2, mpi_graph_comm, mpi_err)
+      ! CALL MPI_NEIGHBOR_ALLTOALLV(mpi_send_data, mpi_send_indexes_1d_counts_tmp, &
+      !    mpi_send_indexes_1d_displs_tmp, MPI_I2, mpi_recv_buf_tmp, &
+      !    mpi_recv_indexes_counts_tmp, mpi_recv_indexes_displs_tmp, MPI_I2, mpi_graph_comm, mpi_err)
       !$acc end host_data
       CALL mpi_i2_2d_prepare_recvbuf(mpi_recv_buf_tmp, mpi_recv_data, dimen1)
       !$acc end data
@@ -3465,8 +3465,11 @@ END SUBROUTINE mpi_adjust_sub_indexes_ori
       INTEGER, ALLOCATABLE, DIMENSION(:) :: mpi_send_indexes_block_1d_counts_tmp
       INTEGER, ALLOCATABLE, DIMENSION(:) :: mpi_send_indexes_block_1d_starts_tmp
       ! create graph topology
-      CALL MPI_DIST_GRAPH_CREATE_ADJACENT(mpi_comp_comm, mpi_graph_indegree, mpi_graph_sources, MPI_UNWEIGHTED, &
-                                          mpi_graph_outdegree, mpi_graph_dests, MPI_UNWEIGHTED, &
+      INTEGER, ALLOCATABLE :: weights(:)
+      ALLOCATE(weights(mpi_graph_indegree))
+      weights = 0
+      CALL MPI_DIST_GRAPH_CREATE_ADJACENT(mpi_comp_comm, mpi_graph_indegree, mpi_graph_sources, weights, &
+                                          mpi_graph_outdegree, mpi_graph_dests, weights, &
                                           MPI_INFO_NULL, .false., mpi_graph_comm, mpi_err)
 
       ! preparing data counts and displs for sending index that will be used in data exchange

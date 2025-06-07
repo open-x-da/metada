@@ -24,6 +24,10 @@
 #include "../backends/macom/MACOMState.hpp"
 #include "../backends/macom/MACOMModel.hpp"
 
+#ifdef USE_MPI
+#include "../backends/macom/MACOMParallel.hpp"
+#endif
+
 namespace metada::traits {
 
 struct MACOMBackendTag {};
@@ -53,6 +57,9 @@ struct BackendTraits<MACOMBackendTag> {
     using GeometryIteratorBackend = backends::macom::MACOMGeometryIterator<ConfigBackend>;
     using StateBackend = backends::macom::MACOMState<ConfigBackend, GeometryBackend>;
     using ModelBackend = backends::macom::MACOMModel<ConfigBackend, StateBackend>;
+#ifdef USE_MPI
+    using ParallelBackend = backends::macom::MACOMParallel;
+#endif
 };
 
 }     // namespace metada::traits

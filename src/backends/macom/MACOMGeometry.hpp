@@ -248,6 +248,18 @@ class MACOMGeometry {
    */
   std::size_t getNi() const { return ni_; }
 
+  // Add new accessor methods for grid coordinates
+  const std::vector<double>& getLatC() const { return latC_; }
+  const std::vector<double>& getLonC() const { return lonC_; }
+  const std::vector<double>& getLatW() const { return latW_; }
+  const std::vector<double>& getLonW() const { return lonW_; }
+  const std::vector<double>& getLatS() const { return latS_; }
+  const std::vector<double>& getLonS() const { return lonS_; }
+  const std::vector<double>& getTw() const { return tw_; }
+  const std::vector<double>& getTe() const { return te_; }
+  const std::vector<double>& getTn() const { return tn_; }
+  const std::vector<double>& getTs() const { return ts_; }
+
   template <typename StateBackend>
   void haloExchange([[maybe_unused]] StateBackend& state) {}
 

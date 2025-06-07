@@ -6,6 +6,7 @@ metada_find_package(CURL REQUIRED)
 
 metada_find_package(xtensor CONFIG)
 metada_find_package(netcdf-cxx4)
+metada_find_package(netCDF CONFIG)
 metada_find_package(xtl CONFIG)
 metada_find_package(nanoflann CONFIG)
 
@@ -34,6 +35,7 @@ target_link_libraries(macom_backends
     INTERFACE
         NetCDF::CXX4
         xtensor
+        nanoflann::nanoflann
 )
 
 # Fortran compilation flags and macros
@@ -87,12 +89,13 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 # 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
 add_library(macom_fortran STATIC
-    fortran/macom_logger.f90           # 确保这是第一个
+    fortran/macom_logger.f90           
     fortran/macom_fortran_wrapper.f90
-    # fortran/macom_logger.f90
-    # fortran/src/mod_mpi_variables.f90
+    fortran/test.f90
+    fortran/src/mod_mpi_variables.f90
     # fortran/src/mod_mpi_test_variables.f90
     # fortran/src/mod_mpi_test.f90
+    # fortran/src/mod_io_netcdf.f90
     # fortran/src/mod_mpi_reallocate.f90
     # fortran/src/mod_mpi_interfaces.f90
     # fortran/src/mod_mpi_csp_io_sbc.f90
@@ -101,9 +104,8 @@ add_library(macom_fortran STATIC
     # fortran/src/mod_mpi_csp_io_misc.f90
     # fortran/src/mod_mpi_csp_io_bdy.f90
     # fortran/src/mod_mpi_csp_io.f90
-    # fortran/src/mod_misc_basic.f90
+    fortran/src/mod_misc_basic.f90
     # fortran/src/mod_misc.f90
-    # fortran/src/mod_io_netcdf.f90
     # fortran/src/mod_csp_vdiff_coef_gls.f90
     # fortran/src/mod_csp_vdiff.f90
     # fortran/src/mod_csp_tide.f90

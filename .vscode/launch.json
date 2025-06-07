@@ -85,15 +85,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/forecast",
             "args": ["${workspaceFolder}/applications/forecast/macom_config.yaml"],
-            // "program": "C:/Program Files/Microsoft MPI/Bin/mpiexec.exe",
-            // "args": [
-            //     "-n", "1",
-            //     "${workspaceFolder}/build/bin/forecast",
-            //     "1"
-            //   ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
+            // "console": "integratedTerminal",
             "externalConsole": false,
             "environment": [
                 {
@@ -127,6 +121,35 @@
                     "ignoreFailures": true
                 }
             ]
-        }
+        },
+        {
+            "name": "Debug forecast MPI 4 cores",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "C:/Program Files/Microsoft MPI/Bin/mpiexec.exe",
+            "args": [
+              "-n", "4",
+              "${workspaceFolder}/build/bin/forecast",
+              "${workspaceFolder}/applications/forecast/macom_config.yaml"
+            ],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            // "console": "integratedTerminal",
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "environment": [
+              { "name": "GLOG_logtostderr", "value": "1" },
+              { "name": "GLOG_v", "value": "2" },
+              { "name": "GLOG_colorlogtostderr", "value": "1" },
+              { "name": "GLOG_minloglevel", "value": "0" }
+            ],
+            "setupCommands": [
+              {
+                "description": "Enable pretty-printing",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+              }
+            ]
+        }        
     ]
 }

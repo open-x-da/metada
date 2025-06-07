@@ -7,6 +7,8 @@
 
 #include "../include/MACOMFortranInterface.hpp"
 
+#include <mpi.h>
+
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -64,9 +66,11 @@ void logError(const std::string& component, const std::string& message) {
 
 MACOMFortranInterface::MACOMFortranInterface()
     : rank_(0),
+      io_procs_(0),
       mpi_initialized_by_this_instance_(false),
       model_components_initialized_(false) {
-  logInfo("MACOMFortranInterface", "Constructor called");
+  mpi_comm_ = MPI_COMM_NULL;
+  f_comm_ = 0;
 }
 
 MACOMFortranInterface::~MACOMFortranInterface() {
@@ -97,16 +101,42 @@ void MACOMFortranInterface::initializeMPI() {
             "MPI already initialized by this instance");
     return;
   }
+
+  // Get the C++ MPI communicator
+  mpi_comm_ = MPI_COMM_WORLD;
+
+  // Convert to C integer for Fortran
+  f_comm_ = MPI_Comm_c2f(mpi_comm_);
+
   logInfo("MACOMFortranInterface", "Initializing MPI via Fortran...");
-  c_macom_initialize_mpi(0);  // Pass 0 as dummy communicator
+  // Call Fortran MPI initialization with the converted communicator
+  c_macom_initialize_mpi(f_comm_);
+
+  // Get rank from Fortran
   c_macom_get_mpi_rank(&rank_);
+
+  // Get total number of processes
+  int total_procs;
+  MPI_Comm_size(mpi_comm_, &total_procs);
+  // Assuming I/O processes are the last quarter of total processes
+  io_procs_ = total_procs / 4;
+
   mpi_initialized_by_this_instance_ = true;
   logInfo("MACOMFortranInterface",
-          "MPI initialized by Fortran. Rank: " + std::to_string(rank_));
+          "MPI initialized by Fortran. Rank: " + std::to_string(rank_) +
+              ", I/O Procs: " + std::to_string(io_procs_));
 }
 
 int MACOMFortranInterface::getRank() const {
   return rank_;
+}
+
+int MACOMFortranInterface::getIOProcs() const {
+  return io_procs_;
+}
+
+int MACOMFortranInterface::getFortranComm() const {
+  return f_comm_;
 }
 
 void MACOMFortranInterface::readNamelist() {
@@ -166,10 +196,16 @@ void MACOMFortranInterface::finalizeMPI() {
   if (!mpi_initialized_by_this_instance_) {
     return;
   }
+
   logInfo("MACOMFortranInterface", "Calling Fortran to finalize MPI...");
   c_macom_finalize_mpi();
+
+  mpi_comm_ = MPI_COMM_NULL;
+  f_comm_ = 0;
+
   mpi_initialized_by_this_instance_ = false;
   rank_ = 0;
+  io_procs_ = 0;
   logInfo("MACOMFortranInterface", "Fortran MPI finalize finished");
 }
 

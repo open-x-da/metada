@@ -229,12 +229,6 @@ void MACOMModel<ConfigBackend, StateBackend>::initialize(
 
     MACOM_LOG_INFO("MACOMModel", "Initializing...");
 
-    // Initialize MPI through Fortran interface
-    fortranInterface_->initializeMPI();
-    mpi_rank_ = fortranInterface_->getRank();
-    MACOM_LOG_INFO("MACOMModel", "MPI Initialized via Fortran. Model Rank: " +
-                                     std::to_string(mpi_rank_));
-
     // Read namelist
     fortranInterface_->readNamelist();
     MACOM_LOG_INFO("MACOMModel", "Fortran Namelist Read.");
@@ -265,9 +259,6 @@ void MACOMModel<ConfigBackend, StateBackend>::finalize() {
   try {
     fortranInterface_->finalizeModelComponents();
     MACOM_LOG_INFO("MACOMModel", "Fortran model components finalized.");
-
-    fortranInterface_->finalizeMPI();
-    MACOM_LOG_INFO("MACOMModel", "Fortran MPI finalized.");
 
   } catch (const std::exception& e) {
     MACOM_LOG_ERROR("MACOMModel",
@@ -300,7 +291,7 @@ void MACOMModel<ConfigBackend, StateBackend>::run(
     // Calculate the total simulation time
     Duration totalSimTime = endTime_ - startTime_;
 
-    // // Use a temporary state for the time stepping process
+    // // Use a temporary state for the time step ping process
     // auto tempState = initialState.clone();
 
     // Main time stepping loop
