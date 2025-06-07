@@ -59,29 +59,29 @@ int main(int argc, char** argv) {
     }
 #endif
 
-    // // Initialize geometry
-    // logger.Info() << "Initializing geometry";
-    // Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
+    // Initialize geometry
+    logger.Info() << "Initializing geometry";
+    Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
-    // // Initialize initial state
-    // logger.Info() << "Initializing model state";
-    // State<BackendTag> initialState(config.GetSubsection("state"), geometry);
-    // auto currentState = initialState.clone();
+    // Initialize initial state
+    logger.Info() << "Initializing model state";
+    State<BackendTag> initialState(config.GetSubsection("state"), geometry);
+    auto currentState = initialState.clone();
 
-    // // Initialize model
-    // logger.Info() << "Initializing forecast model";
-    // Model<BackendTag> model(config.GetSubsection("model"));
+    // Initialize model
+    logger.Info() << "Initializing forecast model";
+    Model<BackendTag> model(config.GetSubsection("model"));
 
-    // // Create final state
-    // auto finalState = initialState.clone();
-    // // State<BackendTag> finalState(config.GetSubsection("state"), geometry);
+    // Create final state
+    auto finalState = initialState.clone();
+    // State<BackendTag> finalState(config.GetSubsection("state"), geometry);
 
-    // // Run the model
-    // logger.Info() << "Running forecast model...";
-    // model.run(currentState, finalState);
+    // Run the model
+    logger.Info() << "Running forecast model...";
+    model.run(currentState, finalState);
 
-    // // Update current state
-    // currentState = std::move(finalState);
+    // Update current state
+    currentState = std::move(finalState);
 
     logger.Info() << "Forecast application completed";
 

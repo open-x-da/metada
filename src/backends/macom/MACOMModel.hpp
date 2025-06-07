@@ -229,13 +229,13 @@ void MACOMModel<ConfigBackend, StateBackend>::initialize(
 
     MACOM_LOG_INFO("MACOMModel", "Initializing...");
 
-    // Read namelist
-    fortranInterface_->readNamelist();
-    MACOM_LOG_INFO("MACOMModel", "Fortran Namelist Read.");
+    // // Read namelist
+    // fortranInterface_->readNamelist();
+    // MACOM_LOG_INFO("MACOMModel", "Fortran Namelist Read.");
 
-    // Initialize model components
-    fortranInterface_->initializeModelComponents();
-    MACOM_LOG_INFO("MACOMModel", "Fortran model components initialized.");
+    // // Initialize model components
+    // fortranInterface_->initializeModelComponents();
+    // MACOM_LOG_INFO("MACOMModel", "Fortran model components initialized.");
 
     initialized_ = true;
     MACOM_LOG_INFO("MACOMModel", "Initialization complete.");
