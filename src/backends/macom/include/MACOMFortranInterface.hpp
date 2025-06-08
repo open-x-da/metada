@@ -13,6 +13,7 @@
 extern "C" {
 void c_macom_initialize_mpi(int comm_c);
 void c_macom_get_mpi_rank(int* rank);
+void c_macom_get_mpi_size(int* size);
 void c_macom_read_namelist();
 void c_macom_initialize_model_components();
 void c_macom_run_model_step(int current_iter_c, int* model_status_c);
@@ -51,6 +52,12 @@ class MACOMFortranInterface {
    * @return The rank.
    */
   int getRank() const;
+
+  /**
+   * @brief Gets the size of the current process from Fortran.
+   * @return The size.
+   */
+  int getSize() const;
 
   /**
    * @brief Gets the Fortran communicator.
@@ -99,6 +106,7 @@ class MACOMFortranInterface {
   MPI_Comm mpi_comm_;  // C++ MPI communicator
   int f_comm_;         // Fortran format communicator
   int rank_;           // Current process rank
+  int size_;           // Current process rank
   bool mpi_initialized_by_this_instance_;
   bool model_components_initialized_;
 };  // class MACOMFortranInterface

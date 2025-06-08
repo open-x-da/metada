@@ -4,11 +4,26 @@ metada_find_package(MPI REQUIRED)
 metada_find_package(HDF5 REQUIRED)
 metada_find_package(CURL REQUIRED)
 
-# Find NetCDF Fortran for MSYS2/MINGW64
-set(NetCDF_Fortran_ROOT "C:/msys64/mingw64")
-set(NetCDF_Fortran_INCLUDE_DIRS "${NetCDF_Fortran_ROOT}/include")
-set(NetCDF_Fortran_LIBRARIES "${NetCDF_Fortran_ROOT}/lib/libnetcdff.dll.a")
+if(WIN32)
+    # Find NetCDF Fortran for MSYS2/MINGW64
+    set(NetCDF_Fortran_ROOT "C:/msys64/mingw64")
+    set(NetCDF_Fortran_INCLUDE_DIRS "${NetCDF_Fortran_ROOT}/include")
+    set(NetCDF_Fortran_LIBRARIES "${NetCDF_Fortran_ROOT}/lib/libnetcdff.dll.a")
+else()
+    # Linux/Unix 平台
+    set(NetCDF_Fortran_INCLUDE_DIRS "/usr/include")
+    set(NetCDF_Fortran_LIBRARIES "/usr/lib/x86_64-linux-gnu/libnetcdff.so")
+    # 确保变量被正确设置
+    if(NOT HDF5_LIBRARIES)
+        set(HDF5_INCLUDE_DIRS /usr/include)
+        set(HDF5_LIBRARIES /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.so)
+    endif()
 
+    if(NOT CURL_LIBRARIES)
+        set(CURL_INCLUDE_DIRS /usr/include)
+        set(CURL_LIBRARIES /usr/lib/x86_64-linux-gnu/libcurl.so)
+    endif()
+endif()
 metada_find_package(xtensor CONFIG)
 metada_find_package(netcdf-cxx4)
 metada_find_package(netCDF CONFIG)
@@ -159,18 +174,25 @@ set_property(TARGET macom_fortran PROPERTY Fortran_MODULE_DIRECTORY ${CMAKE_Fort
 # 添加模块目录到包含路径
 target_include_directories(macom_fortran PUBLIC
     ${CMAKE_Fortran_MODULE_DIRECTORY}
+    ${NetCDF_Fortran_INCLUDE_DIRS}
+    $<IF:$<NOT:$<BOOL:${WIN32}>>,${HDF5_INCLUDE_DIRS};${CURL_INCLUDE_DIRS},>
 )
+
 
 # Set Fortran compiler flags and macros
 target_compile_options(macom_fortran PRIVATE
     $<$<COMPILE_LANGUAGE:Fortran>:${DEF_FLAGS_STR}>
 )
 
+if(WIN32)
+    target_link_libraries(macom_fortran PUBLIC HDF5 CURL)
+else()
+    target_link_libraries(macom_fortran PUBLIC ${HDF5_LIBRARIES} ${CURL_LIBRARIES})
+endif()
+
 # Link Fortran dependencies
 target_link_libraries(macom_fortran PUBLIC
-    HDF5
     ${NetCDF_Fortran_LIBRARIES}
-    CURL
     MPI::MPI_C
     MPI::MPI_Fortran
 )

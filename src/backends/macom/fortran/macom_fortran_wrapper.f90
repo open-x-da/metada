@@ -25,6 +25,7 @@ module macom_fortran_wrapper
   ! Publicly expose only the C-bindable procedures
   public :: c_macom_initialize_mpi
   public :: c_macom_get_mpi_rank
+  public :: c_macom_get_mpi_size
   public :: c_macom_read_namelist
   public :: c_macom_initialize_model_components
   public :: c_macom_run_model_step ! Or a full run loop if that's simpler first
@@ -68,6 +69,13 @@ contains
     rank = mpi_rank
     ! rank = wrapper_mpi_rank
   end subroutine c_macom_get_mpi_rank
+
+  subroutine c_macom_get_mpi_size(size) bind(C, name="c_macom_get_mpi_size")
+    integer(C_INT), intent(out) :: size
+    ! Return current process size
+    size = mpi_procs
+    ! size = wrapper_mpi_size
+  end subroutine c_macom_get_mpi_size
 
   subroutine c_macom_finalize_mpi() bind(C, name="c_macom_finalize_mpi")
     

@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "MACOMParallel.hpp"
 #include "include/MACOMlogging.hpp"
 // #include "MACOMGeometry.hpp"
 
@@ -221,6 +222,10 @@ class MACOMState {
       const std::vector<double>& query_depths, const std::string& var_name,
       bool use_horizontal_interp = false) const;
 
+  bool isFortranMode() const {
+    return backends::macom::MACOMParallel::getInstance().isFortranMode();
+  }
+
   /**
    * @brief Initialize the state with configuration and geometry
    *
@@ -295,8 +300,14 @@ template <typename ConfigBackend, typename GeometryBackend>
 MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
     const ConfigBackend& config, const GeometryBackend& geometry)
     : config_(config), geometry_(geometry) {
-  if (!CPPInitialization(config, geometry)) {
-    throw std::runtime_error("Failed to initialize MACOM state");
+  if (isFortranMode()) {
+    MACOM_LOG_INFO("MACOMState", "Running in Fortran mode");
+    initialized_ = true;
+  } else {
+    MACOM_LOG_INFO("MACOMState", "Running in C++ mode");
+    if (!CPPInitialization(config, geometry)) {
+      throw std::runtime_error("Failed to initialize MACOM state");
+    }
   }
 }
 

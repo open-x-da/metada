@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "MACOMParallel.hpp"
 #include "include/MACOMlogging.hpp"
 
 // Include MACOM specific interfaces
@@ -116,6 +117,10 @@ class MACOMModel {
    * @return True if initialized, false otherwise.
    */
   bool isInitialized() const { return initialized_; }
+
+  bool isFortranMode() const {
+    return backends::macom::MACOMParallel::getInstance().isFortranMode();
+  }
 
  private:
   /**

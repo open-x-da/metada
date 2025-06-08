@@ -47,9 +47,9 @@ class MACOMParallel {
    */
   void setFortranMode(bool use_fortran) {
     use_fortran_mpi_ = use_fortran;
-    MACOM_LOG_INFO("MACOMParallel",
-                   "MPI initialization mode set to: " +
-                       std::string(use_fortran ? "Fortran" : "C++"));
+    // MACOM_LOG_INFO("MACOMParallel",
+    //                "MPI initialization mode set to: " +
+    //                    std::string(use_fortran ? "Fortran" : "C++"));
   }
 
   /**
@@ -161,6 +161,7 @@ class MACOMParallel {
   // Fortran interface
   std::unique_ptr<MACOMFortranInterface> fortranInterface_;
   int mpi_rank_;
+  int mpi_size_;
 
   // Private constructor for singleton
   MACOMParallel()
@@ -231,16 +232,24 @@ class MACOMParallel {
     MACOM_LOG_INFO("MACOMModel", "MPI Initialized via Fortran. Model Rank: " +
                                      std::to_string(mpi_rank_));
 
-    // Get process info
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
-    MPI_Comm_size(MPI_COMM_WORLD, &size_);
+    rank_ = mpi_rank_;
+    // std::cout << "Fortran C++ rank: " << rank_ << std::endl;
 
-    if (rank_ == 0) {
-      MACOM_LOG_INFO("MACOMParallel", "Running with " + std::to_string(size_) +
-                                          " MPI processes (Fortran mode), " +
-                                          std::to_string(io_procs_) +
-                                          " I/O processes");
-    }
+    mpi_size_ = fortranInterface_->getSize();
+    size_ = mpi_size_;
+
+    // // Get process info
+    // MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+    // MPI_Comm_size(MPI_COMM_WORLD, &size_);
+    // std::cout << "C++ rank: " << rank_ << std::endl;
+
+    // if (rank_ == 0) {
+    //   MACOM_LOG_INFO("MACOMParallel", "Running with " + std::to_string(size_)
+    //   +
+    //                                       " MPI processes (Fortran mode), " +
+    //                                       std::to_string(io_procs_) +
+    //                                       " I/O processes");
+    // }
     initialized_ = true;
     return true;
 #else
@@ -271,7 +280,11 @@ class MACOMParallel {
   void finalizeFortranMPI() {
 #ifdef USE_MPI
     if (fortranInterface_) {
-      MACOM_LOG_INFO("MACOMParallel", "Finalizing MPI in Fortran mode...");
+      mpi_rank_ = fortranInterface_->getRank();
+
+      if (mpi_rank_ == 0) {
+        MACOM_LOG_INFO("MACOMParallel", "Finalizing MPI in Fortran mode...");
+      }
       fortranInterface_->finalizeMPI();
 
       // int finalized;

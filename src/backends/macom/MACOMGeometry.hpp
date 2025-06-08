@@ -21,6 +21,7 @@
 #include <vector>
 
 // Include nanoflann library (add to project dependencies)
+#include "MACOMParallel.hpp"
 #include "include/MACOMlogging.hpp"
 #include "nanoflann.hpp"
 
@@ -368,6 +369,12 @@ class MACOMGeometry {
       const std::vector<double>& query_lons,
       const std::vector<double>& query_lats) const;
 
+  bool isFortranMode() const {
+    return backends::macom::MACOMParallel::getInstance().isFortranMode();
+  }
+
+  bool CPPInitialization(const ConfigBackend& config);
+
  private:
   /**
    * @brief Load grid dimensions from NetCDF file
@@ -472,60 +479,96 @@ namespace metada::backends::macom {
 // ConfigBackend constructor implementation
 template <typename ConfigBackend>
 MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
-    : initialized_(false), config_ptr_(&config) {
-  std::string input_filename = config.Get("input_file").asString();
-  if (input_filename.empty()) {
-    throw std::runtime_error(
-        "MACOM input grid file path not specified in configuration");
+    : config_ptr_(&config) {
+  if (isFortranMode()) {
+    MACOM_LOG_INFO("MACOMGeometry", "Running in Fortran mode");
+    initialized_ = true;
+  } else {
+    MACOM_LOG_INFO("MACOMGeometry", "Running in C++ mode");
+    if (!CPPInitialization(config)) {
+      throw std::runtime_error("Failed to initialize MACOM geometry");
+    }
   }
+}
 
-  // Load geometry data from MACOM NetCDF file
-  loadGeometryData(input_filename);
-  initialized_ = true;
+template <typename ConfigBackend>
+bool MACOMGeometry<ConfigBackend>::CPPInitialization(
+    const ConfigBackend& config) {
+  try {
+    MACOM_LOG_INFO("MACOMGeometry",
+                   "Initializing geometry with CPPInitialization...");
 
-  // // Add debug output
-  // debugGridDataHorizontal();
-  // debugGridDataVertical();
+    std::string input_filename = config.Get("input_file").asString();
+    if (input_filename.empty()) {
+      throw std::runtime_error(
+          "MACOM input grid file path not specified in configuration");
+    }
 
-  // Initialize the static KD-tree in iterator (only initializes once)
-  iterator::initializeKDTree(lonC_, latC_, nlpb_);
+    // Load geometry data from MACOM NetCDF file
+    loadGeometryData(input_filename);
 
-  // double test_lon = 160.0, test_lat = 36.0;
-  // GeoPoint kd_result = findNearestGridPoint(test_lon, test_lat);
-  // GeoPoint direct_result = findNearestGridPointDirect(test_lon, test_lat);
+    // // Add debug output
+    // debugGridDataHorizontal();
+    // debugGridDataVertical();
 
-  // MACOM_LOG_INFO("MACOMGeometry", "Comparison for point (" +
-  //                                     std::to_string(test_lon) + ", " +
-  //                                     std::to_string(test_lat) + "):");
-  // MACOM_LOG_INFO("MACOMGeometry",
-  //                "  KD-tree result: index=" + std::to_string(kd_result.index)
-  //                +
-  //                    ", distance=" + std::to_string(kd_result.distance) +
-  //                    " km");
-  // MACOM_LOG_INFO(
-  //     "MACOMGeometry",
-  //     "  Direct result: index=" + std::to_string(direct_result.index) +
-  //         ", distance=" + std::to_string(direct_result.distance) + " km");
+    // Initialize the static KD-tree in iterator (only initializes once)
+    iterator::initializeKDTree(lonC_, latC_, nlpb_);
 
-  // double test_depth = 100.0;  // Test at 1000 meters
-  // VerticalPoint v_result = findNearestVerticalPoints(test_depth);
+    // double test_lon = 160.0, test_lat = 36.0;
+    // GeoPoint kd_result = findNearestGridPoint(test_lon, test_lat);
+    // GeoPoint direct_result = findNearestGridPointDirect(test_lon, test_lat);
+    MACOM_LOG_INFO("MACOMGeometry",
+                   "Geometry initialization completed successfully");
 
-  // MACOM_LOG_INFO("MACOMGeometry", "Vertical interpolation test for depth " +
-  //                                     std::to_string(test_depth) + "
-  //                                     meters:");
-  // MACOM_LOG_INFO("MACOMGeometry",
-  //                "  Lower level: " + std::to_string(v_result.lower_index) +
-  //                    " at " + std::to_string(v_result.lower_depth) + "
-  //                    meters");
-  // MACOM_LOG_INFO("MACOMGeometry",
-  //                "  Upper level: " + std::to_string(v_result.upper_index) +
-  //                    " at " + std::to_string(v_result.upper_depth) + "
-  //                    meters");
-  // MACOM_LOG_INFO("MACOMGeometry", "  Interpolation coefficient: " +
-  //                                     std::to_string(v_result.interp_coef));
-  // MACOM_LOG_INFO("MACOMGeometry",
-  //                "  Is outside range: " +
-  //                    std::string(v_result.is_outside ? "true" : "false"));
+    // MACOM_LOG_INFO("MACOMGeometry", "Comparison for point (" +
+    //                                     std::to_string(test_lon) + ", " +
+    //                                     std::to_string(test_lat) + "):");
+    // MACOM_LOG_INFO("MACOMGeometry",
+    //                "  KD-tree result: index=" +
+    //                std::to_string(kd_result.index)
+    //                +
+    //                    ", distance=" + std::to_string(kd_result.distance) +
+    //                    " km");
+    // MACOM_LOG_INFO(
+    //     "MACOMGeometry",
+    //     "  Direct result: index=" + std::to_string(direct_result.index) +
+    //         ", distance=" + std::to_string(direct_result.distance) + " km");
+
+    // double test_depth = 100.0;  // Test at 1000 meters
+    // VerticalPoint v_result = findNearestVerticalPoints(test_depth);
+
+    // MACOM_LOG_INFO("MACOMGeometry", "Vertical interpolation test for depth "
+    // +
+    //                                     std::to_string(test_depth) + "
+    //                                     meters:");
+    // MACOM_LOG_INFO("MACOMGeometry",
+    //                "  Lower level: " + std::to_string(v_result.lower_index) +
+    //                    " at " + std::to_string(v_result.lower_depth) + "
+    //                    meters");
+    // MACOM_LOG_INFO("MACOMGeometry",
+    //                "  Upper level: " + std::to_string(v_result.upper_index) +
+    //                    " at " + std::to_string(v_result.upper_depth) + "
+    //                    meters");
+    // MACOM_LOG_INFO("MACOMGeometry", "  Interpolation coefficient: " +
+    //                                     std::to_string(v_result.interp_coef));
+    // MACOM_LOG_INFO("MACOMGeometry",
+    //                "  Is outside range: " +
+    //                    std::string(v_result.is_outside ? "true" : "false"));
+
+    initialized_ = true;
+    MACOM_LOG_INFO("MACOMGeometry",
+                   "Geometry initialization completed successfully");
+    return true;
+
+  } catch (const netCDF::exceptions::NcException& e) {
+    MACOM_LOG_ERROR("MACOMGeometry", "NetCDF error during initialization: " +
+                                         std::string(e.what()));
+    return false;
+  } catch (const std::exception& e) {
+    MACOM_LOG_ERROR("MACOMGeometry",
+                    "Error during initialization: " + std::string(e.what()));
+    return false;
+  }
 }
 
 // Implementation of loadGridDimensions

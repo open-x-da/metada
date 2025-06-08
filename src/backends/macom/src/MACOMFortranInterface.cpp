@@ -115,8 +115,8 @@ void MACOMFortranInterface::initializeMPI(int io_procs) {
   // Get the C++ MPI communicator
   mpi_comm_ = MPI_COMM_WORLD;
 
-  // Convert to C integer for Fortran
-  f_comm_ = MPI_Comm_c2f(mpi_comm_);
+  // // Convert to C integer for Fortran
+  // f_comm_ = MPI_Comm_c2f(mpi_comm_);
 
   logInfo("MACOMFortranInterface", "Initializing MPI via Fortran...");
   // Call Fortran MPI initialization with the converted communicator
