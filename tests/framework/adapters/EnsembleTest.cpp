@@ -1,5 +1,8 @@
 #include <gmock/gmock.h>
 
+#include <filesystem>
+#include <fstream>
+
 #include "Config.hpp"
 #include "Ensemble.hpp"
 #include "MockBackendTraits.hpp"
@@ -25,65 +28,62 @@ using ::testing::ReturnRef;
 class EnsembleTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    size_ = 3;
-    dimensions_ = {10, 20};
-    test_data_ = std::vector<double>(dimensions_[0] * dimensions_[1]);
-    for (size_t i = 0; i < dimensions_[0] * dimensions_[1]; i++)
-      test_data_[i] = i;
+    // Create a temporary config file
+    temp_config_path_ =
+        std::filesystem::temp_directory_path() / "test_config.json";
+    std::ofstream config_file(temp_config_path_);
+    config_file << R"({"ensemble_size": 64})";
+    config_file.close();
+
+    // Initialize config with the temporary file
+    config_ = std::make_unique<ConfigType>(temp_config_path_.string());
+
+    // Set up default mock behavior
+    ON_CALL(config_->backend(), Get("ensemble_size"))
+        .WillByDefault(Return(fwk::ConfigValue(64)));
   }
 
-  /**
-   * @brief Clean up test data after each test
-   *
-   * Frees allocated test data array
-   */
-  void TearDown() override { test_data_.clear(); }
+  void TearDown() override {
+    // Clean up the temporary config file
+    std::filesystem::remove(temp_config_path_);
+    config_.reset();
+  }
 
-  ConfigType config_;
-  std::vector<size_t> dimensions_;
-  std::vector<double> test_data_;
-  size_t size_;
+  std::filesystem::path temp_config_path_;
+  std::unique_ptr<ConfigType> config_;
 };
 
-// Test ensemble initialization
 TEST_F(EnsembleTest, InitializationCreatesCorrectNumberOfMembers) {
-  Ensemble ensemble(config_, size_);
-  EXPECT_EQ(ensemble.Size(), size_);
+  Ensemble ensemble(*config_);
+  EXPECT_EQ(ensemble.Size(), 64);
 }
 
-// Test member access
 TEST_F(EnsembleTest, MemberAccessIsValid) {
-  Ensemble ensemble(config_, size_);
-
-  // Test access to all members
-  for (size_t i = 0; i < size_; ++i) {
-    // Here you would mock or check member access as needed
-    EXPECT_NO_THROW(ensemble.GetMember(i));
-  }
-
-  // Test const access
-  const auto& const_ensemble = ensemble;
-  EXPECT_NO_THROW(const_ensemble.GetMember(0));
+  Ensemble ensemble(*config_);
+  EXPECT_NO_THROW(ensemble.GetMember(0));
+  EXPECT_NO_THROW(ensemble.GetMember(63));
 }
 
-// Test mean computation
 TEST_F(EnsembleTest, ComputeMean) {
-  Ensemble ensemble(config_, size_);
-  EXPECT_NO_THROW(ensemble.ComputeMean(config_));
+  Ensemble ensemble(*config_);
+  ensemble.ComputeMean();
+  StateType& mean = ensemble.Mean();
+  EXPECT_TRUE(mean.isInitialized());
 }
 
-// Test out of bounds access
 TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
-  Ensemble ensemble(config_, size_);
-  EXPECT_THROW(ensemble.GetMember(size_), std::out_of_range);
-  EXPECT_THROW(ensemble.GetPerturbation(size_), std::out_of_range);
+  Ensemble ensemble(*config_);
+  EXPECT_THROW(ensemble.GetMember(64), std::out_of_range);
+  EXPECT_THROW(ensemble.GetPerturbation(64), std::out_of_range);
 }
 
-// Test perturbation computation
 TEST_F(EnsembleTest, ComputePerturbationsCreatesValidPerturbations) {
-  Ensemble ensemble(config_, size_);
-  EXPECT_NO_THROW(ensemble.ComputePerturbations());
-  EXPECT_NO_THROW(ensemble.GetPerturbation(0));
+  Ensemble ensemble(*config_);
+  ensemble.ComputePerturbations();
+  EXPECT_EQ(ensemble.Size(), 64);
+  for (size_t i = 0; i < ensemble.Size(); ++i) {
+    EXPECT_TRUE(ensemble.GetPerturbation(i).isInitialized());
+  }
 }
 
 }  // namespace metada::tests

@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
     }
 
     // Create Ensemble, Observation, ObsOperator using adapters
-    fwk::Ensemble<BackendTag> ensemble(config, ensemble_size);
+    fwk::Ensemble<BackendTag> ensemble(config);
     fwk::Observation<BackendTag> observation(config);
     fwk::ObsOperator<BackendTag> obs_operator(config);
 

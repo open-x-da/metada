@@ -36,15 +36,17 @@ class Ensemble : public NonCopyable {
   using StateType = State<BackendTag>;
 
   /**
-   * @brief Construct an ensemble of states with the given config and size
+   * @brief Construct an ensemble of states with the given config
    * @param config Configuration object for state initialization
-   * @param size Number of ensemble members
    */
-  explicit Ensemble(const Config<BackendTag>& config, size_t size)
-      : members_(), size_(size), perturbations_() {
+  explicit Ensemble(const Config<BackendTag>& config)
+      : config_(config),
+        members_(),
+        size_(config.Get("ensemble_size").asInt()),
+        perturbations_() {
     members_.reserve(size_);
     for (size_t i = 0; i < size_; ++i) {
-      members_.emplace_back(config /*, geometry if needed */);
+      members_.emplace_back(config_ /*, geometry if needed */);
     }
   }
 
@@ -83,9 +85,8 @@ class Ensemble : public NonCopyable {
   /**
    * @brief Compute the mean of the ensemble
    */
-  void ComputeMean(const Config<BackendTag>&
-                       config /*, const Geometry<BackendTag>& geometry */) {
-    mean_ = std::make_unique<StateType>(config /*, geometry if needed */);
+  void ComputeMean() {
+    mean_ = std::make_unique<StateType>(config_ /*, geometry if needed */);
     mean_->zero();
     for (size_t i = 0; i < size_; ++i) {
       *mean_ += members_[i];
@@ -143,6 +144,7 @@ class Ensemble : public NonCopyable {
   }
 
  private:
+  const Config<BackendTag>& config_;
   std::vector<StateType> members_;
   std::unique_ptr<StateType> mean_;
   size_t size_;
