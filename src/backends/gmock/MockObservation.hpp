@@ -165,6 +165,9 @@ class MockObservation {
     return dimensions_.at(name);
   }
 
+  // Get the covariance matrix
+  const std::vector<double>& getCovariance() const { return covariance_; }
+
   // Test helper methods
   void setVariables(const std::vector<std::string>& variables) {
     variableNames_ = variables;
@@ -176,11 +179,14 @@ class MockObservation {
 
   void setData(const std::vector<double>& data) { data_ = data; }
 
+  void setCovariance(const std::vector<double>& cov) { covariance_ = cov; }
+
  private:
   const ConfigBackend& config_;
   std::vector<std::string> variableNames_;
   std::unordered_map<std::string, std::vector<size_t>> dimensions_;
   std::vector<double> data_;
+  std::vector<double> covariance_;
 };
 
 }  // namespace metada::backends::gmock

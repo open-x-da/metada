@@ -15,6 +15,7 @@
 
 #include "BackendTraits.hpp"
 #include "../backends/gmock/MockConfig.hpp"
+#include "../backends/gmock/MockEnsemble.hpp"
 #include "../backends/gmock/MockLogger.hpp"
 #include "../backends/gmock/MockGeometry.hpp"
 #include "../backends/gmock/MockGeometryIterator.hpp"
@@ -68,6 +69,9 @@ struct BackendTraits<MockBackendTag> {
 
   /** @brief Mock implementation of observation operator backend */
   using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
+
+  /** @brief Mock implementation of ensemble backend */
+  using EnsembleBackend = backends::gmock::MockEnsemble<ConfigBackend, GeometryBackend>;
 };
 
 } // namespace metada::traits

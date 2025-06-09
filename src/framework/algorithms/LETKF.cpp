@@ -5,6 +5,8 @@
 #include <iostream>
 #include <vector>
 
+#include "MockBackendTraits.hpp"
+
 namespace metada::framework {
 
 /*
@@ -68,7 +70,7 @@ namespace metada::framework {
  */
 template <typename BackendTag>
 LETKF<BackendTag>::LETKF(Ensemble<BackendTag>& ensemble,
-                         const Observation<BackendTag>& obs,
+                         Observation<BackendTag>& obs,
                          const ObsOperator<BackendTag>& obs_op,
                          double inflation)
     : ensemble_(ensemble), obs_(obs), obs_op_(obs_op), inflation_(inflation) {}
@@ -81,16 +83,18 @@ void LETKF<BackendTag>::analyse() {
   using Eigen::MatrixXd;
   using Eigen::VectorXd;
 
-  const int ens_size = ensemble_.size();
-  // You may need to add state_size() and size() methods to Ensemble/Observation
-  const int state_dim = ensemble_.member(0).asVector().size();
-  const int obs_dim = obs_.asVector().size();
+  const int ens_size = ensemble_.Size();
+  const int state_dim =
+      ensemble_.GetMember(0).template getData<std::vector<double>>().size();
+  const int obs_dim = obs_.template getData<std::vector<double>>().size();
 
   // 1. Build Xb (state_dim x ens_size)
   MatrixXd Xb(state_dim, ens_size);
-  for (int i = 0; i < ens_size; ++i)
-    Xb.col(i) =
-        ensemble_.member(i).asVector();  // asVector() returns Eigen::VectorXd
+  for (int i = 0; i < ens_size; ++i) {
+    const auto& member_data =
+        ensemble_.GetMember(i).template getData<std::vector<double>>();
+    Xb.col(i) = Eigen::Map<const VectorXd>(member_data.data(), state_dim);
+  }
 
   // 2. Compute mean and anomalies
   VectorXd xb_mean = Xb.rowwise().mean();
@@ -99,36 +103,40 @@ void LETKF<BackendTag>::analyse() {
 
   // 3. Propagate to obs space
   MatrixXd Yb(obs_dim, ens_size);
-  for (int i = 0; i < ens_size; ++i)
-    Yb.col(i) = obs_op_.apply(ensemble_.member(i));  // returns Eigen::VectorXd
+  for (int i = 0; i < ens_size; ++i) {
+    obs_op_.apply(ensemble_.GetMember(i), obs_);
+    const auto& member_data = obs_.template getData<std::vector<double>>();
+    Yb.col(i) = Eigen::Map<const VectorXd>(member_data.data(), obs_dim);
+  }
 
   VectorXd yb_mean = Yb.rowwise().mean();
   MatrixXd Yb_pert = Yb.colwise() - yb_mean;
 
   // 4. Get observation vector and R
-  VectorXd yo = obs_.asVector();   // asVector() returns Eigen::VectorXd
-  MatrixXd R = obs_.covariance();  // returns Eigen::MatrixXd
+  const auto& obs_data = obs_.template getData<std::vector<double>>();
+  VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
+  const auto& R_data = obs_.getCovariance();
+  MatrixXd R = Eigen::Map<const MatrixXd>(R_data.data(), obs_dim, obs_dim);
 
-  // 5. Compute analysis weights in ensemble space
-  MatrixXd Rinv = R.inverse();
-  MatrixXd Pe = ((ens_size - 1) * MatrixXd::Identity(ens_size, ens_size) +
-                 Yb_pert.transpose() * Rinv * Yb_pert)
+  // 5. Compute innovation
+  VectorXd d = yo - yb_mean;
+
+  // 6. Compute analysis weights
+  MatrixXd Pa = (Yb_pert.transpose() * R.inverse() * Yb_pert +
+                 (ens_size - 1) * MatrixXd::Identity(ens_size, ens_size))
                     .inverse();
-  VectorXd wa = Pe * (Yb_pert.transpose() * Rinv * (yo - yb_mean));
-  MatrixXd Wa = Pe.llt().matrixL();  // Lower-triangular Cholesky (sqrt)
+  MatrixXd Wa = Pa * Yb_pert.transpose() * R.inverse() * d;
 
-  // 6. Update ensemble
-  MatrixXd Xa(state_dim, ens_size);
-  for (int i = 0; i < ens_size; ++i)
-    Xa.col(i) = xb_mean + Xb_pert * Wa.col(i) + Xb_pert * wa;
-
-  // 7. Write back to ensemble
-  for (int i = 0; i < ens_size; ++i)
-    ensemble_.member(i).fromVector(
-        Xa.col(i));  // fromVector() sets state from Eigen::VectorXd
+  // 7. Update ensemble
+  MatrixXd Xa = Xb + Xb_pert * Wa;
+  for (int i = 0; i < ens_size; ++i) {
+    auto& member = ensemble_.GetMember(i);
+    auto& data = member.template getData<std::vector<double>>();
+    Eigen::Map<VectorXd>(data.data(), state_dim) = Xa.col(i);
+  }
 }
 
-// Explicit template instantiation for common backend(s) can be added here if
-// needed
+// Explicit template instantiations
+template class LETKF<traits::MockBackendTag>;
 
 }  // namespace metada::framework

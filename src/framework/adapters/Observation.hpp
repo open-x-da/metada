@@ -211,6 +211,18 @@ class Observation : private NonCopyable {
   }
 
   /**
+   * @brief Get the observation error covariance matrix
+   *
+   * @details Returns the observation error covariance matrix as a vector of
+   * doubles. The matrix is stored in row-major format.
+   *
+   * @return Const reference to the covariance matrix data
+   */
+  const std::vector<double>& getCovariance() const {
+    return backend_.getCovariance();
+  }
+
+  /**
    * @brief Get the names of variables in this observation
    *
    * @details Retrieves the list of variable names contained in this

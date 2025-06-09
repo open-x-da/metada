@@ -1,5 +1,5 @@
 # Add LETKF executable
-add_executable(letkf letkf.cpp)
+add_executable(letkf main.cpp)
 
 # Link with required backend libraries for logging and configuration
 target_link_libraries(letkf
@@ -10,6 +10,7 @@ target_link_libraries(letkf
         metada::base
         metada::framework::runs
         metada::backends::common::utils
+        metada::backends::gmock
 )
 
 # Set output directory

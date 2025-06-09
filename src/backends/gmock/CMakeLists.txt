@@ -11,6 +11,7 @@ target_include_directories(gmock_backends
 target_sources(gmock_backends
     INTERFACE
         MockConfig.hpp
+        MockEnsemble.hpp
         MockGeometry.hpp
         MockGridPoint.hpp
         MockGeometryIterator.hpp
@@ -19,6 +20,11 @@ target_sources(gmock_backends
         MockState.hpp
         MockObservation.hpp
         MockObsOperator.hpp)
+
+target_link_libraries(gmock_backends
+    INTERFACE
+        GTest::gtest_main
+        GTest::gmock)
 
 # Add format target
 AddFormatTarget(gmock_backends ${CMAKE_CURRENT_SOURCE_DIR})

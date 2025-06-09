@@ -20,6 +20,13 @@ template <typename BackendTag>
 class Config;
 
 /**
+ * @brief Forward declaration of Geometry class
+ */
+template <typename BackendTag>
+  requires GeometryBackendType<BackendTag>
+class Geometry;
+
+/**
  * @brief Adapter class for ensemble of states in data assimilation systems
  *
  * @details This class provides a type-safe interface for managing an ensemble
@@ -36,17 +43,20 @@ class Ensemble : public NonCopyable {
   using StateType = State<BackendTag>;
 
   /**
-   * @brief Construct an ensemble of states with the given config
+   * @brief Construct an ensemble of states with the given config and geometry
    * @param config Configuration object for state initialization
+   * @param geometry Geometry object for state initialization
    */
-  explicit Ensemble(const Config<BackendTag>& config)
+  explicit Ensemble(const Config<BackendTag>& config,
+                    const Geometry<BackendTag>& geometry)
       : config_(config),
+        geometry_(geometry),
         members_(),
         size_(config.Get("ensemble_size").asInt()),
         perturbations_() {
     members_.reserve(size_);
     for (size_t i = 0; i < size_; ++i) {
-      members_.emplace_back(config_ /*, geometry if needed */);
+      members_.emplace_back(config_, geometry_);
     }
   }
 
@@ -86,7 +96,7 @@ class Ensemble : public NonCopyable {
    * @brief Compute the mean of the ensemble
    */
   void ComputeMean() {
-    mean_ = std::make_unique<StateType>(config_ /*, geometry if needed */);
+    mean_ = std::make_unique<StateType>(config_, geometry_);
     mean_->zero();
     for (size_t i = 0; i < size_; ++i) {
       *mean_ += members_[i];
@@ -145,6 +155,7 @@ class Ensemble : public NonCopyable {
 
  private:
   const Config<BackendTag>& config_;
+  const Geometry<BackendTag>& geometry_;
   std::vector<StateType> members_;
   std::unique_ptr<StateType> mean_;
   size_t size_;

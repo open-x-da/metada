@@ -25,7 +25,7 @@ class LETKF {
    * @param obs_op Reference to the observation operator.
    * @param inflation Covariance inflation factor.
    */
-  LETKF(Ensemble<BackendTag>& ensemble, const Observation<BackendTag>& obs,
+  LETKF(Ensemble<BackendTag>& ensemble, Observation<BackendTag>& obs,
         const ObsOperator<BackendTag>& obs_op, double inflation);
 
   /**
@@ -35,7 +35,7 @@ class LETKF {
 
  private:
   Ensemble<BackendTag>& ensemble_;
-  const Observation<BackendTag>& obs_;
+  Observation<BackendTag>& obs_;
   const ObsOperator<BackendTag>& obs_op_;
   double inflation_;
 };

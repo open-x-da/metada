@@ -276,11 +276,14 @@ TEST_F(ObservationTest, ComparisonOperations) {
  * - getVariableNames
  * - hasVariable (for existing and non-existing variables)
  * - getDimensions
+ * - getCovariance
  */
 TEST_F(ObservationTest, DataAccessAndInformation) {
   obs1_->backend().setVariables(variableNames_);
   obs1_->backend().setDimensions("temperature", dimensions_);
   obs1_->backend().setData(confidenceValues_);
+  std::vector<double> cov = {1.0, 0.0, 0.0, 1.0};  // 2x2 identity matrix
+  obs1_->backend().setCovariance(cov);
 
   // Test variable names access
   const auto& vars = obs1_->getVariableNames();
@@ -292,6 +295,10 @@ TEST_F(ObservationTest, DataAccessAndInformation) {
 
   // Test data access
   verifyDataAccess();
+
+  // Test covariance access
+  const auto& covariance = obs1_->getCovariance();
+  EXPECT_EQ(covariance, cov);
 
   // Test hasVariable
   EXPECT_TRUE(obs1_->hasVariable("temperature"));
