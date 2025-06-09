@@ -1,107 +1,152 @@
 #pragma once
 
-#include <cmath>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
+#include "BackendTraits.hpp"
+#include "ConfigConcepts.hpp"
+#include "NonCopyable.hpp"
+#include "State.hpp"
+#include "StateConcepts.hpp"
+
 namespace metada::framework {
 
-namespace common::utils::config {
-template <typename U>
-class Config;
-}
-using common::utils::config::Config;
 /**
- * @brief Template class for ensemble representation
- *
- * Provides implementation for ensemble operations using a specific State type.
- * Designed for use in ensemble-based data assimilation methods like LETKF.
- *
- * @tparam StateBackend The type of State used in the ensemble
+ * @brief Forward declaration of Config class
  */
-template <typename T>
-class Ensemble {
- private:
-  std::vector<T> members_;
-  T mean_;
-  size_t size_;
-  std::vector<T> perturbations_;
+template <typename BackendTag>
+  requires ConfigBackendType<BackendTag>
+class Config;
 
+/**
+ * @brief Adapter class for ensemble of states in data assimilation systems
+ *
+ * @details This class provides a type-safe interface for managing an ensemble
+ * of State<BackendTag> objects. It supports ensemble operations such as mean
+ * and perturbation computation, and is designed for use in ensemble-based data
+ * assimilation methods like LETKF.
+ *
+ * @tparam BackendTag The backend tag type that must satisfy StateBackendType
+ */
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+class Ensemble : public NonCopyable {
  public:
-  // Constructor with config
-  template <typename U>
-  explicit Ensemble(const Config<U>& config, size_t size)
-      : members_(), mean_(config), size_(size), perturbations_() {
-    // Initialize members
-    members_.reserve(size);
-    for (size_t i = 0; i < size; ++i) {
-      members_.emplace_back(config);
+  using StateType = State<BackendTag>;
+
+  /**
+   * @brief Construct an ensemble of states with the given config and size
+   * @param config Configuration object for state initialization
+   * @param size Number of ensemble members
+   */
+  explicit Ensemble(const Config<BackendTag>& config, size_t size)
+      : members_(), size_(size), perturbations_() {
+    members_.reserve(size_);
+    for (size_t i = 0; i < size_; ++i) {
+      members_.emplace_back(config /*, geometry if needed */);
     }
   }
 
-  // Member access
-  T& getMember(size_t index) {
+  /**
+   * @brief Get mutable access to an ensemble member
+   * @param index Index of the member
+   * @return Reference to the member state
+   * @throws std::out_of_range if index is invalid
+   */
+  StateType& GetMember(size_t index) {
     if (index >= size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
     return members_[index];
   }
 
-  const T& getMember(size_t index) const {
+  /**
+   * @brief Get const access to an ensemble member
+   * @param index Index of the member
+   * @return Const reference to the member state
+   * @throws std::out_of_range if index is invalid
+   */
+  const StateType& GetMember(size_t index) const {
     if (index >= size_) {
       throw std::out_of_range("Ensemble member index out of range");
     }
     return members_[index];
   }
 
-  size_t getSize() const { return size_; }
+  /**
+   * @brief Get the number of ensemble members
+   * @return Ensemble size
+   */
+  size_t Size() const { return size_; }
 
-  // Statistical operations
-  void computeMean() {
-    // Reset mean state
-    mean_.reset();
-
-    // Sum all members using State's += operator
+  /**
+   * @brief Compute the mean of the ensemble
+   */
+  void ComputeMean(const Config<BackendTag>&
+                       config /*, const Geometry<BackendTag>& geometry */) {
+    mean_ = std::make_unique<StateType>(config /*, geometry if needed */);
+    mean_->zero();
     for (size_t i = 0; i < size_; ++i) {
-      mean_ += members_[i];
+      *mean_ += members_[i];
     }
-
-    // Divide by ensemble size
-    mean_ *= (1.0 / static_cast<double>(size_));
+    *mean_ *= (1.0 / static_cast<double>(size_));
   }
 
-  T& getMean() { return mean_; }
+  /**
+   * @brief Get mutable access to the mean state
+   * @return Reference to the mean state
+   */
+  StateType& Mean() { return *mean_; }
 
-  const T& getMean() const { return mean_; }
+  /**
+   * @brief Get const access to the mean state
+   * @return Const reference to the mean state
+   */
+  const StateType& Mean() const { return *mean_; }
 
-  void computePerturbations() {
-    // Ensure mean is computed
-    computeMean();
-
-    // Resize perturbations if needed - this copies mean_ to each slot
-    perturbations_.resize(size_, mean_);
-
-    // Compute perturbations for each member in-place
+  /**
+   * @brief Compute perturbations for each member (member - mean)
+   */
+  void ComputePerturbations() {
+    ComputeMean();
+    perturbations_.resize(size_, *mean_);
     for (size_t i = 0; i < size_; ++i) {
-      // Perturbation = -(Mean - Member) = Member - Mean
-      perturbations_[i] -= members_[i];  // Now contains (Mean - Member)
-      perturbations_[i] *= -1.0;         // Convert to (Member - Mean)
+      perturbations_[i] = members_[i] - *mean_;
     }
   }
 
-  T& getPerturbation(size_t index) {
+  /**
+   * @brief Get mutable access to a perturbation
+   * @param index Index of the perturbation
+   * @return Reference to the perturbation state
+   * @throws std::out_of_range if index is invalid
+   */
+  StateType& GetPerturbation(size_t index) {
     if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
     }
     return perturbations_[index];
   }
 
-  const T& getPerturbation(size_t index) const {
+  /**
+   * @brief Get const access to a perturbation
+   * @param index Index of the perturbation
+   * @return Const reference to the perturbation state
+   * @throws std::out_of_range if index is invalid
+   */
+  const StateType& GetPerturbation(size_t index) const {
     if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
     }
     return perturbations_[index];
   }
+
+ private:
+  std::vector<StateType> members_;
+  std::unique_ptr<StateType> mean_;
+  size_t size_;
+  std::vector<StateType> perturbations_;
 };
 
 }  // namespace metada::framework
