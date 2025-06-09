@@ -4,12 +4,12 @@ add_executable(letkf main.cpp)
 # Link with required backend libraries for logging and configuration
 target_link_libraries(letkf
     PRIVATE
-        metada::framework::algorithms
         metada::traits
         metada::framework::adapters
         metada::base
         metada::framework::runs
         metada::backends::common::utils
+        metada::framework::algorithms
         metada::backends::gmock
 )
 
