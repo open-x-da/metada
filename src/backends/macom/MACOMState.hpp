@@ -236,6 +236,13 @@ class MACOMState {
   bool CPPInitialization(const ConfigBackend& config,
                          const GeometryBackend& geometry);
 
+  /**
+   * @brief Initialize the state in Fortran mode
+   *
+   * @return bool True if initialization successful, false otherwise
+   */
+  bool FortranInitialization();
+
  private:
   /**
    * @brief Load variable dimensions from NetCDF file
@@ -284,6 +291,7 @@ class MACOMState {
   // State information
   std::string inputFile_;  // Input data file path
   std::string timestamp_;  // Timestamp of the data
+  std::unique_ptr<MACOMFortranInterface> fortranInterface_;
   bool initialized_ = false;
   bool CopySkipInitialization = true;
 
@@ -301,8 +309,11 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
     const ConfigBackend& config, const GeometryBackend& geometry)
     : config_(config), geometry_(geometry) {
   if (isFortranMode()) {
-    MACOM_LOG_INFO("MACOMState", "Running in Fortran mode");
-    initialized_ = true;
+    // MACOM_LOG_INFO("MACOMState", "Running in Fortran mode");
+    if (!FortranInitialization()) {
+      throw std::runtime_error(
+          "Failed to initialize MACOM state in Fortran mode");
+    }
   } else {
     MACOM_LOG_INFO("MACOMState", "Running in C++ mode");
     if (!CPPInitialization(config, geometry)) {
@@ -994,6 +1005,57 @@ bool MACOMState<ConfigBackend, GeometryBackend>::CPPInitialization(
   } catch (const std::exception& e) {
     MACOM_LOG_ERROR("MACOMState",
                     "Error during initialization: " + std::string(e.what()));
+    return false;
+  }
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+bool MACOMState<ConfigBackend, GeometryBackend>::FortranInitialization() {
+  // MACOM_LOG_INFO("MACOMState", "Initializing state in Fortran mode...");
+
+  auto& parallel = MACOMParallel::getInstance();
+  if (!parallel.isFortranMode()) {
+    MACOM_LOG_ERROR("MACOMState", "Not in Fortran mode");
+    return false;
+  }
+
+  try {
+    // Get the initialized Fortran interface from MACOMParallel
+    // fortranInterface_ = std::make_unique<MACOMFortranInterface>();
+    auto& parallelInterface = parallel.getFortranInterface();
+    if (!parallelInterface) {
+      MACOM_LOG_ERROR("MACOMState", "Fortran interface not available");
+      return false;
+    }
+
+    // Share the Fortran interface
+    fortranInterface_ = std::move(parallelInterface);
+
+    // Only compute processes should initialize mitice
+    if (fortranInterface_->getRank() < fortranInterface_->getCompProcs()) {
+      // // Get config flags from Fortran
+      // bool mitice_on, restart_in, assim_in;
+      // int init_iter, max_iter;
+      // fortranInterface_->getConfigFlags(mitice_on, restart_in, assim_in,
+      // init_iter, max_iter);
+
+      fortranInterface_->initializeMitice();
+      // if (mitice_on) {
+      //   MACOM_LOG_INFO("MACOMState", "Initializing mitice components...");
+      //   fortranInterface_->initializeMitice();
+      // }
+    } else {
+      MACOM_LOG_INFO("MACOMState",
+                     "Skipping mitice initialization for I/O process");
+    }
+
+    initialized_ = true;
+    // MACOM_LOG_INFO("MACOMState", "Fortran initialization completed
+    // successfully");
+    return true;
+  } catch (const std::exception& e) {
+    MACOM_LOG_ERROR("MACOMState", "Error during Fortran initialization: " +
+                                      std::string(e.what()));
     return false;
   }
 }

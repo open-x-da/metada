@@ -4,33 +4,33 @@ module macom_fortran_wrapper
   ! Assuming your actual model logic is in other modules, e.g., mod_csp, mod_misc etc.
   ! You will need to add 'use' statements for any modules that these wrapper subroutines call.
   ! For example:
-  ! use mod_misc
-  ! use mod_csp
-  ! use mod_csp_init
+  use mod_misc
+  use mod_csp
+  use mod_csp_init
   USE mod_mpi_interfaces
-  ! USE mod_mpi_variables
-  ! USE mod_mpi_csp_io
-  ! USE mod_mpi_test
+  USE mod_mpi_variables
+  USE mod_mpi_csp_io
+  USE mod_mpi_test
   !YY
-  ! USE mitice
-  ! USE mitice_parameters
-  ! USE mitice_utility
-  ! USE mitice_init
-  ! USE mitice_ave
-  ! use mod_csp_basic
+  USE mitice
+  USE mitice_parameters
+  USE mitice_utility
+  USE mitice_init
+  USE mitice_ave
+  use mod_csp_basic
   implicit none
 
   private ! Default to private, only expose BIND(C) interfaces
 
-  ! Publicly expose only the C-bindable procedures
-  public :: c_macom_initialize_mpi
-  public :: c_macom_get_mpi_rank
-  public :: c_macom_get_mpi_size
-  public :: c_macom_read_namelist
-  public :: c_macom_initialize_model_components
-  public :: c_macom_run_model_step ! Or a full run loop if that's simpler first
-  public :: c_macom_finalize_model_components
-  public :: c_macom_finalize_mpi
+  ! ! Publicly expose only the C-bindable procedures
+  ! public :: c_macom_initialize_mpi
+  ! public :: c_macom_get_mpi_rank
+  ! public :: c_macom_get_mpi_size
+  ! public :: c_macom_read_namelist
+  ! public :: c_macom_initialize_model_components
+  ! public :: c_macom_run_model_step ! Or a full run loop if that's simpler first
+  ! public :: c_macom_finalize_model_components
+  ! public :: c_macom_finalize_mpi
 
   ! Example: Variables from a shared module that might be needed by the wrappers.
   ! Ensure these are properly 'use'd from their respective modules.
@@ -45,7 +45,7 @@ module macom_fortran_wrapper
 contains
 
   !-----------------------------------------------------------------------------
-  ! MPI Management
+  ! I. MPI Management
   !-----------------------------------------------------------------------------
   subroutine c_macom_initialize_mpi(comm_cpp) bind(C, name="c_macom_initialize_mpi")
     integer(C_INT), value, intent(in) :: comm_cpp
@@ -60,7 +60,7 @@ contains
     ! Call MACOM's MPI initialization
     ! call init_mpi()
     call mpi_process_init
-    
+
   end subroutine c_macom_initialize_mpi
 
   subroutine c_macom_get_mpi_rank(rank) bind(C, name="c_macom_get_mpi_rank")
@@ -85,14 +85,47 @@ contains
   end subroutine c_macom_finalize_mpi
 
   !-----------------------------------------------------------------------------
-  ! Model Configuration and Initialization
+  ! II. Model Configuration and Initialization
   !-----------------------------------------------------------------------------
   subroutine c_macom_read_namelist() bind(C, name="c_macom_read_namelist")
     ! Reads the model configuration (namelist).
-    ! call misc_namelist_read() ! Your existing namelist reading routine
-    ! call misc_namelist_read()
-    call macom_log_info("FortranWrapper", "c_macom_read_namelist called")
+    call misc_namelist_read()
+    if (mpi_rank == 0)then
+      call macom_log_info("FortranWrapper", "c_macom_read_namelist called")
+    endif
   end subroutine c_macom_read_namelist
+
+  subroutine c_get_macom_config_flags(mitice, restart, assim, &
+      init_iter, max_iter) bind(c, name='c_get_macom_config_flags')
+    ! Get all configuration flags and parameters at once
+    logical(c_bool), intent(out) :: mitice, restart, assim
+    integer(c_int), intent(out) :: init_iter, max_iter
+
+    mitice = mitice_on
+    restart = restart_in
+    assim = assim_in
+    init_iter = nIter0
+    max_iter = nIterMax
+
+    if (mpi_rank == 0) then
+      call macom_log_info("FortranWrapper", "c_get_macom_config_flags called")
+    endif
+  end subroutine c_get_macom_config_flags
+
+  subroutine c_macom_initialize_mitice() bind(C, name="c_macom_initialize_mitice")
+!YY: ifdef of seaice module TO DO LATER
+!#ifdef SEAICE
+    if (mitice_on) then
+      ! Open runtime file for screen output and model parameter summary
+      call mitice_run_info_open()
+      ! Read seaice parameter namelist /namelist.mitice/
+      call mitice_read_params()
+      if (mpi_rank == 0) then
+        call macom_log_info("FortranWrapper", "c_macom_initialize_mitice called")
+      endif
+    endif
+!#endif
+  end subroutine c_macom_initialize_mitice
 
   subroutine c_macom_initialize_model_components() bind(C, name="c_macom_initialize_model_components")
     ! Initializes all core MACOM components after namelist is read.

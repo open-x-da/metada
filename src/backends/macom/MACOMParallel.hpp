@@ -157,6 +157,50 @@ class MACOMParallel {
 #endif
   }
 
+  /**
+   * @brief Configuration structure for MACOM model
+   */
+  struct ModelConfig {
+    bool mitice_on{false};   // Whether mitice is enabled
+    bool restart_in{false};  // Whether in restart mode
+    bool assim_in{false};    // Whether in assimilation mode
+    int nIter0{0};           // Initial iteration number
+    int nIterMax{0};         // Maximum iteration number
+  };
+
+  /**
+   * @brief Get number of compute processes
+   *
+   * @return Number of compute processes
+   */
+  int getCompProcs() const { return comp_procs_; }
+
+  /**
+   * @brief Initialize mitice components
+   */
+  void initializeMitice() {
+    if (fortranInterface_) {
+      fortranInterface_->initializeMitice();
+    }
+  }
+
+  /**
+   * @brief Get the model configuration
+   *
+   * @return const Config& Reference to the model configuration
+   */
+  const ModelConfig& getConfig() const { return modelconfig_; }
+
+  /**
+   * @brief Get the Fortran interface
+   *
+   * @return std::unique_ptr<MACOMFortranInterface>& Reference to the Fortran
+   * interface
+   */
+  std::unique_ptr<MACOMFortranInterface>& getFortranInterface() {
+    return fortranInterface_;
+  }
+
  private:
   // Fortran interface
   std::unique_ptr<MACOMFortranInterface> fortranInterface_;
@@ -168,6 +212,7 @@ class MACOMParallel {
       : rank_(0),
         size_(1),
         io_procs_(0),
+        comp_procs_(0),
         initialized_(false),
         use_fortran_mpi_(false) {}
 
@@ -233,15 +278,32 @@ class MACOMParallel {
                                      std::to_string(mpi_rank_));
 
     rank_ = mpi_rank_;
-    // std::cout << "Fortran C++ rank: " << rank_ << std::endl;
-
     mpi_size_ = fortranInterface_->getSize();
     size_ = mpi_size_;
+
+    comp_procs_ = size_ - io_procs_;
 
     // // Get process info
     // MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
     // MPI_Comm_size(MPI_COMM_WORLD, &size_);
     // std::cout << "C++ rank: " << rank_ << std::endl;
+
+    if (rank_ < comp_procs_) {
+      // Read namelist and get config flags
+      fortranInterface_->readNamelist();
+
+      bool mitice, restart, assim;
+      int init_iter, max_iter;
+      fortranInterface_->getConfigFlags(mitice, restart, assim, init_iter,
+                                        max_iter);
+
+      // Store the config flags
+      modelconfig_.mitice_on = mitice;
+      modelconfig_.restart_in = restart;
+      modelconfig_.assim_in = assim;
+      modelconfig_.nIter0 = init_iter;
+      modelconfig_.nIterMax = max_iter;
+    }
 
     // if (rank_ == 0) {
     //   MACOM_LOG_INFO("MACOMParallel", "Running with " + std::to_string(size_)
@@ -299,11 +361,13 @@ class MACOMParallel {
 #endif
   }
 
-  int rank_;              // Process rank
-  int size_;              // Total number of processes
-  int io_procs_;          // Number of I/O processes
-  bool initialized_;      // Initialization status
-  bool use_fortran_mpi_;  // Whether to use Fortran MPI initialization
+  int rank_;                 // Process rank
+  int size_;                 // Total number of processes
+  int io_procs_;             // Number of I/O processes
+  int comp_procs_;           // Number of compute processes
+  ModelConfig modelconfig_;  // Model configuration
+  bool initialized_;         // Initialization status
+  bool use_fortran_mpi_;     // Whether to use Fortran MPI initialization
 };
 
 }  // namespace metada::backends::macom

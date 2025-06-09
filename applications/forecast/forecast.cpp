@@ -47,6 +47,15 @@ int main(int argc, char** argv) {
     logger.Info() << "Running in serial mode";
 #endif
 
+    // Initialize geometry
+    logger.Info() << "Initializing geometry";
+    Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
+
+    // Initialize initial state
+    logger.Info() << "Initializing model state";
+    State<BackendTag> initialState(config.GetSubsection("state"), geometry);
+    auto currentState = initialState.clone();
+
 #ifdef USE_MPI
     parallel.barrier();
 
@@ -58,15 +67,6 @@ int main(int argc, char** argv) {
       return 0;
     }
 #endif
-
-    // Initialize geometry
-    logger.Info() << "Initializing geometry";
-    Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
-
-    // Initialize initial state
-    logger.Info() << "Initializing model state";
-    State<BackendTag> initialState(config.GetSubsection("state"), geometry);
-    auto currentState = initialState.clone();
 
     // Initialize model
     logger.Info() << "Initializing forecast model";

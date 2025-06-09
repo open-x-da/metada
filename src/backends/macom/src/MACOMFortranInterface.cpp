@@ -67,6 +67,9 @@ void logError(const std::string& component, const std::string& message) {
 
 MACOMFortranInterface::MACOMFortranInterface()
     : rank_(0),
+      size_(1),
+      io_procs_(0),
+      comp_procs_(1),
       mpi_initialized_by_this_instance_(false),
       model_components_initialized_(false) {
   mpi_comm_ = MPI_COMM_NULL;
@@ -118,21 +121,32 @@ void MACOMFortranInterface::initializeMPI(int io_procs) {
   // // Convert to C integer for Fortran
   // f_comm_ = MPI_Comm_c2f(mpi_comm_);
 
-  logInfo("MACOMFortranInterface", "Initializing MPI via Fortran...");
+  // logInfo("MACOMFortranInterface", "Initializing MPI via Fortran...");
   // Call Fortran MPI initialization with the converted communicator
   c_macom_initialize_mpi(f_comm_);
 
   // Get rank from Fortran
   c_macom_get_mpi_rank(&rank_);
-
-  mpi_initialized_by_this_instance_ = true;
   // logInfo("MACOMFortranInterface",
   //         "MPI initialized by Fortran. Rank: " + std::to_string(rank_) +
   //             ", I/O Procs: " + io_procs_str);
+
+  // Get size from Fortran
+  c_macom_get_mpi_size(&size_);
+
+  // Set I/O processes and compute processes
+  io_procs_ = io_procs;
+  comp_procs_ = size_ - io_procs_;
+
+  mpi_initialized_by_this_instance_ = true;
 }
 
 int MACOMFortranInterface::getRank() const {
   return rank_;
+}
+
+int MACOMFortranInterface::getSize() const {
+  return size_;
 }
 
 int MACOMFortranInterface::getFortranComm() const {
@@ -143,9 +157,9 @@ void MACOMFortranInterface::readNamelist() {
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error("MPI must be initialized before reading namelist");
   }
-  logInfo("MACOMFortranInterface", "Calling Fortran to read namelist...");
+  // logInfo("MACOMFortranInterface", "Calling Fortran to read namelist...");
   c_macom_read_namelist();
-  logInfo("MACOMFortranInterface", "Fortran read namelist finished");
+  // logInfo("MACOMFortranInterface", "Fortran read namelist finished");
 }
 
 void MACOMFortranInterface::initializeModelComponents() {
@@ -213,6 +227,38 @@ void MACOMFortranInterface::barrier() {
     return;
   }
   MPI_Barrier(mpi_comm_);
+}
+
+void MACOMFortranInterface::getConfigFlags(bool& mitice, bool& restart,
+                                           bool& assim, int& init_iter,
+                                           int& max_iter) {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error(
+        "MPI must be initialized before getting config flags");
+  }
+  // logInfo("MACOMFortranInterface", "Calling Fortran to get config flags...");
+  c_get_macom_config_flags(&mitice, &restart, &assim, &init_iter, &max_iter);
+  // logInfo("MACOMFortranInterface", "Fortran get config flags finished");
+}
+
+void MACOMFortranInterface::initializeMitice() {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error(
+        "MPI must be initialized before initializing mitice components");
+  }
+  // logInfo("MACOMFortranInterface", "Calling Fortran to initialize mitice
+  // components...");
+  c_macom_initialize_mitice();
+  // logInfo("MACOMFortranInterface", "Fortran initialize mitice components
+  // finished");
+}
+
+int MACOMFortranInterface::getCompProcs() const {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error(
+        "MPI must be initialized before getting compute processes");
+  }
+  return comp_procs_;
 }
 
 }  // namespace metada::backends::macom
