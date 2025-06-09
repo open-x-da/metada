@@ -2,48 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "C/C++: g++.exe build and debug active file",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${fileDirname}/${fileBasenameNoExtension}.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${fileDirname}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set breakpoint pending on",
-                    "text": "-gdb-set breakpoint pending on",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Enable logging",
-                    "text": "-gdb-set logging on",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "C/C++: MinGW build active file"
-        },
-        {
             "name": "Debug LETKF",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/letkf",
             "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.yaml"],
-            "stopAtEntry": false,
+            "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [
                 {
