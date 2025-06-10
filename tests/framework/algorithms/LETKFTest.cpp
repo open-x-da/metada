@@ -15,7 +15,6 @@
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 
-using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
@@ -39,7 +38,8 @@ class LETKFTest : public ::testing::Test {
  protected:
   void SetUp() override {
     // Setup mock data
-    ensemble_data_ = std::vector<double>{1.0, 2.0, 3.0};
+    ensemble_data_ = std::vector<std::vector<double>>{
+        {1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0}};
     obs_data_ = std::vector<double>{1.5, 2.5};
     cov_data_ = std::vector<double>{0.1, 0.0, 0.0, 0.1};  // 2x2 matrix
 
@@ -65,14 +65,22 @@ class LETKFTest : public ::testing::Test {
         *config_);
 
     // Setup mock expectations for ensemble member data
-    ensemble_->GetMember(0).backend().setData(ensemble_data_);
+    for (size_t i = 0; i < ensemble_->Size(); ++i) {
+      ensemble_->GetMember(i).backend().setData(ensemble_data_[i]);
+    }
+
+    // Setup mock expectations for observation data
+    obs_->backend().setData(obs_data_);
+
+    // Setup mock expectations for observation covariance data
+    obs_->backend().setCovariance(cov_data_);
 
     // Create LETKF instance
     letkf_ = std::make_unique<framework::LETKF<traits::MockBackendTag>>(
         *ensemble_, *obs_, *obs_op_, 1.1);
   }
 
-  std::vector<double> ensemble_data_;
+  std::vector<std::vector<double>> ensemble_data_;
   std::vector<double> obs_data_;
   std::vector<double> cov_data_;
   std::string config_file_;

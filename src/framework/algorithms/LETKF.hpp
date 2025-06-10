@@ -76,7 +76,7 @@ class LETKF {
     // 4. Get observation vector and R
     const auto& obs_data = obs_.template getData<std::vector<double>>();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
-    const auto& R_data = obs_.template getCovariance();
+    const auto& R_data = obs_.getCovariance();
     MatrixXd R = Eigen::Map<const MatrixXd>(R_data.data(), obs_dim, obs_dim);
 
     // 5. Compute innovation
