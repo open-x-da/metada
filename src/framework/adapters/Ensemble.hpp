@@ -52,7 +52,7 @@ class Ensemble : public NonCopyable {
       : config_(config),
         geometry_(geometry),
         members_(),
-        size_(config.Get("ensemble_size").asInt()),
+        size_(config.Get("ensemble.size").asInt()),
         perturbations_() {
     members_.reserve(size_);
     for (size_t i = 0; i < size_; ++i) {
