@@ -64,6 +64,9 @@ class LETKFTest : public ::testing::Test {
     obs_op_ = std::make_unique<framework::ObsOperator<traits::MockBackendTag>>(
         *config_);
 
+    // Setup mock expectations for ensemble member data
+    ensemble_->GetMember(0).backend().setData(ensemble_data_);
+
     // Create LETKF instance
     letkf_ = std::make_unique<framework::LETKF<traits::MockBackendTag>>(
         *ensemble_, *obs_, *obs_op_, 1.1);
