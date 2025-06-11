@@ -7,6 +7,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <random>
+
 #include "Config.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
@@ -39,13 +41,43 @@ class LETKFTest : public ::testing::Test {
   void SetUp() override {
     // Setup mock data
     ens_size_ = 10;
-    ensemble_data_ = std::vector<std::vector<double>>{
-        {1.0, 2.0, 3.0},    {4.0, 5.0, 6.0},    {7.0, 8.0, 9.0},
-        {10.0, 11.0, 12.0}, {13.0, 14.0, 15.0}, {16.0, 17.0, 18.0},
-        {19.0, 20.0, 21.0}, {22.0, 23.0, 24.0}, {25.0, 26.0, 27.0},
-        {28.0, 29.0, 30.0}};
-    obs_data_ = std::vector<double>{1.5, 2.5};
-    cov_data_ = std::vector<double>{0.1, 0.0, 0.0, 0.1};  // 2x2 matrix
+
+    // Base state around which to perturb
+    std::vector<double> base_state = {1.0, 2.0, 3.0};
+
+    // Create random number generator for Gaussian perturbations
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<double> dist(0.0, 0.1);  // mean=0, std=0.1
+
+    // Generate ensemble members by adding Gaussian perturbations to base state
+    ensemble_data_.resize(ens_size_);
+    for (size_t i = 0; i < ens_size_; ++i) {
+      ensemble_data_[i].resize(base_state.size());
+      for (size_t j = 0; j < base_state.size(); ++j) {
+        ensemble_data_[i][j] = base_state[j] + dist(gen);
+      }
+    }
+
+    // Create observation data with Gaussian errors
+    // Using a different random number generator for observations
+    std::mt19937 obs_gen(rd());
+    std::normal_distribution<double> obs_dist(
+        0.0, 0.05);  // smaller std for observations
+
+    // Generate observations by adding smaller Gaussian errors to base state
+    obs_data_.resize(base_state.size());
+    for (size_t i = 0; i < base_state.size(); ++i) {
+      obs_data_[i] = base_state[i] + obs_dist(obs_gen);
+    }
+
+    // Create observation error covariance matrix (3x3)
+    // Using diagonal matrix with small variances
+    cov_data_ = std::vector<double>{
+        0.01, 0.00, 0.00,  // First row
+        0.00, 0.01, 0.00,  // Second row
+        0.00, 0.00, 0.01   // Third row
+    };  // 3x3 diagonal matrix with variance 0.01
 
     // Load configuration file from test directory
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
