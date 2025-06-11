@@ -39,7 +39,12 @@ class LETKFTest : public ::testing::Test {
  protected:
   void SetUp() override {
     // Setup mock data
-    ensemble_data_ = std::vector<double>{1.0, 2.0, 3.0};
+    ens_size_ = 10;
+    ensemble_data_ = std::vector<std::vector<double>>{
+        {1.0, 2.0, 3.0},    {4.0, 5.0, 6.0},    {7.0, 8.0, 9.0},
+        {10.0, 11.0, 12.0}, {13.0, 14.0, 15.0}, {16.0, 17.0, 18.0},
+        {19.0, 20.0, 21.0}, {22.0, 23.0, 24.0}, {25.0, 26.0, 27.0},
+        {28.0, 29.0, 30.0}};
     obs_data_ = std::vector<double>{1.5, 2.5};
     cov_data_ = std::vector<double>{0.1, 0.0, 0.0, 0.1};  // 2x2 matrix
 
@@ -54,7 +59,9 @@ class LETKFTest : public ::testing::Test {
         std::make_unique<framework::Geometry<traits::MockBackendTag>>(*config_);
 
     // Setup mock expectations for config
-    ON_CALL(config_->backend(), Get("ensemble.size")).WillByDefault(Return(3));
+    ON_CALL(config_->backend(), Get("ensemble.size"))
+        .WillByDefault(
+            Return(framework::ConfigValue(static_cast<int>(ens_size_))));
 
     // Create adapter instances
     ensemble_ = std::make_unique<framework::Ensemble<traits::MockBackendTag>>(
@@ -65,14 +72,24 @@ class LETKFTest : public ::testing::Test {
         *config_);
 
     // Setup mock expectations for ensemble member data
-    ensemble_->GetMember(0).backend().setData(ensemble_data_);
+    for (size_t i = 0; i < ens_size_; ++i) {
+      ensemble_->GetMember(i).backend().setVariables({"dummy"});
+      ensemble_->GetMember(i).backend().setDimensions(
+          "dummy", std::vector<size_t>{ensemble_data_[i].size()});
+      ensemble_->GetMember(i).backend().setData(ensemble_data_[i]);
+    }
+
+    // setup mock expectations for observation data
+    obs_->backend().setData(obs_data_);
+    obs_->backend().setCovariance(cov_data_);
 
     // Create LETKF instance
     letkf_ = std::make_unique<framework::LETKF<traits::MockBackendTag>>(
         *ensemble_, *obs_, *obs_op_, 1.1);
   }
 
-  std::vector<double> ensemble_data_;
+  size_t ens_size_;
+  std::vector<std::vector<double>> ensemble_data_;
   std::vector<double> obs_data_;
   std::vector<double> cov_data_;
   std::string config_file_;
@@ -105,7 +122,7 @@ TEST_F(LETKFTest, ConstructorInitializesCorrectly) {
 TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
   // Setup expectations for the analysis step
   EXPECT_CALL(obs_op_->backend(), apply(::testing::_, ::testing::_))
-      .Times(3);  // Once per ensemble member
+      .Times(ens_size_);  // Once per ensemble member
 
   // Perform analysis
   letkf_->analyse();
@@ -136,7 +153,8 @@ TEST_F(LETKFTest, AnalyseHandlesZeroInflation) {
       *ensemble_, *obs_, *obs_op_, 0.0);
 
   // Setup expectations
-  EXPECT_CALL(obs_op_->backend(), apply(::testing::_, ::testing::_)).Times(3);
+  EXPECT_CALL(obs_op_->backend(), apply(::testing::_, ::testing::_))
+      .Times(ens_size_);
 
   // Analysis should work with zero inflation
   EXPECT_NO_THROW(letkf_->analyse());

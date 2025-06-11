@@ -151,9 +151,9 @@ class MockObservation {
   }
 
   // Get the data
-  void* getData() { return data_.empty() ? nullptr : data_.data(); }
+  void* getData() { return &data_; }
 
-  const void* getData() const { return data_.empty() ? nullptr : data_.data(); }
+  const void* getData() const { return &data_; }
 
   // Get the variable names
   const std::vector<std::string>& getVariableNames() const {

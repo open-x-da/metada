@@ -138,10 +138,9 @@ class MockState {
   MOCK_METHOD(double, norm, (), (const));
 
   // Data access
+  void* getData() { return &data_; }
 
-  void* getData() { return data_.empty() ? nullptr : data_.data(); }
-
-  const void* getData() const { return data_.empty() ? nullptr : data_.data(); }
+  const void* getData() const { return &data_; }
 
   // State information queries
   const std::vector<std::string>& getVariableNames() const {

@@ -186,8 +186,8 @@ TEST_F(StateTest, DataAccess) {
   state1_->backend().setData(expected_data);
 
   // Test non-const data access
-  double* data = &state1_->getData<double>();
-  EXPECT_NE(data, nullptr);  // Verify we got a valid pointer
+  auto& data = state1_->getData<std::vector<double>>();
+  EXPECT_FALSE(data.empty());  // Verify we got a non-empty vector
   // Verify actual data values
   for (size_t i = 0; i < expected_data.size(); ++i) {
     EXPECT_DOUBLE_EQ(data[i], expected_data[i]);
@@ -195,21 +195,21 @@ TEST_F(StateTest, DataAccess) {
 
   // Test const data access
   const auto& const_state = *state1_;
-  const double* const_data = &const_state.getData<double>();
-  EXPECT_NE(const_data, nullptr);  // Verify we got a valid pointer
+  const auto& const_data = const_state.getData<std::vector<double>>();
+  EXPECT_FALSE(const_data.empty());  // Verify we got a non-empty vector
   // Verify actual data values
-  for (size_t i = 0; i < expected_data.size(); ++i) {
+  for (size_t i = 0; i < const_data.size(); ++i) {
     EXPECT_DOUBLE_EQ(const_data[i], expected_data[i]);
   }
 
   // Test data modification through non-const access
   data[0] = 10.0;
-  EXPECT_DOUBLE_EQ(state1_->getData<double>(), 10.0);
+  EXPECT_DOUBLE_EQ(state1_->getData<std::vector<double>>()[0], 10.0);
   EXPECT_DOUBLE_EQ(data[0], 10.0);  // Verify both access paths show the change
 
   // Test empty data case
   state1_->backend().setData({});
-  EXPECT_EQ(static_cast<double*>(state1_->backend().getData()), nullptr);
+  EXPECT_TRUE(state1_->getData<std::vector<double>>().empty());
 }
 
 /**
