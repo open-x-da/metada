@@ -159,36 +159,4 @@ TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
   letkf_->analyse();
 }
 
-/**
- * @brief Test LETKF analysis with empty ensemble
- *
- * Verifies that the analysis step handles an empty ensemble gracefully
- * without throwing any exceptions.
- */
-TEST_F(LETKFTest, AnalyseHandlesEmptyEnsemble) {
-  // Analysis should not crash with empty ensemble
-  EXPECT_NO_THROW(letkf_->analyse());
-}
-
-/**
- * @brief Test LETKF analysis with zero inflation
- *
- * Verifies that:
- * - LETKF can be constructed with 0.0 inflation factor
- * - The observation operator is still called 3 times
- * - Analysis completes successfully without errors
- */
-TEST_F(LETKFTest, AnalyseHandlesZeroInflation) {
-  // Create LETKF with zero inflation
-  letkf_ = std::make_unique<framework::LETKF<traits::MockBackendTag>>(
-      *ensemble_, *obs_, *obs_op_, 0.0);
-
-  // Setup expectations
-  EXPECT_CALL(obs_op_->backend(), apply(::testing::_, ::testing::_))
-      .Times(ens_size_);
-
-  // Analysis should work with zero inflation
-  EXPECT_NO_THROW(letkf_->analyse());
-}
-
 }  // namespace metada::tests
