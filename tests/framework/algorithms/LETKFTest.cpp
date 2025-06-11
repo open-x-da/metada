@@ -15,7 +15,6 @@
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 
-using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 

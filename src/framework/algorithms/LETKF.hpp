@@ -134,7 +134,7 @@ class LETKF {
     VectorXd d = yo - yb_mean;
 
     // 3. Compute ensemble-space gain matrices
-    const auto& R_data = obs_.template getCovariance();
+    const auto& R_data = obs_.getCovariance();
     MatrixXd R = Eigen::Map<const MatrixXd>(R_data.data(), obs_dim, obs_dim);
 
     // Compute analysis error in ensemble space
