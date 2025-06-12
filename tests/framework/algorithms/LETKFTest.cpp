@@ -54,10 +54,10 @@ class LETKFTest : public ::testing::Test {
     state_dim_ = 1000;
 
     // Base state around which to perturb
-    std::vector<double> base_state(state_dim_);
+    base_state_.resize(state_dim_);
     for (size_t i = 0; i < state_dim_; ++i) {
       double angle = i * 360.0 / state_dim_;  // Convert to degrees
-      base_state[i] = std::cos(angle * std::numbers::pi / 180.0);
+      base_state_[i] = std::cos(angle * std::numbers::pi / 180.0);
     }
 
     // Create random number generator for Gaussian perturbations
@@ -70,7 +70,7 @@ class LETKFTest : public ::testing::Test {
     for (size_t i = 0; i < ens_size_; ++i) {
       ensemble_data_[i].resize(state_dim_);
       for (size_t j = 0; j < state_dim_; ++j) {
-        ensemble_data_[i][j] = base_state[j] + dist(gen);
+        ensemble_data_[i][j] = base_state_[j] + dist(gen);
       }
     }
 
@@ -83,7 +83,7 @@ class LETKFTest : public ::testing::Test {
     // Generate observations by adding smaller Gaussian errors to base state
     obs_data_.resize(state_dim_);
     for (size_t i = 0; i < state_dim_; ++i) {
-      obs_data_[i] = base_state[i] + obs_dist(obs_gen);
+      obs_data_[i] = base_state_[i] + obs_dist(obs_gen);
     }
 
     // Create observation error covariance matrix (state_dim_ x state_dim_)
@@ -136,6 +136,7 @@ class LETKFTest : public ::testing::Test {
   std::vector<std::vector<double>> ensemble_data_;
   std::vector<double> obs_data_;
   std::vector<double> cov_data_;
+  std::vector<double> base_state_;
   std::string config_file_;
   std::unique_ptr<framework::Config<traits::MockBackendTag>> config_;
   std::unique_ptr<framework::Geometry<traits::MockBackendTag>> geometry_;
@@ -179,6 +180,23 @@ TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
             return ensemble_data_[call_count++];
           }));
 
+  // Calculate RMSE of ensemble from base state
+  double rmse = 0.0;
+
+  // Calculate mean squared error for each ensemble member
+  for (size_t i = 0; i < ens_size_; ++i) {
+    const auto& member_data = ensemble_data_[i];
+    double squared_error = 0.0;
+    for (size_t j = 0; j < state_dim_; ++j) {
+      double diff = member_data[j] - base_state_[j];
+      squared_error += diff * diff;
+    }
+    rmse += squared_error;
+  }
+
+  // Calculate final RMSE
+  rmse = std::sqrt(rmse / (ens_size_ * state_dim_));
+  std::cout << "Initial RMSE: " << rmse << std::endl;
   // Perform analysis
   letkf_->analyse();
 }
