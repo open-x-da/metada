@@ -120,9 +120,9 @@ class LETKF {
     // Propagate to obs space
     MatrixXd Yb(obs_dim, ens_size);
     for (int i = 0; i < ens_size; ++i) {
-      obs_op_.template apply(ensemble_.GetMember(i), obs_);
-      const auto& member_data = obs_.template getData<std::vector<double>>();
-      Yb.col(i) = Eigen::Map<const VectorXd>(member_data.data(), obs_dim);
+      const auto& obs_data =
+          obs_op_.template apply(ensemble_.GetMember(i), obs_);
+      Yb.col(i) = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     }
     std::cout << "Yb: " << Yb << std::endl;
 

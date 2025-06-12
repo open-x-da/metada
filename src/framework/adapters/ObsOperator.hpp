@@ -151,9 +151,9 @@ class ObsOperator : public NonCopyable {
    * @throws std::runtime_error If the observation operator is not initialized
    */
   template <typename StateBackend, typename ObsBackend>
-  void apply(const State<StateBackend>& state,
-             Observation<ObsBackend>& obs) const {
-    backend_.apply(state.backend(), obs.backend());
+  std::vector<double> apply(const State<StateBackend>& state,
+                            const Observation<ObsBackend>& obs) const {
+    return backend_.apply(state.backend(), obs.backend());
   }
 
   /**

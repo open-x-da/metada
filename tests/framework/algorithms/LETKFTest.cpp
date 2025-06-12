@@ -7,6 +7,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <numbers>
 #include <random>
 
 #include "Config.hpp"
@@ -48,10 +50,15 @@ class LETKFTest : public ::testing::Test {
  protected:
   void SetUp() override {
     // Setup mock data
-    ens_size_ = 10;
+    ens_size_ = 50;
+    state_dim_ = 1000;
 
     // Base state around which to perturb
-    std::vector<double> base_state = {1.0, 2.0, 3.0};
+    std::vector<double> base_state(state_dim_);
+    for (size_t i = 0; i < state_dim_; ++i) {
+      double angle = i * 360.0 / state_dim_;  // Convert to degrees
+      base_state[i] = std::cos(angle * std::numbers::pi / 180.0);
+    }
 
     // Create random number generator for Gaussian perturbations
     std::random_device rd;
@@ -61,8 +68,8 @@ class LETKFTest : public ::testing::Test {
     // Generate ensemble members by adding Gaussian perturbations to base state
     ensemble_data_.resize(ens_size_);
     for (size_t i = 0; i < ens_size_; ++i) {
-      ensemble_data_[i].resize(base_state.size());
-      for (size_t j = 0; j < base_state.size(); ++j) {
+      ensemble_data_[i].resize(state_dim_);
+      for (size_t j = 0; j < state_dim_; ++j) {
         ensemble_data_[i][j] = base_state[j] + dist(gen);
       }
     }
@@ -74,18 +81,18 @@ class LETKFTest : public ::testing::Test {
         0.0, 0.05);  // smaller std for observations
 
     // Generate observations by adding smaller Gaussian errors to base state
-    obs_data_.resize(base_state.size());
-    for (size_t i = 0; i < base_state.size(); ++i) {
+    obs_data_.resize(state_dim_);
+    for (size_t i = 0; i < state_dim_; ++i) {
       obs_data_[i] = base_state[i] + obs_dist(obs_gen);
     }
 
-    // Create observation error covariance matrix (3x3)
+    // Create observation error covariance matrix (state_dim_ x state_dim_)
     // Using diagonal matrix with small variances
-    cov_data_ = std::vector<double>{
-        0.01, 0.00, 0.00,  // First row
-        0.00, 0.01, 0.00,  // Second row
-        0.00, 0.00, 0.01   // Third row
-    };  // 3x3 diagonal matrix with variance 0.01
+    cov_data_ = std::vector<double>(state_dim_ * state_dim_, 0.0);
+    for (size_t i = 0; i < state_dim_; ++i) {
+      cov_data_[i * state_dim_ + i] =
+          0.01;  // Set diagonal elements to variance 0.01
+    }  // state_dim_ x state_dim_ diagonal matrix with variance 0.01
 
     // Load configuration file from test directory
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
@@ -125,6 +132,7 @@ class LETKFTest : public ::testing::Test {
   }
 
   size_t ens_size_;
+  size_t state_dim_;
   std::vector<std::vector<double>> ensemble_data_;
   std::vector<double> obs_data_;
   std::vector<double> cov_data_;
@@ -164,10 +172,11 @@ TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
   // Setup expectations for the analysis step
   EXPECT_CALL(obs_op_->backend(), apply(::testing::_, ::testing::_))
       .Times(ens_size_)
-      .WillRepeatedly(::testing::Invoke(
-          [this]([[maybe_unused]] const auto& state, auto& obs_) {
+      .WillRepeatedly(
+          ::testing::Invoke([this]([[maybe_unused]] const auto& state,
+                                   [[maybe_unused]] const auto& obs_) {
             static size_t call_count = 0;
-            obs_.setData(ensemble_data_[call_count++]);
+            return ensemble_data_[call_count++];
           }));
 
   // Perform analysis

@@ -176,8 +176,10 @@ TEST_F(ObsOperatorTest, Apply) {
   State<traits::MockBackendTag> state(*config_, *geometry_);
   Observation<traits::MockBackendTag> obs(*config_);
 
-  EXPECT_CALL(backend, apply(_, _)).Times(1);
-  obsOp.apply(state, obs);
+  const auto sim_data = std::vector<double>{1.0, 2.0};
+  EXPECT_CALL(backend, apply(_, _)).Times(1).WillOnce(Return(sim_data));
+  auto result = obsOp.apply(state, obs);
+  EXPECT_EQ(result, sim_data);
 }
 
 }  // namespace metada::tests
