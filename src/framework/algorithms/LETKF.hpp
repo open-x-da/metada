@@ -115,7 +115,6 @@ class LETKF {
     VectorXd xb_mean = Xb.rowwise().mean();
     MatrixXd Xb_pert = Xb.colwise() - xb_mean;
     Xb_pert *= inflation_;  // Apply inflation
-    std::cout << "Xb_pert: " << Xb_pert << std::endl;
 
     // Propagate to obs space
     MatrixXd Yb(obs_dim, ens_size);
@@ -124,20 +123,15 @@ class LETKF {
           obs_op_.template apply(ensemble_.GetMember(i), obs_);
       Yb.col(i) = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     }
-    std::cout << "Yb: " << Yb << std::endl;
 
     // Compute mean and anomalies in observation space
     VectorXd yb_mean = Yb.rowwise().mean();
     MatrixXd Yb_pert = Yb.colwise() - yb_mean;
-    std::cout << "Yb_pert: " << Yb_pert << std::endl;
 
     // 2. Compute innovation
     const auto& obs_data = obs_.template getData<std::vector<double>>();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     VectorXd d = yo - yb_mean;
-    std::cout << "yo: " << yo << std::endl;
-    std::cout << "yb_mean: " << yb_mean << std::endl;
-    std::cout << "d: " << d << std::endl;
 
     // 3. Compute ensemble-space gain matrices
     const auto& R_data = obs_.getCovariance();
@@ -147,29 +141,23 @@ class LETKF {
     MatrixXd Pa = (Yb_pert.transpose() * R.inverse() * Yb_pert +
                    (ens_size - 1) * MatrixXd::Identity(ens_size, ens_size))
                       .inverse();
-    std::cout << "Pa: " << Pa << std::endl;
 
     // Compute weights for the mean
     MatrixXd wa = Pa * Yb_pert.transpose() * R.inverse() * d;
-    std::cout << "wa: " << wa << std::endl;
 
     // Compute square-root for anomalies (deterministic LETKF with Q = Identity)
     MatrixXd Pa_sqrt = Pa.llt().matrixL();
     MatrixXd Wa = std::sqrt(ens_size - 1) * Pa_sqrt;
-    std::cout << "Wa: " << Wa << std::endl;
 
     // 4. Analysis update in state space
     // Update mean
     VectorXd xa_mean = xb_mean + Xb_pert * wa;
-    std::cout << "xa_mean: " << xa_mean << std::endl;
 
     // Update anomalies
     MatrixXd Xa_pert = Xb_pert * Wa;
-    std::cout << "Xa_pert: " << Xa_pert << std::endl;
 
     // Full analysis ensemble
     MatrixXd Xa = xa_mean.replicate(1, ens_size) + Xa_pert;
-    std::cout << "Xa: " << Xa << std::endl;
 
     // Update ensemble members
     for (int i = 0; i < ens_size; ++i) {
