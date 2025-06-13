@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <iostream>
 #include <vector>
 
 #include "Metrics.hpp"
@@ -42,26 +43,16 @@ class MetricsTest : public Test {
         {1.0, 2.0, 3.0, 4.0}   // Member 3
     };
 
-    // Expected values
-    expected_mean_ = {1.0, 2.0, 3.0, 4.0};  // Should match true state
-    expected_spread_ = {0.1, 0.1, 0.1,
-                        0.1};     // Standard deviation of perturbations
-    expected_rmse_ = 0.0;         // Mean matches true state
-    expected_bias_ = 0.0;         // No bias
-    expected_correlation_ = 1.0;  // Perfect correlation
-    expected_crps_ = 0.022222222222222227;  // CRPS for this ensemble
+    // Calculate all metrics
+    metrics_ = framework::Metrics<>::CalculateAll(ensemble_data_, true_state_,
+                                                  state_dim_, ens_size_);
   }
 
   size_t state_dim_;
   size_t ens_size_;
   std::vector<double> true_state_;
   std::vector<std::vector<double>> ensemble_data_;
-  std::vector<double> expected_mean_;
-  std::vector<double> expected_spread_;
-  double expected_rmse_;
-  double expected_bias_;
-  double expected_correlation_;
-  double expected_crps_;
+  framework::MetricValues<double> metrics_;
 };
 
 /**
@@ -73,12 +64,9 @@ class MetricsTest : public Test {
  * - Mean has correct dimensions
  */
 TEST_F(MetricsTest, CalculateEnsembleMean) {
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      ensemble_data_, state_dim_, ens_size_);
-
-  ASSERT_EQ(mean.size(), state_dim_);
+  ASSERT_EQ(metrics_.mean.size(), state_dim_);
   for (size_t i = 0; i < state_dim_; ++i) {
-    EXPECT_NEAR(mean[i], expected_mean_[i], 1e-6);
+    EXPECT_NEAR(metrics_.mean[i], true_state_[i], 1e-6);
   }
 }
 
@@ -91,14 +79,9 @@ TEST_F(MetricsTest, CalculateEnsembleMean) {
  * - Spread has correct dimensions
  */
 TEST_F(MetricsTest, CalculateEnsembleSpread) {
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      ensemble_data_, state_dim_, ens_size_);
-  auto spread = framework::Metrics<>::calculateEnsembleSpread(
-      ensemble_data_, mean, state_dim_, ens_size_);
-
-  ASSERT_EQ(spread.size(), state_dim_);
+  ASSERT_EQ(metrics_.spread.size(), state_dim_);
   for (size_t i = 0; i < state_dim_; ++i) {
-    EXPECT_NEAR(spread[i], expected_spread_[i], 1e-6);
+    EXPECT_NEAR(metrics_.spread[i], 0.1, 1e-6);
   }
 }
 
@@ -111,12 +94,7 @@ TEST_F(MetricsTest, CalculateEnsembleSpread) {
  * - Bias is zero for unbiased ensemble
  */
 TEST_F(MetricsTest, CalculateBias) {
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      ensemble_data_, state_dim_, ens_size_);
-  double bias =
-      framework::Metrics<>::calculateBias(mean, true_state_, state_dim_);
-
-  EXPECT_NEAR(bias, expected_bias_, 1e-6);
+  EXPECT_NEAR(metrics_.bias, 0.0, 1e-6);
 }
 
 /**
@@ -128,12 +106,7 @@ TEST_F(MetricsTest, CalculateBias) {
  * - Correlation is 1.0 for perfect correlation
  */
 TEST_F(MetricsTest, CalculateCorrelation) {
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      ensemble_data_, state_dim_, ens_size_);
-  double correlation =
-      framework::Metrics<>::calculateCorrelation(mean, true_state_, state_dim_);
-
-  EXPECT_NEAR(correlation, expected_correlation_, 1e-6);
+  EXPECT_NEAR(metrics_.correlation, 1.0, 1e-6);
 }
 
 /**
@@ -145,11 +118,8 @@ TEST_F(MetricsTest, CalculateCorrelation) {
  * - CRPS is positive
  */
 TEST_F(MetricsTest, CalculateCRPS) {
-  double crps = framework::Metrics<>::calculateCRPS(ensemble_data_, true_state_,
-                                                    state_dim_, ens_size_);
-
-  EXPECT_NEAR(crps, expected_crps_, 1e-6);
-  EXPECT_GT(crps, 0.0);
+  EXPECT_NEAR(metrics_.crps, 0.022222222222222227, 1e-6);
+  EXPECT_GT(metrics_.crps, 0.0);
 }
 
 /**
@@ -161,12 +131,7 @@ TEST_F(MetricsTest, CalculateCRPS) {
  * - RMSE is zero for perfect match
  */
 TEST_F(MetricsTest, CalculateRMSE) {
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      ensemble_data_, state_dim_, ens_size_);
-  double rmse =
-      framework::Metrics<>::calculateRMSE(mean, true_state_, state_dim_);
-
-  EXPECT_NEAR(rmse, expected_rmse_, 1e-6);
+  EXPECT_NEAR(metrics_.rmse, 0.0, 1e-6);
 }
 
 /**
@@ -178,15 +143,8 @@ TEST_F(MetricsTest, CalculateRMSE) {
  * - Average spread is positive
  */
 TEST_F(MetricsTest, CalculateAverageSpread) {
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      ensemble_data_, state_dim_, ens_size_);
-  auto spread = framework::Metrics<>::calculateEnsembleSpread(
-      ensemble_data_, mean, state_dim_, ens_size_);
-  double avg_spread =
-      framework::Metrics<>::calculateAverageSpread(spread, state_dim_);
-
-  EXPECT_DOUBLE_EQ(avg_spread, 0.1);  // Average of expected_spread_
-  EXPECT_GT(avg_spread, 0.0);
+  EXPECT_NEAR(metrics_.avg_spread, 0.1, 1e-6);
+  EXPECT_GT(metrics_.avg_spread, 0.0);
 }
 
 /**
@@ -206,18 +164,13 @@ TEST_F(MetricsTest, BiasedEnsemble) {
     }
   }
 
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      biased_ensemble, state_dim_, ens_size_);
-  double bias =
-      framework::Metrics<>::calculateBias(mean, true_state_, state_dim_);
-  double rmse =
-      framework::Metrics<>::calculateRMSE(mean, true_state_, state_dim_);
-  double correlation =
-      framework::Metrics<>::calculateCorrelation(mean, true_state_, state_dim_);
+  auto biased_metrics = framework::Metrics<>::CalculateAll(
+      biased_ensemble, true_state_, state_dim_, ens_size_);
 
-  EXPECT_NEAR(bias, 0.5, 1e-6);
-  EXPECT_NEAR(rmse, 0.5, 1e-6);
-  EXPECT_NEAR(correlation, 1.0, 1e-6);  // Still perfect correlation
+  EXPECT_NEAR(biased_metrics.bias, 0.5, 1e-6);
+  EXPECT_NEAR(biased_metrics.rmse, 0.5, 1e-6);
+  EXPECT_NEAR(biased_metrics.correlation, 1.0,
+              1e-6);  // Still perfect correlation
 }
 
 /**
@@ -236,18 +189,32 @@ TEST_F(MetricsTest, UncorrelatedEnsemble) {
       {2.0, 30.0, 1.0, 43.0}    // Another shuffle
   };
 
-  auto mean = framework::Metrics<>::calculateEnsembleMean(
-      uncorrelated_ensemble, state_dim_, ens_size_);
-  double correlation =
-      framework::Metrics<>::calculateCorrelation(mean, true_state_, state_dim_);
-  double rmse =
-      framework::Metrics<>::calculateRMSE(mean, true_state_, state_dim_);
-  double crps = framework::Metrics<>::calculateCRPS(
+  auto uncorrelated_metrics = framework::Metrics<>::CalculateAll(
       uncorrelated_ensemble, true_state_, state_dim_, ens_size_);
 
-  EXPECT_NEAR(correlation, 0.34105511573854358, 1e-6);
-  EXPECT_GT(rmse, 1.0);
-  EXPECT_GT(crps, 1.0);
+  EXPECT_NEAR(uncorrelated_metrics.correlation, 0.34105511573854358, 1e-6);
+  EXPECT_GT(uncorrelated_metrics.rmse, 1.0);
+  EXPECT_GT(uncorrelated_metrics.crps, 1.0);
+}
+
+/**
+ * @brief Test metrics printing
+ *
+ * Verifies that:
+ * - Metrics can be printed to stream
+ * - Output format is correct
+ */
+TEST_F(MetricsTest, PrintMetrics) {
+  std::stringstream ss;
+  ss << metrics_;
+  std::string output = ss.str();
+
+  // Check that all metrics are present in output
+  EXPECT_TRUE(output.find("RMSE:") != std::string::npos);
+  EXPECT_TRUE(output.find("Bias:") != std::string::npos);
+  EXPECT_TRUE(output.find("Correlation:") != std::string::npos);
+  EXPECT_TRUE(output.find("CRPS:") != std::string::npos);
+  EXPECT_TRUE(output.find("Average Spread:") != std::string::npos);
 }
 
 }  // namespace metada::tests

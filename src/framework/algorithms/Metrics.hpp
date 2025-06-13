@@ -1,9 +1,50 @@
 #pragma once
 
 #include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
 #include <vector>
 
 namespace metada::framework {
+
+/**
+ * @brief Struct to hold all metric values
+ */
+template <typename T = double>
+struct MetricValues {
+  std::vector<T> mean;    ///< Ensemble mean
+  std::vector<T> spread;  ///< Ensemble spread
+  T rmse;                 ///< Root Mean Square Error
+  T bias;                 ///< Bias
+  T correlation;          ///< Correlation coefficient
+  T crps;                 ///< Continuous Ranked Probability Score
+  T avg_spread;           ///< Average spread
+
+  /**
+   * @brief Convert metrics to string with specified precision
+   * @param precision Number of decimal places to show
+   * @return Formatted string of metrics
+   */
+  std::string ToString(int precision = 6) const {
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(precision);
+    ss << "Metrics:\n";
+    ss << "  RMSE: " << rmse << "\n";
+    ss << "  Bias: " << bias << "\n";
+    ss << "  Correlation: " << correlation << "\n";
+    ss << "  CRPS: " << crps << "\n";
+    ss << "  Average Spread: " << avg_spread << "\n";
+    return ss.str();
+  }
+
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const MetricValues<T>& metrics) {
+    os << metrics.ToString();
+    return os;
+  }
+};
 
 /**
  * @brief Class for calculating ensemble data assimilation metrics
@@ -23,6 +64,36 @@ template <typename T = double>
 class Metrics {
  public:
   /**
+   * @brief Calculate all metrics for given ensemble and true state
+   * @param ensemble_data Vector of ensemble member data
+   * @param truth True state
+   * @param state_dim Dimension of the state vector
+   * @param ens_size Number of ensemble members
+   * @return Struct containing all metric values
+   */
+  static MetricValues<T> CalculateAll(
+      const std::vector<std::vector<T>>& ensemble_data,
+      const std::vector<T>& truth, size_t state_dim, size_t ens_size) {
+    MetricValues<T> values;
+
+    // Calculate mean
+    values.mean = CalculateEnsembleMean(ensemble_data, state_dim, ens_size);
+
+    // Calculate spread
+    values.spread = CalculateEnsembleSpread(ensemble_data, values.mean,
+                                            state_dim, ens_size);
+
+    // Calculate other metrics
+    values.rmse = CalculateRMSE(values.mean, truth, state_dim);
+    values.bias = CalculateBias(values.mean, truth, state_dim);
+    values.correlation = CalculateCorrelation(values.mean, truth, state_dim);
+    values.crps = CalculateCRPS(ensemble_data, truth, state_dim, ens_size);
+    values.avg_spread = CalculateAverageSpread(values.spread, state_dim);
+
+    return values;
+  }
+
+  /**
    * @brief Calculate ensemble mean
    *
    * Formula:
@@ -34,7 +105,7 @@ class Metrics {
    * @param ens_size Number of ensemble members
    * @return Vector containing the mean at each point
    */
-  static std::vector<T> calculateEnsembleMean(
+  static std::vector<T> CalculateEnsembleMean(
       const std::vector<std::vector<T>>& ensemble_data, size_t state_dim,
       size_t ens_size) {
     std::vector<T> mean(state_dim, 0.0);
@@ -63,7 +134,7 @@ class Metrics {
    * @param ens_size Number of ensemble members
    * @return Vector containing the spread at each point
    */
-  static std::vector<T> calculateEnsembleSpread(
+  static std::vector<T> CalculateEnsembleSpread(
       const std::vector<std::vector<T>>& ensemble_data,
       const std::vector<T>& mean, size_t state_dim, size_t ens_size) {
     std::vector<T> spread(state_dim, 0.0);
@@ -92,7 +163,7 @@ class Metrics {
    * @param state_dim Dimension of the state vector
    * @return Average bias
    */
-  static T calculateBias(const std::vector<T>& mean,
+  static T CalculateBias(const std::vector<T>& mean,
                          const std::vector<T>& truth, size_t state_dim) {
     T bias = 0.0;
     for (size_t i = 0; i < state_dim; ++i) {
@@ -115,7 +186,7 @@ class Metrics {
    * @param state_dim Dimension of the state vector
    * @return Correlation coefficient
    */
-  static T calculateCorrelation(const std::vector<T>& mean,
+  static T CalculateCorrelation(const std::vector<T>& mean,
                                 const std::vector<T>& truth, size_t state_dim) {
     T sum_x = 0.0, sum_y = 0.0, sum_xy = 0.0;
     T sum_x2 = 0.0, sum_y2 = 0.0;
@@ -158,7 +229,7 @@ class Metrics {
    * @param ens_size Number of ensemble members
    * @return CRPS value
    */
-  static T calculateCRPS(const std::vector<std::vector<T>>& ensemble_data,
+  static T CalculateCRPS(const std::vector<std::vector<T>>& ensemble_data,
                          const std::vector<T>& truth, size_t state_dim,
                          size_t ens_size) {
     T crps = 0.0;
@@ -191,7 +262,7 @@ class Metrics {
    * @param state_dim Dimension of the state vector
    * @return RMSE value
    */
-  static T calculateRMSE(const std::vector<T>& mean,
+  static T CalculateRMSE(const std::vector<T>& mean,
                          const std::vector<T>& truth, size_t state_dim) {
     T rmse = 0.0;
     for (size_t i = 0; i < state_dim; ++i) {
@@ -212,7 +283,7 @@ class Metrics {
    * @param state_dim Dimension of the state vector
    * @return Average spread value
    */
-  static T calculateAverageSpread(const std::vector<T>& spread,
+  static T CalculateAverageSpread(const std::vector<T>& spread,
                                   size_t state_dim) {
     T avg_spread = 0.0;
     for (T val : spread) {

@@ -93,7 +93,7 @@ class LETKF {
   /**
    * @brief Perform the LETKF analysis step, updating the ensemble.
    */
-  void analyse() {
+  void Analyse() {
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 

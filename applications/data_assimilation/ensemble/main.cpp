@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
     // Run LETKF analysis
     fwk::LETKF<BackendTag> letkf(ensemble, observation, obs_operator,
                                  inflation_factor);
-    letkf.analyse();
+    letkf.Analyse();
 
     logger.Info() << "LETKF application completed successfully";
     return 0;

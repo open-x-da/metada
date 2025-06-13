@@ -295,7 +295,7 @@ TEST_F(LETKFTest, ConstructorInitializesCorrectly) {
  * The test sets up mock behavior for the observation operator to return
  * ensemble data as simulated observations.
  */
-TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
+TEST_F(LETKFTest, AnalysisUpdatesEnsemble) {
   // Setup expectations for the analysis step
   EXPECT_CALL(obs_op_->backend(), apply(::testing::_, ::testing::_))
       .Times(ens_size_)
@@ -307,30 +307,14 @@ TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
           }));
 
   // Calculate initial metrics
-  auto initial_mean = framework::Metrics<>::calculateEnsembleMean(
-      ensemble_data_, state_dim_, ens_size_);
-  auto initial_spread = framework::Metrics<>::calculateEnsembleSpread(
-      ensemble_data_, initial_mean, state_dim_, ens_size_);
-  double initial_rmse = framework::Metrics<>::calculateRMSE(
-      initial_mean, true_state_, state_dim_);
-  double initial_bias = framework::Metrics<>::calculateBias(
-      initial_mean, true_state_, state_dim_);
-  double initial_correlation = framework::Metrics<>::calculateCorrelation(
-      initial_mean, true_state_, state_dim_);
-  double initial_crps = framework::Metrics<>::calculateCRPS(
+  auto initial_metrics = framework::Metrics<>::CalculateAll(
       ensemble_data_, true_state_, state_dim_, ens_size_);
-  double avg_initial_spread =
-      framework::Metrics<>::calculateAverageSpread(initial_spread, state_dim_);
 
   std::cout << "Initial Metrics:" << std::endl;
-  std::cout << "RMSE: " << initial_rmse << std::endl;
-  std::cout << "Average Spread: " << avg_initial_spread << std::endl;
-  std::cout << "Bias: " << initial_bias << std::endl;
-  std::cout << "Correlation: " << initial_correlation << std::endl;
-  std::cout << "CRPS: " << initial_crps << std::endl;
+  std::cout << initial_metrics;
 
   // Perform analysis
-  letkf_->analyse();
+  letkf_->Analyse();
 
   // Get updated ensemble data
   std::vector<std::vector<double>> updated_ensemble_data(ens_size_);
@@ -340,34 +324,19 @@ TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
   }
 
   // Calculate final metrics
-  auto final_mean = framework::Metrics<>::calculateEnsembleMean(
-      updated_ensemble_data, state_dim_, ens_size_);
-  auto final_spread = framework::Metrics<>::calculateEnsembleSpread(
-      updated_ensemble_data, final_mean, state_dim_, ens_size_);
-  double final_rmse =
-      framework::Metrics<>::calculateRMSE(final_mean, true_state_, state_dim_);
-  double final_bias =
-      framework::Metrics<>::calculateBias(final_mean, true_state_, state_dim_);
-  double final_correlation = framework::Metrics<>::calculateCorrelation(
-      final_mean, true_state_, state_dim_);
-  double final_crps = framework::Metrics<>::calculateCRPS(
+  auto final_metrics = framework::Metrics<>::CalculateAll(
       updated_ensemble_data, true_state_, state_dim_, ens_size_);
-  double avg_final_spread =
-      framework::Metrics<>::calculateAverageSpread(final_spread, state_dim_);
 
   std::cout << "\nFinal Metrics:" << std::endl;
-  std::cout << "RMSE: " << final_rmse << std::endl;
-  std::cout << "Average Spread: " << avg_final_spread << std::endl;
-  std::cout << "Bias: " << final_bias << std::endl;
-  std::cout << "Correlation: " << final_correlation << std::endl;
-  std::cout << "CRPS: " << final_crps << std::endl;
+  std::cout << final_metrics;
 
   // Add assertions to verify improvement
-  EXPECT_LT(final_rmse, initial_rmse);
-  EXPECT_GT(final_correlation, initial_correlation);
-  EXPECT_LT(final_crps, initial_crps);
-  EXPECT_NEAR(final_bias, 0.0, 0.1);  // Bias should be close to zero
-  EXPECT_NEAR(avg_final_spread, final_rmse, 0.1);  // Spread should match RMSE
+  EXPECT_LT(final_metrics.rmse, initial_metrics.rmse);
+  EXPECT_GT(final_metrics.correlation, initial_metrics.correlation);
+  EXPECT_LT(final_metrics.crps, initial_metrics.crps);
+  EXPECT_NEAR(final_metrics.bias, 0.0, 0.1);  // Bias should be close to zero
+  EXPECT_NEAR(final_metrics.avg_spread, final_metrics.rmse,
+              0.1);  // Spread should match RMSE
 }
 
 }  // namespace metada::tests
