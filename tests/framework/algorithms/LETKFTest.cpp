@@ -15,6 +15,7 @@
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
 #include "LETKF.hpp"
+#include "Metrics.hpp"
 #include "MockBackendTraits.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
@@ -131,6 +132,131 @@ class LETKFTest : public ::testing::Test {
         *ensemble_, *obs_, *obs_op_, 1.1);
   }
 
+  void TearDown() override {
+    // Reset all unique pointers
+    letkf_.reset();
+    obs_op_.reset();
+    obs_.reset();
+    ensemble_.reset();
+    geometry_.reset();
+    config_.reset();
+
+    // Clear data vectors
+    ensemble_data_.clear();
+    obs_data_.clear();
+    cov_data_.clear();
+    true_state_.clear();
+  }
+
+  /**
+   * @brief Calculate ensemble mean
+   * @param ensemble_data Vector of ensemble member data
+   * @return Vector containing the mean at each point
+   */
+  std::vector<double> calculateEnsembleMean(
+      const std::vector<std::vector<double>>& ensemble_data) {
+    std::vector<double> mean(state_dim_, 0.0);
+    for (const auto& member : ensemble_data) {
+      for (size_t i = 0; i < state_dim_; ++i) {
+        mean[i] += member[i];
+      }
+    }
+    for (auto& val : mean) {
+      val /= ens_size_;
+    }
+    return mean;
+  }
+
+  /**
+   * @brief Calculate ensemble spread (standard deviation)
+   * @param ensemble_data Vector of ensemble member data
+   * @param mean Ensemble mean
+   * @return Vector containing the spread at each point
+   */
+  std::vector<double> calculateEnsembleSpread(
+      const std::vector<std::vector<double>>& ensemble_data,
+      const std::vector<double>& mean) {
+    std::vector<double> spread(state_dim_, 0.0);
+    for (const auto& member : ensemble_data) {
+      for (size_t i = 0; i < state_dim_; ++i) {
+        double diff = member[i] - mean[i];
+        spread[i] += diff * diff;
+      }
+    }
+    for (auto& val : spread) {
+      val = std::sqrt(val / (ens_size_ - 1));
+    }
+    return spread;
+  }
+
+  /**
+   * @brief Calculate bias
+   * @param mean Ensemble mean
+   * @param truth True state
+   * @return Average bias
+   */
+  double calculateBias(const std::vector<double>& mean,
+                       const std::vector<double>& truth) {
+    double bias = 0.0;
+    for (size_t i = 0; i < state_dim_; ++i) {
+      bias += mean[i] - truth[i];
+    }
+    return bias / state_dim_;
+  }
+
+  /**
+   * @brief Calculate correlation coefficient
+   * @param mean Ensemble mean
+   * @param truth True state
+   * @return Correlation coefficient
+   */
+  double calculateCorrelation(const std::vector<double>& mean,
+                              const std::vector<double>& truth) {
+    double sum_x = 0.0, sum_y = 0.0, sum_xy = 0.0;
+    double sum_x2 = 0.0, sum_y2 = 0.0;
+
+    for (size_t i = 0; i < state_dim_; ++i) {
+      sum_x += mean[i];
+      sum_y += truth[i];
+      sum_xy += mean[i] * truth[i];
+      sum_x2 += mean[i] * mean[i];
+      sum_y2 += truth[i] * truth[i];
+    }
+
+    double n = static_cast<double>(state_dim_);
+    double numerator = n * sum_xy - sum_x * sum_y;
+    double denominator =
+        std::sqrt((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y));
+
+    return numerator / denominator;
+  }
+
+  /**
+   * @brief Calculate Continuous Ranked Probability Score (CRPS)
+   * @param ensemble_data Vector of ensemble member data
+   * @param truth True state
+   * @return CRPS value
+   */
+  double calculateCRPS(const std::vector<std::vector<double>>& ensemble_data,
+                       const std::vector<double>& truth) {
+    double crps = 0.0;
+    for (size_t i = 0; i < state_dim_; ++i) {
+      double sum_diff = 0.0;
+      for (size_t j = 0; j < ens_size_; ++j) {
+        for (size_t k = 0; k < ens_size_; ++k) {
+          sum_diff += std::abs(ensemble_data[j][i] - ensemble_data[k][i]);
+        }
+      }
+      double sum_truth_diff = 0.0;
+      for (size_t j = 0; j < ens_size_; ++j) {
+        sum_truth_diff += std::abs(ensemble_data[j][i] - truth[i]);
+      }
+      crps +=
+          sum_truth_diff / ens_size_ - sum_diff / (2.0 * ens_size_ * ens_size_);
+    }
+    return crps / state_dim_;
+  }
+
   size_t ens_size_;
   size_t state_dim_;
   std::vector<std::vector<double>> ensemble_data_;
@@ -180,40 +306,68 @@ TEST_F(LETKFTest, AnalyseUpdatesEnsemble) {
             return ensemble_data_[call_count++];
           }));
 
-  // Calculate RMSE of ensemble from base state
-  double rmse = 0.0;
+  // Calculate initial metrics
+  auto initial_mean = framework::Metrics<>::calculateEnsembleMean(
+      ensemble_data_, state_dim_, ens_size_);
+  auto initial_spread = framework::Metrics<>::calculateEnsembleSpread(
+      ensemble_data_, initial_mean, state_dim_, ens_size_);
+  double initial_rmse = framework::Metrics<>::calculateRMSE(
+      initial_mean, true_state_, state_dim_);
+  double initial_bias = framework::Metrics<>::calculateBias(
+      initial_mean, true_state_, state_dim_);
+  double initial_correlation = framework::Metrics<>::calculateCorrelation(
+      initial_mean, true_state_, state_dim_);
+  double initial_crps = framework::Metrics<>::calculateCRPS(
+      ensemble_data_, true_state_, state_dim_, ens_size_);
+  double avg_initial_spread =
+      framework::Metrics<>::calculateAverageSpread(initial_spread, state_dim_);
 
-  // Calculate mean squared error for each ensemble member
-  for (size_t i = 0; i < ens_size_; ++i) {
-    const auto& member_data = ensemble_data_[i];
-    double squared_error = 0.0;
-    for (size_t j = 0; j < state_dim_; ++j) {
-      double diff = member_data[j] - true_state_[j];
-      squared_error += diff * diff;
-    }
-    rmse += squared_error;
-  }
-
-  // Calculate initial RMSE
-  rmse = std::sqrt(rmse / (ens_size_ * state_dim_));
-  std::cout << "Initial RMSE: " << rmse << std::endl;
+  std::cout << "Initial Metrics:" << std::endl;
+  std::cout << "RMSE: " << initial_rmse << std::endl;
+  std::cout << "Average Spread: " << avg_initial_spread << std::endl;
+  std::cout << "Bias: " << initial_bias << std::endl;
+  std::cout << "Correlation: " << initial_correlation << std::endl;
+  std::cout << "CRPS: " << initial_crps << std::endl;
 
   // Perform analysis
   letkf_->analyse();
 
-  // Calculate final RMSE
-  rmse = 0.0;
+  // Get updated ensemble data
+  std::vector<std::vector<double>> updated_ensemble_data(ens_size_);
   for (size_t i = 0; i < ens_size_; ++i) {
-    const auto& member_data = ensemble_data_[i];
-    double squared_error = 0.0;
-    for (size_t j = 0; j < state_dim_; ++j) {
-      double diff = member_data[j] - true_state_[j];
-      squared_error += diff * diff;
-    }
-    rmse += squared_error;
+    updated_ensemble_data[i] =
+        ensemble_->GetMember(i).template getData<std::vector<double>>();
   }
-  rmse = std::sqrt(rmse / (ens_size_ * state_dim_));
-  std::cout << "Final RMSE: " << rmse << std::endl;
+
+  // Calculate final metrics
+  auto final_mean = framework::Metrics<>::calculateEnsembleMean(
+      updated_ensemble_data, state_dim_, ens_size_);
+  auto final_spread = framework::Metrics<>::calculateEnsembleSpread(
+      updated_ensemble_data, final_mean, state_dim_, ens_size_);
+  double final_rmse =
+      framework::Metrics<>::calculateRMSE(final_mean, true_state_, state_dim_);
+  double final_bias =
+      framework::Metrics<>::calculateBias(final_mean, true_state_, state_dim_);
+  double final_correlation = framework::Metrics<>::calculateCorrelation(
+      final_mean, true_state_, state_dim_);
+  double final_crps = framework::Metrics<>::calculateCRPS(
+      updated_ensemble_data, true_state_, state_dim_, ens_size_);
+  double avg_final_spread =
+      framework::Metrics<>::calculateAverageSpread(final_spread, state_dim_);
+
+  std::cout << "\nFinal Metrics:" << std::endl;
+  std::cout << "RMSE: " << final_rmse << std::endl;
+  std::cout << "Average Spread: " << avg_final_spread << std::endl;
+  std::cout << "Bias: " << final_bias << std::endl;
+  std::cout << "Correlation: " << final_correlation << std::endl;
+  std::cout << "CRPS: " << final_crps << std::endl;
+
+  // Add assertions to verify improvement
+  EXPECT_LT(final_rmse, initial_rmse);
+  EXPECT_GT(final_correlation, initial_correlation);
+  EXPECT_LT(final_crps, initial_crps);
+  EXPECT_NEAR(final_bias, 0.0, 0.1);  // Bias should be close to zero
+  EXPECT_NEAR(avg_final_spread, final_rmse, 0.1);  // Spread should match RMSE
 }
 
 }  // namespace metada::tests

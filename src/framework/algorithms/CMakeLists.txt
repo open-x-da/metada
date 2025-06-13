@@ -12,6 +12,7 @@ target_include_directories(algorithms
 target_sources(algorithms
     INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/LETKF.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/Metrics.hpp
 )
 
 # Link dependencies
