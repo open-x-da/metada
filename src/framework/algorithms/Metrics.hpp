@@ -24,6 +24,11 @@ class Metrics {
  public:
   /**
    * @brief Calculate ensemble mean
+   *
+   * Formula:
+   * \f[ \bar{x} = \frac{1}{N} \sum_{i=1}^N x_i \f]
+   * where N is ensemble size and x_i is the i-th ensemble member
+   *
    * @param ensemble_data Vector of ensemble member data
    * @param state_dim Dimension of the state vector
    * @param ens_size Number of ensemble members
@@ -46,6 +51,12 @@ class Metrics {
 
   /**
    * @brief Calculate ensemble spread (standard deviation)
+   *
+   * Formula:
+   * \f[ \sigma = \sqrt{\frac{1}{N-1} \sum_{i=1}^N (x_i - \bar{x})^2} \f]
+   * where N is ensemble size, x_i is the i-th ensemble member, and
+   * \f$\bar{x}\f$ is ensemble mean
+   *
    * @param ensemble_data Vector of ensemble member data
    * @param mean Ensemble mean
    * @param state_dim Dimension of the state vector
@@ -70,6 +81,12 @@ class Metrics {
 
   /**
    * @brief Calculate bias
+   *
+   * Formula:
+   * \f[ \text{bias} = \frac{1}{n} \sum_{i=1}^n (\bar{x}_i - x^t_i) \f]
+   * where n is state dimension, \f$\bar{x}\f$ is ensemble mean, and \f$x^t\f$
+   * is true state
+   *
    * @param mean Ensemble mean
    * @param truth True state
    * @param state_dim Dimension of the state vector
@@ -86,6 +103,13 @@ class Metrics {
 
   /**
    * @brief Calculate correlation coefficient
+   *
+   * Formula:
+   * \f[ r = \frac{\sum_{i=1}^n (\bar{x}_i - \bar{\bar{x}})(x^t_i - \bar{x^t})}
+   *           {\sqrt{\sum_{i=1}^n (\bar{x}_i - \bar{\bar{x}})^2}
+   *            \sqrt{\sum_{i=1}^n (x^t_i - \bar{x^t})^2}} \f]
+   * where n is state dimension
+   *
    * @param mean Ensemble mean
    * @param truth True state
    * @param state_dim Dimension of the state vector
@@ -114,6 +138,20 @@ class Metrics {
 
   /**
    * @brief Calculate Continuous Ranked Probability Score (CRPS)
+   *
+   * Formula:
+   * \f[ \text{CRPS} = \frac{1}{n} \sum_{i=1}^n \int_{-\infty}^{\infty}
+   *                    (F_i(y) - H(y-x^t_i))^2 dy \f]
+   * where F_i is the empirical CDF of ensemble at point i, and H is Heaviside
+   * function
+   *
+   * For discrete ensemble, this reduces to:
+   * \f[ \text{CRPS} = \frac{1}{n} \sum_{i=1}^n \left[
+   *     \frac{1}{N} \sum_{j=1}^N |y_{ij} - x^t_i| -
+   *     \frac{1}{2N^2} \sum_{j=1}^N \sum_{k=1}^N |y_{ij} - y_{ik}|
+   *     \right] \f]
+   * where N is ensemble size, y_{ij} is j-th ensemble member at point i
+   *
    * @param ensemble_data Vector of ensemble member data
    * @param truth True state
    * @param state_dim Dimension of the state vector
@@ -143,6 +181,11 @@ class Metrics {
 
   /**
    * @brief Calculate Root Mean Square Error (RMSE)
+   *
+   * Formula:
+   * \f[ \text{RMSE} = \sqrt{\frac{1}{n} \sum_{i=1}^n (\bar{x}_i - x^t_i)^2} \f]
+   * where n is state dimension
+   *
    * @param mean Ensemble mean
    * @param truth True state
    * @param state_dim Dimension of the state vector
@@ -160,6 +203,11 @@ class Metrics {
 
   /**
    * @brief Calculate average spread
+   *
+   * Formula:
+   * \f[ \bar{\sigma} = \frac{1}{n} \sum_{i=1}^n \sigma_i \f]
+   * where n is state dimension and \f$\sigma_i\f$ is spread at point i
+   *
    * @param spread Vector of spread values
    * @param state_dim Dimension of the state vector
    * @return Average spread value
