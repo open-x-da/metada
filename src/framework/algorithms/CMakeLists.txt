@@ -11,7 +11,7 @@ target_include_directories(algorithms
 # List sources for IDE/documentation
 target_sources(algorithms
     INTERFACE
-        ${CMAKE_CURRENT_SOURCE_DIR}/LETKF.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ETKF.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Metrics.hpp
 )
 

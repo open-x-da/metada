@@ -11,13 +11,13 @@
 namespace metada::framework {
 
 /**
- * @brief Local Ensemble Transform Kalman Filter (LETKF) implementation.
+ * @brief Ensemble Transform Kalman Filter (ETKF) implementation.
  *
- * This class implements the LETKF algorithm for ensemble-based data
+ * This class implements the ETKF algorithm for ensemble-based data
  * assimilation. It updates an ensemble of states using observations and an
  * observation operator.
  *
- * The LETKF algorithm follows these steps:
+ * The ETKF algorithm follows these steps:
  * 1. Build forecast quantities:
  *    \[
  *    \bar{\mathbf x}^f = \frac{1}{N}\sum_{i=1}^{N}\mathbf x_i^f
@@ -74,24 +74,24 @@ namespace metada::framework {
  * concepts
  */
 template <typename BackendTag>
-class LETKF {
+class ETKF {
  public:
   /**
-   * @brief Construct a LETKF object.
+   * @brief Construct a ETKF object.
    * @param ensemble Reference to the ensemble to be updated.
    * @param obs Reference to the observation object.
    * @param obs_op Reference to the observation operator.
    * @param inflation Covariance inflation factor.
    */
-  LETKF(Ensemble<BackendTag>& ensemble, Observation<BackendTag>& obs,
-        const ObsOperator<BackendTag>& obs_op, double inflation)
+  ETKF(Ensemble<BackendTag>& ensemble, Observation<BackendTag>& obs,
+       const ObsOperator<BackendTag>& obs_op, double inflation)
       : ensemble_(ensemble),
         obs_(obs),
         obs_op_(obs_op),
         inflation_(inflation) {}
 
   /**
-   * @brief Perform the LETKF analysis step, updating the ensemble.
+   * @brief Perform the ETKF analysis step, updating the ensemble.
    */
   void Analyse() {
     using Eigen::MatrixXd;
@@ -145,7 +145,7 @@ class LETKF {
     // Compute weights for the mean
     MatrixXd wa = Pa * Yb_pert.transpose() * R.inverse() * d;
 
-    // Compute square-root for anomalies (deterministic LETKF with Q = Identity)
+    // Compute square-root for anomalies (deterministic ETKF with Q = Identity)
     MatrixXd Pa_sqrt = Pa.llt().matrixL();
     MatrixXd Wa = std::sqrt(ens_size - 1) * Pa_sqrt;
 

@@ -1,8 +1,8 @@
-# Add LETKF executable
-add_executable(letkf main.cpp)
+# Add ETKF executable
+add_executable(etkf main.cpp)
 
 # Link with required backend libraries for logging and configuration
-target_link_libraries(letkf
+target_link_libraries(etkf
     PRIVATE
         metada::traits
         metada::framework::adapters
@@ -14,10 +14,10 @@ target_link_libraries(letkf
 )
 
 # Set output directory
-set_target_properties(letkf
+set_target_properties(etkf
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
 # Add format target to ensure consistent code style across the project
-AddFormatTarget(letkf ${CMAKE_CURRENT_SOURCE_DIR})
+AddFormatTarget(etkf ${CMAKE_CURRENT_SOURCE_DIR})

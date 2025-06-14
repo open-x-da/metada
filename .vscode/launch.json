@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug LETKF",
+            "name": "Debug ETKF",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/letkf",
+            "program": "${workspaceFolder}/build/bin/etkf",
             "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.yaml"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",

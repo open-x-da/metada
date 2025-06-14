@@ -1,13 +1,13 @@
 /**
  * @file main.cpp
- * @brief Driver for the Local Ensemble Transform Kalman Filter (LETKF)
+ * @brief Driver for the Ensemble Transform Kalman Filter (ETKF)
  * application
  */
 
 #include "ApplicationContext.hpp"
+#include "ETKF.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
-#include "LETKF.hpp"
 #include "MockBackendTraits.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
   auto& logger = context.getLogger();
   auto& config = context.getConfig();
 
-  logger.Info() << "LETKF application starting...";
+  logger.Info() << "ETKF application starting...";
 
   try {
     // Validate command line arguments
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     auto state_variables = config.Get("state_variables").asVectorString();
 
     // Log configuration
-    logger.Info() << "LETKF Configuration:";
+    logger.Info() << "ETKF Configuration:";
     logger.Info() << "  - Ensemble Size: " << ensemble_size;
     logger.Info() << "  - Inflation Factor: " << inflation_factor;
     logger.Info() << "  - State Variables: " << state_variables.size();
@@ -47,15 +47,15 @@ int main(int argc, char** argv) {
     fwk::Observation<BackendTag> observation(config);
     fwk::ObsOperator<BackendTag> obs_operator(config);
 
-    // Run LETKF analysis
-    fwk::LETKF<BackendTag> letkf(ensemble, observation, obs_operator,
-                                 inflation_factor);
-    letkf.Analyse();
+    // Run ETKF analysis
+    fwk::ETKF<BackendTag> etkf(ensemble, observation, obs_operator,
+                               inflation_factor);
+    etkf.Analyse();
 
-    logger.Info() << "LETKF application completed successfully";
+    logger.Info() << "ETKF application completed successfully";
     return 0;
   } catch (const std::exception& e) {
-    logger.Error() << "LETKF application failed: " << e.what();
+    logger.Error() << "ETKF application failed: " << e.what();
     return 1;
   }
 }
