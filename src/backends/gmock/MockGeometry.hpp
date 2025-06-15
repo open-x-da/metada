@@ -44,38 +44,44 @@ namespace metada::backends::gmock {
  *
  * The mock geometry supports:
  * - Iteration through grid points via begin/end methods
- * - Periodicity queries in X, Y, and Z dimensions
  * - Size information queries
  * - Halo exchange operations
- * - Initialization status checks
  * - Proper move semantics (non-copyable)
  * - Cloning capability
- *
- * @tparam ConfigBackend The mock configuration backend type
  *
  * @see MockGeometryIterator
  * @see GeometryBackendType
  */
-template <typename ConfigBackend>
 class MockGeometry {
  public:
-  // STL-style type aliases
+  /** @brief Type of elements stored in the geometry */
   using value_type = MockGridPoint;
+  /** @brief Reference to an element */
   using reference = value_type&;
+  /** @brief Const reference to an element */
   using const_reference = const value_type&;
+  /** @brief Pointer to an element */
   using pointer = value_type*;
+  /** @brief Const pointer to an element */
   using const_pointer = const value_type*;
+  /** @brief Type used for size and indexing */
   using size_type = std::size_t;
+  /** @brief Type used for iterator differences */
   using difference_type = std::ptrdiff_t;
+  /** @brief Iterator type for traversing grid points */
   using iterator = MockGeometryIterator;
+  /** @brief Const iterator type for traversing grid points */
   using const_iterator = MockGeometryIterator;
 
   /**
    * @brief Constructor that takes a mock config
+   * @tparam ConfigBackend The mock configuration backend type
    * @param config Mock configuration object
+   * @details Initializes the geometry with a set of sample grid points
    */
-  explicit MockGeometry(const ConfigBackend& config)
-      : config_(config), gridPoints_({{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}) {}
+  template <typename ConfigBackend>
+  explicit MockGeometry(const ConfigBackend& /*config*/)
+      : gridPoints_({{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}) {}
 
   /** @brief Default constructor is deleted to ensure proper initialization */
   MockGeometry() = delete;
@@ -89,14 +95,17 @@ class MockGeometry {
   /**
    * @brief Move constructor
    * @param other Geometry to move from
+   * @details Moves the grid points from the source geometry
    */
   MockGeometry(MockGeometry&& other) noexcept
-      : config_(other.config_), gridPoints_(std::move(other.gridPoints_)) {}
+      : gridPoints_(std::move(other.gridPoints_)) {}
 
   /**
    * @brief Move assignment operator
    * @param other Geometry to move from
    * @return Reference to this geometry after assignment
+   * @details Moves the grid points from the source geometry if not
+   * self-assignment
    */
   MockGeometry& operator=(MockGeometry&& other) noexcept {
     if (this != &other) {
@@ -107,9 +116,10 @@ class MockGeometry {
 
   /**
    * @brief Create a clone of this geometry
-   * @return A new MockGeometry instance with the same configuration
+   * @return A new MockGeometry instance with the same grid points
+   * @details Creates a deep copy of the geometry with identical grid points
    */
-  MockGeometry clone() const { return MockGeometry(config_); }
+  MockGeometry clone() const { return MockGeometry(this->gridPoints_); }
 
   /** @brief Mock method for getting iterator to first grid point */
   MOCK_METHOD(iterator, begin, ());
@@ -123,34 +133,51 @@ class MockGeometry {
   /** @brief Mock method for getting const iterator past the last grid point */
   MOCK_METHOD(const_iterator, end, (), (const));
 
-  // STL-style cbegin/cend (mocked)
+  /** @brief Mock method for getting const iterator to first grid point */
   MOCK_METHOD(const_iterator, cbegin, (), (const));
+  /** @brief Mock method for getting const iterator past the last grid point */
   MOCK_METHOD(const_iterator, cend, (), (const));
 
-  // Size information
+  /** @brief Mock method for getting the number of grid points */
   MOCK_METHOD(size_type, size, (), (const));
+  /** @brief Mock method for checking if geometry is empty */
   MOCK_METHOD(bool, empty, (), (const));
+  /** @brief Mock method for getting maximum possible size */
   MOCK_METHOD(size_type, max_size, (), (const));
 
-  // Element access (mocked)
+  /** @brief Mock method for accessing grid point by index */
   MOCK_METHOD(reference, get, (size_type idx), ());
+  /** @brief Mock method for accessing grid point by index (const version) */
   MOCK_METHOD(const_reference, get, (size_type idx), (const));
 
+  /** @brief Access grid point by index */
   reference operator[](size_type idx) { return get(idx); }
+  /** @brief Access grid point by index (const version) */
   const_reference operator[](size_type idx) const { return get(idx); }
+  /** @brief Access grid point by index with bounds checking */
   reference at(size_type idx) { return get(idx); }
+  /** @brief Access grid point by index with bounds checking (const version) */
   const_reference at(size_type idx) const { return get(idx); }
+  /** @brief Mock method for accessing first grid point */
   MOCK_METHOD(reference, front, (), ());
+  /** @brief Mock method for accessing first grid point (const version) */
   MOCK_METHOD(const_reference, front, (), (const));
+  /** @brief Mock method for accessing last grid point */
   MOCK_METHOD(reference, back, (), ());
+  /** @brief Mock method for accessing last grid point (const version) */
   MOCK_METHOD(const_reference, back, (), (const));
 
  private:
-  /** @brief Reference to the configuration backend */
-  const ConfigBackend& config_;
-
   /** @brief Sample grid points for testing */
   std::vector<MockGridPoint> gridPoints_;
+
+  /**
+   * @brief Private constructor for cloning
+   * @param points Vector of grid points to initialize with
+   * @details Used internally by clone() to create a copy with the same points
+   */
+  MockGeometry(const std::vector<MockGridPoint>& points)
+      : gridPoints_(points) {}
 };
 
 }  // namespace metada::backends::gmock

@@ -58,7 +58,7 @@ struct BackendTraits<MockBackendTag> {
   using LoggerBackend = backends::gmock::MockLogger<ConfigBackend>;
   
   /** @brief Mock geometry backend implementation for testing */
-  using GeometryBackend = backends::gmock::MockGeometry<ConfigBackend>;
+  using GeometryBackend = backends::gmock::MockGeometry;
   
   /** @brief Mock geometry iterator backend implementation for testing */
   using GeometryIteratorBackend = backends::gmock::MockGeometryIterator;
