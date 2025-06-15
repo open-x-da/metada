@@ -261,16 +261,16 @@ void MACOMModel<ConfigBackend, StateBackend>::finalize() {
   }
   MACOM_LOG_INFO("MACOMModel", "Finalizing...");
 
-  try {
-    fortranInterface_->finalizeModelComponents();
-    MACOM_LOG_INFO("MACOMModel", "Fortran model components finalized.");
+  // try {
+  //   fortranInterface_->finalizeModelComponents();
+  //   MACOM_LOG_INFO("MACOMModel", "Fortran model components finalized.");
 
-  } catch (const std::exception& e) {
-    MACOM_LOG_ERROR("MACOMModel",
-                    "Error during finalization: " + std::string(e.what()));
-  }
+  // } catch (const std::exception& e) {
+  //   MACOM_LOG_ERROR("MACOMModel",
+  //                   "Error during finalization: " + std::string(e.what()));
+  // }
   initialized_ = false;
-  mpi_rank_ = -1;
+  // mpi_rank_ = -1;
   MACOM_LOG_INFO("MACOMModel", "Finalization complete.");
 }
 

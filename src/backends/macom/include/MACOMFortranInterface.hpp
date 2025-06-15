@@ -18,10 +18,15 @@ void c_macom_read_namelist();
 void c_macom_initialize_mitice();
 void c_get_macom_config_flags(bool* mitice, bool* restart, bool* assim,
                               int* init_iter, int* max_iter);
-void c_macom_initialize_model_components();
-void c_macom_run_model_step(int current_iter_c, int* model_status_c);
-void c_macom_finalize_model_components();
 void c_macom_finalize_mpi();
+void c_macom_mpi_send_info_comp_to_io();
+void c_macom_misc_run_info_open();
+void c_macom_init_csp();
+void c_macom_mitice_init_all();
+void c_macom_restart_and_assim();
+void c_macom_run_csp_step();
+void c_macom_csp_io_main();
+void c_macom_finalize_mitice();
 }
 
 namespace metada::backends::macom {
@@ -96,23 +101,6 @@ class MACOMFortranInterface {
   void initializeMitice();
 
   /**
-   * @brief Calls the Fortran routine to initialize core model components.
-   */
-  void initializeModelComponents();
-
-  /**
-   * @brief Calls the Fortran routine to run a model step (or full loop).
-   * @param current_iteration The current iteration number to pass to Fortran.
-   * @throws std::runtime_error if the Fortran model step indicates an error.
-   */
-  void runModelStep(int current_iteration);
-
-  /**
-   * @brief Calls the Fortran routine to finalize model components.
-   */
-  void finalizeModelComponents();
-
-  /**
    * @brief Finalizes the environment through Fortran.
    */
   void finalizeMPI();
@@ -126,6 +114,40 @@ class MACOMFortranInterface {
    * @brief Checks if the environment was initialized by this interface.
    */
   bool isMPIInitialized() const { return mpi_initialized_by_this_instance_; }
+
+  /**
+   * @brief Send information to IO processes (calls
+   * c_macom_mpi_send_info_comp_to_io)
+   */
+  void sendInfoToIO();
+
+  /**
+   * @brief Open misc run info (calls c_macom_misc_run_info_open)
+   */
+  void openMiscRunInfo();
+
+  /**
+   * @brief Initialize CSP components
+   */
+  void initCSP();
+
+  /**
+   * @brief Initialize all mitice components
+   */
+  void miticeInitAll();
+
+  /**
+   * @brief Initialize restart and assim components
+   */
+  void restartAndAssim();
+
+  /**
+   * @brief Run CSP step
+   */
+  void runCspStep();
+
+  void CspIoMain();
+  void finalizeMitice();
 
  private:
   MPI_Comm mpi_comm_;  // C++ MPI communicator

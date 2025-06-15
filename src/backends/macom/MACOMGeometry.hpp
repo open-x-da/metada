@@ -481,7 +481,10 @@ template <typename ConfigBackend>
 MACOMGeometry<ConfigBackend>::MACOMGeometry(const ConfigBackend& config)
     : config_ptr_(&config) {
   if (isFortranMode()) {
-    MACOM_LOG_INFO("MACOMGeometry", "Running in Fortran mode");
+    auto& parallel = MACOMParallel::getInstance();
+    if (parallel.getRank() == 0) {
+      MACOM_LOG_INFO("MACOMGeometry", "Running in Fortran mode");
+    }
     initialized_ = true;
   } else {
     MACOM_LOG_INFO("MACOMGeometry", "Running in C++ mode");

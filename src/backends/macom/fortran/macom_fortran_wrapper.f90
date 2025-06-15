@@ -27,9 +27,6 @@ module macom_fortran_wrapper
   ! public :: c_macom_get_mpi_rank
   ! public :: c_macom_get_mpi_size
   ! public :: c_macom_read_namelist
-  ! public :: c_macom_initialize_model_components
-  ! public :: c_macom_run_model_step ! Or a full run loop if that's simpler first
-  ! public :: c_macom_finalize_model_components
   ! public :: c_macom_finalize_mpi
 
   ! Example: Variables from a shared module that might be needed by the wrappers.
@@ -127,85 +124,103 @@ contains
 !#endif
   end subroutine c_macom_initialize_mitice
 
-  subroutine c_macom_initialize_model_components() bind(C, name="c_macom_initialize_model_components")
-    ! Initializes all core MACOM components after namelist is read.
-    ! This would orchestrate calls like:
-    ! if (mpi_rank == 0) call misc_run_info_open()
-    ! if (mpi_rank < mpi_comp_procs) then
-    !   call csp_init()
-    !   if (mitice_on) then
-    !     call mitice_run_info_open()
-    !     call mitice_read_params()
-    !     call mitice_init_allocate()
-    !     call mitice_init_fixed()
-    !     call mitice_init_vars()
-    !   end if
-    !   if (assim_in) then
-    !     call csp_init_asm()
-    !   end if
-    !   ! call GPU_VARS_INIT() ! If GPU is used
-    ! end if
-    ! if (mpi_rank >= mpi_comp_procs) then ! IO processes
-    !    call mpi_csp_io_init()
-    ! end if
-    ! call MPI_Barrier(mpi_comp_comm, ierr)
-    ! if (mpi_rank == 0) call mpi_send_info_comp_to_io()
-    ! call MPI_Barrier(mpi_comp_comm, ierr)
-    ! if (mpi_rank == 0) call mpi_send_2nd_info_comp_to_io()
-    ! call MPI_Barrier(mpi_comp_comm, ierr)
-    ! if (restart_in) then
-    !    if (mpi_rank < mpi_comp_procs) call mpi_csp_io_restart_read() ! Or similar
-    !    ! IO processes might also participate or lead restart read
-    ! end if
-    ! call MPI_Barrier(mpi_comp_comm, ierr)
-    call macom_log_info("FortranWrapper", "c_macom_initialize_model_components called")
-  end subroutine c_macom_initialize_model_components
+  !-----------------------------------------------------------------------------  
+  ! Custom: Expose mpi_send_info_comp_to_io and misc_run_info_open to C++
+  !-----------------------------------------------------------------------------  
+  subroutine c_macom_mpi_send_info_comp_to_io() bind(C, name="c_macom_mpi_send_info_comp_to_io")
+    if (mpi_rank == 0) then
+      call mpi_send_info_comp_to_io()
+    end if
+  end subroutine c_macom_mpi_send_info_comp_to_io
 
-  !-----------------------------------------------------------------------------
-  ! Model Execution
-  !-----------------------------------------------------------------------------
-  subroutine c_macom_run_model_step(current_iter_c, model_status_c) bind(C, name="c_macom_run_model_step")
-    ! Runs a single step or a full loop of the MACOM model.
-    integer(C_INT), value, intent(in) :: current_iter_c
-    integer(C_INT), intent(out) :: model_status_c ! 0 for success, non-zero for error
+  subroutine c_macom_misc_run_info_open() bind(C, name="c_macom_misc_run_info_open")
+    call misc_run_info_open()
+  end subroutine c_macom_misc_run_info_open
 
-    ! myIter = current_iter_c
-    model_status_c = 0 ! Assume success
+  !-----------------------------------------------------------------------------  
+  ! CSP Initialization (C++ interface)
+  !-----------------------------------------------------------------------------  
+  subroutine c_macom_init_csp() bind(C, name="c_macom_init_csp")
+    ! send information to io processes from computational processes
+    if (mpi_rank == 0)then
+      call macom_log_info("FortranWrapper", "c_macom_init_csp")
+    endif
+    call csp_init()
+  end subroutine c_macom_init_csp
 
-    ! if (mpi_rank < mpi_comp_procs) then
-    !   call log_info("FortranWrapper", "Rank " // trim(adjustl(c_int_to_string(mpi_rank))) &
-    !               // " running model step for iter: " // trim(adjustl(c_int_to_string(myIter))))
-    !   call csp() ! This is your main computation subroutine for one step/loop
-    !   ! Potentially call mitice_main() if sea ice is on and integrated per step
-    !   ! call mpi_csp_io_send_output() ! If output is per step
-    ! else ! IO Process
-    !   call log_info("FortranWrapper", "Rank " // trim(adjustl(c_int_to_string(mpi_rank))) &
-    !               // " (IO) waiting/processing for iter: " // trim(adjustl(c_int_to_string(myIter))))
-    !   ! call mpi_csp_io_main() ! This might be a loop itself, or a part of it
-    ! end if
-    ! call MPI_Barrier(mpi_comp_comm, ierr) ! Sync after step
-    
-    call macom_log_info("FortranWrapper", "c_macom_run_model_step called for iter: " // trim(adjustl(c_int_to_string(current_iter_c))))
-  end subroutine c_macom_run_model_step
+  !-----------------------------------------------------------------------------  
+  ! Mitice full initialization (C++ interface)
+  !-----------------------------------------------------------------------------  
+  subroutine c_macom_mitice_init_all() bind(C, name="c_macom_mitice_init_all")
+    if (mitice_on)then
+        call mitice_init_allocate   !allocate host and device variables
+        call mitice_init_fixed   !prepare a few parameters
+        call gpu_seaice_parameters_update   !upload parameters to GPU device
+        call mitice_init_vars      !initialized model variables and read initial fields
+    endif
+  end subroutine c_macom_mitice_init_all
 
-  !-----------------------------------------------------------------------------
-  ! Model Finalization
-  !-----------------------------------------------------------------------------
-  subroutine c_macom_finalize_model_components() bind(C, name="c_macom_finalize_model_components")
-    ! Finalizes all MACOM components and cleans up resources.
-    ! if (mpi_rank < mpi_comp_procs) then
-    !   if (mitice_on) then
-    !     call mitice_run_info_close()
-    !     ! if (SEAICE_taveFreq > 0.0_wp) call mitice_ave_release()
-    !   end if
-    !   ! Other compute-specific finalizations
-    ! end if
-    ! if (mpi_rank == 0) then
-    !    call misc_run_info_close()
-    ! end if
-    ! call MPI_Barrier(mpi_comp_comm, ierr) ! Ensure all tasks done before MPI_Finalize
-    call macom_log_info("FortranWrapper", "c_macom_finalize_model_components called")
-  end subroutine c_macom_finalize_model_components
+  !-----------------------------------------------------------------------------  
+  ! Restart and assimilation (C++ interface)
+  !-----------------------------------------------------------------------------  
+  subroutine c_macom_restart_and_assim() bind(C, name="c_macom_restart_and_assim")
+    if (restart_in) then
+        call mpi_csp_io_restart_read
+        if (assim_in) then
+          call csp_init_asm
+        end if
+    end if
+
+    IF (mpi_rank == 0) THEN
+        ! send addtional infomation from comp communicator to io communicator
+        CALL mpi_send_2nd_info_comp_to_io
+    END IF
+
+    ! ---- OPENACC: UPDATE VARS TO GPU FOR TIME INTEGRATION
+    call GPU_VARS_INIT
+    ! ----
+
+    if (.not. restart_in) then
+        ! send output to IO process
+        CALL mpi_csp_io_send_output
+    end if
+
+  end subroutine c_macom_restart_and_assim
+
+  !-----------------------------------------------------------------------------  
+  ! CSP single step (C++ interface)
+  !-----------------------------------------------------------------------------  
+  subroutine c_macom_run_csp_step() bind(C, name="c_macom_run_csp_step")
+    do myIter = nIter0, nIterMax
+
+        IF (mpi_rank == 0) write(*,*) "myIter:", myIter
+                        
+        call csp
+
+    end do
+
+    call misc_run_info_close
+  end subroutine c_macom_run_csp_step
+
+  !-----------------------------------------------------------------------------  
+  ! IO process main (C++ interface)
+  !-----------------------------------------------------------------------------  
+  subroutine c_macom_csp_io_main() bind(C, name="c_macom_csp_io_main")
+    call mpi_csp_io_init
+    call mpi_csp_io_main
+  end subroutine c_macom_csp_io_main
+
+  !-----------------------------------------------------------------------------  
+  ! Mitice finalize (C++ interface)
+  !-----------------------------------------------------------------------------  
+  subroutine c_macom_finalize_mitice() bind(C, name="c_macom_finalize_mitice")
+    if (mitice_on) then
+      call mitice_run_info_close   !close seaice running message file
+      if (SEAICE_taveFreq .GT. 0.0_wp) then
+        call mitice_ave_release
+      endif
+    endif
+  end subroutine c_macom_finalize_mitice
 
   !-----------------------------------------------------------------------------
   ! Utility functions

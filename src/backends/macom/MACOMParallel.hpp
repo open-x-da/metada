@@ -274,8 +274,9 @@ class MACOMParallel {
     fortranInterface_->initializeMPI(io_procs_);
 
     mpi_rank_ = fortranInterface_->getRank();
-    MACOM_LOG_INFO("MACOMModel", "MPI Initialized via Fortran. Model Rank: " +
-                                     std::to_string(mpi_rank_));
+    MACOM_LOG_INFO("MACOMParallel",
+                   "MPI Initialized via Fortran. Model Rank: " +
+                       std::to_string(mpi_rank_));
 
     rank_ = mpi_rank_;
     mpi_size_ = fortranInterface_->getSize();

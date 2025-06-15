@@ -78,23 +78,12 @@ MACOMFortranInterface::MACOMFortranInterface()
 
 MACOMFortranInterface::~MACOMFortranInterface() {
   // logInfo("MACOMFortranInterface", "Destructor called");
-  if (model_components_initialized_) {
-    try {
-      finalizeModelComponents();
-    } catch (const std::exception& e) {
-      logError("MACOMFortranInterface",
-               "Exception during finalizeModelComponents in destructor: " +
-                   std::string(e.what()));
-    }
-  }
-  if (mpi_initialized_by_this_instance_) {
-    try {
-      finalizeMPI();
-    } catch (const std::exception& e) {
-      logError("MACOMFortranInterface",
-               "Exception during finalizeMPI in destructor: " +
-                   std::string(e.what()));
-    }
+  try {
+    finalizeMPI();
+  } catch (const std::exception& e) {
+    logError(
+        "MACOMFortranInterface",
+        "Exception during finalizeMPI in destructor: " + std::string(e.what()));
   }
 }
 
@@ -162,56 +151,12 @@ void MACOMFortranInterface::readNamelist() {
   // logInfo("MACOMFortranInterface", "Fortran read namelist finished");
 }
 
-void MACOMFortranInterface::initializeModelComponents() {
-  if (!mpi_initialized_by_this_instance_) {
-    throw std::runtime_error(
-        "MPI must be initialized before initializing model components");
-  }
-  logInfo("MACOMFortranInterface",
-          "Calling Fortran to initialize model components...");
-  c_macom_initialize_model_components();
-  model_components_initialized_ = true;
-  logInfo("MACOMFortranInterface",
-          "Fortran initialize model components finished");
-}
-
-void MACOMFortranInterface::runModelStep(int current_iteration) {
-  if (!model_components_initialized_) {
-    throw std::runtime_error(
-        "Model components must be initialized before running a step");
-  }
-  logInfo("MACOMFortranInterface",
-          "Calling Fortran to run model step for iteration: " +
-              std::to_string(current_iteration));
-  int status = 0;
-  c_macom_run_model_step(current_iteration, &status);
-  if (status != 0) {
-    throw std::runtime_error("Fortran model step reported an error. Status: " +
-                             std::to_string(status));
-  }
-  logInfo("MACOMFortranInterface",
-          "Fortran run model step finished for iteration: " +
-              std::to_string(current_iteration));
-}
-
-void MACOMFortranInterface::finalizeModelComponents() {
-  if (!model_components_initialized_) {
-    return;
-  }
-  logInfo("MACOMFortranInterface",
-          "Calling Fortran to finalize model components...");
-  c_macom_finalize_model_components();
-  model_components_initialized_ = false;
-  logInfo("MACOMFortranInterface",
-          "Fortran finalize model components finished");
-}
-
 void MACOMFortranInterface::finalizeMPI() {
   if (!mpi_initialized_by_this_instance_) {
     return;
   }
 
-  logInfo("MACOMFortranInterface", "Calling Fortran to finalize MPI...");
+  // logInfo("MACOMFortranInterface", "Calling Fortran to finalize MPI...");
   c_macom_finalize_mpi();
 
   mpi_comm_ = MPI_COMM_NULL;
@@ -219,7 +164,7 @@ void MACOMFortranInterface::finalizeMPI() {
 
   mpi_initialized_by_this_instance_ = false;
   rank_ = 0;
-  logInfo("MACOMFortranInterface", "Fortran MPI finalize finished");
+  // logInfo("MACOMFortranInterface", "Fortran MPI finalize finished");
 }
 
 void MACOMFortranInterface::barrier() {
@@ -259,6 +204,80 @@ int MACOMFortranInterface::getCompProcs() const {
         "MPI must be initialized before getting compute processes");
   }
   return comp_procs_;
+}
+
+void MACOMFortranInterface::sendInfoToIO() {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error(
+        "MPI must be initialized before sending info to IO");
+  }
+  // logInfo("MACOMFortranInterface", "Calling Fortran to send info to IO...");
+  c_macom_mpi_send_info_comp_to_io();
+  // logInfo("MACOMFortranInterface", "Fortran send info to IO finished");
+}
+
+void MACOMFortranInterface::openMiscRunInfo() {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error(
+        "MPI must be initialized before opening misc run info");
+  }
+  // logInfo("MACOMFortranInterface", "Calling Fortran to open misc run
+  // info...");
+  c_macom_misc_run_info_open();
+  // logInfo("MACOMFortranInterface", "Fortran open misc run info finished");
+}
+
+void MACOMFortranInterface::initCSP() {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error("MPI must be initialized before initializing CSP");
+  }
+  logInfo("MACOMFortranInterface", "Calling Fortran to initialize CSP...");
+  c_macom_init_csp();
+  logInfo("MACOMFortranInterface", "Fortran CSP initialization finished");
+}
+
+void MACOMFortranInterface::miticeInitAll() {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error(
+        "MPI must be initialized before initializing mitice (all)");
+  }
+  logInfo("MACOMFortranInterface",
+          "Calling Fortran to initialize all mitice components...");
+  c_macom_mitice_init_all();
+  logInfo("MACOMFortranInterface",
+          "Fortran mitice full initialization finished");
+}
+
+void MACOMFortranInterface::restartAndAssim() {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error(
+        "MPI must be initialized before restart/assimilation");
+  }
+  logInfo("MACOMFortranInterface",
+          "Calling Fortran to handle restart and assimilation...");
+  c_macom_restart_and_assim();
+  logInfo("MACOMFortranInterface", "Fortran restart/assimilation finished");
+}
+
+void MACOMFortranInterface::runCspStep() {
+  if (!mpi_initialized_by_this_instance_) {
+    throw std::runtime_error("MPI must be initialized before running CSP step");
+  }
+  logInfo("MACOMFortranInterface", "Calling Fortran to run CSP step...");
+  c_macom_run_csp_step();
+  logInfo("MACOMFortranInterface", "Fortran CSP step finished");
+}
+
+void MACOMFortranInterface::CspIoMain() {
+  logInfo("MACOMFortranInterface", "Calling Fortran IO process main...");
+  c_macom_csp_io_main();
+  logInfo("MACOMFortranInterface", "Fortran IO process main finished");
+}
+
+void MACOMFortranInterface::finalizeMitice() {
+  logInfo("MACOMFortranInterface", "Calling Fortran to finalize mitice...");
+  c_macom_finalize_mitice();
+  logInfo("MACOMFortranInterface", "Fortran mitice finalize finished");
 }
 
 }  // namespace metada::backends::macom

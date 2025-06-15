@@ -1039,15 +1039,28 @@ bool MACOMState<ConfigBackend, GeometryBackend>::FortranInitialization() {
       // fortranInterface_->getConfigFlags(mitice_on, restart_in, assim_in,
       // init_iter, max_iter);
 
-      fortranInterface_->initializeMitice();
       // if (mitice_on) {
       //   MACOM_LOG_INFO("MACOMState", "Initializing mitice components...");
       //   fortranInterface_->initializeMitice();
       // }
+
+      fortranInterface_->initializeMitice();
+      fortranInterface_->sendInfoToIO();
+      fortranInterface_->openMiscRunInfo();
+      fortranInterface_->initCSP();
+      fortranInterface_->miticeInitAll();
+      fortranInterface_->restartAndAssim();
+      fortranInterface_->runCspStep();
     } else {
-      MACOM_LOG_INFO("MACOMState",
-                     "Skipping mitice initialization for I/O process");
+      fortranInterface_->CspIoMain();
+      // MACOM_LOG_INFO(
+      //     "MACOMState",
+      //     std::string(
+      //         "Skipping mitice initialization for I/O process, rank = ") +
+      //         std::to_string(fortranInterface_->getRank()));
     }
+
+    fortranInterface_->finalizeMitice();
 
     initialized_ = true;
     // MACOM_LOG_INFO("MACOMState", "Fortran initialization completed

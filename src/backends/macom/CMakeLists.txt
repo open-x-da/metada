@@ -58,6 +58,12 @@ target_link_libraries(macom_backends
         nanoflann::nanoflann
 )
 
+# Set Fortran compiler
+set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
+
+# Set compiler flags
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O3 -cpp -fno-tree-vectorize -fallow-argument-mismatch -Wno-missing-include-dirs")
+
 # Fortran compilation flags and macros
 option(SEAICE_VARIABLE_SALINITY "Variable salinity" ON)
 option(SEAICE_ITD "Sea Ice Thickness Distribution" ON)
@@ -70,36 +76,47 @@ option(OPENACC "Enable OpenACC" OFF)
 option(OPENACCGPU "Enable OpenACC GPU" OFF)
 option(SeaiceDebug "Enable Seaice Debug" OFF)
 
+# 设置Fortran预处理器宏定义
 set(DEF_FLAGS "")
 if(SEAICE_VARIABLE_SALINITY)
     list(APPEND DEF_FLAGS "-DSEAICE_VARIABLE_SALINITY")
+    add_compile_definitions(SEAICE_VARIABLE_SALINITY)
 endif()
 if(SEAICE_ITD)
     list(APPEND DEF_FLAGS "-DSEAICE_ITD")
+    add_compile_definitions(SEAICE_ITD)
 endif()
 if(SEAICE_ALLOW_FREEDRIFT)
     list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_FREEDRIFT")
+    add_compile_definitions(SEAICE_ALLOW_FREEDRIFT)
 endif()
 if(SEAICE_ALLOW_DYNAMICS)
     list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_DYNAMICS")
+    add_compile_definitions(SEAICE_ALLOW_DYNAMICS)
 endif()
 if(SEAICE_ALLOW_MOM_ADVECTION)
     list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_MOM_ADVECTION")
+    add_compile_definitions(SEAICE_ALLOW_MOM_ADVECTION)
 endif()
 if(SEAICE_ALLOW_BOTTOMDRAG)
     list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_BOTTOMDRAG")
+    add_compile_definitions(SEAICE_ALLOW_BOTTOMDRAG)
 endif()
 if(SEAICE_CAP_SUBLIM)
     list(APPEND DEF_FLAGS "-DSEAICE_CAP_SUBLIM")
+    add_compile_definitions(SEAICE_CAP_SUBLIM)
 endif()
 if(OPENACC)
     list(APPEND DEF_FLAGS "-DOPENACC")
+    add_compile_definitions(OPENACC)
 endif()
 if(OPENACCGPU)
     list(APPEND DEF_FLAGS "-DOPENACCGPU")
+    add_compile_definitions(OPENACCGPU)
 endif()
 if(SeaiceDebug)
     list(APPEND DEF_FLAGS "-DSeaiceDebug")
+    add_compile_definitions(SeaiceDebug)
 endif()
 
 string(REPLACE ";" " " DEF_FLAGS_STR "${DEF_FLAGS}")
@@ -178,10 +195,9 @@ target_include_directories(macom_fortran PUBLIC
     $<IF:$<NOT:$<BOOL:${WIN32}>>,${HDF5_INCLUDE_DIRS};${CURL_INCLUDE_DIRS},>
 )
 
-
 # Set Fortran compiler flags and macros
-target_compile_options(macom_fortran PRIVATE
-    $<$<COMPILE_LANGUAGE:Fortran>:${DEF_FLAGS_STR}>
+target_compile_definitions(macom_fortran PUBLIC
+    $<$<COMPILE_LANGUAGE:Fortran>:${DEF_FLAGS}>
 )
 
 if(WIN32)
@@ -193,7 +209,6 @@ endif()
 # Link Fortran dependencies
 target_link_libraries(macom_fortran PUBLIC
     ${NetCDF_Fortran_LIBRARIES}
-    MPI::MPI_C
     MPI::MPI_Fortran
 )
 

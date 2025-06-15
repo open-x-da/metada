@@ -48,11 +48,23 @@ int main(int argc, char** argv) {
 #endif
 
     // Initialize geometry
+#ifdef USE_MPI
+    if (parallel.getRank() == 0) {
+      logger.Info() << "Initializing geometry";
+    }
+#else
     logger.Info() << "Initializing geometry";
+#endif
     Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
     // Initialize initial state
+#ifdef USE_MPI
+    if (parallel.getRank() == 0) {
+      logger.Info() << "Initializing model state";
+    }
+#else
     logger.Info() << "Initializing model state";
+#endif
     State<BackendTag> initialState(config.GetSubsection("state"), geometry);
     auto currentState = initialState.clone();
 
