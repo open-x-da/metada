@@ -122,56 +122,6 @@ class WRFGeometry {
    */
   const_iterator end() const;
 
-  /**
-   * @brief Get the total number of grid points
-   *
-   * @return Total number of grid points in the geometry
-   */
-  std::size_t totalGridSize() const;
-
-  /**
-   * @brief Check if the geometry is periodic in X dimension
-   *
-   * @return True if periodic in X, false otherwise
-   */
-  bool isPeriodicX() const;
-
-  /**
-   * @brief Check if the geometry is periodic in Y dimension
-   *
-   * @return True if periodic in Y, false otherwise
-   */
-  bool isPeriodicY() const;
-
-  /**
-   * @brief Check if the geometry is periodic in Z dimension
-   *
-   * @return True if periodic in Z, false otherwise
-   */
-  bool isPeriodicZ() const;
-
-  /**
-   * @brief Perform halo exchange on a state
-   *
-   * @param state The state on which to perform halo exchange
-   */
-  template <typename StateBackend>
-  void haloExchange(StateBackend& state);
-
-  /**
-   * @brief Halo exchange implementation for the backend
-   *
-   * @param state_ptr Pointer to the state backend
-   */
-  void haloExchangeImpl(void* state_ptr);
-
-  /**
-   * @brief Check if geometry is properly initialized
-   *
-   * @return True if initialized, false otherwise
-   */
-  bool isInitialized() const;
-
   // WRF specific methods
 
   /**
@@ -228,13 +178,6 @@ class WRFGeometry {
   // Friend declaration for iterator
   friend class WRFGeometryIterator<ConfigBackend>;
 };
-
-// Template method implementation
-template <typename ConfigBackend>
-template <typename StateBackend>
-void WRFGeometry<ConfigBackend>::haloExchange(StateBackend& state) {
-  haloExchangeImpl(static_cast<void*>(&state));
-}
 
 // Move constructor implementation
 template <typename ConfigBackend>
@@ -302,28 +245,6 @@ WRFGeometry<ConfigBackend> WRFGeometry<ConfigBackend>::clone() const {
   return clone;
 }
 
-// Periodicity checks implementation
-template <typename ConfigBackend>
-bool WRFGeometry<ConfigBackend>::isPeriodicX() const {
-  return periodicX_;
-}
-
-template <typename ConfigBackend>
-bool WRFGeometry<ConfigBackend>::isPeriodicY() const {
-  return periodicY_;
-}
-
-template <typename ConfigBackend>
-bool WRFGeometry<ConfigBackend>::isPeriodicZ() const {
-  return periodicZ_;
-}
-
-// isInitialized implementation
-template <typename ConfigBackend>
-bool WRFGeometry<ConfigBackend>::isInitialized() const {
-  return initialized_;
-}
-
 // Get accessor methods implementation
 template <typename ConfigBackend>
 const xt::xarray<double>& WRFGeometry<ConfigBackend>::getLongitude() const {
@@ -338,21 +259,6 @@ const xt::xarray<double>& WRFGeometry<ConfigBackend>::getLatitude() const {
 template <typename ConfigBackend>
 const xt::xarray<double>& WRFGeometry<ConfigBackend>::getElevation() const {
   return elevation_;
-}
-
-// Halo exchange implementation
-template <typename ConfigBackend>
-void WRFGeometry<ConfigBackend>::haloExchangeImpl(void* state_ptr) {
-  // Implementation depends on state type and halo exchange requirements
-  // This is a placeholder, actual implementation would transfer data between
-  // neighboring domains or processes
-  if (!initialized_) {
-    throw std::runtime_error(
-        "Cannot perform halo exchange on uninitialized geometry");
-  }
-
-  // Cast state_ptr to appropriate type and perform exchange
-  // This is implementation-specific and would depend on the WRF model's needs
 }
 
 template <typename ConfigBackend>
@@ -382,12 +288,6 @@ WRFGeometry<ConfigBackend>::WRFGeometry(const ConfigBackend& config)
   // Load geometry data from WRF NetCDF file
   loadGeometryData(wrfFilename_);
   initialized_ = true;
-}
-
-// Implementation of totalGridSize
-template <typename ConfigBackend>
-std::size_t WRFGeometry<ConfigBackend>::totalGridSize() const {
-  return nx_ * ny_ * nz_;
 }
 
 // Implementation of loadGeometryData
@@ -483,7 +383,7 @@ WRFGeometry<ConfigBackend>::begin() {
 template <typename ConfigBackend>
 inline typename WRFGeometry<ConfigBackend>::iterator
 WRFGeometry<ConfigBackend>::end() {
-  return iterator(this, totalGridSize());
+  return iterator(this, nx_ * ny_ * nz_);
 }
 
 template <typename ConfigBackend>
@@ -495,7 +395,7 @@ WRFGeometry<ConfigBackend>::begin() const {
 template <typename ConfigBackend>
 inline typename WRFGeometry<ConfigBackend>::const_iterator
 WRFGeometry<ConfigBackend>::end() const {
-  return const_iterator(this, totalGridSize());
+  return const_iterator(this, nx_ * ny_ * nz_);
 }
 
 }  // namespace metada::backends::wrf

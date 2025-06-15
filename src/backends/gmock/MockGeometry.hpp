@@ -23,7 +23,9 @@
 
 #include <gmock/gmock.h>
 
+#include <cstddef>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "MockGeometryIterator.hpp"
@@ -57,10 +59,15 @@ namespace metada::backends::gmock {
 template <typename ConfigBackend>
 class MockGeometry {
  public:
-  /** @brief Iterator type for traversing grid points */
+  // STL-style type aliases
+  using value_type = MockGridPoint;
+  using reference = value_type&;
+  using const_reference = const value_type&;
+  using pointer = value_type*;
+  using const_pointer = const value_type*;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
   using iterator = MockGeometryIterator;
-
-  /** @brief Const iterator type for traversing grid points */
   using const_iterator = MockGeometryIterator;
 
   /**
@@ -84,8 +91,7 @@ class MockGeometry {
    * @param other Geometry to move from
    */
   MockGeometry(MockGeometry&& other) noexcept
-      : config_(std::move(other.config_)),
-        gridPoints_(std::move(other.gridPoints_)) {}
+      : config_(other.config_), gridPoints_(std::move(other.gridPoints_)) {}
 
   /**
    * @brief Move assignment operator
@@ -117,52 +123,27 @@ class MockGeometry {
   /** @brief Mock method for getting const iterator past the last grid point */
   MOCK_METHOD(const_iterator, end, (), (const));
 
-  /**
-   * @brief Get the total number of grid points
-   * @return Total number of grid points in the geometry
-   */
-  MOCK_METHOD(std::size_t, totalGridSize, (), (const));
+  // STL-style cbegin/cend (mocked)
+  MOCK_METHOD(const_iterator, cbegin, (), (const));
+  MOCK_METHOD(const_iterator, cend, (), (const));
 
-  /**
-   * @brief Check if the geometry is periodic in X dimension
-   * @return True if periodic in X, false otherwise
-   */
-  MOCK_METHOD(bool, isPeriodicX, (), (const));
+  // Size information
+  MOCK_METHOD(size_type, size, (), (const));
+  MOCK_METHOD(bool, empty, (), (const));
+  MOCK_METHOD(size_type, max_size, (), (const));
 
-  /**
-   * @brief Check if the geometry is periodic in Y dimension
-   * @return True if periodic in Y, false otherwise
-   */
-  MOCK_METHOD(bool, isPeriodicY, (), (const));
+  // Element access (mocked)
+  MOCK_METHOD(reference, get, (size_type idx), ());
+  MOCK_METHOD(const_reference, get, (size_type idx), (const));
 
-  /**
-   * @brief Check if the geometry is periodic in Z dimension
-   * @return True if periodic in Z, false otherwise
-   */
-  MOCK_METHOD(bool, isPeriodicZ, (), (const));
-
-  /**
-   * @brief Check if the geometry is properly initialized
-   * @return True if initialized, false otherwise
-   */
-  MOCK_METHOD(bool, isInitialized, (), (const));
-
-  /**
-   * @brief Perform halo exchange operation on a state
-   * @param state The state object to perform halo exchange on
-   * @tparam StateBackend The backend type of the state
-   */
-  template <typename StateBackend>
-  void haloExchange(StateBackend& state) const {
-    // Call the mock method with void* to avoid template issues in mocking
-    haloExchangeImpl(static_cast<void*>(&state));
-  }
-
-  /**
-   * @brief Implementation method for halo exchange (for mocking)
-   * @param state Pointer to the state object (cast to void*)
-   */
-  MOCK_METHOD(void, haloExchangeImpl, (void* state), (const));
+  reference operator[](size_type idx) { return get(idx); }
+  const_reference operator[](size_type idx) const { return get(idx); }
+  reference at(size_type idx) { return get(idx); }
+  const_reference at(size_type idx) const { return get(idx); }
+  MOCK_METHOD(reference, front, (), ());
+  MOCK_METHOD(const_reference, front, (), (const));
+  MOCK_METHOD(reference, back, (), ());
+  MOCK_METHOD(const_reference, back, (), (const));
 
  private:
   /** @brief Reference to the configuration backend */

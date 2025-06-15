@@ -29,34 +29,55 @@
 
 namespace metada::traits {
 
+/**
+ * @brief Tag type for WRF backend implementations
+ * 
+ * @details This empty struct serves as a tag type that can be used with
+ * framework adapters to select WRF-specific implementations. It enables the use
+ * of WRF model components and data structures within the framework.
+ */
 struct WRFBackendTag {};
 
+/**
+ * @brief BackendTraits specialization for WRF implementations
+ * 
+ * @details This specialization maps the WRFBackendTag to concrete WRF-specific
+ * implementation types for each backend component. These implementations provide
+ * integration with the Weather Research and Forecasting (WRF) model system,
+ * including its geometry, state vector, and model components.
+ */
 template<>
 struct BackendTraits<WRFBackendTag> {
-      // Select ConfigBackend based on CMake configuration
-#ifdef CONFIG_BACKEND_JSON
+  /** @brief Configuration backend implementation */
+  #ifdef CONFIG_BACKEND_JSON
   using ConfigBackend = backends::config::JsonConfig;
-#elif defined(CONFIG_BACKEND_YAML)
+  #elif defined(CONFIG_BACKEND_YAML)
   using ConfigBackend = backends::config::YamlConfig;
-#else
+  #else
   using ConfigBackend = backends::config::YamlConfig; // Default
-#endif
+  #endif
 
-  // Select LoggerBackend based on CMake configuration
-#ifdef LOGGER_BACKEND_NGLOG
+  /** @brief Logger backend implementation */
+  #ifdef LOGGER_BACKEND_NGLOG
   using LoggerBackend = backends::logger::NgLogger<ConfigBackend>;
-#elif defined(LOGGER_BACKEND_GLOG)
+  #elif defined(LOGGER_BACKEND_GLOG)
   using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>;
-#elif defined(LOGGER_BACKEND_CONSOLE)
+  #elif defined(LOGGER_BACKEND_CONSOLE)
   using LoggerBackend = backends::logger::ConsoleLogger<ConfigBackend>;
-#else
+  #else
   using LoggerBackend = backends::logger::NgLogger<ConfigBackend>; // Default
-#endif
+  #endif
 
+  /** @brief WRF-specific geometry backend implementation */
   using GeometryBackend = backends::wrf::WRFGeometry<ConfigBackend>;
-  using GeometryIteratorBackend =
-      backends::wrf::WRFGeometryIterator<ConfigBackend>;
+  
+  /** @brief WRF-specific geometry iterator backend implementation */
+  using GeometryIteratorBackend = backends::wrf::WRFGeometryIterator<ConfigBackend>;
+  
+  /** @brief WRF-specific state vector backend implementation */
   using StateBackend = backends::wrf::WRFState<ConfigBackend, GeometryBackend>;
+  
+  /** @brief WRF-specific model backend implementation */
   using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend>;
 };
 

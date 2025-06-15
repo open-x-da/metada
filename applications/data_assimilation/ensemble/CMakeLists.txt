@@ -10,7 +10,7 @@ target_link_libraries(etkf
         metada::framework::runs
         metada::backends::common::utils
         metada::framework::algorithms
-        metada::backends::gmock
+        metada::backends::simple
 )
 
 # Set output directory

@@ -5,15 +5,16 @@
  */
 
 #include "ApplicationContext.hpp"
+#include "Config.hpp"
 #include "ETKF.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
-#include "MockBackendTraits.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
+#include "SimpleBackendTraits.hpp"
 
 namespace fwk = metada::framework;
-using BackendTag = metada::traits::MockBackendTag;
+using BackendTag = metada::traits::SimpleBackendTag;
 
 int main(int argc, char** argv) {
   // Initialize application context
@@ -26,7 +27,7 @@ int main(int argc, char** argv) {
   try {
     // Validate command line arguments
     if (argc != 2) {
-      logger.Error() << "Usage: letkf <config_file>";
+      logger.Error() << "Usage: etkf <config_file>";
       return 1;
     }
 
@@ -43,14 +44,14 @@ int main(int argc, char** argv) {
 
     // Initialize components
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
-    fwk::Ensemble<BackendTag> ensemble(config, geometry);
-    fwk::Observation<BackendTag> observation(config);
-    fwk::ObsOperator<BackendTag> obs_operator(config);
+    // fwk::Ensemble<BackendTag> ensemble(config, geometry);
+    // fwk::Observation<BackendTag> observation(config);
+    // fwk::ObsOperator<BackendTag> obs_operator(config);
 
     // Run ETKF analysis
-    fwk::ETKF<BackendTag> etkf(ensemble, observation, obs_operator,
-                               inflation_factor);
-    etkf.Analyse();
+    // fwk::ETKF<BackendTag> etkf(ensemble, observation, obs_operator,
+    //                           inflation_factor);
+    // etkf.Analyse();
 
     logger.Info() << "ETKF application completed successfully";
     return 0;

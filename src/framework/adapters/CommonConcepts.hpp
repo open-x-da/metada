@@ -55,6 +55,9 @@ concept HasLoggerBackend =
  * The GeometryBackend is responsible for handling spatial domain
  * representations.
  *
+ * Note: GeometryBackend does not need to be a template class; it can be a
+ * concrete type or a class with a templated constructor.
+ *
  * @tparam T The backend tag type to check
  */
 template <typename T>
