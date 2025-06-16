@@ -12,6 +12,7 @@
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "SimpleBackendTraits.hpp"
+#include "State.hpp"
 
 namespace fwk = metada::framework;
 using BackendTag = metada::traits::SimpleBackendTag;
@@ -34,16 +35,15 @@ int main(int argc, char** argv) {
     // Read configuration
     int ensemble_size = config.Get("ensemble_size").asInt();
     double inflation_factor = config.Get("inflation_factor").asFloat();
-    auto state_variables = config.Get("state_variables").asVectorString();
 
     // Log configuration
     logger.Info() << "ETKF Configuration:";
     logger.Info() << "  - Ensemble Size: " << ensemble_size;
     logger.Info() << "  - Inflation Factor: " << inflation_factor;
-    logger.Info() << "  - State Variables: " << state_variables.size();
 
     // Initialize components
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
+    fwk::State<BackendTag> state(config.GetSubsection("state"), geometry);
     // fwk::Ensemble<BackendTag> ensemble(config, geometry);
     // fwk::Observation<BackendTag> observation(config);
     // fwk::ObsOperator<BackendTag> obs_operator(config);

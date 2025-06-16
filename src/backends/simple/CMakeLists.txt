@@ -1,18 +1,22 @@
 # Create the Simple backend library
-add_library(simple_backends INTERFACE)
+add_library(simple_backends)
 add_library(metada::backends::simple ALIAS simple_backends)
 
 # Set include directories
 target_include_directories(simple_backends 
-    INTERFACE 
+    PUBLIC 
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
-# Set headers as interface sources to show them in IDE
+# Set sources
 target_sources(simple_backends
-    INTERFACE
+    PUBLIC
         SimpleGeometry.hpp
         SimpleGeometryIterator.hpp
+        SimpleState.hpp
+        SimpleStateIterator.hpp
+    PRIVATE
+        SimpleStateIterator.cpp
 )
 
 # Add format target

@@ -1,21 +1,24 @@
 logger:
-  app_name: "letkf"
+  app_name: "etkf"
   level: "debug"
   color: true
   console: true
 
 # Ensemble parameters
-ensemble_size: 64
-inflation_factor: 1.15
+ensemble_size: 9
+inflation_factor: 1.0
 localization_radius: 500.0  # km
 
+# Geometry
+geometry:
+  x_dim: 36 
+  y_dim: 18
+
 # State variables to analyze
-state_variables:
-  - temperature
-  - pressure
-  - humidity
-  - wind_u
-  - wind_v
+state:
+  file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_1.txt
+  variables:
+    - simple
 
 # Observation settings
 observations:

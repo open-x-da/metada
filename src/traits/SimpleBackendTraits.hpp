@@ -25,6 +25,7 @@
 
 #include "../backends/simple/SimpleGeometry.hpp"
 #include "../backends/simple/SimpleGeometryIterator.hpp"
+#include "../backends/simple/SimpleState.hpp"
 
 namespace metada::traits {
 
@@ -75,7 +76,7 @@ struct BackendTraits<SimpleBackendTag> {
   using GeometryIteratorBackend = backends::simple::SimpleGeometryIterator<typename GeometryBackend::const_iterator>;
   
   /** @brief Simple state vector backend implementation */
-  //using StateBackend = backends::state::SimpleState<ConfigBackend, GeometryBackend>;
+  using StateBackend = backends::simple::SimpleState;
   
   /** @brief Simple ensemble backend implementation */
   //using EnsembleBackend = backends::ensemble::SimpleEnsemble<ConfigBackend, GeometryBackend>;
