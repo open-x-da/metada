@@ -4,21 +4,40 @@ logger:
   color: true
   console: true
 
-# Ensemble parameters
-ensemble_size: 9
-inflation_factor: 1.0
-localization_radius: 500.0  # km
-
-# Geometry
+# Geometry for the ensemble
 geometry:
   x_dim: 36 
   y_dim: 18
 
-# State variables to analyze
-state:
-  file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_1.txt
-  variables:
-    - simple
+# Ensemble variables to analyze
+ensemble:
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_1.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_2.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_3.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_4.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_5.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_6.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_7.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_8.txt
+    variables:
+      - simple
+  - file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_9.txt
+    variables:
+      - simple
 
 # Observation settings
 observations:
@@ -28,12 +47,6 @@ observations:
     - satellite
     - radiosonde
     - surface
-
-# Computational settings
-compute:
-  num_threads: 8
-  batch_size: 1000
-  use_gpu: true
 
 # Output settings
 output:

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -22,8 +23,25 @@ class SimpleState {
   SimpleState& operator=(const SimpleState&) = delete;
 
   // Move constructor/assignment
-  SimpleState(SimpleState&&) noexcept = default;
-  SimpleState& operator=(SimpleState&&) noexcept = default;
+  SimpleState(SimpleState&& other) noexcept
+      : x_dim_(other.x_dim_),
+        y_dim_(other.y_dim_),
+        data_(std::move(other.data_)),
+        dimensions_(std::move(other.dimensions_)),
+        variable_names_(std::move(other.variable_names_)),
+        geometry_(other.geometry_) {}
+
+  SimpleState& operator=(SimpleState&& other) noexcept {
+    if (this != &other) {
+      data_ = std::move(other.data_);
+      x_dim_ = other.x_dim_;
+      y_dim_ = other.y_dim_;
+      dimensions_ = std::move(other.dimensions_);
+      variable_names_ = std::move(other.variable_names_);
+      // Don't move geometry_ as it's a reference
+    }
+    return *this;
+  }
 
   ~SimpleState() = default;
 
@@ -60,6 +78,14 @@ class SimpleState {
     return SimpleStateIterator(this, geometry_.end());
   }
 
+  const SimpleStateIterator begin() const {
+    return SimpleStateIterator(const_cast<SimpleState*>(this),
+                               geometry_.begin());
+  }
+  const SimpleStateIterator end() const {
+    return SimpleStateIterator(const_cast<SimpleState*>(this), geometry_.end());
+  }
+
   // Variable information
   const std::vector<std::string>& getVariableNames() const {
     return variable_names_;
@@ -80,6 +106,21 @@ class SimpleState {
     }
     for (size_t i = 0; i < data_.size(); ++i) {
       data_[i] += other.data_[i];
+    }
+  }
+
+  void subtract(const SimpleState& other) {
+    if (data_.size() != other.data_.size()) {
+      throw std::runtime_error("Cannot subtract states of different sizes");
+    }
+    for (size_t i = 0; i < data_.size(); ++i) {
+      data_[i] -= other.data_[i];
+    }
+  }
+
+  void multiply(double scalar) {
+    for (size_t i = 0; i < data_.size(); ++i) {
+      data_[i] *= scalar;
     }
   }
 
@@ -152,5 +193,13 @@ class SimpleState {
   std::vector<std::string> variable_names_;
   const SimpleGeometry& geometry_;
 };
+
+// Output operator
+inline std::ostream& operator<<(std::ostream& os, const SimpleState& state) {
+  for (const auto& [coord, value] : state) {
+    os << "(" << coord.first << "," << coord.second << ")=" << value << " ";
+  }
+  return os;
+}
 
 }  // namespace metada::backends::simple

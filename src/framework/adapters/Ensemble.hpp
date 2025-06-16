@@ -121,9 +121,12 @@ class Ensemble : public NonCopyable {
    */
   void ComputePerturbations() {
     ComputeMean();
-    perturbations_.resize(size_, *mean_);
+    perturbations_.clear();
+    perturbations_.reserve(size_);
     for (size_t i = 0; i < size_; ++i) {
-      perturbations_[i] = members_[i] - *mean_;
+      perturbations_.push_back(
+          std::make_unique<StateType>(members_[i].clone()));
+      *perturbations_.back() -= *mean_;
     }
   }
 
@@ -137,7 +140,7 @@ class Ensemble : public NonCopyable {
     if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
     }
-    return perturbations_[index];
+    return *perturbations_[index];
   }
 
   /**
@@ -150,7 +153,7 @@ class Ensemble : public NonCopyable {
     if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
     }
-    return perturbations_[index];
+    return *perturbations_[index];
   }
 
  private:
@@ -159,7 +162,7 @@ class Ensemble : public NonCopyable {
   std::vector<StateType> members_;
   std::unique_ptr<StateType> mean_;
   size_t size_;
-  std::vector<StateType> perturbations_;
+  std::vector<std::unique_ptr<StateType>> perturbations_;
 };
 
 }  // namespace metada::framework

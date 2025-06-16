@@ -26,6 +26,7 @@
 #include "../backends/simple/SimpleGeometry.hpp"
 #include "../backends/simple/SimpleGeometryIterator.hpp"
 #include "../backends/simple/SimpleState.hpp"
+#include "../backends/simple/SimpleEnsemble.hpp"
 
 namespace metada::traits {
 
@@ -79,7 +80,7 @@ struct BackendTraits<SimpleBackendTag> {
   using StateBackend = backends::simple::SimpleState;
   
   /** @brief Simple ensemble backend implementation */
-  //using EnsembleBackend = backends::ensemble::SimpleEnsemble<ConfigBackend, GeometryBackend>;
+  using EnsembleBackend = backends::simple::SimpleEnsemble;
   
   /** @brief Simple observation backend implementation */
   //using ObservationBackend = backends::observation::SimpleObservation<ConfigBackend>;

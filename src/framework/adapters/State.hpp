@@ -28,6 +28,7 @@
 #pragma once
 
 #include <concepts>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -366,6 +367,14 @@ class State : private NonCopyable {
       nullptr;               ///< Pointer to associated geometry (optional)
   bool initialized_{false};  ///< Initialization flag
 };
+
+// Output operator
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+inline std::ostream& operator<<(std::ostream& os,
+                                const State<BackendTag>& state) {
+  return os << state.backend();
+}
 
 }  // namespace metada::framework
 

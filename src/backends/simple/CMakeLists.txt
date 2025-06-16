@@ -15,6 +15,7 @@ target_sources(simple_backends
         SimpleGeometryIterator.hpp
         SimpleState.hpp
         SimpleStateIterator.hpp
+        SimpleEnsemble.hpp
     PRIVATE
         SimpleStateIterator.cpp
 )

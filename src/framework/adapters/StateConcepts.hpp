@@ -46,8 +46,9 @@ namespace metada::framework {
  */
 template <typename T, typename ConfigBackend, typename GeometryBackend>
 concept StateBackendImpl =
-    requires(T& t, const T& ct, const T& other, const std::string& varName,
-             const ConfigBackend& config, const GeometryBackend& geometry) {
+    requires(T& t, const T& ct, const T& other, double scalar,
+             const std::string& varName, const ConfigBackend& config,
+             const GeometryBackend& geometry) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
       // TODO: Add const data access
@@ -66,6 +67,8 @@ concept StateBackendImpl =
       // Vector arithmetic
       { t.zero() } -> std::same_as<void>;
       { t.add(other) } -> std::same_as<void>;
+      { t.subtract(other) } -> std::same_as<void>;
+      { t.multiply(scalar) } -> std::same_as<void>;
       { ct.dot(other) } -> std::convertible_to<double>;
       { ct.norm() } -> std::convertible_to<double>;
 

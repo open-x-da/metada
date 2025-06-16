@@ -43,8 +43,14 @@ int main(int argc, char** argv) {
 
     // Initialize components
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
-    fwk::State<BackendTag> state(config.GetSubsection("state"), geometry);
-    // fwk::Ensemble<BackendTag> ensemble(config, geometry);
+    fwk::Ensemble<BackendTag> ensemble(config.GetSubsection("ensemble"),
+                                       geometry);
+    ensemble.ComputeMean();
+    ensemble.ComputePerturbations();
+    for (size_t i = 0; i < ensemble.Size(); ++i) {
+      std::cout << "Perturbation " << i << ": " << ensemble.GetPerturbation(i)
+                << std::endl;
+    }
     // fwk::Observation<BackendTag> observation(config);
     // fwk::ObsOperator<BackendTag> obs_operator(config);
 
