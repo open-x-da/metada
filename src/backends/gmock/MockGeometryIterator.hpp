@@ -63,7 +63,7 @@ class MockGeometryIterator {
   using pointer = MockGridPoint*;
   using reference = MockGridPoint&;
 
-  /** @brief Default constructor is deleted to ensure proper initialization */
+  /** @brief Default constructor (for end/sentinels) */
   MockGeometryIterator() = default;
 
   /**
