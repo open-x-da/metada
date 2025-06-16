@@ -26,10 +26,15 @@ class SimpleEnsemble {
   // Construct from config and geometry
   template <typename ConfigBackend>
   SimpleEnsemble(const ConfigBackend& config, const SimpleGeometry& geometry)
-      : geometry_(geometry), size_(config.Get("ensemble.size").asInt()) {
+      : geometry_(geometry) {
+    // Get state array from config
+    const auto& state_vec = config.Get("state").asArray();
+    size_ = state_vec.size();
     members_.reserve(size_);
+
+    // Initialize each member from its state config
     for (size_t i = 0; i < size_; ++i) {
-      members_.emplace_back(config, geometry_);
+      members_.emplace_back(state_vec[i], geometry_);
     }
   }
 

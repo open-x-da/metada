@@ -32,15 +32,6 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    // Read configuration
-    int ensemble_size = config.Get("ensemble_size").asInt();
-    double inflation_factor = config.Get("inflation_factor").asFloat();
-
-    // Log configuration
-    logger.Info() << "ETKF Configuration:";
-    logger.Info() << "  - Ensemble Size: " << ensemble_size;
-    logger.Info() << "  - Inflation Factor: " << inflation_factor;
-
     // Initialize components
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
     fwk::Ensemble<BackendTag> ensemble(config.GetSubsection("ensemble"),
