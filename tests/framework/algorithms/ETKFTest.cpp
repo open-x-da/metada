@@ -52,7 +52,7 @@ class ETKFTest : public ::testing::Test {
   void SetUp() override {
     // Setup mock data
     ens_size_ = 50;
-    state_dim_ = 1000;
+    state_dim_ = 100;
 
     // True state around which to perturb
     true_state_.resize(state_dim_);

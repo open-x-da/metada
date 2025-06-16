@@ -23,8 +23,8 @@ setup_test_executable(model_test ModelTest.cpp)
 add_test_format_target(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Ensemble tests
-#setup_test_executable(ensemble_test EnsembleTest.cpp)
-#add_test_format_target(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
+setup_test_executable(ensemble_test EnsembleTest.cpp)
+add_test_format_target(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Increment tests
 #setup_test_executable(increment_test IncrementTest.cpp)
