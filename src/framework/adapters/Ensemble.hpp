@@ -54,18 +54,15 @@ class Ensemble : public NonCopyable {
         members_(),
         size_(0),
         perturbations_() {
-    const auto& members = config.Get("members").asVectorMap();
-    size_ = members.size();
+    const auto vec = config.Get("members").asVectorConfigValue();
+    size_ = vec.size();
     members_.reserve(size_);
-    for (const auto& member : members) {
-      for (const auto& [key, value] : member) {
-        // members_.emplace_back(value.get("state"), geometry_);
-        std::cout << "Member " << key << ":" << std::endl;
-        for (const auto& [k, v] : value.asMap()) {
-          std::cout << "  " << k << ":" << v << std::endl;
-          members_.emplace_back(v, geometry_);
-        }
-      }
+    std::vector<Config<BackendTag>> member_subsections;
+    for (const auto& member : vec) {
+      if (!member.isMap()) continue;
+      member_subsections.emplace_back(member.asMap());
+      members_.emplace_back(member_subsections.back().GetSubsection("state"),
+                            geometry);
     }
   }
 

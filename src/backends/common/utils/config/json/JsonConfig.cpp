@@ -367,4 +367,12 @@ nlohmann::json JsonConfig::ConfigValueToJson(const ConfigValue& value) {
   throw std::runtime_error("Unsupported ConfigValue type");
 }
 
+JsonConfig::JsonConfig(const framework::ConfigMap& map) {
+  // Convert ConfigMap to nlohmann::json object
+  root_ = nlohmann::json::object();
+  for (const auto& [key, value] : map) {
+    root_[key] = ConfigValueToJson(value);
+  }
+}
+
 }  // namespace metada::backends::config

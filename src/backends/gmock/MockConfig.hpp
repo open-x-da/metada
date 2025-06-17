@@ -79,6 +79,18 @@ class MockConfig {
    */
   explicit MockConfig(const std::string& filename) { LoadFromFile(filename); }
 
+  /**
+   * @brief Constructor that loads configuration from a map
+   *
+   * @details Initializes the mock configuration by calling LoadFromMap with
+   * the provided map. In actual tests, the behavior of LoadFromMap would
+   * be specified using EXPECT_CALL.
+   *
+   * @param map The configuration map
+   * @throws std::runtime_error If loading fails (when configured in the test)
+   */
+  explicit MockConfig(const framework::ConfigMap& map) { LoadFromMap(map); }
+
   MOCK_METHOD(bool, LoadFromFile, (const std::string&));
   MOCK_METHOD(bool, LoadFromString, (const std::string&));
   MOCK_METHOD(ConfigValue, Get, (const std::string&), (const));
@@ -99,6 +111,16 @@ class MockConfig {
    * @return A new MockConfig object representing the subsection
    */
   MOCK_METHOD(MockConfig, CreateSubsection, (const std::string&), (const));
+
+  /**
+   * @brief Mock method to load configuration from a map
+   *
+   * @details This method is used to specify the behavior of LoadFromMap in
+   * tests.
+   *
+   * @param map The configuration map
+   */
+  MOCK_METHOD(void, LoadFromMap, (const framework::ConfigMap&), ());
 };
 
 }  // namespace metada::backends::gmock

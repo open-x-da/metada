@@ -154,6 +154,16 @@ class Config : public NonCopyable {
   explicit Config(ConfigBackend&& backend) : backend_(std::move(backend)) {}
 
   /**
+   * @brief Constructor that takes a ConfigMap and forwards it to the backend
+   *
+   * @details Creates a Config object from an existing ConfigMap. This is used
+   * internally for creating subsections.
+   *
+   * @param map The ConfigMap to use
+   */
+  explicit Config(const framework::ConfigMap& map) : backend_(map) {}
+
+  /**
    * @brief Get direct access to the backend instance
    *
    * @details Provides mutable access to the underlying configuration backend.

@@ -99,6 +99,12 @@ class JsonConfig {
   explicit JsonConfig(const std::string& filename) { LoadFromFile(filename); }
 
   /**
+   * @brief Constructor that loads configuration from a ConfigMap
+   * @param map ConfigMap containing the configuration data
+   */
+  explicit JsonConfig(const framework::ConfigMap& map);
+
+  /**
    * @brief Load configuration from a JSON file
    * @param filename Path to the JSON configuration file
    * @return true if loading was successful, false otherwise

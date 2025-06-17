@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
 
     // Initialize components
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
+
     fwk::Ensemble<BackendTag> ensemble(config.GetSubsection("ensemble"),
                                        geometry);
     ensemble.ComputeMean();
