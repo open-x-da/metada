@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <iostream>
 #include <map>
 #include <string>
 #include <variant>
@@ -164,6 +165,71 @@ class ConfigValue {
   }
 
   bool operator!=(const ConfigValue& other) const { return !(*this == other); }
+
+  friend std::ostream& operator<<(std::ostream& os, const ConfigValue& value) {
+    if (value.isNull()) {
+      os << "null";
+    } else if (value.isBool()) {
+      os << (value.asBool() ? "true" : "false");
+    } else if (value.isInt()) {
+      os << value.asInt();
+    } else if (value.isFloat()) {
+      os << value.asFloat();
+    } else if (value.isString()) {
+      os << value.asString();
+    } else if (value.isVectorBool()) {
+      os << "[";
+      const auto& vec = value.asVectorBool();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << (vec[i] ? "true" : "false");
+      }
+      os << "]";
+    } else if (value.isVectorInt()) {
+      os << "[";
+      const auto& vec = value.asVectorInt();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << vec[i];
+      }
+      os << "]";
+    } else if (value.isVectorFloat()) {
+      os << "[";
+      const auto& vec = value.asVectorFloat();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << vec[i];
+      }
+      os << "]";
+    } else if (value.isVectorString()) {
+      os << "[";
+      const auto& vec = value.asVectorString();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << "\"" << vec[i] << "\"";
+      }
+      os << "]";
+    } else if (value.isMap()) {
+      os << "{";
+      const auto& map = value.asMap();
+      bool first = true;
+      for (const auto& [k, v] : map) {
+        if (!first) os << ", ";
+        os << "\"" << k << "\": " << v;
+        first = false;
+      }
+      os << "}";
+    } else if (value.isVectorConfigValue()) {
+      os << "[";
+      const auto& vec = value.asVectorConfigValue();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << vec[i];
+      }
+      os << "]";
+    }
+    return os;
+  }
 
  private:
   std::variant<std::monostate, bool, int, float, std::string, std::vector<bool>,

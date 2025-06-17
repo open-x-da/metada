@@ -58,7 +58,14 @@ class Ensemble : public NonCopyable {
     size_ = members.size();
     members_.reserve(size_);
     for (const auto& member : members) {
-      members_.emplace_back(member.get("state"), geometry_);
+      for (const auto& [key, value] : member) {
+        // members_.emplace_back(value.get("state"), geometry_);
+        std::cout << "Member " << key << ":" << std::endl;
+        for (const auto& [k, v] : value.asMap()) {
+          std::cout << "  " << k << ":" << v << std::endl;
+          members_.emplace_back(v, geometry_);
+        }
+      }
     }
   }
 
