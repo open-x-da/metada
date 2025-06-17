@@ -54,15 +54,11 @@ class Ensemble : public NonCopyable {
         members_(),
         size_(0),
         perturbations_() {
-    const auto vec = config.Get("members").asVectorConfigValue();
-    size_ = vec.size();
+    const auto member_configs = config.GetSubsectionsFromVector("members");
+    size_ = member_configs.size();
     members_.reserve(size_);
-    std::vector<Config<BackendTag>> member_subsections;
-    for (const auto& member : vec) {
-      if (!member.isMap()) continue;
-      member_subsections.emplace_back(member.asMap());
-      members_.emplace_back(member_subsections.back().GetSubsection("state"),
-                            geometry);
+    for (const auto& member_config : member_configs) {
+      members_.emplace_back(member_config.GetSubsection("state"), geometry);
     }
   }
 
@@ -102,7 +98,7 @@ class Ensemble : public NonCopyable {
    * @brief Compute the mean of the ensemble
    */
   void ComputeMean() {
-    mean_ = std::make_unique<StateType>(config_, geometry_);
+    mean_ = std::make_unique<StateType>(members_[0].clone());
     mean_->zero();
     for (size_t i = 0; i < size_; ++i) {
       *mean_ += members_[i];

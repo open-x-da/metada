@@ -324,6 +324,29 @@ class Config : public NonCopyable {
     return value.isMap();
   }
 
+  /**
+   * @brief Get a vector of Config subsections from a vector of maps at the
+   * given key
+   *
+   * @details Retrieves the vector of ConfigValue at the specified key. For each
+   * element, if it is a map, constructs a Config from it. Returns a vector of
+   * Config objects.
+   *
+   * @param key Dot-separated path to the vector of maps
+   * @return std::vector<Config<BackendTag>> containing Config objects for each
+   * map
+   */
+  std::vector<Config> GetSubsectionsFromVector(const std::string& key) const {
+    std::vector<Config> result;
+    auto vec = Get(key).asVectorConfigValue();
+    for (const auto& val : vec) {
+      if (val.isMap()) {
+        result.emplace_back(val.asMap());
+      }
+    }
+    return result;
+  }
+
  private:
   ConfigBackend backend_;  ///< Instance of the configuration backend
 };

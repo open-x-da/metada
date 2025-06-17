@@ -302,4 +302,32 @@ TEST_F(ConfigTest, MoveSemantics) {
   EXPECT_EQ(result.asString(), "assigned");
 }
 
+/**
+ * @brief Test construction from ConfigMap
+ */
+TEST_F(ConfigTest, ConstructFromMap) {
+  // Prepare a ConfigMap
+  framework::ConfigMap map;
+  map["foo"] = std::string("bar");
+  map["num"] = 123;
+
+  // Create a Config from the map
+  Config<traits::MockBackendTag> config_from_map(map);
+
+  // Set up expectations for Get
+  EXPECT_CALL(config_from_map.backend(), Get("foo"))
+      .WillOnce(Return(ConfigValue("bar")));
+  EXPECT_CALL(config_from_map.backend(), Get("num"))
+      .WillOnce(Return(ConfigValue(123)));
+
+  // Test retrieval
+  EXPECT_EQ(config_from_map.Get("foo").asString(), "bar");
+  EXPECT_EQ(config_from_map.Get("num").asInt(), 123);
+
+  // Set up expectation for Set
+  ConfigValue new_val = std::string("baz");
+  EXPECT_CALL(config_from_map.backend(), Set("foo", new_val));
+  config_from_map.Set("foo", new_val);
+}
+
 }  // namespace metada::tests

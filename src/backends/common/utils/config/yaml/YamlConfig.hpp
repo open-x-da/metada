@@ -100,6 +100,12 @@ class YamlConfig {
   explicit YamlConfig(const std::string& filename) { LoadFromFile(filename); }
 
   /**
+   * @brief Constructor that loads configuration from a ConfigMap
+   * @param map ConfigMap containing the configuration data
+   */
+  explicit YamlConfig(const framework::ConfigMap& map);
+
+  /**
    * @brief Load configuration from a YAML file
    * @param filename Path to the YAML configuration file
    * @return true if loading was successful, false otherwise

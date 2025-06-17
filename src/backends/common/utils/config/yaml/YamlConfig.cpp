@@ -447,4 +447,8 @@ const YAML::Node YamlConfig::GetYamlNodeConst(const YAML::Node& node,
   return child;
 }
 
+YamlConfig::YamlConfig(const framework::ConfigMap& map) {
+  root_ = ConfigValueToYaml(ConfigValue(map));
+}
+
 }  // namespace metada::backends::config
