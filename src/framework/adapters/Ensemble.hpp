@@ -52,11 +52,13 @@ class Ensemble : public NonCopyable {
       : config_(config),
         geometry_(geometry),
         members_(),
-        size_(config.Get("ensemble.size").asInt()),
+        size_(0),
         perturbations_() {
+    const auto& members = config.Get("members").asVectorMap();
+    size_ = members.size();
     members_.reserve(size_);
-    for (size_t i = 0; i < size_; ++i) {
-      members_.emplace_back(config_, geometry_);
+    for (const auto& member : members) {
+      members_.emplace_back(member.get("state"), geometry_);
     }
   }
 

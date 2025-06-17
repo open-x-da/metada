@@ -11,7 +11,6 @@ target_include_directories(config_json
 target_link_libraries(config_json
     PUBLIC
         metada::framework::adapters
-        metada::framework::interfaces
         nlohmann_json::nlohmann_json)
 
 # Add precompiled headers if enabled

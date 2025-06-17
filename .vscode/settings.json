@@ -6,7 +6,7 @@
     },
     "cmake.configureArgs": [
         "-DLOGGER_BACKEND=NGLOG",
-        "-DCONFIG_BACKEND=YAML"
+        "-DCONFIG_BACKEND=JSON"
     ],
     "terminal.integrated.defaultProfile.windows": "MSYS2 Bash",
     "terminal.integrated.profiles.windows": {

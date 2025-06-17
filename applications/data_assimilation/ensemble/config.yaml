@@ -11,42 +11,26 @@ geometry:
 
 # Ensemble variables to analyze
 ensemble:
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_1.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_2.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_3.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_4.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_5.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_6.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_7.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_8.txt
-    variables:
-      - simple
-  - state:
-    file: D:\linux\pdaf-fork\tutorial\inputs_offline\ens_9.txt
-    variables:
-      - simple
+  variables: "simple"
+  members:
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_1.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_2.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_3.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_4.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_5.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_6.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_7.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_8.txt"
+    - state:
+        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_9.txt"
 
 # Observation settings
 observations:

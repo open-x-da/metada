@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/etkf",
-            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.yaml"],
+            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.json"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [

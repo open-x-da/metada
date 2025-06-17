@@ -305,6 +305,13 @@ ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
         vec.push_back(item.get<std::string>());
       }
       return ConfigValue(vec);
+    } else if (j[0].is_object()) {
+      // Support for array of objects (nested maps)
+      std::vector<framework::ConfigValue> vec;
+      for (const auto& item : j) {
+        vec.push_back(JsonToConfigValue(item));
+      }
+      return ConfigValue(vec);
     }
   } else if (j.is_object()) {
     ConfigMap map;

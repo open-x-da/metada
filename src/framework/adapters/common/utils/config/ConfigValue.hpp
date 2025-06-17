@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <variant>
@@ -67,6 +68,9 @@ class ConfigValue {
   // Constructor for maps
   ConfigValue(const ConfigMap& value) : value_(value) {}
 
+  // Constructor for vectors of ConfigValue
+  ConfigValue(const std::vector<ConfigValue>& value) : value_(value) {}
+
   // Type checking methods
   bool isNull() const { return std::holds_alternative<std::monostate>(value_); }
   bool isBool() const { return std::holds_alternative<bool>(value_); }
@@ -85,7 +89,16 @@ class ConfigValue {
   bool isVectorString() const {
     return std::holds_alternative<std::vector<std::string>>(value_);
   }
+  bool isVectorConfigValue() const {
+    return std::holds_alternative<std::vector<ConfigValue>>(value_);
+  }
   bool isMap() const { return std::holds_alternative<ConfigMap>(value_); }
+  bool isVectorMap() const {
+    if (!isVectorConfigValue()) return false;
+    const auto& vec = asVectorConfigValue();
+    return std::all_of(vec.begin(), vec.end(),
+                       [](const ConfigValue& v) { return v.isMap(); });
+  }
 
   // Value access methods
   bool asBool() const { return std::get<bool>(value_); }
@@ -104,7 +117,17 @@ class ConfigValue {
   const std::vector<std::string>& asVectorString() const {
     return std::get<std::vector<std::string>>(value_);
   }
+  const std::vector<ConfigValue>& asVectorConfigValue() const {
+    return std::get<std::vector<ConfigValue>>(value_);
+  }
   const ConfigMap& asMap() const { return std::get<ConfigMap>(value_); }
+  std::vector<ConfigMap> asVectorMap() const {
+    const auto& vec = asVectorConfigValue();
+    std::vector<ConfigMap> result;
+    result.reserve(vec.size());
+    for (const auto& v : vec) result.push_back(v.asMap());
+    return result;
+  }
 
   // Map access methods
   bool hasKey(const std::string& key) const {
@@ -145,7 +168,7 @@ class ConfigValue {
  private:
   std::variant<std::monostate, bool, int, float, std::string, std::vector<bool>,
                std::vector<int>, std::vector<float>, std::vector<std::string>,
-               ConfigMap>
+               std::vector<ConfigValue>, ConfigMap>
       value_;
 };
 
