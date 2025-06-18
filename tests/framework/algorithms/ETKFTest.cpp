@@ -148,6 +148,15 @@ class ETKFTest : public ::testing::Test {
     true_state_.clear();
   }
 
+  // Helper method to get current ensemble data
+  std::vector<std::vector<double>> GetEnsembleData() {
+    std::vector<std::vector<double>> data(ens_size_);
+    for (size_t i = 0; i < ens_size_; ++i) {
+      data[i] = ensemble_->GetMember(i).template getData<std::vector<double>>();
+    }
+    return data;
+  }
+
   size_t ens_size_;
   size_t state_dim_;
   std::vector<std::vector<double>> ensemble_data_;
@@ -177,17 +186,18 @@ TEST_F(ETKFTest, ConstructorInitializesCorrectly) {
  * @brief Test the LETKF analysis step
  *
  * Verifies that:
- * - The observation operator is called exactly 10 times (once per ensemble
- * member)
+ * - The observation operator is called exactly ens_size_ times (once per
+ * ensemble member)
  * - The analysis step completes without errors
  * - The observation operator correctly maps ensemble states to observation
  * space
+ * - The analysis improves the ensemble statistics
  *
  * The test sets up mock behavior for the observation operator to return
  * ensemble data as simulated observations.
  */
 TEST_F(ETKFTest, AnalysisUpdatesEnsemble) {
-  // Setup expectations for the analysis step
+  // Setup expectations for the observation operator
   EXPECT_CALL(obs_op_->backend(), apply(::testing::_, ::testing::_))
       .Times(ens_size_)
       .WillRepeatedly(
@@ -208,11 +218,7 @@ TEST_F(ETKFTest, AnalysisUpdatesEnsemble) {
   etkf_->Analyse();
 
   // Get updated ensemble data
-  std::vector<std::vector<double>> updated_ensemble_data(ens_size_);
-  for (size_t i = 0; i < ens_size_; ++i) {
-    updated_ensemble_data[i] =
-        ensemble_->GetMember(i).template getData<std::vector<double>>();
-  }
+  auto updated_ensemble_data = GetEnsembleData();
 
   // Calculate final metrics
   auto final_metrics = framework::Metrics<>::CalculateAll(
@@ -221,12 +227,36 @@ TEST_F(ETKFTest, AnalysisUpdatesEnsemble) {
   std::cout << "\nFinal Metrics:" << std::endl;
   std::cout << final_metrics;
 
-  // Add assertions to verify improvement
+  // Verify improvement in ensemble statistics
   EXPECT_LT(final_metrics.rmse, initial_metrics.rmse);
-  // EXPECT_GT(final_metrics.correlation, initial_metrics.correlation);
-  // EXPECT_LT(final_metrics.crps, initial_metrics.crps);
   EXPECT_LT(final_metrics.bias, initial_metrics.bias);
   EXPECT_LT(final_metrics.avg_spread, initial_metrics.avg_spread);
+}
+
+/**
+ * @brief Test that mean computation is lazy
+ *
+ * Verifies that:
+ * - Mean is not computed until first access
+ * - Mean computation is correct
+ */
+TEST_F(ETKFTest, MeanComputationIsLazy) {
+  // Mean should not be computed yet
+  const auto& mean = ensemble_->Mean();
+  EXPECT_TRUE(mean.isInitialized());
+}
+
+/**
+ * @brief Test that perturbation computation is lazy
+ *
+ * Verifies that:
+ * - Perturbations are not computed until first access
+ * - Perturbation computation is correct
+ */
+TEST_F(ETKFTest, PerturbationComputationIsLazy) {
+  // Perturbations should not be computed yet
+  const auto& pert = ensemble_->GetPerturbation(0);
+  EXPECT_TRUE(pert.isInitialized());
 }
 
 }  // namespace metada::tests

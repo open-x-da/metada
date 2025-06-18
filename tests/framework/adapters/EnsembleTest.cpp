@@ -70,11 +70,27 @@ TEST_F(EnsembleTest, MemberAccessIsValid) {
   EXPECT_NO_THROW(ensemble.GetMember(63));
 }
 
-TEST_F(EnsembleTest, ComputeMean) {
+TEST_F(EnsembleTest, MeanComputationIsLazy) {
   Ensemble ensemble(*config_, *geometry_);
-  ensemble.ComputeMean();
+  // Mean should be computed on first access
   StateType& mean = ensemble.Mean();
   EXPECT_TRUE(mean.isInitialized());
+}
+
+TEST_F(EnsembleTest, MeanRecomputation) {
+  Ensemble ensemble(*config_, *geometry_);
+  // Compute mean first time
+  StateType& mean1 = ensemble.Mean();
+  // Force recomputation
+  ensemble.RecomputeMean();
+  StateType& mean2 = ensemble.Mean();
+  EXPECT_TRUE(mean1.isInitialized());
+  EXPECT_TRUE(mean2.isInitialized());
+}
+
+TEST_F(EnsembleTest, ConstMeanAccessThrowsIfNotComputed) {
+  const Ensemble ensemble(*config_, *geometry_);
+  EXPECT_THROW(ensemble.Mean(), std::runtime_error);
 }
 
 TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
@@ -83,13 +99,27 @@ TEST_F(EnsembleTest, OutOfBoundsAccessThrows) {
   EXPECT_THROW(ensemble.GetPerturbation(64), std::out_of_range);
 }
 
-TEST_F(EnsembleTest, ComputePerturbationsCreatesValidPerturbations) {
+TEST_F(EnsembleTest, PerturbationComputationIsLazy) {
   Ensemble ensemble(*config_, *geometry_);
-  ensemble.ComputePerturbations();
-  EXPECT_EQ(ensemble.Size(), 64);
-  for (size_t i = 0; i < ensemble.Size(); ++i) {
-    EXPECT_TRUE(ensemble.GetPerturbation(i).isInitialized());
-  }
+  // Perturbations should be computed on first access
+  StateType& pert = ensemble.GetPerturbation(0);
+  EXPECT_TRUE(pert.isInitialized());
+}
+
+TEST_F(EnsembleTest, PerturbationRecomputation) {
+  Ensemble ensemble(*config_, *geometry_);
+  // Compute perturbations first time
+  StateType& pert1 = ensemble.GetPerturbation(0);
+  // Force recomputation
+  ensemble.RecomputePerturbations();
+  StateType& pert2 = ensemble.GetPerturbation(0);
+  EXPECT_TRUE(pert1.isInitialized());
+  EXPECT_TRUE(pert2.isInitialized());
+}
+
+TEST_F(EnsembleTest, ConstPerturbationAccessThrowsIfNotComputed) {
+  const Ensemble ensemble(*config_, *geometry_);
+  EXPECT_THROW(ensemble.GetPerturbation(0), std::runtime_error);
 }
 
 }  // namespace metada::tests

@@ -95,10 +95,12 @@ class Ensemble : public NonCopyable {
   size_t Size() const { return size_; }
 
   /**
-   * @brief Compute the mean of the ensemble
+   * @brief Force recomputation of the mean state
    */
-  void ComputeMean() {
-    mean_ = std::make_unique<StateType>(members_[0].clone());
+  void RecomputeMean() {
+    if (!mean_) {
+      mean_ = std::make_unique<StateType>(members_[0].clone());
+    }
     mean_->zero();
     for (size_t i = 0; i < size_; ++i) {
       *mean_ += members_[i];
@@ -107,22 +109,33 @@ class Ensemble : public NonCopyable {
   }
 
   /**
-   * @brief Get mutable access to the mean state
+   * @brief Get the mean state of the ensemble, computing it if necessary
    * @return Reference to the mean state
    */
-  StateType& Mean() { return *mean_; }
+  StateType& Mean() {
+    if (!mean_) {
+      RecomputeMean();
+    }
+    return *mean_;
+  }
 
   /**
    * @brief Get const access to the mean state
    * @return Const reference to the mean state
+   * @throws std::runtime_error if mean hasn't been computed
    */
-  const StateType& Mean() const { return *mean_; }
+  const StateType& Mean() const {
+    if (!mean_) {
+      throw std::runtime_error("Mean has not been computed");
+    }
+    return *mean_;
+  }
 
   /**
-   * @brief Compute perturbations for each member (member - mean)
+   * @brief Force recomputation of all perturbations
    */
-  void ComputePerturbations() {
-    ComputeMean();
+  void RecomputePerturbations() {
+    RecomputeMean();
     perturbations_.clear();
     perturbations_.reserve(size_);
     for (size_t i = 0; i < size_; ++i) {
@@ -133,7 +146,7 @@ class Ensemble : public NonCopyable {
   }
 
   /**
-   * @brief Get mutable access to a perturbation
+   * @brief Get a perturbation, computing it if necessary
    * @param index Index of the perturbation
    * @return Reference to the perturbation state
    * @throws std::out_of_range if index is invalid
@@ -141,6 +154,9 @@ class Ensemble : public NonCopyable {
   StateType& GetPerturbation(size_t index) {
     if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
+    }
+    if (perturbations_.empty()) {
+      RecomputePerturbations();
     }
     return *perturbations_[index];
   }
@@ -150,10 +166,14 @@ class Ensemble : public NonCopyable {
    * @param index Index of the perturbation
    * @return Const reference to the perturbation state
    * @throws std::out_of_range if index is invalid
+   * @throws std::runtime_error if perturbations haven't been computed
    */
   const StateType& GetPerturbation(size_t index) const {
     if (index >= size_) {
       throw std::out_of_range("Perturbation index out of range");
+    }
+    if (perturbations_.empty()) {
+      throw std::runtime_error("Perturbations have not been computed");
     }
     return *perturbations_[index];
   }

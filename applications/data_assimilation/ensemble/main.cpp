@@ -37,12 +37,9 @@ int main(int argc, char** argv) {
 
     fwk::Ensemble<BackendTag> ensemble(config.GetSubsection("ensemble"),
                                        geometry);
-    ensemble.ComputeMean();
-    ensemble.ComputePerturbations();
-    for (size_t i = 0; i < ensemble.Size(); ++i) {
-      std::cout << "Perturbation " << i << ": " << ensemble.GetPerturbation(i)
-                << std::endl;
-    }
+    ensemble.RecomputeMean();
+    ensemble.RecomputePerturbations();
+
     // fwk::Observation<BackendTag> observation(config);
     // fwk::ObsOperator<BackendTag> obs_operator(config);
 
