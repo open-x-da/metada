@@ -357,6 +357,12 @@ nlohmann::json JsonConfig::ConfigValueToJson(const ConfigValue& value) {
     return nlohmann::json(value.asVectorFloat());
   } else if (value.isVectorString()) {
     return nlohmann::json(value.asVectorString());
+  } else if (value.isVectorConfigValue()) {
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& item : value.asVectorConfigValue()) {
+      arr.push_back(ConfigValueToJson(item));
+    }
+    return arr;
   } else if (value.isMap()) {
     nlohmann::json result = nlohmann::json::object();
     for (const auto& [key, val] : value.asMap()) {

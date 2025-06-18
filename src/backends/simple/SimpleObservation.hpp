@@ -61,10 +61,17 @@ class SimpleObservation {
         std::string filename = type_backend.Get("file").asString();
 
         // Get variables for this type
-        const auto& variables_config =
+        const auto& variables_configs =
             type_backend.Get("variables").asVectorMap();
+        for (const auto& var_map : variables_configs) {
+          for (const auto& [var_name, var_config] : var_map) {
+            const auto& var_backend = ConfigBackend(var_config.asMap());
+            float error = var_backend.Get("error").asFloat();
+            float missing_value = var_backend.Get("missing_value").asFloat();
+          }
+        }
 
-        for (const auto& var_map : variables_config) {
+        /*for (const auto& var_map : variables_config) {
           for (const auto& [var_name, var_config] : var_map) {
             const auto& var_backend = ConfigBackend(var_config.asMap());
             float error = var_backend.Get("error").asFloat();
@@ -73,7 +80,7 @@ class SimpleObservation {
             // Load data for this type/variable combination
             loadFromFile(type_name, var_name, filename, error, missing_value);
           }
-        }
+        }*/
       }
     }
   }

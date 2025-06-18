@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <string>
@@ -174,7 +175,7 @@ class ConfigValue {
     } else if (value.isInt()) {
       os << value.asInt();
     } else if (value.isFloat()) {
-      os << value.asFloat();
+      os << std::fixed << std::setprecision(1) << value.asFloat();
     } else if (value.isString()) {
       os << value.asString();
     } else if (value.isVectorBool()) {
@@ -198,7 +199,7 @@ class ConfigValue {
       const auto& vec = value.asVectorFloat();
       for (size_t i = 0; i < vec.size(); ++i) {
         if (i > 0) os << ", ";
-        os << vec[i];
+        os << std::fixed << std::setprecision(1) << vec[i];
       }
       os << "]";
     } else if (value.isVectorString()) {
@@ -206,7 +207,7 @@ class ConfigValue {
       const auto& vec = value.asVectorString();
       for (size_t i = 0; i < vec.size(); ++i) {
         if (i > 0) os << ", ";
-        os << "\"" << vec[i] << "\"";
+        os << '"' << vec[i] << '"';
       }
       os << "]";
     } else if (value.isMap()) {
@@ -215,7 +216,7 @@ class ConfigValue {
       bool first = true;
       for (const auto& [k, v] : map) {
         if (!first) os << ", ";
-        os << "\"" << k << "\": " << v;
+        os << '"' << k << ": " << v;
         first = false;
       }
       os << "}";
@@ -230,6 +231,12 @@ class ConfigValue {
     }
     return os;
   }
+
+  // Public getter for the variant type index
+  size_t typeIndex() const { return value_.index(); }
+
+  // Public getter for the underlying variant (const)
+  const auto& constVariant() const { return value_; }
 
  private:
   std::variant<std::monostate, bool, int, float, std::string, std::vector<bool>,

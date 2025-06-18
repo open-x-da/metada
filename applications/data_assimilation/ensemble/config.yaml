@@ -6,7 +6,7 @@ logger:
 
 # Geometry for the ensemble
 geometry:
-  x_dim: 36 
+  x_dim: 36
   y_dim: 18
 
 # Ensemble variables to analyze

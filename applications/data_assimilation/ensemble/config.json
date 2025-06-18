@@ -24,12 +24,33 @@
     ]
   },
   "observations": {
-    "max_distance": 1000.0,
-    "error_threshold": 3.0,
     "types": [
-      "satellite",
-      "radiosonde",
-      "surface"
+      {
+        "obs_A": {
+          "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/obs.txt",
+          "variables": [
+            {
+              "simple": {
+                "error": 3.0,
+                "missing_value": -999.0
+              }
+            }
+          ]
+        }
+      },
+      {
+        "obs_B": {
+          "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/obs_B.txt",
+          "variables": [
+            {
+              "simple": {
+                "error": 3.0,
+                "missing_value": -999.0
+              }
+            }
+          ]
+        }
+      }
     ]
   },
   "output": {
