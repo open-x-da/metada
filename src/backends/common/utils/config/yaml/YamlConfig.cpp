@@ -253,6 +253,15 @@ ConfigValue YamlConfig::YamlToConfigValue(const YAML::Node& node) {
       return ConfigValue(std::vector<std::string>());
     }
 
+    // Try to detect if this is a sequence of maps
+    if (node[0].IsMap()) {
+      std::vector<ConfigValue> vec;
+      for (const auto& item : node) {
+        vec.push_back(YamlToConfigValue(item));
+      }
+      return ConfigValue(vec);
+    }
+
     // Determine sequence type based on first element
     try {
       std::vector<bool> vec;
@@ -284,7 +293,7 @@ ConfigValue YamlConfig::YamlToConfigValue(const YAML::Node& node) {
       }
     }
   } else if (node.IsMap()) {
-    metada::framework::ConfigMap map;
+    framework::ConfigMap map;
     for (const auto& it : node) {
       map[it.first.as<std::string>()] = YamlToConfigValue(it.second);
     }
@@ -339,7 +348,7 @@ class ConfigValueToYamlVisitor {
     return node;
   }
 
-  YAML::Node operator()(const metada::framework::ConfigMap& v) const {
+  YAML::Node operator()(const framework::ConfigMap& v) const {
     YAML::Node node;
     for (const auto& [key, val] : v) {
       // Create a temporary visitor and use it directly
