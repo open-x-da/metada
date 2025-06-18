@@ -44,6 +44,7 @@ class Config;
  * - Arithmetic operations for observation-space calculations
  * - Explicit cloning mechanism for controlled copying
  * - Move semantics for efficient resource management
+ * - Hierarchical data organization: type → variable → data
  *
  * @tparam BackendTag The backend tag type that must satisfy
  * ObservationBackendType concept
@@ -223,42 +224,74 @@ class Observation : private NonCopyable {
   }
 
   /**
-   * @brief Get the names of variables in this observation
+   * @brief Get the names of observation types
    *
-   * @details Retrieves the list of variable names contained in this
+   * @details Retrieves the list of observation type names contained in this
    * observation.
    *
-   * @return Const reference to vector of variable names
+   * @return Vector of observation type names
    */
-  const std::vector<std::string>& getVariableNames() const {
-    return backend_.getVariableNames();
+  std::vector<std::string> getTypeNames() const {
+    return backend_.getTypeNames();
   }
 
   /**
-   * @brief Check if a specific variable exists in this observation
+   * @brief Get the names of variables for a specific observation type
+   *
+   * @details Retrieves the list of variable names for the specified observation
+   * type.
+   *
+   * @param typeName Name of the observation type
+   * @return Vector of variable names for the type
+   */
+  std::vector<std::string> getVariableNames(const std::string& typeName) const {
+    return backend_.getVariableNames(typeName);
+  }
+
+  /**
+   * @brief Check if a specific observation type exists
+   *
+   * @details Searches for the specified observation type name in the list of
+   * types contained in this observation.
+   *
+   * @param typeName Name of the observation type to check
+   * @return True if the observation type exists, false otherwise
+   */
+  bool hasType(const std::string& typeName) const {
+    const auto& types = getTypeNames();
+    return std::find(types.begin(), types.end(), typeName) != types.end();
+  }
+
+  /**
+   * @brief Check if a specific variable exists in a specific observation type
    *
    * @details Searches for the specified variable name in the list of variables
-   * contained in this observation.
+   * for the specified observation type.
    *
-   * @param name Name of the variable to check
-   * @return True if the variable exists, false otherwise
+   * @param typeName Name of the observation type
+   * @param varName Name of the variable to check
+   * @return True if the variable exists in the type, false otherwise
    */
-  bool hasVariable(const std::string& name) const {
-    const auto& variables = getVariableNames();
-    return std::find(variables.begin(), variables.end(), name) !=
+  bool hasVariable(const std::string& typeName,
+                   const std::string& varName) const {
+    const auto& variables = getVariableNames(typeName);
+    return std::find(variables.begin(), variables.end(), varName) !=
            variables.end();
   }
 
   /**
-   * @brief Get the dimensions of a specific variable in this observation
+   * @brief Get the size of observation data for a specific type/variable
    *
-   * @details Retrieves the dimension sizes for the specified variable.
+   * @details Retrieves the size of the observation data vector for the
+   * specified type and variable.
    *
-   * @param name Name of the variable to get dimensions for
-   * @return Const reference to vector of dimension sizes
+   * @param typeName Name of the observation type
+   * @param varName Name of the variable
+   * @return Size of the observation data vector
    */
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    return backend_.getDimensions(name);
+  size_t getSize(const std::string& typeName,
+                 const std::string& varName) const {
+    return backend_.getSize(typeName, varName);
   }
 
   /**

@@ -17,6 +17,7 @@
  * - Input/output operations (file loading and saving)
  * - Quality control application
  * - Backend access (const and non-const)
+ * - Hierarchical data organization: type → variable → data
  *
  * The test suite uses Google Test/Mock framework for mocking backend
  * implementations and verifying adapter behavior through assertions.
@@ -58,11 +59,14 @@ using framework::Observation;
  */
 class ObservationTest : public ::testing::Test {
  protected:
+  /** @brief Observation type names for test data */
+  std::vector<std::string> typeNames_;
+
   /** @brief Variable names for test data */
   std::vector<std::string> variableNames_;
 
-  /** @brief Variable dimensions */
-  std::vector<size_t> dimensions_;
+  /** @brief Variable sizes */
+  std::vector<size_t> sizes_;
 
   /** @brief Sample location coordinates */
   std::vector<std::vector<double>> locations_;
@@ -118,8 +122,9 @@ class ObservationTest : public ::testing::Test {
     resetObservations();
 
     // Then clean up other resources
+    typeNames_.clear();
     variableNames_.clear();
-    dimensions_.clear();
+    sizes_.clear();
     locations_.clear();
     times_.clear();
     qualityFlags_.clear();
@@ -137,8 +142,9 @@ class ObservationTest : public ::testing::Test {
 
   // Helper function to initialize test data
   void initializeTestData() {
+    typeNames_ = {"obs_A", "obs_B"};
     variableNames_ = {"temperature", "pressure"};
-    dimensions_ = {1, 1};
+    sizes_ = {100, 100};
     locations_ = {{45.0, -120.0, 100.0}, {46.0, -121.0, 200.0}};
     times_ = {1609459200.0, 1609545600.0};  // Example timestamps (Unix time)
     qualityFlags_ = {0, 1};                 // 0 = good, 1 = suspect
@@ -273,25 +279,35 @@ TEST_F(ObservationTest, ComparisonOperations) {
  *
  * Verifies:
  * - getData (const and non-const)
- * - getVariableNames
- * - hasVariable (for existing and non-existing variables)
- * - getDimensions
+ * - getTypeNames
+ * - getVariableNames(typeName)
+ * - hasType
+ * - hasVariable(typeName, varName)
+ * - getSize(typeName, varName)
  * - getCovariance
  */
 TEST_F(ObservationTest, DataAccessAndInformation) {
-  obs1_->backend().setVariables(variableNames_);
-  obs1_->backend().setDimensions("temperature", dimensions_);
-  obs1_->backend().setData(confidenceValues_);
+  // Set up hierarchical data structure
+  obs1_->backend().setupHierarchicalData("obs_A", "temperature",
+                                         confidenceValues_);
+  obs1_->backend().setSize("obs_A", "temperature", 100);
+  obs1_->backend().setSize("obs_A", "pressure", 100);
+  obs1_->backend().setupHierarchicalData("obs_A", "pressure",
+                                         confidenceValues_);
   std::vector<double> cov = {1.0, 0.0, 0.0, 1.0};  // 2x2 identity matrix
   obs1_->backend().setCovariance(cov);
 
-  // Test variable names access
-  const auto& vars = obs1_->getVariableNames();
-  EXPECT_EQ(vars, variableNames_);
+  // Test type names access
+  const auto& types = obs1_->getTypeNames();
+  EXPECT_FALSE(types.empty());
 
-  // Test dimensions access
-  const auto& dims = obs1_->getDimensions("temperature");
-  EXPECT_EQ(dims, dimensions_);
+  // Test variable names access for a specific type
+  const auto& vars = obs1_->getVariableNames("obs_A");
+  EXPECT_FALSE(vars.empty());
+
+  // Test size access for specific type/variable
+  size_t size = obs1_->getSize("obs_A", "temperature");
+  EXPECT_EQ(size, 100);
 
   // Test data access
   verifyDataAccess();
@@ -300,9 +316,14 @@ TEST_F(ObservationTest, DataAccessAndInformation) {
   const auto& covariance = obs1_->getCovariance();
   EXPECT_EQ(covariance, cov);
 
+  // Test hasType
+  EXPECT_TRUE(obs1_->hasType("obs_A"));
+  EXPECT_FALSE(obs1_->hasType("nonexistent_type"));
+
   // Test hasVariable
-  EXPECT_TRUE(obs1_->hasVariable("temperature"));
-  EXPECT_FALSE(obs1_->hasVariable("nonexistent_variable"));
+  EXPECT_TRUE(obs1_->hasVariable("obs_A", "temperature"));
+  EXPECT_FALSE(obs1_->hasVariable("obs_A", "nonexistent_variable"));
+  EXPECT_FALSE(obs1_->hasVariable("nonexistent_type", "temperature"));
 }
 
 /**

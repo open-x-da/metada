@@ -15,6 +15,7 @@
  * - Configuring return values and behaviors
  * - Verifying interaction patterns
  * - Testing error conditions
+ * - Hierarchical data organization: type → variable → data
  *
  * @see IObservation
  * @see testing::Mock
@@ -25,6 +26,7 @@
 #include <gmock/gmock.h>
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace metada::backends::gmock {
@@ -61,9 +63,10 @@ namespace metada::backends::gmock {
  * - hasMetadata() - Check if metadata key exists
  *
  * @par Observation Information
- * - getVariableNames() - Get names of observation variables
+ * - getTypeNames() - Get names of observation types
+ * - getVariableNames(typeName) - Get variables for a specific type
  * - hasVariable() - Check if variable exists
- * - getDimensions() - Get dimensions of observation space
+ * - getSize(typeName, varName) - Get size for specific type/variable
  *
  * @par Spatiotemporal Metadata
  * - setLocations() - Set spatial locations for observations
@@ -142,6 +145,7 @@ class MockObservation {
   MOCK_METHOD(void, subtract, (const MockObservation& other));
   MOCK_METHOD(void, multiply, (double scalar));
 
+  // File I/O operations - these match the concept requirements
   void loadFromFile([[maybe_unused]] const std::string& filename) {
     // TODO: Implement
   }
@@ -151,41 +155,141 @@ class MockObservation {
   }
 
   // Get the data
-  void* getData() { return &data_; }
-
-  const void* getData() const { return &data_; }
-
-  // Get the variable names
-  const std::vector<std::string>& getVariableNames() const {
-    return variableNames_;
+  void* getData() {
+    if (data_.empty()) {
+      return nullptr;
+    }
+    // Return pointer to the first type's first variable's data
+    return data_.begin()->second.begin()->second.data();
   }
 
-  // Get the dimensions
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    return dimensions_.at(name);
+  const void* getData() const {
+    if (data_.empty()) {
+      return nullptr;
+    }
+    // Return pointer to the first type's first variable's data
+    return data_.begin()->second.begin()->second.data();
+  }
+
+  // Get the observation type names
+  std::vector<std::string> getTypeNames() const {
+    std::vector<std::string> types;
+    for (const auto& [type_name, _] : data_) {
+      types.push_back(type_name);
+    }
+    return types;
+  }
+
+  // Get the variable names for a specific type
+  std::vector<std::string> getVariableNames(const std::string& typeName) const {
+    std::vector<std::string> variables;
+    auto it = data_.find(typeName);
+    if (it != data_.end()) {
+      for (const auto& [var_name, _] : it->second) {
+        variables.push_back(var_name);
+      }
+    }
+    return variables;
+  }
+
+  // Get the size for a specific type/variable
+  size_t getSize(const std::string& typeName,
+                 const std::string& varName) const {
+    std::string key = typeName + "." + varName;
+    auto it = sizes_.find(key);
+    if (it != sizes_.end()) {
+      return it->second;
+    }
+    return 0;
   }
 
   // Get the covariance matrix
   const std::vector<double>& getCovariance() const { return covariance_; }
 
+  // Get error value for a specific type/variable
+  float getError(const std::string& typeName,
+                 const std::string& varName) const {
+    std::string key = typeName + "." + varName;
+    auto it = errors_.find(key);
+    if (it != errors_.end()) {
+      return it->second;
+    }
+    return 0.0f;
+  }
+
+  // Get missing value for a specific type/variable
+  float getMissingValue(const std::string& typeName,
+                        const std::string& varName) const {
+    std::string key = typeName + "." + varName;
+    auto it = missing_values_.find(key);
+    if (it != missing_values_.end()) {
+      return it->second;
+    }
+    return -999.0f;
+  }
+
   // Test helper methods
-  void setVariables(const std::vector<std::string>& variables) {
-    variableNames_ = variables;
+  void setTypeNames(const std::vector<std::string>& types) {
+    typeNames_ = types;
   }
 
-  void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
-    dimensions_[name] = dims;
+  void setVariableNames(const std::string& typeName,
+                        const std::vector<std::string>& variables) {
+    variableNames_[typeName] = variables;
   }
 
-  void setData(const std::vector<double>& data) { data_ = data; }
+  void setSize(const std::string& typeName, const std::string& varName,
+               size_t size) {
+    std::string key = typeName + "." + varName;
+    sizes_[key] = size;
+  }
+
+  void setData(const std::vector<double>& data) {
+    // Store data in the first available type/variable or create default
+    if (data_.empty()) {
+      data_["default"]["default"] = data;
+      setSize("default", "default", data.size());
+    } else {
+      // Use the first type and variable
+      auto& first_type = data_.begin()->second;
+      auto& first_var = first_type.begin()->second;
+      first_var = data;
+      setSize(data_.begin()->first, first_type.begin()->first, data.size());
+    }
+  }
 
   void setCovariance(const std::vector<double>& cov) { covariance_ = cov; }
 
+  void setError(const std::string& typeName, const std::string& varName,
+                float error) {
+    std::string key = typeName + "." + varName;
+    errors_[key] = error;
+  }
+
+  void setMissingValue(const std::string& typeName, const std::string& varName,
+                       float missingValue) {
+    std::string key = typeName + "." + varName;
+    missing_values_[key] = missingValue;
+  }
+
+  // Helper method to set up hierarchical data structure
+  void setupHierarchicalData(const std::string& typeName,
+                             const std::string& varName,
+                             const std::vector<double>& data) {
+    data_[typeName][varName] = data;
+    setSize(typeName, varName, data.size());
+  }
+
  private:
   const ConfigBackend& config_;
-  std::vector<std::string> variableNames_;
-  std::unordered_map<std::string, std::vector<size_t>> dimensions_;
-  std::vector<double> data_;
+  std::vector<std::string> typeNames_;
+  std::unordered_map<std::string, std::vector<std::string>> variableNames_;
+  std::unordered_map<std::string,
+                     std::unordered_map<std::string, std::vector<double>>>
+      data_;
+  std::unordered_map<std::string, size_t> sizes_;
+  std::unordered_map<std::string, float> errors_;
+  std::unordered_map<std::string, float> missing_values_;
   std::vector<double> covariance_;
 };
 

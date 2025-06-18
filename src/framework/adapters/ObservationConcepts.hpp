@@ -30,13 +30,15 @@ namespace metada::framework {
  * @details A valid observation backend implementation must provide:
  * - Data access methods (getData for both mutable and const access)
  * - Variable name access method
- * - Dimension information for each variable
+ * - Size information for each variable
  * - Support for cloning the observation
  * - Vector arithmetic operations (add, subtract, multiply)
  * - Equality comparison
  * - Initialization method
  * - Quality control application
  * - File I/O operations
+ * - Covariance matrix access
+ * - Error and missing value information
  *
  * These requirements enable the Observation adapter to perform common
  * observation-space operations needed in data assimilation algorithms.
@@ -44,38 +46,46 @@ namespace metada::framework {
  * @tparam T The observation backend implementation type
  */
 template <typename T>
-concept ObservationBackendImpl =
-    requires(T& t, const T& ct, const T& other, const std::string& varName,
-             double scalar) {
-      // Data access
-      { t.getData() } -> std::same_as<void*>;
-      { ct.getData() } -> std::same_as<const void*>;
+concept ObservationBackendImpl = requires(
+    T& t, const T& ct, const T& other, const std::string& typeName,
+    const std::string& varName, const std::string& filename, double scalar) {
+  // Data access
+  { t.getData() } -> std::same_as<void*>;
+  { ct.getData() } -> std::same_as<const void*>;
 
-      // Variable information
-      {
-        ct.getVariableNames()
-      } -> std::same_as<const std::vector<std::string>&>;
-      { ct.getDimensions(varName) } -> std::same_as<const std::vector<size_t>&>;
+  // Variable information
+  { ct.getTypeNames() } -> std::convertible_to<std::vector<std::string>>;
+  {
+    ct.getVariableNames(typeName)
+  } -> std::convertible_to<std::vector<std::string>>;
+  { ct.getSize(typeName, varName) } -> std::convertible_to<size_t>;
 
-      // Cloning
-      { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;
+  // Covariance matrix
+  { ct.getCovariance() } -> std::convertible_to<const std::vector<double>&>;
 
-      // Vector arithmetic
-      { t.add(other) } -> std::same_as<void>;
-      { t.subtract(other) } -> std::same_as<void>;
-      { t.multiply(scalar) } -> std::same_as<void>;
+  // Error and missing value information
+  { ct.getError(typeName, varName) } -> std::convertible_to<float>;
+  { ct.getMissingValue(typeName, varName) } -> std::convertible_to<float>;
 
-      // Comparison
-      { ct.equals(other) } -> std::convertible_to<bool>;
+  // Cloning
+  { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;
 
-      // Lifecycle management
-      { t.initialize() } -> std::same_as<void>;
-      { t.applyQC() } -> std::same_as<void>;
+  // Vector arithmetic
+  { t.add(other) } -> std::same_as<void>;
+  { t.subtract(other) } -> std::same_as<void>;
+  { t.multiply(scalar) } -> std::same_as<void>;
 
-      // File I/O
-      { t.loadFromFile(varName) } -> std::same_as<void>;
-      { ct.saveToFile(varName) } -> std::same_as<void>;
-    };
+  // Comparison
+  { ct.equals(other) } -> std::convertible_to<bool>;
+
+  // Lifecycle management
+  { t.initialize() } -> std::same_as<void>;
+  { t.applyQC() } -> std::same_as<void>;
+
+  // File I/O
+  { t.loadFromFile(filename) } -> std::same_as<void>;
+  { ct.saveToFile(filename) } -> std::same_as<void>;
+};
 
 /**
  * @brief Concept that defines requirements for an observation backend tag type

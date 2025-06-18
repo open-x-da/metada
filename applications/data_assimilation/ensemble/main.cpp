@@ -37,11 +37,12 @@ int main(int argc, char** argv) {
 
     fwk::Ensemble<BackendTag> ensemble(config.GetSubsection("ensemble"),
                                        geometry);
-    ensemble.RecomputeMean();
-    ensemble.RecomputePerturbations();
 
-    // fwk::Observation<BackendTag> observation(config);
-    // fwk::ObsOperator<BackendTag> obs_operator(config);
+    fwk::Observation<BackendTag> observations(
+        config.GetSubsection("observations"));
+
+    // fwk::ObsOperator<BackendTag>
+    // obs_operator(config.GetSubsection("obs_operator"));
 
     // Run ETKF analysis
     // fwk::ETKF<BackendTag> etkf(ensemble, observation, obs_operator,
