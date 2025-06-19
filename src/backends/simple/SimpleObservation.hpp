@@ -56,32 +56,31 @@ class SimpleObservation {
 
     // Load each observation type
     for (const auto& type_map : type_configs) {
-      for (const auto& [type_name, type_config] : type_map) {
-        const auto& type_backend = ConfigBackend(type_config.asMap());
-        std::string filename = type_backend.Get("file").asString();
-
-        // Get variables for this type
-        const auto& variables_configs =
-            type_backend.Get("variables").asVectorMap();
-        for (const auto& var_map : variables_configs) {
-          for (const auto& [var_name, var_config] : var_map) {
-            const auto& var_backend = ConfigBackend(var_config.asMap());
-            float error = var_backend.Get("error").asFloat();
-            float missing_value = var_backend.Get("missing_value").asFloat();
-          }
-        }
-
-        /*for (const auto& var_map : variables_config) {
-          for (const auto& [var_name, var_config] : var_map) {
-            const auto& var_backend = ConfigBackend(var_config.asMap());
-            float error = var_backend.Get("error").asFloat();
-            float missing_value = var_backend.Get("missing_value").asFloat();
-
-            // Load data for this type/variable combination
-            loadFromFile(type_name, var_name, filename, error, missing_value);
-          }
-        }*/
+      const auto& [type_name, type_config] = *type_map.begin();
+      const auto& type_backend = ConfigBackend(type_config.asMap());
+      bool if_use = type_backend.Get("if_use").asBool();
+      if (!if_use) {
+        continue;
       }
+      std::string filename = type_backend.Get("file").asString();
+
+      // Loop over variables for this type
+      const auto& variables_configs =
+          type_backend.Get("variables").asVectorMap();
+      for (const auto& var_map : variables_configs) {
+        for (const auto& [var_name, var_config] : var_map) {
+          const auto& var_backend = ConfigBackend(var_config.asMap());
+          bool if_use = var_backend.Get("if_use").asBool();
+          if (!if_use) {
+            continue;
+          }
+          float error = var_backend.Get("error").asFloat();
+          float missing_value = var_backend.Get("missing_value").asFloat();
+        }
+      }
+
+      // Load data for this type/variable combination
+      loadFromFile(filename);
     }
   }
 

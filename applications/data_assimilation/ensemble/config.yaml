@@ -36,16 +36,20 @@ ensemble:
 observations:
   types:
     - obs_A:
+        if_use: true
         file: "D:/linux/pdaf-fork/tutorial/inputs_offline/obs.txt"
         variables:
           - simple:
-              error: 3.0  # standard deviations
+              if_use: true
+              error: 0.1  # standard deviations
               missing_value: -999.0
     - obs_B:
+        if_use: false
         file: "D:/linux/pdaf-fork/tutorial/inputs_offline/obs_B.txt"
         variables:
           - simple:
-              error: 3.0  # standard deviations
+              if_use: true
+              error: 0.1  # standard deviations
               missing_value: -999.0
 
 # Output settings
