@@ -1,23 +1,24 @@
 /**
  * @file MockObservation.hpp
- * @brief Mock implementation of IObservation interface for testing
+ * @brief Mock implementation of observation backend for testing
  * @ingroup tests
  * @author Metada Framework Team
  *
  * @details
- * This mock class provides a test double for the IObservation interface using
- * Google Mock. It allows testing code that depends on IObservation by providing
- * mock implementations of all interface methods that can be configured with
- * expectations and behaviors.
+ * This mock class provides a test double for the observation backend interface
+ * using Google Mock. It allows testing code that depends on observation
+ * backends by providing mock implementations of all interface methods that can
+ * be configured with expectations and behaviors.
  *
  * The mock implementation supports:
  * - Setting expectations on method calls
  * - Configuring return values and behaviors
  * - Verifying interaction patterns
  * - Testing error conditions
- * - Hierarchical data organization: type → variable → data
+ * - Point-based observations with location information
+ * - Iteration capabilities
  *
- * @see IObservation
+ * @see Observation
  * @see testing::Mock
  */
 
@@ -32,58 +33,131 @@
 namespace metada::backends::gmock {
 
 /**
- * @brief Mock implementation of IObservation for testing
+ * @brief Structure to hold observation location information (matching
+ * SimpleObservation)
+ */
+struct MockObservationLocation {
+  double latitude;   ///< Latitude in degrees
+  double longitude;  ///< Longitude in degrees
+  double level;      ///< Vertical level (pressure in hPa, height in m, etc.)
+
+  MockObservationLocation(double lat, double lon, double lev)
+      : latitude(lat), longitude(lon), level(lev) {}
+
+  bool operator==(const MockObservationLocation& other) const {
+    return latitude == other.latitude && longitude == other.longitude &&
+           level == other.level;
+  }
+};
+
+/**
+ * @brief Structure to hold a single observation point (matching
+ * SimpleObservation)
+ */
+struct MockObservationPoint {
+  MockObservationLocation location;  ///< Location of the observation
+  double value;                      ///< Observed value
+  double error;                      ///< Observation error
+  bool is_valid;                     ///< Whether the observation is valid
+
+  MockObservationPoint(const MockObservationLocation& loc, double val,
+                       double err)
+      : location(loc), value(val), error(err), is_valid(true) {}
+
+  MockObservationPoint(const MockObservationLocation& loc)
+      : location(loc), value(0.0), error(0.0), is_valid(false) {}
+
+  bool operator==(const MockObservationPoint& other) const {
+    return location == other.location && value == other.value &&
+           error == other.error && is_valid == other.is_valid;
+  }
+};
+
+/**
+ * @brief Iterator for mock observations
+ */
+class MockObservationIterator {
+ public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = MockObservationPoint;
+  using difference_type = std::ptrdiff_t;
+  using pointer = MockObservationPoint*;
+  using reference = MockObservationPoint&;
+
+  MockObservationIterator() = default;
+
+  MockObservationIterator(const std::vector<MockObservationPoint>* data,
+                          size_t index)
+      : data_(data), index_(index) {}
+
+  // Dereference operators
+  reference operator*() { return const_cast<reference>((*data_)[index_]); }
+  pointer operator->() { return &const_cast<reference>((*data_)[index_]); }
+
+  // Increment operators
+  MockObservationIterator& operator++() {
+    ++index_;
+    return *this;
+  }
+
+  MockObservationIterator operator++(int) {
+    MockObservationIterator tmp = *this;
+    ++index_;
+    return tmp;
+  }
+
+  // Comparison operators
+  bool operator==(const MockObservationIterator& other) const {
+    return data_ == other.data_ && index_ == other.index_;
+  }
+
+  bool operator!=(const MockObservationIterator& other) const {
+    return !(*this == other);
+  }
+
+ private:
+  const std::vector<MockObservationPoint>* data_;
+  size_t index_;
+};
+
+/**
+ * @brief Mock implementation of observation backend for testing
  *
  * @details
- * Provides mock methods for all IObservation interface operations, organized
- * into the following categories:
+ * Provides mock methods for all observation backend interface operations,
+ * organized into the following categories:
  *
  * @par Lifecycle Management
  * - initialize() - Initialize observation from configuration
- * - reset() - Reset observation to initial values
- * - validate() - Validate observation consistency
- * - isValid() - Check if observation is valid
- * - isInitialized() - Check initialization status
- *
- * @par Copy/Move Operations
- * - copyFrom() - Copy observation from another instance
- * - moveFrom() - Move observation from another instance
+ * - applyQC() - Apply quality control
  * - equals() - Compare equality with another observation
  *
- * @par Data Access
+ * @par Copy/Move Operations
+ * - clone() - Clone observation
+ *
+ * @par Data Access and Iteration
+ * - begin()/end() - Iteration support
+ * - size() - Get number of observations
+ * - operator[] - Direct indexing
  * - getData() - Get raw pointer to data
- * - getData() const - Get const raw pointer to data
- * - getUncertainty() - Get raw pointer to uncertainty data
- * - getUncertainty() const - Get const raw pointer to uncertainty data
- * - getSize() - Get size of observation data
+ * - getData<T>() - Template data access
  *
- * @par Metadata Operations
- * - setMetadata() - Set metadata key-value pair
- * - getMetadata() - Get metadata value by key
- * - hasMetadata() - Check if metadata key exists
- *
- * @par Observation Information
+ * @par Variable Information
  * - getTypeNames() - Get names of observation types
  * - getVariableNames(typeName) - Get variables for a specific type
- * - hasVariable() - Check if variable exists
- * - getSize(typeName, varName) - Get size for specific type/variable
- *
- * @par Spatiotemporal Metadata
- * - setLocations() - Set spatial locations for observations
- * - setTimes() - Set timestamps for observations
- * - getLocations() - Get spatial locations
- * - getTimes() - Get timestamps
  *
  * @par Arithmetic Operations
  * - add() - Add another observation
  * - subtract() - Subtract another observation
  * - multiply() - Multiply by scalar
  *
- * @par Quality Control
- * - setQualityFlags() - Set quality control flags
- * - getQualityFlags() - Get quality control flags
- * - setConfidenceValues() - Set confidence values
- * - getConfidenceValues() - Get confidence values
+ * @par File I/O Operations
+ * - loadFromFile() - Load observations from file
+ * - saveToFile() - Save observations to file
+ *
+ * @par Geographic Filtering
+ * - getObservationsInBox() - Get observations in geographic bounding box
+ * - getObservationsInVerticalRange() - Get observations in vertical range
  *
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
@@ -91,6 +165,10 @@ namespace metada::backends::gmock {
 template <typename ConfigBackend>
 class MockObservation {
  public:
+  // Type aliases for concept compliance
+  using iterator_type = MockObservationIterator;
+  using value_type = MockObservationPoint;
+
   // Disable default constructor
   MockObservation() = delete;
 
@@ -108,16 +186,21 @@ class MockObservation {
   /**
    * @brief Move constructor
    */
-  MockObservation(MockObservation&& other) noexcept : config_(other.config_) {
-    // Explicit Move Constructor (Even Without Data Members)
-  }
+  MockObservation(MockObservation&& other) noexcept
+      : config_(other.config_),
+        observations_(std::move(other.observations_)),
+        type_variable_map_(std::move(other.type_variable_map_)),
+        covariance_(std::move(other.covariance_)) {}
 
   /**
    * @brief Move assignment operator
    */
-  MockObservation& operator=(
-      [[maybe_unused]] MockObservation&& other) noexcept {
-    // Explicit Move Assignment (Even Without Data Members)
+  MockObservation& operator=(MockObservation&& other) noexcept {
+    if (this != &other) {
+      observations_ = std::move(other.observations_);
+      type_variable_map_ = std::move(other.type_variable_map_);
+      covariance_ = std::move(other.covariance_);
+    }
     return *this;
   }
 
@@ -125,18 +208,43 @@ class MockObservation {
    * @brief Constructor that initializes observation from config
    */
   explicit MockObservation(const ConfigBackend& config) : config_(config) {
-    initialize();
+    // Set up default type/variable mapping for testing
+    type_variable_map_["obs_A"]["temperature"] = {0, 1, 2};
+    type_variable_map_["obs_A"]["pressure"] = {0, 1, 2};
+
+    // Add some default observations for testing
+    addObservation(MockObservationLocation(45.0, -120.0, 1000.0), 25.5, 0.5);
+    addObservation(MockObservationLocation(46.0, -121.0, 850.0), 15.2, 0.3);
+    addObservation(MockObservationLocation(47.0, -122.0, 500.0), -5.8, 0.7);
+
+    // Set default covariance
+    covariance_ = {1.0, 0.0, 0.0, 1.0};
+  }
+
+  // Iteration capabilities
+  MockObservationIterator begin() const {
+    return MockObservationIterator(&observations_, 0);
+  }
+
+  MockObservationIterator end() const {
+    return MockObservationIterator(&observations_, observations_.size());
+  }
+
+  size_t size() const { return observations_.size(); }
+
+  const MockObservationPoint& operator[](size_t index) const {
+    return observations_[index];
   }
 
   // Clone operation
   std::unique_ptr<MockObservation> clone() const {
     auto cloned = std::make_unique<MockObservation>(config_);
+    cloned->observations_ = observations_;
     return cloned;
   }
 
   // Lifecycle management
   MOCK_METHOD(void, initialize, ());
-
   MOCK_METHOD(void, applyQC, ());
   MOCK_METHOD(bool, equals, (const MockObservation& other), (const));
 
@@ -145,36 +253,50 @@ class MockObservation {
   MOCK_METHOD(void, subtract, (const MockObservation& other));
   MOCK_METHOD(void, multiply, (double scalar));
 
-  // File I/O operations - these match the concept requirements
-  void loadFromFile([[maybe_unused]] const std::string& filename) {
-    // TODO: Implement
-  }
+  // File I/O operations
+  MOCK_METHOD(void, loadFromFile, (const std::string& filename));
+  MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
 
-  void saveToFile([[maybe_unused]] const std::string& filename) const {
-    // TODO: Implement
-  }
+  // Geographic filtering
+  MOCK_METHOD(std::vector<MockObservationPoint>, getObservationsInBox,
+              (double min_lat, double max_lat, double min_lon, double max_lon),
+              (const));
+  MOCK_METHOD(std::vector<MockObservationPoint>, getObservationsInVerticalRange,
+              (double min_level, double max_level), (const));
 
   // Get the data
   void* getData() {
-    if (data_.empty()) {
+    if (observations_.empty()) {
       return nullptr;
     }
-    // Return pointer to the first type's first variable's data
-    return data_.begin()->second.begin()->second.data();
+    return const_cast<void*>(static_cast<const void*>(observations_.data()));
   }
 
   const void* getData() const {
-    if (data_.empty()) {
+    if (observations_.empty()) {
       return nullptr;
     }
-    // Return pointer to the first type's first variable's data
-    return data_.begin()->second.begin()->second.data();
+    return static_cast<const void*>(observations_.data());
+  }
+
+  // Template data access for backward compatibility
+  template <typename T>
+  T getData() const {
+    if constexpr (std::is_same_v<T, std::vector<double>>) {
+      std::vector<double> values;
+      values.reserve(observations_.size());
+      for (const auto& obs : observations_) {
+        values.push_back(obs.value);
+      }
+      return values;
+    }
+    return T{};
   }
 
   // Get the observation type names
   std::vector<std::string> getTypeNames() const {
     std::vector<std::string> types;
-    for (const auto& [type_name, _] : data_) {
+    for (const auto& [type_name, _] : type_variable_map_) {
       types.push_back(type_name);
     }
     return types;
@@ -183,8 +305,8 @@ class MockObservation {
   // Get the variable names for a specific type
   std::vector<std::string> getVariableNames(const std::string& typeName) const {
     std::vector<std::string> variables;
-    auto it = data_.find(typeName);
-    if (it != data_.end()) {
+    auto it = type_variable_map_.find(typeName);
+    if (it != type_variable_map_.end()) {
       for (const auto& [var_name, _] : it->second) {
         variables.push_back(var_name);
       }
@@ -192,104 +314,38 @@ class MockObservation {
     return variables;
   }
 
-  // Get the size for a specific type/variable
-  size_t getSize(const std::string& typeName,
-                 const std::string& varName) const {
-    std::string key = typeName + "." + varName;
-    auto it = sizes_.find(key);
-    if (it != sizes_.end()) {
-      return it->second;
-    }
-    return 0;
-  }
-
   // Get the covariance matrix
   const std::vector<double>& getCovariance() const { return covariance_; }
 
-  // Get error value for a specific type/variable
-  float getError(const std::string& typeName,
-                 const std::string& varName) const {
-    std::string key = typeName + "." + varName;
-    auto it = errors_.find(key);
-    if (it != errors_.end()) {
-      return it->second;
-    }
-    return 0.0f;
-  }
-
-  // Get missing value for a specific type/variable
-  float getMissingValue(const std::string& typeName,
-                        const std::string& varName) const {
-    std::string key = typeName + "." + varName;
-    auto it = missing_values_.find(key);
-    if (it != missing_values_.end()) {
-      return it->second;
-    }
-    return -999.0f;
-  }
-
   // Test helper methods
-  void setTypeNames(const std::vector<std::string>& types) {
-    typeNames_ = types;
+  void setObservations(const std::vector<MockObservationPoint>& obs) {
+    observations_ = obs;
   }
 
-  void setVariableNames(const std::string& typeName,
-                        const std::vector<std::string>& variables) {
-    variableNames_[typeName] = variables;
-  }
-
-  void setSize(const std::string& typeName, const std::string& varName,
-               size_t size) {
-    std::string key = typeName + "." + varName;
-    sizes_[key] = size;
-  }
-
-  void setData(const std::vector<double>& data) {
-    // Store data in the first available type/variable or create default
-    if (data_.empty()) {
-      data_["default"]["default"] = data;
-      setSize("default", "default", data.size());
-    } else {
-      // Use the first type and variable
-      auto& first_type = data_.begin()->second;
-      auto& first_var = first_type.begin()->second;
-      first_var = data;
-      setSize(data_.begin()->first, first_type.begin()->first, data.size());
-    }
+  void addObservation(const MockObservationLocation& location, double value,
+                      double error) {
+    observations_.emplace_back(location, value, error);
   }
 
   void setCovariance(const std::vector<double>& cov) { covariance_ = cov; }
 
-  void setError(const std::string& typeName, const std::string& varName,
-                float error) {
-    std::string key = typeName + "." + varName;
-    errors_[key] = error;
-  }
-
-  void setMissingValue(const std::string& typeName, const std::string& varName,
-                       float missingValue) {
-    std::string key = typeName + "." + varName;
-    missing_values_[key] = missingValue;
-  }
-
-  // Helper method to set up hierarchical data structure
-  void setupHierarchicalData(const std::string& typeName,
-                             const std::string& varName,
-                             const std::vector<double>& data) {
-    data_[typeName][varName] = data;
-    setSize(typeName, varName, data.size());
+  void setTypeVariableMap(
+      const std::unordered_map<
+          std::string, std::unordered_map<std::string, std::vector<size_t>>>&
+          map) {
+    type_variable_map_ = map;
   }
 
  private:
   const ConfigBackend& config_;
-  std::vector<std::string> typeNames_;
-  std::unordered_map<std::string, std::vector<std::string>> variableNames_;
+  std::vector<MockObservationPoint> observations_;
+
+  // Mapping from type/variable to observation indices (for backward
+  // compatibility)
   std::unordered_map<std::string,
-                     std::unordered_map<std::string, std::vector<double>>>
-      data_;
-  std::unordered_map<std::string, size_t> sizes_;
-  std::unordered_map<std::string, float> errors_;
-  std::unordered_map<std::string, float> missing_values_;
+                     std::unordered_map<std::string, std::vector<size_t>>>
+      type_variable_map_;
+
   std::vector<double> covariance_;
 };
 

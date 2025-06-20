@@ -198,9 +198,9 @@ class Observation : private NonCopyable {
   }
 
   /**
-   * @brief Get const typed access to the underlying data
+   * @brief Get typed access to the underlying data (const version)
    *
-   * @details Provides read-only access to the observation data cast to the
+   * @details Provides const access to the observation data cast to the
    * specified type. The caller is responsible for ensuring the type is correct.
    *
    * @tparam T The expected data type
@@ -413,6 +413,55 @@ class Observation : private NonCopyable {
    * @return Const reference to the backend instance
    */
   const ObservationBackend& backend() const { return backend_; }
+
+  /**
+   * @brief Get iterator to beginning of observations
+   * @return Iterator to first observation
+   */
+  auto begin() const { return backend_.begin(); }
+
+  /**
+   * @brief Get iterator to end of observations
+   * @return Iterator past last observation
+   */
+  auto end() const { return backend_.end(); }
+
+  /**
+   * @brief Get number of observations
+   * @return Total number of observations
+   */
+  size_t size() const { return backend_.size(); }
+
+  /**
+   * @brief Get observation at specific index
+   * @param index Index of the observation
+   * @return Reference to the observation
+   */
+  auto operator[](size_t index) const { return backend_[index]; }
+
+  /**
+   * @brief Get observations within a geographic bounding box
+   * @param min_lat Minimum latitude
+   * @param max_lat Maximum latitude
+   * @param min_lon Minimum longitude
+   * @param max_lon Maximum longitude
+   * @return Vector of observations within the bounding box
+   */
+  auto getObservationsInBox(double min_lat, double max_lat, double min_lon,
+                            double max_lon) const {
+    return backend_.getObservationsInBox(min_lat, max_lat, min_lon, max_lon);
+  }
+
+  /**
+   * @brief Get observations within a vertical range
+   * @param min_level Minimum vertical level
+   * @param max_level Maximum vertical level
+   * @return Vector of observations within the vertical range
+   */
+  auto getObservationsInVerticalRange(double min_level,
+                                      double max_level) const {
+    return backend_.getObservationsInVerticalRange(min_level, max_level);
+  }
 
  private:
   /**

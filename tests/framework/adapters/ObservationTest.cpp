@@ -11,13 +11,14 @@
  * The tests cover:
  * - Construction and initialization
  * - Move semantics and cloning
- * - Data access and variable information
+ * - Data access and iteration capabilities
  * - Arithmetic operations (+, -, *, +=, -=, *=)
  * - Comparison operators (==, !=)
  * - Input/output operations (file loading and saving)
  * - Quality control application
  * - Backend access (const and non-const)
- * - Hierarchical data organization: type → variable → data
+ * - Geographic filtering operations
+ * - Point-based observations with location information
  *
  * The test suite uses Google Test/Mock framework for mocking backend
  * implementations and verifying adapter behavior through assertions.
@@ -54,37 +55,22 @@ using framework::Observation;
  *
  * Provides common setup and test data for Observation tests including:
  * - Mock objects and application context
- * - Sample observation data and metadata
+ * - Sample observation data with location information
  * - Helper methods for observation creation and access
  */
 class ObservationTest : public ::testing::Test {
  protected:
-  /** @brief Observation type names for test data */
-  std::vector<std::string> typeNames_;
+  /** @brief Sample observation locations */
+  std::vector<std::pair<double, double>> locations_;  // lat, lon pairs
 
-  /** @brief Variable names for test data */
-  std::vector<std::string> variableNames_;
+  /** @brief Sample vertical levels */
+  std::vector<double> levels_;
 
-  /** @brief Variable sizes */
-  std::vector<size_t> sizes_;
+  /** @brief Sample observation values */
+  std::vector<double> values_;
 
-  /** @brief Sample location coordinates */
-  std::vector<std::vector<double>> locations_;
-
-  /** @brief Sample timestamps */
-  std::vector<double> times_;
-
-  /** @brief Quality control flags */
-  std::vector<int> qualityFlags_;
-
-  /** @brief Confidence values */
-  std::vector<double> confidenceValues_;
-
-  /** @brief Sample temperature value */
-  double temperature_;
-
-  /** @brief Sample uncertainty value */
-  double uncertainty_;
+  /** @brief Sample observation errors */
+  std::vector<double> errors_;
 
   /** @brief First test observation */
   std::unique_ptr<Observation<traits::MockBackendTag>> obs1_;
@@ -122,13 +108,10 @@ class ObservationTest : public ::testing::Test {
     resetObservations();
 
     // Then clean up other resources
-    typeNames_.clear();
-    variableNames_.clear();
-    sizes_.clear();
     locations_.clear();
-    times_.clear();
-    qualityFlags_.clear();
-    confidenceValues_.clear();
+    levels_.clear();
+    values_.clear();
+    errors_.clear();
     config_.reset();
   }
 
@@ -142,15 +125,17 @@ class ObservationTest : public ::testing::Test {
 
   // Helper function to initialize test data
   void initializeTestData() {
-    typeNames_ = {"obs_A", "obs_B"};
-    variableNames_ = {"temperature", "pressure"};
-    sizes_ = {100, 100};
-    locations_ = {{45.0, -120.0, 100.0}, {46.0, -121.0, 200.0}};
-    times_ = {1609459200.0, 1609545600.0};  // Example timestamps (Unix time)
-    qualityFlags_ = {0, 1};                 // 0 = good, 1 = suspect
-    confidenceValues_ = {0.95, 0.85};
-    temperature_ = 25.5;
-    uncertainty_ = 0.5;
+    // Sample locations (lat, lon)
+    locations_ = {{45.0, -120.0}, {46.0, -121.0}, {47.0, -122.0}};
+
+    // Sample vertical levels (pressure in hPa)
+    levels_ = {1000.0, 850.0, 500.0};
+
+    // Sample observation values
+    values_ = {25.5, 15.2, -5.8};
+
+    // Sample observation errors
+    errors_ = {0.5, 0.3, 0.7};
   }
 
   // Helper function to create observations
@@ -170,9 +155,23 @@ class ObservationTest : public ::testing::Test {
     const auto& data = obs1_->getData<std::vector<double>>();
     EXPECT_FALSE(data.empty());  // Verify we got non-empty data
     // Verify actual data values
-    for (size_t i = 0; i < data.size(); ++i) {
-      EXPECT_DOUBLE_EQ(data[i], confidenceValues_[i]);
+    for (size_t i = 0; i < data.size() && i < values_.size(); ++i) {
+      EXPECT_DOUBLE_EQ(data[i], values_[i]);
     }
+  }
+
+  // Helper function to verify iteration
+  void verifyIteration() {
+    size_t count = 0;
+    for (const auto& obs : *obs1_) {
+      EXPECT_TRUE(obs.is_valid);
+      EXPECT_GE(obs.location.latitude, -90.0);
+      EXPECT_LE(obs.location.latitude, 90.0);
+      EXPECT_GE(obs.location.longitude, -180.0);
+      EXPECT_LE(obs.location.longitude, 180.0);
+      count++;
+    }
+    EXPECT_EQ(count, obs1_->size());
   }
 };
 
@@ -275,27 +274,44 @@ TEST_F(ObservationTest, ComparisonOperations) {
 }
 
 /**
- * @brief Test data access and variable information
+ * @brief Test data access and iteration capabilities
  *
  * Verifies:
  * - getData (const and non-const)
+ * - getData<T>() template method
  * - getTypeNames
  * - getVariableNames(typeName)
- * - hasType
- * - hasVariable(typeName, varName)
- * - getSize(typeName, varName)
+ * - begin()/end() iteration
+ * - size() method
+ * - operator[] indexing
  * - getCovariance
  */
-TEST_F(ObservationTest, DataAccessAndInformation) {
-  // Set up hierarchical data structure
-  obs1_->backend().setupHierarchicalData("obs_A", "temperature",
-                                         confidenceValues_);
-  obs1_->backend().setSize("obs_A", "temperature", 100);
-  obs1_->backend().setSize("obs_A", "pressure", 100);
-  obs1_->backend().setupHierarchicalData("obs_A", "pressure",
-                                         confidenceValues_);
+TEST_F(ObservationTest, DataAccessAndIteration) {
+  // Set up mock observation data
+  std::vector<backends::gmock::MockObservationPoint> mock_obs;
+  for (size_t i = 0; i < locations_.size(); ++i) {
+    backends::gmock::MockObservationLocation loc(
+        locations_[i].first, locations_[i].second, levels_[i]);
+    mock_obs.emplace_back(loc, values_[i], errors_[i]);
+  }
+  obs1_->backend().setObservations(mock_obs);
+
   std::vector<double> cov = {1.0, 0.0, 0.0, 1.0};  // 2x2 identity matrix
   obs1_->backend().setCovariance(cov);
+
+  // Test iteration capabilities
+  EXPECT_EQ(obs1_->size(), locations_.size());
+  verifyIteration();
+
+  // Test direct indexing
+  for (size_t i = 0; i < obs1_->size(); ++i) {
+    const auto& obs = (*obs1_)[i];
+    EXPECT_DOUBLE_EQ(obs.location.latitude, locations_[i].first);
+    EXPECT_DOUBLE_EQ(obs.location.longitude, locations_[i].second);
+    EXPECT_DOUBLE_EQ(obs.location.level, levels_[i]);
+    EXPECT_DOUBLE_EQ(obs.value, values_[i]);
+    EXPECT_DOUBLE_EQ(obs.error, errors_[i]);
+  }
 
   // Test type names access
   const auto& types = obs1_->getTypeNames();
@@ -305,25 +321,12 @@ TEST_F(ObservationTest, DataAccessAndInformation) {
   const auto& vars = obs1_->getVariableNames("obs_A");
   EXPECT_FALSE(vars.empty());
 
-  // Test size access for specific type/variable
-  size_t size = obs1_->getSize("obs_A", "temperature");
-  EXPECT_EQ(size, 100);
-
   // Test data access
   verifyDataAccess();
 
   // Test covariance access
   const auto& covariance = obs1_->getCovariance();
   EXPECT_EQ(covariance, cov);
-
-  // Test hasType
-  EXPECT_TRUE(obs1_->hasType("obs_A"));
-  EXPECT_FALSE(obs1_->hasType("nonexistent_type"));
-
-  // Test hasVariable
-  EXPECT_TRUE(obs1_->hasVariable("obs_A", "temperature"));
-  EXPECT_FALSE(obs1_->hasVariable("obs_A", "nonexistent_variable"));
-  EXPECT_FALSE(obs1_->hasVariable("nonexistent_type", "temperature"));
 }
 
 /**
@@ -354,6 +357,30 @@ TEST_F(ObservationTest, ArithmeticOperations) {
   result = *obs1_ * 2.0;  // Right scalar multiplication
   result = 2.0 * *obs1_;  // Left scalar multiplication (friend operator)
   *obs1_ *= 2.0;          // Assignment operator
+}
+
+/**
+ * @brief Test geographic filtering operations
+ *
+ * Verifies:
+ * - getObservationsInBox functionality
+ * - getObservationsInVerticalRange functionality
+ */
+TEST_F(ObservationTest, GeographicFiltering) {
+  // Test geographic bounding box filtering
+  EXPECT_CALL(obs1_->backend(),
+              getObservationsInBox(30.0, 50.0, -125.0, -115.0))
+      .WillOnce(Return(std::vector<backends::gmock::MockObservationPoint>{}));
+
+  auto box_obs = obs1_->getObservationsInBox(30.0, 50.0, -125.0, -115.0);
+  EXPECT_TRUE(box_obs.empty());
+
+  // Test vertical range filtering
+  EXPECT_CALL(obs1_->backend(), getObservationsInVerticalRange(800.0, 1200.0))
+      .WillOnce(Return(std::vector<backends::gmock::MockObservationPoint>{}));
+
+  auto vert_obs = obs1_->getObservationsInVerticalRange(800.0, 1200.0);
+  EXPECT_TRUE(vert_obs.empty());
 }
 
 /**
