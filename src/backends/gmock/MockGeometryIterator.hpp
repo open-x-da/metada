@@ -100,14 +100,20 @@ class MockGeometryIterator {
    * @brief Move constructor
    * @param other Iterator to move from
    */
-  MockGeometryIterator(MockGeometryIterator&&) noexcept = default;
+  MockGeometryIterator(MockGeometryIterator&& other) noexcept
+      : MockGeometryIterator(other) {}  // Delegate to copy constructor
 
   /**
    * @brief Move assignment
    * @param other Iterator to move from
    * @return Reference to this iterator after assignment
    */
-  MockGeometryIterator& operator=(MockGeometryIterator&&) noexcept = default;
+  MockGeometryIterator& operator=(MockGeometryIterator&& other) noexcept {
+    if (this != &other) {
+      *this = other;  // Delegate to copy assignment
+    }
+    return *this;
+  }
 
   /**
    * @brief Destructor

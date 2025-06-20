@@ -119,8 +119,7 @@ class ETKF {
     // Propagate to obs space
     MatrixXd Yb(obs_dim, ens_size);
     for (int i = 0; i < ens_size; ++i) {
-      const auto& obs_data =
-          obs_op_.template apply(ensemble_.GetMember(i), obs_);
+      const auto& obs_data = obs_op_.apply(ensemble_.GetMember(i), obs_);
       Yb.col(i) = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     }
 

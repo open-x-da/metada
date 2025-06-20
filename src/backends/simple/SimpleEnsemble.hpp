@@ -18,8 +18,24 @@ class SimpleEnsemble {
   SimpleEnsemble& operator=(const SimpleEnsemble&) = delete;
 
   // Move constructor/assignment
-  SimpleEnsemble(SimpleEnsemble&&) noexcept = default;
-  SimpleEnsemble& operator=(SimpleEnsemble&&) noexcept = default;
+  SimpleEnsemble(SimpleEnsemble&& other) noexcept
+      : geometry_(other.geometry_),
+        members_(std::move(other.members_)),
+        mean_(std::move(other.mean_)),
+        size_(other.size_),
+        perturbations_(std::move(other.perturbations_)) {}
+
+  SimpleEnsemble& operator=(SimpleEnsemble&& other) noexcept {
+    if (this != &other) {
+      // geometry_ is const reference, so we can't move it
+      // members_, mean_, and perturbations_ can be moved
+      members_ = std::move(other.members_);
+      mean_ = std::move(other.mean_);
+      size_ = other.size_;
+      perturbations_ = std::move(other.perturbations_);
+    }
+    return *this;
+  }
 
   ~SimpleEnsemble() = default;
 
