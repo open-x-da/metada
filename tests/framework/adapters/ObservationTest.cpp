@@ -218,12 +218,18 @@ TEST_F(ObservationTest, ConstructionAndMovement) {
  */
 TEST_F(ObservationTest, InputOutputOperations) {
   const std::string test_filename = "test_observation.dat";
+  const double error = 0.1;
+  const double missing_value = -999.0;
 
-  // Test loadFromFile - can't mock these directly, test the behavior
-  obs1_->loadFromFile(test_filename);
+  // Test loadFromFile
+  EXPECT_CALL(obs1_->backend(),
+              loadFromFile(test_filename, error, missing_value))
+      .Times(1);
+  obs1_->loadFromFile(test_filename, error, missing_value);
   EXPECT_TRUE(obs1_->isInitialized());
 
   // Test saveToFile
+  EXPECT_CALL(obs1_->backend(), saveToFile(test_filename)).Times(1);
   obs1_->saveToFile(test_filename);
 }
 

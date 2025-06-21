@@ -254,7 +254,9 @@ class MockObservation {
   MOCK_METHOD(void, multiply, (double scalar));
 
   // File I/O operations
-  MOCK_METHOD(void, loadFromFile, (const std::string& filename));
+  MOCK_METHOD(void, loadFromFile,
+              (const std::string& filename, double error,
+               double missing_value));
   MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
 
   // Geographic filtering

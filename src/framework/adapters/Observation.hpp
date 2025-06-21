@@ -140,9 +140,12 @@ class Observation : private NonCopyable {
    * from the specified file and initialize this observation object.
    *
    * @param filename Path to the file containing observation data
+   * @param error Error value to use for missing data
+   * @param missing_value Missing value to use for missing data
    */
-  void loadFromFile(const std::string& filename) {
-    backend_.loadFromFile(filename);
+  void loadFromFile(const std::string& filename, double error,
+                    double missing_value) {
+    backend_.loadFromFile(filename, error, missing_value);
     initialized_ = true;
   }
 

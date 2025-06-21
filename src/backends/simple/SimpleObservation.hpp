@@ -146,8 +146,8 @@ class SimpleObservation {
     for (const auto& type_map : type_configs) {
       const auto& [type_name, type_config] = *type_map.begin();
       const auto& type_backend = ConfigBackend(type_config.asMap());
-      bool if_use = type_backend.Get("if_use").asBool();
-      if (!if_use) {
+      bool type_if_use = type_backend.Get("if_use").asBool();
+      if (!type_if_use) {
         continue;
       }
       std::string filename = type_backend.Get("file").asString();
@@ -158,17 +158,15 @@ class SimpleObservation {
       for (const auto& var_map : variables_configs) {
         for (const auto& [var_name, var_config] : var_map) {
           const auto& var_backend = ConfigBackend(var_config.asMap());
-          bool if_use = var_backend.Get("if_use").asBool();
-          if (!if_use) {
+          bool var_if_use = var_backend.Get("if_use").asBool();
+          if (!var_if_use) {
             continue;
           }
-          float error = var_backend.Get("error").asFloat();
-          float missing_value = var_backend.Get("missing_value").asFloat();
+          double error = var_backend.Get("error").asFloat();
+          double missing_value = var_backend.Get("missing_value").asFloat();
+          loadFromFile(filename, error, missing_value);
         }
       }
-
-      // Load data for this type/variable combination
-      loadFromFile(filename);
     }
   }
 
@@ -397,22 +395,32 @@ class SimpleObservation {
   /**
    * @brief Load observation data from file
    * @param filename Path to observation file
+   * @param error The observation error to assign to all valid points.
+   * @param missing_value The value that indicates a missing observation.
    */
-  void loadFromFile(const std::string& filename) {
+  void loadFromFile(const std::string& filename, double error,
+                    double missing_value) {
     std::ifstream file(filename);
     if (!file.is_open()) {
       throw std::runtime_error("Could not open observation file: " + filename);
     }
 
     std::string line;
+    int j = 0;  // row index, used as latitude
     while (std::getline(file, line)) {
       std::istringstream iss(line);
-      double lat, lon, level, value, error;
-
-      if (iss >> lat >> lon >> level >> value >> error) {
-        ObservationLocation location(lat, lon, level);
-        observations_.emplace_back(location, value, error);
+      double value;
+      int i = 0;  // column index, used as longitude
+      while (iss >> value) {
+        if (value != missing_value) {
+          // Location is derived from grid indices, level is 0
+          ObservationLocation location(static_cast<double>(j),
+                                       static_cast<double>(i), 0.0);
+          observations_.emplace_back(location, value, error);
+        }
+        i++;
       }
+      j++;
     }
   }
 
