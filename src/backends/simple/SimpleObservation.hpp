@@ -21,45 +21,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "PointObservation.hpp"
+
 namespace metada::backends::simple {
 
-/**
- * @brief Structure to hold observation location information
- */
-struct ObservationLocation {
-  double latitude;   ///< Latitude in degrees
-  double longitude;  ///< Longitude in degrees
-  double level;      ///< Vertical level (pressure in hPa, height in m, etc.)
-
-  ObservationLocation(double lat, double lon, double lev)
-      : latitude(lat), longitude(lon), level(lev) {}
-
-  bool operator==(const ObservationLocation& other) const {
-    return latitude == other.latitude && longitude == other.longitude &&
-           level == other.level;
-  }
-};
-
-/**
- * @brief Structure to hold a single observation point
- */
-struct ObservationPoint {
-  ObservationLocation location;  ///< Location of the observation
-  double value;                  ///< Observed value
-  double error;                  ///< Observation error
-  bool is_valid;                 ///< Whether the observation is valid
-
-  ObservationPoint(const ObservationLocation& loc, double val, double err)
-      : location(loc), value(val), error(err), is_valid(true) {}
-
-  ObservationPoint(const ObservationLocation& loc)
-      : location(loc), value(0.0), error(0.0), is_valid(false) {}
-
-  bool operator==(const ObservationPoint& other) const {
-    return location == other.location && value == other.value &&
-           error == other.error && is_valid == other.is_valid;
-  }
-};
+using metada::framework::ObservationLocation;
+using metada::framework::ObservationPoint;
 
 /**
  * @brief Iterator for observations

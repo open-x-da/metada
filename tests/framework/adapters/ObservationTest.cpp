@@ -39,6 +39,7 @@
 #include "Config.hpp"
 #include "MockBackendTraits.hpp"
 #include "Observation.hpp"
+#include "PointObservation.hpp"
 
 namespace metada::tests {
 
@@ -49,6 +50,8 @@ using ::testing::ReturnRef;
 
 using framework::Config;
 using framework::Observation;
+using framework::ObservationLocation;
+using framework::ObservationPoint;
 
 /**
  * @brief Test fixture for Observation class tests
@@ -294,10 +297,10 @@ TEST_F(ObservationTest, ComparisonOperations) {
  */
 TEST_F(ObservationTest, DataAccessAndIteration) {
   // Set up mock observation data
-  std::vector<backends::gmock::MockObservationPoint> mock_obs;
+  std::vector<ObservationPoint> mock_obs;
   for (size_t i = 0; i < locations_.size(); ++i) {
-    backends::gmock::MockObservationLocation loc(
-        locations_[i].first, locations_[i].second, levels_[i]);
+    ObservationLocation loc(locations_[i].first, locations_[i].second,
+                            levels_[i]);
     mock_obs.emplace_back(loc, values_[i], errors_[i]);
   }
   obs1_->backend().setObservations(mock_obs);
@@ -376,14 +379,14 @@ TEST_F(ObservationTest, GeographicFiltering) {
   // Test geographic bounding box filtering
   EXPECT_CALL(obs1_->backend(),
               getObservationsInBox(30.0, 50.0, -125.0, -115.0))
-      .WillOnce(Return(std::vector<backends::gmock::MockObservationPoint>{}));
+      .WillOnce(Return(std::vector<ObservationPoint>{}));
 
   auto box_obs = obs1_->getObservationsInBox(30.0, 50.0, -125.0, -115.0);
   EXPECT_TRUE(box_obs.empty());
 
   // Test vertical range filtering
   EXPECT_CALL(obs1_->backend(), getObservationsInVerticalRange(800.0, 1200.0))
-      .WillOnce(Return(std::vector<backends::gmock::MockObservationPoint>{}));
+      .WillOnce(Return(std::vector<ObservationPoint>{}));
 
   auto vert_obs = obs1_->getObservationsInVerticalRange(800.0, 1200.0);
   EXPECT_TRUE(vert_obs.empty());

@@ -30,48 +30,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "PointObservation.hpp"
+
 namespace metada::backends::gmock {
 
-/**
- * @brief Structure to hold observation location information (matching
- * SimpleObservation)
- */
-struct MockObservationLocation {
-  double latitude;   ///< Latitude in degrees
-  double longitude;  ///< Longitude in degrees
-  double level;      ///< Vertical level (pressure in hPa, height in m, etc.)
-
-  MockObservationLocation(double lat, double lon, double lev)
-      : latitude(lat), longitude(lon), level(lev) {}
-
-  bool operator==(const MockObservationLocation& other) const {
-    return latitude == other.latitude && longitude == other.longitude &&
-           level == other.level;
-  }
-};
-
-/**
- * @brief Structure to hold a single observation point (matching
- * SimpleObservation)
- */
-struct MockObservationPoint {
-  MockObservationLocation location;  ///< Location of the observation
-  double value;                      ///< Observed value
-  double error;                      ///< Observation error
-  bool is_valid;                     ///< Whether the observation is valid
-
-  MockObservationPoint(const MockObservationLocation& loc, double val,
-                       double err)
-      : location(loc), value(val), error(err), is_valid(true) {}
-
-  MockObservationPoint(const MockObservationLocation& loc)
-      : location(loc), value(0.0), error(0.0), is_valid(false) {}
-
-  bool operator==(const MockObservationPoint& other) const {
-    return location == other.location && value == other.value &&
-           error == other.error && is_valid == other.is_valid;
-  }
-};
+using metada::framework::ObservationLocation;
+using metada::framework::ObservationPoint;
 
 /**
  * @brief Iterator for mock observations
@@ -79,14 +43,14 @@ struct MockObservationPoint {
 class MockObservationIterator {
  public:
   using iterator_category = std::forward_iterator_tag;
-  using value_type = MockObservationPoint;
+  using value_type = ObservationPoint;
   using difference_type = std::ptrdiff_t;
-  using pointer = MockObservationPoint*;
-  using reference = MockObservationPoint&;
+  using pointer = ObservationPoint*;
+  using reference = ObservationPoint&;
 
   MockObservationIterator() = default;
 
-  MockObservationIterator(const std::vector<MockObservationPoint>* data,
+  MockObservationIterator(const std::vector<ObservationPoint>* data,
                           size_t index)
       : data_(data), index_(index) {}
 
@@ -116,7 +80,7 @@ class MockObservationIterator {
   }
 
  private:
-  const std::vector<MockObservationPoint>* data_;
+  const std::vector<ObservationPoint>* data_;
   size_t index_;
 };
 
@@ -167,7 +131,7 @@ class MockObservation {
  public:
   // Type aliases for concept compliance
   using iterator_type = MockObservationIterator;
-  using value_type = MockObservationPoint;
+  using value_type = ObservationPoint;
 
   // Disable default constructor
   MockObservation() = delete;
@@ -213,9 +177,9 @@ class MockObservation {
     type_variable_map_["obs_A"]["pressure"] = {0, 1, 2};
 
     // Add some default observations for testing
-    addObservation(MockObservationLocation(45.0, -120.0, 1000.0), 25.5, 0.5);
-    addObservation(MockObservationLocation(46.0, -121.0, 850.0), 15.2, 0.3);
-    addObservation(MockObservationLocation(47.0, -122.0, 500.0), -5.8, 0.7);
+    addObservation(ObservationLocation(45.0, -120.0, 1000.0), 25.5, 0.5);
+    addObservation(ObservationLocation(46.0, -121.0, 850.0), 15.2, 0.3);
+    addObservation(ObservationLocation(47.0, -122.0, 500.0), -5.8, 0.7);
 
     // Set default covariance
     covariance_ = {1.0, 0.0, 0.0, 1.0};
@@ -232,7 +196,7 @@ class MockObservation {
 
   size_t size() const { return observations_.size(); }
 
-  const MockObservationPoint& operator[](size_t index) const {
+  const ObservationPoint& operator[](size_t index) const {
     return observations_[index];
   }
 
@@ -260,10 +224,10 @@ class MockObservation {
   MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
 
   // Geographic filtering
-  MOCK_METHOD(std::vector<MockObservationPoint>, getObservationsInBox,
+  MOCK_METHOD(std::vector<ObservationPoint>, getObservationsInBox,
               (double min_lat, double max_lat, double min_lon, double max_lon),
               (const));
-  MOCK_METHOD(std::vector<MockObservationPoint>, getObservationsInVerticalRange,
+  MOCK_METHOD(std::vector<ObservationPoint>, getObservationsInVerticalRange,
               (double min_level, double max_level), (const));
 
   // Get the data
@@ -320,11 +284,11 @@ class MockObservation {
   const std::vector<double>& getCovariance() const { return covariance_; }
 
   // Test helper methods
-  void setObservations(const std::vector<MockObservationPoint>& obs) {
+  void setObservations(const std::vector<ObservationPoint>& obs) {
     observations_ = obs;
   }
 
-  void addObservation(const MockObservationLocation& location, double value,
+  void addObservation(const ObservationLocation& location, double value,
                       double error) {
     observations_.emplace_back(location, value, error);
   }
@@ -340,7 +304,7 @@ class MockObservation {
 
  private:
   const ConfigBackend& config_;
-  std::vector<MockObservationPoint> observations_;
+  std::vector<ObservationPoint> observations_;
 
   // Mapping from type/variable to observation indices (for backward
   // compatibility)

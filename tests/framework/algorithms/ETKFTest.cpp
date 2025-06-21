@@ -124,14 +124,14 @@ class ETKFTest : public ::testing::Test {
     }
 
     // setup mock expectations for observation data
-    std::vector<backends::gmock::MockObservationPoint> obs_points;
+    std::vector<framework::ObservationPoint> obs_points;
     for (size_t i = 0; i < obs_data_.size(); ++i) {
       // Create location with latitude based on index (simulating grid points)
       double lat = 45.0 + (i * 0.1);    // Start at 45°N, increment by 0.1°
       double lon = -120.0 + (i * 0.1);  // Start at 120°W, increment by 0.1°
       double level =
           1000.0 - (i * 10.0);  // Start at 1000 hPa, decrement by 10 hPa
-      backends::gmock::MockObservationLocation loc(lat, lon, level);
+      framework::ObservationLocation loc(lat, lon, level);
       obs_points.emplace_back(loc, obs_data_[i], 0.1);  // Use 0.1 as error
     }
     obs_->backend().setObservations(obs_points);
