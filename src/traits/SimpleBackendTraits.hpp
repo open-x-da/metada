@@ -28,6 +28,7 @@
 #include "../backends/simple/SimpleState.hpp"
 #include "../backends/simple/SimpleEnsemble.hpp"
 #include "../backends/simple/SimpleObservation.hpp"
+#include "../backends/simple/SimpleObsOperator.hpp"
 
 namespace metada::traits {
 
@@ -87,7 +88,7 @@ struct BackendTraits<SimpleBackendTag> {
   using ObservationBackend = backends::simple::SimpleObservation;
   
   /** @brief Simple observation operator backend implementation */
-  //using ObsOperatorBackend = backends::obs_operator::SimpleObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
+  using ObsOperatorBackend = backends::simple::SimpleObsOperator;
 };
 
 } // namespace metada::traits

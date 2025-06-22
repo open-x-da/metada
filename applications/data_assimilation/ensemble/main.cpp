@@ -1,7 +1,15 @@
 /**
  * @file main.cpp
- * @brief Driver for the Ensemble Transform Kalman Filter (ETKF)
- * application
+ * @brief Driver program for the Ensemble Transform Kalman Filter (ETKF)
+ * @details This application implements the ETKF data assimilation algorithm.
+ *          It reads configuration from a file, initializes required components
+ *          like ensemble members, observations and observation operators, and
+ *          performs the analysis step.
+ *
+ * @param argc Number of command line arguments
+ * @param argv Array of command line argument strings
+ *            Expected format: etkf <config_file>
+ * @return 0 on success, 1 on failure
  */
 
 #include "ApplicationContext.hpp"
@@ -12,7 +20,6 @@
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "SimpleBackendTraits.hpp"
-#include "State.hpp"
 
 namespace fwk = metada::framework;
 using BackendTag = metada::traits::SimpleBackendTag;
@@ -41,13 +48,12 @@ int main(int argc, char** argv) {
     fwk::Observation<BackendTag> observations(
         config.GetSubsection("observations"));
 
-    // fwk::ObsOperator<BackendTag>
-    // obs_operator(config.GetSubsection("obs_operator"));
+    fwk::ObsOperator<BackendTag> obs_operator(
+        config.GetSubsection("obs_operator"));
 
     // Run ETKF analysis
-    // fwk::ETKF<BackendTag> etkf(ensemble, observation, obs_operator,
-    //                           inflation_factor);
-    // etkf.Analyse();
+    fwk::ETKF<BackendTag> etkf(ensemble, observations, obs_operator, 1.0);
+    etkf.Analyse();
 
     logger.Info() << "ETKF application completed successfully";
     return 0;

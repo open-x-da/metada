@@ -181,5 +181,4 @@ TEST_F(ObsOperatorTest, Apply) {
   auto result = obsOp.apply(state, obs);
   EXPECT_EQ(result, sim_data);
 }
-
 }  // namespace metada::tests

@@ -52,9 +52,9 @@ observations:
               error: 0.1  # standard deviations
               missing_value: -999.0
 
-# Output settings
-output:
-  format: netcdf4
-  compression_level: 4
-  save_ensemble: true
-  save_analysis_error: true 
+# Observation operator settings
+obs_operator:
+  variables:
+    - simple:
+        if_use: true
+        error: 0.1  # standard deviations
