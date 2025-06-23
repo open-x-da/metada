@@ -305,9 +305,6 @@ TEST_F(ObservationTest, DataAccessAndIteration) {
   }
   obs1_->backend().setObservations(mock_obs);
 
-  std::vector<double> cov = {1.0, 0.0, 0.0, 1.0};  // 2x2 identity matrix
-  obs1_->backend().setCovariance(cov);
-
   // Test iteration capabilities
   EXPECT_EQ(obs1_->size(), locations_.size());
   verifyIteration();
@@ -335,7 +332,12 @@ TEST_F(ObservationTest, DataAccessAndIteration) {
 
   // Test covariance access
   const auto& covariance = obs1_->getCovariance();
-  EXPECT_EQ(covariance, cov);
+  // Now covariance is a vector of variances, not a matrix
+  EXPECT_EQ(covariance.size(), locations_.size());
+  for (size_t i = 0; i < covariance.size(); ++i) {
+    EXPECT_DOUBLE_EQ(covariance[i],
+                     errors_[i] * errors_[i]);  // Variance = error^2
+  }
 }
 
 /**

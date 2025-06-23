@@ -75,7 +75,7 @@ concept ObservationBackendImpl =
       } -> std::convertible_to<std::vector<std::string>>;
 
       // Covariance matrix
-      { ct.getCovariance() } -> std::convertible_to<const std::vector<double>&>;
+      { ct.getCovariance() } -> std::convertible_to<std::vector<double>>;
 
       // Cloning
       { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;

@@ -133,7 +133,9 @@ class ETKF {
 
     // 3. Compute ensemble-space gain matrices
     const auto& R_data = obs_.getCovariance();
-    MatrixXd R = Eigen::Map<const MatrixXd>(R_data.data(), obs_dim, obs_dim);
+    // R_data is now a vector of variances, create diagonal matrix
+    VectorXd R_diag = Eigen::Map<const VectorXd>(R_data.data(), obs_dim);
+    MatrixXd R = R_diag.asDiagonal();
 
     // Compute analysis error in ensemble space
     MatrixXd Pa = (Yb_pert.transpose() * R.inverse() * Yb_pert +

@@ -280,8 +280,15 @@ class MockObservation {
     return variables;
   }
 
-  // Get the covariance matrix
-  const std::vector<double>& getCovariance() const { return covariance_; }
+  // Get the observation error variances
+  std::vector<double> getCovariance() const {
+    std::vector<double> errors;
+    errors.reserve(observations_.size());
+    for (const auto& obs : observations_) {
+      errors.push_back(obs.error * obs.error);  // Convert error to variance
+    }
+    return errors;
+  }
 
   // Test helper methods
   void setObservations(const std::vector<ObservationPoint>& obs) {

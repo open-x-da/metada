@@ -262,10 +262,23 @@ class SimpleObservation {
   }
 
   /**
-   * @brief Get the observation error covariance matrix
-   * @return Const reference to the covariance matrix data
+   * @brief Get the observation error variances
+   * @return Vector of observation error variances (one per observation)
    */
-  const std::vector<double>& getCovariance() const { return covariance_; }
+  std::vector<double> getCovariance() const {
+    std::vector<double> errors;
+    errors.reserve(observations_.size());
+    for (const auto& obs : observations_) {
+      if (obs.is_valid) {
+        errors.push_back(obs.error * obs.error);  // Convert error to variance
+      } else {
+        errors.push_back(
+            std::numeric_limits<double>::infinity());  // Invalid observations
+                                                       // get infinite variance
+      }
+    }
+    return errors;
+  }
 
   /**
    * @brief Clone this observation
