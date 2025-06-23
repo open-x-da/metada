@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 
+#include "Config.hpp"
 #include "Ensemble.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
@@ -81,14 +82,14 @@ class ETKF {
    * @param ensemble Reference to the ensemble to be updated.
    * @param obs Reference to the observation object.
    * @param obs_op Reference to the observation operator.
-   * @param inflation Covariance inflation factor.
+   * @param config Configuration object containing inflation factor.
    */
   ETKF(Ensemble<BackendTag>& ensemble, Observation<BackendTag>& obs,
-       const ObsOperator<BackendTag>& obs_op, double inflation)
+       const ObsOperator<BackendTag>& obs_op, const Config<BackendTag>& config)
       : ensemble_(ensemble),
         obs_(obs),
         obs_op_(obs_op),
-        inflation_(inflation) {}
+        inflation_(config.Get("inflation").asFloat()) {}
 
   /**
    * @brief Perform the ETKF analysis step, updating the ensemble.

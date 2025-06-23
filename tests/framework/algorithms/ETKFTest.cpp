@@ -139,7 +139,7 @@ class ETKFTest : public ::testing::Test {
 
     // Create LETKF instance
     etkf_ = std::make_unique<framework::ETKF<traits::MockBackendTag>>(
-        *ensemble_, *obs_, *obs_op_, 1.1);
+        *ensemble_, *obs_, *obs_op_, *config_);
   }
 
   void TearDown() override {

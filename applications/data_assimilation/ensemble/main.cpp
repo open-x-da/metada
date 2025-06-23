@@ -52,7 +52,8 @@ int main(int argc, char** argv) {
         config.GetSubsection("obs_operator"));
 
     // Run ETKF analysis
-    fwk::ETKF<BackendTag> etkf(ensemble, observations, obs_operator, 1.0);
+    fwk::ETKF<BackendTag> etkf(ensemble, observations, obs_operator,
+                               config.GetSubsection("analysis"));
     etkf.Analyse();
 
     logger.Info() << "ETKF application completed successfully";

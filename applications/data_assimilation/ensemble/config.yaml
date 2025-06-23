@@ -58,3 +58,8 @@ obs_operator:
     - simple:
         if_use: true
         error: 0.1  # standard deviations
+
+# Analysis settings
+analysis:
+  algorithm: "etkf"
+  inflation: 1.0
