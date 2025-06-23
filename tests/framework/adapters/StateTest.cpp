@@ -237,7 +237,8 @@ TEST_F(StateTest, StateInformation) {
   EXPECT_FALSE(state1_->hasVariable("nonexistent_variable"));
 
   // Test size method
-  EXPECT_CALL(state1_->backend(), size()).WillOnce(Return(6000));  // 10*20*30
+  state1_->backend().setData(
+      std::vector<double>(6000, 0.0));  // Set 6000 elements
   size_t state_size = state1_->size();
   EXPECT_EQ(state_size, 6000);
 }

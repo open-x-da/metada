@@ -136,9 +136,9 @@ class MockState {
   MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
 
   // Data access
-  void* getData() { return &data_; }
+  void* getData() { return data_.empty() ? nullptr : data_.data(); }
 
-  const void* getData() const { return &data_; }
+  const void* getData() const { return data_.empty() ? nullptr : data_.data(); }
 
   // State information queries
   const std::vector<std::string>& getVariableNames() const {
@@ -149,7 +149,7 @@ class MockState {
    * @brief Get the total size of the state vector
    * @return Total number of elements in the state vector
    */
-  MOCK_METHOD(size_t, size, (), (const));
+  size_t size() const { return data_.size(); }
 
   // Test helper methods
   void setVariables(const std::vector<std::string>& variables) {
