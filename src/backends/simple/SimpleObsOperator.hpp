@@ -13,7 +13,6 @@
 #pragma once
 
 #include <cmath>
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>

@@ -2,8 +2,6 @@
 
 #include <gmock/gmock.h>
 
-#include <filesystem>
-
 #include "ConfigValue.hpp"
 
 namespace metada::backends::gmock {

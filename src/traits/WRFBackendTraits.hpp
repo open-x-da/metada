@@ -1,5 +1,5 @@
 #pragma once
-#include <BackendTraits.hpp>
+#include "BackendTraits.hpp"
 
 // Include backend headers based on CMake configuration
 #ifdef CONFIG_BACKEND_JSON

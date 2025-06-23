@@ -23,7 +23,10 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <iterator>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "Config.hpp"

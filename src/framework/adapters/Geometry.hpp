@@ -27,8 +27,6 @@
  */
 
 #pragma once
-#include <stdexcept>  // for exceptions (if needed)
-#include <utility>    // for std::move
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"

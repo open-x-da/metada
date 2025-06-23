@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <vector>
 
-#include "Config.hpp"
 #include "SimpleGeometry.hpp"
 #include "SimpleState.hpp"
 

@@ -5,14 +5,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
-#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "SimpleGeometry.hpp"
-#include "SimpleGeometryIterator.hpp"
 #include "SimpleStateIterator.hpp"
 
 namespace metada::backends::simple {

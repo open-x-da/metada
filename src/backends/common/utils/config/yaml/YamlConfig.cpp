@@ -1,8 +1,10 @@
 #include "YamlConfig.hpp"
 
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <variant>
 
 namespace metada::backends::config {

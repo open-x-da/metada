@@ -24,8 +24,6 @@
 #include <gmock/gmock.h>
 
 #include <cstddef>
-#include <memory>
-#include <stdexcept>
 #include <vector>
 
 #include "MockGeometryIterator.hpp"

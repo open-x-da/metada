@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <iomanip>
-#include <iostream>
 #include <map>
+#include <ostream>
 #include <string>
 #include <variant>
 #include <vector>

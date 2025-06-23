@@ -5,7 +5,6 @@
 #endif
 #include <yaml-cpp/yaml.h>
 
-#include <memory>
 #include <string>
 #include <vector>
 

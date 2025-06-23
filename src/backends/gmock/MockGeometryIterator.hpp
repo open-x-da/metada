@@ -25,8 +25,6 @@
 #include <gmock/gmock.h>
 
 #include <iterator>
-#include <memory>
-#include <vector>
 
 #include "MockGridPoint.hpp"
 

@@ -24,8 +24,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <iterator>
 #include <vector>
 
 #include "GeometryIterator.hpp"
