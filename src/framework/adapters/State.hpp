@@ -212,6 +212,26 @@ class State : private NonCopyable {
     return *static_cast<const T*>(backend_.getData());
   }
 
+  /**
+   * @brief Get pointer to underlying data array
+   * @tparam T Type of data to access
+   * @return Pointer to data array of type T
+   */
+  template <typename T>
+  T* getDataPtr() {
+    return static_cast<T*>(backend_.getData());
+  }
+
+  /**
+   * @brief Get const pointer to underlying data array
+   * @tparam T Type of data to access
+   * @return Const pointer to data array of type T
+   */
+  template <typename T>
+  const T* getDataPtr() const {
+    return static_cast<const T*>(backend_.getData());
+  }
+
   // State information
   /**
    * @brief Get names of state variables

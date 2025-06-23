@@ -155,7 +155,7 @@ class ObservationTest : public ::testing::Test {
 
   // Helper function to verify data access
   void verifyDataAccess() {
-    const auto& data = obs1_->getData<std::vector<double>>();
+    const auto data = obs1_->getData<std::vector<double>>();
     EXPECT_FALSE(data.empty());  // Verify we got non-empty data
     // Verify actual data values
     for (size_t i = 0; i < data.size() && i < values_.size(); ++i) {

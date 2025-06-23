@@ -99,15 +99,15 @@ class ETKF {
 
     const int ens_size = ensemble_.Size();
     const int state_dim = ensemble_.GetMember(0).size();
-    const int obs_dim = obs_.template getData<std::vector<double>>().size();
+    const int obs_dim = obs_.size();
 
     // 1. Build forecast quantities
     // Build Xb (state_dim x ens_size)
     MatrixXd Xb(state_dim, ens_size);
     for (int i = 0; i < ens_size; ++i) {
-      const auto& member_data =
-          ensemble_.GetMember(i).template getData<std::vector<double>>();
-      Xb.col(i) = Eigen::Map<const VectorXd>(member_data.data(), state_dim);
+      const auto member_data =
+          ensemble_.GetMember(i).template getDataPtr<double>();
+      Xb.col(i) = Eigen::Map<const VectorXd>(member_data, state_dim);
     }
 
     // Compute mean and anomalies
@@ -127,7 +127,7 @@ class ETKF {
     MatrixXd Yb_pert = Yb.colwise() - yb_mean;
 
     // 2. Compute innovation
-    const auto& obs_data = obs_.template getData<std::vector<double>>();
+    const auto obs_data = obs_.template getData<std::vector<double>>();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     VectorXd d = yo - yb_mean;
 
@@ -160,8 +160,8 @@ class ETKF {
     // Update ensemble members
     for (int i = 0; i < ens_size; ++i) {
       auto& member = ensemble_.GetMember(i);
-      auto& data = member.template getData<std::vector<double>>();
-      Eigen::Map<VectorXd>(data.data(), state_dim) = Xa.col(i);
+      auto data = member.template getDataPtr<double>();
+      Eigen::Map<VectorXd>(data, state_dim) = Xa.col(i);
     }
   }
 

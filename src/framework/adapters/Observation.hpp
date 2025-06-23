@@ -193,11 +193,11 @@ class Observation : private NonCopyable {
    * type. The caller is responsible for ensuring the type is correct.
    *
    * @tparam T The expected data type
-   * @return Reference to the data cast to the specified type
+   * @return The data of the specified type
    */
   template <typename T>
-  T& getData() {
-    return *static_cast<T*>(backend_.getData());
+  T getData() {
+    return backend_.template getData<T>();
   }
 
   /**
@@ -207,11 +207,11 @@ class Observation : private NonCopyable {
    * specified type. The caller is responsible for ensuring the type is correct.
    *
    * @tparam T The expected data type
-   * @return Const reference to the data cast to the specified type
+   * @return The data of the specified type
    */
   template <typename T>
-  const T& getData() const {
-    return *static_cast<const T*>(backend_.getData());
+  T getData() const {
+    return backend_.template getData<T>();
   }
 
   /**

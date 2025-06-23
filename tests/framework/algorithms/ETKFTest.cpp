@@ -162,7 +162,9 @@ class ETKFTest : public ::testing::Test {
   std::vector<std::vector<double>> GetEnsembleData() {
     std::vector<std::vector<double>> data(ens_size_);
     for (size_t i = 0; i < ens_size_; ++i) {
-      data[i] = ensemble_->GetMember(i).template getData<std::vector<double>>();
+      auto data_ptr = ensemble_->GetMember(i).template getDataPtr<double>();
+      size_t state_size = ensemble_->GetMember(i).size();
+      data[i] = std::vector<double>(data_ptr, data_ptr + state_size);
     }
     return data;
   }
