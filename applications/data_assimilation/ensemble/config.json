@@ -57,10 +57,19 @@
       }
     ]
   },
-  "output": {
-    "format": "netcdf4",
-    "compression_level": 4,
-    "save_ensemble": true,
-    "save_analysis_error": true
+  "obs_operator": {
+    "variables": [
+      {
+        "simple": {
+          "if_use": true,
+          "error": 0.1
+        }
+      }
+    ]
+  },
+  "analysis": {
+    "algorithm": "etkf",
+    "inflation": 1.0,
+    "output_base_file": "D:/linux/pdaf-fork/tutorial/outputs/analysis"
   }
 } 

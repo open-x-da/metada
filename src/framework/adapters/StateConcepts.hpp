@@ -47,7 +47,8 @@ namespace metada::framework {
 template <typename T, typename ConfigBackend, typename GeometryBackend>
 concept StateBackendImpl =
     requires(T& t, const T& ct, const T& other, double scalar,
-             const ConfigBackend& config, const GeometryBackend& geometry) {
+             const ConfigBackend& config, const GeometryBackend& geometry,
+             const std::string& filename) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
       // TODO: Add const data access
@@ -73,6 +74,9 @@ concept StateBackendImpl =
 
       // Comparison
       { ct.equals(other) } -> std::convertible_to<bool>;
+
+      // File I/O operations
+      { ct.saveToFile(filename) } -> std::same_as<void>;
 
       // Resource management constraints
       requires HasDeletedDefaultConstructor<T>;

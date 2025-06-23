@@ -2,7 +2,9 @@
 
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -165,6 +167,36 @@ class SimpleState {
   // Cloning
   std::unique_ptr<SimpleState> clone() const {
     return std::unique_ptr<SimpleState>(new SimpleState(*this, true));
+  }
+
+  /**
+   * @brief Save state data to file
+   * @param filename Path to save state file
+   */
+  void saveToFile(const std::string& filename) const {
+    // Create directory if it doesn't exist
+    std::filesystem::path file_path(filename);
+    std::filesystem::path dir_path = file_path.parent_path();
+    if (!dir_path.empty() && !std::filesystem::exists(dir_path)) {
+      std::filesystem::create_directories(dir_path);
+    }
+
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("Could not open file for writing: " + filename);
+    }
+
+    // Write data in grid format (y rows, x columns)
+    for (size_t y = 0; y < y_dim_; ++y) {
+      for (size_t x = 0; x < x_dim_; ++x) {
+        file << std::fixed << std::setprecision(6) << std::setw(12)
+             << data_[y * x_dim_ + x];
+        if (x < x_dim_ - 1) {
+          file << " ";
+        }
+      }
+      file << "\n";
+    }
   }
 
  private:

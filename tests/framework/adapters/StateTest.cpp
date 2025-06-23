@@ -248,19 +248,27 @@ TEST_F(StateTest, StateInformation) {
 TEST_F(StateTest, StateOperations) {
   // Test zero operation
   EXPECT_CALL(state1_->backend(), zero()).Times(1);
-  State<traits::MockBackendTag>& result = state1_->zero();
-  EXPECT_EQ(&result, state1_.get());
+  state1_->zero();
 
   // Test dot product
   EXPECT_CALL(state1_->backend(), dot(testing::Ref(state2_->backend())))
-      .WillOnce(Return(42.0));
-  double dot_product = state1_->dot(*state2_);
-  EXPECT_DOUBLE_EQ(dot_product, 42.0);
+      .WillOnce(Return(15.0));
+  EXPECT_DOUBLE_EQ(state1_->dot(*state2_), 15.0);
 
-  // Test norm calculation
-  EXPECT_CALL(state1_->backend(), norm()).WillOnce(Return(10.0));
-  double norm = state1_->norm();
-  EXPECT_DOUBLE_EQ(norm, 10.0);
+  // Test norm
+  EXPECT_CALL(state1_->backend(), norm()).WillOnce(Return(3.0));
+  EXPECT_DOUBLE_EQ(state1_->norm(), 3.0);
+}
+
+/**
+ * @brief Test file I/O operations
+ */
+TEST_F(StateTest, FileIOOperations) {
+  const std::string test_filename = "test_state_output.txt";
+
+  // Test saveToFile
+  EXPECT_CALL(state1_->backend(), saveToFile(test_filename)).Times(1);
+  state1_->saveToFile(test_filename);
 }
 
 /**

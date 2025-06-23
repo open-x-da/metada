@@ -132,6 +132,9 @@ class MockState {
   MOCK_METHOD(double, dot, (const MockState& other), (const));
   MOCK_METHOD(double, norm, (), (const));
 
+  // File I/O operations
+  MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
+
   // Data access
   void* getData() { return &data_; }
 

@@ -89,7 +89,8 @@ class ETKF {
       : ensemble_(ensemble),
         obs_(obs),
         obs_op_(obs_op),
-        inflation_(config.Get("inflation").asFloat()) {}
+        inflation_(config.Get("inflation").asFloat()),
+        output_base_file_(config.Get("output_base_file").asString()) {}
 
   /**
    * @brief Perform the ETKF analysis step, updating the ensemble.
@@ -168,11 +169,49 @@ class ETKF {
     }
   }
 
+  /**
+   * @brief Save the analyzed ensemble to files
+   * @param base_filename Base filename for saving (without extension)
+   */
+  void saveEnsemble() const {
+    const int ens_size = ensemble_.Size();
+
+    // Save ensemble mean
+    State<BackendTag> mean_state = ensemble_.GetMember(0).clone();
+    auto mean_data = mean_state.template getDataPtr<double>();
+    const int state_dim = mean_state.size();
+
+    // Compute mean
+    std::vector<double> mean_values(state_dim, 0.0);
+    for (int i = 0; i < ens_size; ++i) {
+      const auto member_data =
+          ensemble_.GetMember(i).template getDataPtr<double>();
+      for (int j = 0; j < state_dim; ++j) {
+        mean_values[j] += member_data[j];
+      }
+    }
+    for (int j = 0; j < state_dim; ++j) {
+      mean_values[j] /= ens_size;
+    }
+
+    // Copy mean to template state and save
+    std::copy(mean_values.begin(), mean_values.end(), mean_data);
+    mean_state.saveToFile(output_base_file_ + "_mean.txt");
+
+    // Save individual ensemble members
+    for (int i = 0; i < ens_size; ++i) {
+      const auto& member = ensemble_.GetMember(i);
+      member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
+                        ".txt");
+    }
+  }
+
  private:
   Ensemble<BackendTag>& ensemble_;
   Observation<BackendTag>& obs_;
   const ObsOperator<BackendTag>& obs_op_;
   double inflation_;
+  std::string output_base_file_;
 };
 
 }  // namespace metada::framework

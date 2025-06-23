@@ -259,6 +259,15 @@ class State : private NonCopyable {
   size_t size() const { return backend_.size(); }
 
   /**
+   * @brief Save state data to file
+   * @param filename Path to save state file
+   */
+  void saveToFile(const std::string& filename) const {
+    backend_.saveToFile(filename);
+  }
+
+  // Arithmetic operations
+  /**
    * @brief Addition operator
    * @param other State to add
    * @return New state containing the sum
