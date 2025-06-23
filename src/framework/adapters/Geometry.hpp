@@ -34,6 +34,7 @@
 #include "ConfigConcepts.hpp"
 #include "GeometryConcepts.hpp"
 #include "GeometryIterator.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 
 namespace metada::framework {
@@ -115,7 +116,9 @@ class Geometry : private NonCopyable {
    * @throws std::runtime_error If backend initialization fails
    */
   explicit Geometry(const Config<BackendTag>& config)
-      : config_(config), backend_(config.backend()) {}
+      : config_(config), backend_(config.backend()) {
+    logger_.Debug() << "Geometry constructed";
+  }
 
   /**
    * @brief Move constructor
@@ -242,5 +245,7 @@ class Geometry : private NonCopyable {
       config_;  // Holds reference to externally managed config
   GeometryBackend
       backend_;  // The actual geometry implementation (grid data/operations)
+  Logger<BackendTag>& logger_ =
+      Logger<BackendTag>::Instance();  // The logger instance
 };
 }  // namespace metada::framework
