@@ -61,8 +61,7 @@ namespace metada::backends::gmock {
  * @par State Information
  * - getVariableNames() - Get names of state variables
  * - hasVariable() - Check if state contains a specific variable
- * - getDimensions() - Get dimensions of state space for a variable
- * - setDimensions() - Set dimensions for a variable (helper method for testing)
+ * - size() - Get total size of the state vector
  * - setVariables() - Set variable names (helper method for testing)
  *
  * @par Memory Management
@@ -92,10 +91,8 @@ class MockState {
       : config_(other.config_),
         geometry_(other.geometry_),
         variableNames_(std::move(other.variableNames_)),
-        dimensions_(std::move(other.dimensions_)),
         data_(std::move(other.data_)) {
     other.variableNames_.clear();
-    other.dimensions_.clear();
     other.data_.clear();
   }
 
@@ -103,10 +100,8 @@ class MockState {
   MockState& operator=(MockState&& other) noexcept {
     if (this != &other) {
       variableNames_ = std::move(other.variableNames_);
-      dimensions_ = std::move(other.dimensions_);
       data_ = std::move(other.data_);
       other.variableNames_.clear();
-      other.dimensions_.clear();
       other.data_.clear();
     }
     return *this;
@@ -147,15 +142,13 @@ class MockState {
     return variableNames_;
   }
 
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    return dimensions_.at(name);
-  }
+  /**
+   * @brief Get the total size of the state vector
+   * @return Total number of elements in the state vector
+   */
+  MOCK_METHOD(size_t, size, (), (const));
 
   // Test helper methods
-  void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
-    dimensions_[name] = dims;
-  }
-
   void setVariables(const std::vector<std::string>& variables) {
     variableNames_ = variables;
   }
@@ -171,7 +164,6 @@ class MockState {
   const ConfigBackend& config_;
   const GeometryBackend& geometry_;
   std::vector<std::string> variableNames_;
-  std::unordered_map<std::string, std::vector<size_t>> dimensions_;
   std::vector<double> data_;
 };
 

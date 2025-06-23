@@ -233,13 +233,10 @@ class State : private NonCopyable {
   }
 
   /**
-   * @brief Get dimensions of state space
-   * @param name Name of the variable to get dimensions for
-   * @return Const reference to vector of dimension sizes
+   * @brief Get the total size of the state vector
+   * @return Total number of elements in the state vector
    */
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    return backend_.getDimensions(name);
-  }
+  size_t size() const { return backend_.size(); }
 
   /**
    * @brief Addition operator

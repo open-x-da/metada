@@ -90,12 +90,24 @@ class SimpleState {
   const std::vector<std::string>& getVariableNames() const {
     return variable_names_;
   }
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    if (name != "state") {
-      throw std::invalid_argument("SimpleState only supports 'state' variable");
-    }
-    return dimensions_;
-  }
+
+  /**
+   * @brief Get the total size of the state vector
+   * @return Total number of elements in the state vector
+   */
+  size_t size() const { return data_.size(); }
+
+  /**
+   * @brief Get the x dimension of the grid
+   * @return Number of grid points in x direction
+   */
+  size_t xDim() const { return x_dim_; }
+
+  /**
+   * @brief Get the y dimension of the grid
+   * @return Number of grid points in y direction
+   */
+  size_t yDim() const { return y_dim_; }
 
   // Vector operations
   void zero() { std::fill(data_.begin(), data_.end(), 0.0); }

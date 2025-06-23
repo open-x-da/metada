@@ -229,40 +229,16 @@ TEST_F(StateTest, StateInformation) {
   EXPECT_EQ(vars[1], "pressure");
   EXPECT_EQ(vars[2], "humidity");
 
-  // Setup and test dimensions for different variables
-  std::vector<size_t> temp_dims = {10, 20, 30};  // 3D temperature field
-  std::vector<size_t> pressure_dims = {10, 20};  // 2D pressure field
-  std::vector<size_t> humidity_dims = {100};     // 1D humidity field
-
-  state1_->backend().setDimensions("temperature", temp_dims);
-  state1_->backend().setDimensions("pressure", pressure_dims);
-  state1_->backend().setDimensions("humidity", humidity_dims);
-
-  // Test getDimensions for each variable
-  const auto& temp_dimensions = state1_->getDimensions("temperature");
-  EXPECT_EQ(temp_dimensions, temp_dims);
-  EXPECT_EQ(temp_dimensions.size(), 3);
-  EXPECT_EQ(temp_dimensions[0], 10);
-  EXPECT_EQ(temp_dimensions[1], 20);
-  EXPECT_EQ(temp_dimensions[2], 30);
-
-  const auto& pressure_dimensions = state1_->getDimensions("pressure");
-  EXPECT_EQ(pressure_dimensions, pressure_dims);
-  EXPECT_EQ(pressure_dimensions.size(), 2);
-
-  const auto& humidity_dimensions = state1_->getDimensions("humidity");
-  EXPECT_EQ(humidity_dimensions, humidity_dims);
-  EXPECT_EQ(humidity_dimensions.size(), 1);
-
   // Test hasVariable
   EXPECT_TRUE(state1_->hasVariable("temperature"));
   EXPECT_TRUE(state1_->hasVariable("pressure"));
   EXPECT_TRUE(state1_->hasVariable("humidity"));
   EXPECT_FALSE(state1_->hasVariable("nonexistent_variable"));
 
-  // Test error cases
-  EXPECT_THROW(state1_->getDimensions("nonexistent_variable"),
-               std::out_of_range);
+  // Test size method
+  EXPECT_CALL(state1_->backend(), size()).WillOnce(Return(6000));  // 10*20*30
+  size_t state_size = state1_->size();
+  EXPECT_EQ(state_size, 6000);
 }
 
 /**

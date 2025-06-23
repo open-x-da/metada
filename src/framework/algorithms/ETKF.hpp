@@ -98,8 +98,7 @@ class ETKF {
     using Eigen::VectorXd;
 
     const int ens_size = ensemble_.Size();
-    const int state_dim =
-        ensemble_.GetMember(0).template getData<std::vector<double>>().size();
+    const int state_dim = ensemble_.GetMember(0).size();
     const int obs_dim = obs_.template getData<std::vector<double>>().size();
 
     // 1. Build forecast quantities

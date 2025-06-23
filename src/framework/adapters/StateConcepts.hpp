@@ -29,7 +29,7 @@ namespace metada::framework {
  * @details A valid state backend implementation must provide:
  * - Data access methods (getData for both mutable and const access)
  * - Variable name access method
- * - Dimension information for each variable
+ * - Total state vector size (size method)
  * - Support for cloning the state
  * - Vector arithmetic operations (add, dot product, norm)
  * - Equality comparison
@@ -47,8 +47,7 @@ namespace metada::framework {
 template <typename T, typename ConfigBackend, typename GeometryBackend>
 concept StateBackendImpl =
     requires(T& t, const T& ct, const T& other, double scalar,
-             const std::string& varName, const ConfigBackend& config,
-             const GeometryBackend& geometry) {
+             const ConfigBackend& config, const GeometryBackend& geometry) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
       // TODO: Add const data access
@@ -58,7 +57,7 @@ concept StateBackendImpl =
       {
         ct.getVariableNames()
       } -> std::same_as<const std::vector<std::string>&>;
-      { ct.getDimensions(varName) } -> std::same_as<const std::vector<size_t>&>;
+      { ct.size() } -> std::convertible_to<size_t>;
 
       // Construction and cloning
       { T(config, geometry) } -> std::same_as<T>;

@@ -207,12 +207,11 @@ class State : public framework::IState {
   }
 
   /**
-   * @brief Get dimensions of state space
-   * @return Const reference to vector containing dimension sizes
+   * @brief Get the total size of the state vector
+   * @return Total number of elements in the state vector
    */
-  const std::vector<size_t>& getDimensions(
-      [[maybe_unused]] const std::string& variableName) const {
-    return dimensions_;
+  size_t size() const {
+    return 3;  // Lorenz63 has exactly 3 components (x, y, z)
   }
 
   /**

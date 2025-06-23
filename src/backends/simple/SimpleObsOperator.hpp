@@ -135,8 +135,8 @@ class SimpleObsOperator {
     result.reserve(obs.size());
 
     // Get state dimensions
-    size_t nx = state.getDimensions("state")[1];  // x dimension
-    size_t ny = state.getDimensions("state")[0];  // y dimension
+    size_t nx = state.xDim();  // x dimension
+    size_t ny = state.yDim();  // y dimension
 
     // Apply observation operator to each observation point
     for (const auto& obs_point : obs) {

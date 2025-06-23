@@ -120,13 +120,11 @@ class WRFState {
   const std::vector<std::string>& getVariableNames() const;
 
   /**
-   * @brief Get the dimensions of a variable
+   * @brief Get the total size of the state vector
    *
-   * @param name Name of the variable
-   * @return Vector of dimension sizes
-   * @throws std::out_of_range If variable doesn't exist
+   * @return Total number of elements in the state vector
    */
-  const std::vector<size_t>& getDimensions(const std::string& name) const;
+  size_t size() const;
 
   /**
    * @brief Set all values to zero
@@ -389,16 +387,17 @@ WRFState<ConfigBackend, GeometryBackend>::getVariableNames() const {
   return variableNames_;
 }
 
-// Get dimensions implementation
+// Size implementation
 template <typename ConfigBackend, typename GeometryBackend>
-const std::vector<size_t>&
-WRFState<ConfigBackend, GeometryBackend>::getDimensions(
-    const std::string& name) const {
-  try {
-    return dimensions_.at(name);
-  } catch (const std::out_of_range&) {
-    throw std::out_of_range("Variable not found: " + name);
+size_t WRFState<ConfigBackend, GeometryBackend>::size() const {
+  size_t totalSize = 0;
+
+  // Sum the sizes of all variables
+  for (const auto& [name, data] : variables_) {
+    totalSize += data.size();
   }
+
+  return totalSize;
 }
 
 // Zero implementation
