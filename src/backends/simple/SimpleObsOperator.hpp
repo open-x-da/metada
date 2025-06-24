@@ -134,8 +134,8 @@ class SimpleObsOperator {
     result.reserve(obs.size());
 
     // Get state dimensions
-    size_t nx = state.xDim();  // x dimension
-    size_t ny = state.yDim();  // y dimension
+    size_t nx = state.geometry().x_dim();
+    size_t ny = state.geometry().y_dim();
 
     // Apply observation operator to each observation point
     for (const auto& obs_point : obs) {
@@ -149,7 +149,7 @@ class SimpleObsOperator {
       double y = obs_point.location.latitude;
 
       // Perform bilinear interpolation
-      double interpolated_value = bilinearInterpolation(state, x, y, nx, ny);
+      double interpolated_value = exactInterpolation(state, x, y, nx, ny);
       result.push_back(interpolated_value);
     }
 
@@ -174,43 +174,31 @@ class SimpleObsOperator {
 
  private:
   /**
-   * @brief Perform bilinear interpolation from grid to point
+   * @brief Perform exact interpolation from grid to point
    *
    * @param state Model state
    * @param x Longitude coordinate
    * @param y Latitude coordinate
    * @param nx Number of grid points in x direction
    * @param ny Number of grid points in y direction
-   * @return Interpolated value
+   * @return Exact value at the nearest grid point
    */
-  double bilinearInterpolation(const SimpleState& state, double x, double y,
-                               size_t nx, size_t ny) const {
+  double exactInterpolation(const SimpleState& state, double x, double y,
+                            size_t nx, size_t ny) const {
     // Clamp coordinates to grid bounds
     x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
     y = std::max(0.0, std::min(static_cast<double>(ny - 1), y));
 
-    // Find grid indices
-    size_t i0 = static_cast<size_t>(std::floor(x));
-    size_t i1 = std::min(i0 + 1, nx - 1);
-    size_t j0 = static_cast<size_t>(std::floor(y));
-    size_t j1 = std::min(j0 + 1, ny - 1);
+    // Find nearest grid point (round to nearest integer)
+    size_t i = static_cast<size_t>(std::round(x));
+    size_t j = static_cast<size_t>(std::round(y));
 
-    // Calculate interpolation weights
-    double wx = x - static_cast<double>(i0);
-    double wy = y - static_cast<double>(j0);
+    // Ensure indices are within bounds
+    if (i >= nx) i = nx - 1;
+    if (j >= ny) j = ny - 1;
 
-    // Get values at the four surrounding grid points
-    double v00 = state.at({i0, j0});
-    double v10 = state.at({i1, j0});
-    double v01 = state.at({i0, j1});
-    double v11 = state.at({i1, j1});
-
-    // Perform bilinear interpolation
-    double v0 = v00 * (1.0 - wx) + v10 * wx;
-    double v1 = v01 * (1.0 - wx) + v11 * wx;
-    double result = v0 * (1.0 - wy) + v1 * wy;
-
-    return result;
+    // Return exact value at the grid point
+    return state.at({i, j});
   }
 
   bool initialized_ = false;                      ///< Initialization status

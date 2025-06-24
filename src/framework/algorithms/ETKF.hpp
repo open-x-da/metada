@@ -6,6 +6,7 @@
 
 #include "Config.hpp"
 #include "Ensemble.hpp"
+#include "Logger.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 
@@ -90,12 +91,15 @@ class ETKF {
         obs_(obs),
         obs_op_(obs_op),
         inflation_(config.Get("inflation").asFloat()),
-        output_base_file_(config.Get("output_base_file").asString()) {}
+        output_base_file_(config.Get("output_base_file").asString()) {
+    logger_.Debug() << "ETKF constructed";
+  }
 
   /**
    * @brief Perform the ETKF analysis step, updating the ensemble.
    */
   void Analyse() {
+    logger_.Debug() << "ETKF analysis started";
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
@@ -170,6 +174,7 @@ class ETKF {
 
     // Store the analysis mean for later use
     analysis_mean_ = xa_mean;
+    logger_.Debug() << "ETKF analysis completed";
   }
 
   /**
@@ -177,6 +182,7 @@ class ETKF {
    * @param base_filename Base filename for saving (without extension)
    */
   void saveEnsemble() const {
+    logger_.Debug() << "ETKF saving ensemble";
     const int ens_size = ensemble_.Size();
 
     // Save analysis mean (computed during analysis)
@@ -192,6 +198,7 @@ class ETKF {
       member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
                         ".txt");
     }
+    logger_.Debug() << "ETKF ensemble saved";
   }
 
  private:
@@ -201,6 +208,7 @@ class ETKF {
   double inflation_;
   std::string output_base_file_;
   Eigen::VectorXd analysis_mean_;  ///< Analysis mean computed during ETKF
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 }  // namespace metada::framework

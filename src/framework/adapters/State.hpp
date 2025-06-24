@@ -36,6 +36,7 @@
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
 #include "Geometry.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "StateConcepts.hpp"
 
@@ -104,7 +105,9 @@ class State : private NonCopyable {
   State(const Config<BackendTag>& config, const Geometry& geometry)
       : backend_(config.backend(), geometry.backend()),
         geometry_(&geometry),
-        initialized_(true) {}
+        initialized_(true) {
+    logger_.Debug() << "State constructed";
+  }
 
   /**
    * @brief Move constructor
@@ -388,10 +391,10 @@ class State : private NonCopyable {
   explicit State(StateBackend&& backend)
       : backend_(std::move(backend)), geometry_(nullptr), initialized_(true) {}
 
-  StateBackend backend_;  ///< Instance of the state backend
-  const Geometry* geometry_ =
-      nullptr;               ///< Pointer to associated geometry (optional)
-  bool initialized_{false};  ///< Initialization flag
+  StateBackend backend_;
+  const Geometry* geometry_ = nullptr;
+  bool initialized_{false};
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 // Output operator

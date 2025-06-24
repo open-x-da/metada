@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -24,19 +25,13 @@ class SimpleState {
 
   // Move constructor/assignment
   SimpleState(SimpleState&& other) noexcept
-      : x_dim_(other.x_dim_),
-        y_dim_(other.y_dim_),
-        data_(std::move(other.data_)),
-        dimensions_(std::move(other.dimensions_)),
+      : data_(std::move(other.data_)),
         variable_names_(std::move(other.variable_names_)),
         geometry_(other.geometry_) {}
 
   SimpleState& operator=(SimpleState&& other) noexcept {
     if (this != &other) {
       data_ = std::move(other.data_);
-      x_dim_ = other.x_dim_;
-      y_dim_ = other.y_dim_;
-      dimensions_ = std::move(other.dimensions_);
       variable_names_ = std::move(other.variable_names_);
       // Don't move geometry_ as it's a reference
     }
@@ -49,10 +44,6 @@ class SimpleState {
   template <typename ConfigBackend>
   SimpleState(const ConfigBackend& config, const SimpleGeometry& geometry)
       : geometry_(geometry) {
-    // Get dimensions from geometry
-    x_dim_ = static_cast<size_t>(geometry.x_dim());
-    y_dim_ = static_cast<size_t>(geometry.y_dim());
-
     // Read data from file specified in config
     std::string filename = config.Get("file").asString();
     readFromFile(filename);
@@ -64,10 +55,12 @@ class SimpleState {
 
   // Coordinate-based access
   double& at(const SimpleGeometry::Coord& coord) {
-    return data_[coord.second * x_dim_ + coord.first];
+    size_t x_dim = geometry_.x_dim();
+    return data_[coord.second * x_dim + coord.first];
   }
   const double& at(const SimpleGeometry::Coord& coord) const {
-    return data_[coord.second * x_dim_ + coord.first];
+    size_t x_dim = geometry_.x_dim();
+    return data_[coord.second * x_dim + coord.first];
   }
 
   // Iterators
@@ -98,16 +91,10 @@ class SimpleState {
   size_t size() const { return data_.size(); }
 
   /**
-   * @brief Get the x dimension of the grid
-   * @return Number of grid points in x direction
+   * @brief Get access to the geometry
+   * @return Const reference to the geometry
    */
-  size_t xDim() const { return x_dim_; }
-
-  /**
-   * @brief Get the y dimension of the grid
-   * @return Number of grid points in y direction
-   */
-  size_t yDim() const { return y_dim_; }
+  const SimpleGeometry& geometry() const { return geometry_; }
 
   // Vector operations
   void zero() { std::fill(data_.begin(), data_.end(), 0.0); }
@@ -185,11 +172,13 @@ class SimpleState {
     }
 
     // Write data in grid format (y rows, x columns)
-    for (size_t y = 0; y < y_dim_; ++y) {
-      for (size_t x = 0; x < x_dim_; ++x) {
+    size_t x_dim = geometry_.x_dim();
+    size_t y_dim = geometry_.y_dim();
+    for (size_t y = 0; y < y_dim; ++y) {
+      for (size_t x = 0; x < x_dim; ++x) {
         file << std::fixed << std::setprecision(6) << std::setw(12)
-             << data_[y * x_dim_ + x];
-        if (x < x_dim_ - 1) {
+             << data_[y * x_dim + x];
+        if (x < x_dim - 1) {
           file << " ";
         }
       }
@@ -200,10 +189,7 @@ class SimpleState {
  private:
   // Private constructor for cloning
   SimpleState(const SimpleState& other, bool)
-      : x_dim_(other.x_dim_),
-        y_dim_(other.y_dim_),
-        data_(other.data_),
-        dimensions_(other.dimensions_),
+      : data_(other.data_),
         variable_names_(other.variable_names_),
         geometry_(other.geometry_) {}
 
@@ -213,25 +199,21 @@ class SimpleState {
       throw std::runtime_error("Cannot open state file: " + filename);
     }
 
-    // Initialize dimensions
-    dimensions_ = {y_dim_, x_dim_};
+    // Initialize variable names
     variable_names_ = {"state"};
 
-    // Read data
-    data_.resize(x_dim_ * y_dim_);
-    for (size_t y = 0; y < y_dim_; ++y) {
-      for (size_t x = 0; x < x_dim_; ++x) {
-        if (!(file >> data_[y * x_dim_ + x])) {
-          throw std::runtime_error("Error reading state data from file");
-        }
+    // Read data line by line without assuming dimensions
+    std::string line;
+    while (std::getline(file, line)) {
+      std::istringstream iss(line);
+      double value;
+      while (iss >> value) {
+        data_.push_back(value);
       }
     }
   }
 
-  size_t x_dim_ = 0;
-  size_t y_dim_ = 0;
   std::vector<double> data_;
-  std::vector<size_t> dimensions_;
   std::vector<std::string> variable_names_;
   const SimpleGeometry& geometry_;
 };

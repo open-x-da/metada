@@ -5,6 +5,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObsOperatorConcepts.hpp"
 #include "ObservationConcepts.hpp"
@@ -73,8 +74,7 @@ class ObsOperator : public NonCopyable {
   template <typename ConfigBackend>
   explicit ObsOperator(const Config<ConfigBackend>& config)
       : backend_(config.backend()) {
-    // Backend is initialized in its constructor, no additional initialization
-    // needed
+    logger_.Debug() << "ObsOperator constructed";
   }
 
   /**
@@ -134,6 +134,8 @@ class ObsOperator : public NonCopyable {
   template <typename StateBackend, typename ObsBackend>
   std::vector<double> apply(const State<StateBackend>& state,
                             const Observation<ObsBackend>& obs) const {
+    logger_.Debug() << "Applying observation operator";
+
     return backend_.apply(state.backend(), obs.backend());
   }
 
@@ -157,6 +159,7 @@ class ObsOperator : public NonCopyable {
 
  private:
   ObsOperatorBackend backend_; /**< Backend implementation */
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 }  // namespace metada::framework
