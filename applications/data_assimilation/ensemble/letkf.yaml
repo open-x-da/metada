@@ -61,6 +61,7 @@ obs_operator:
 
 # Analysis settings
 analysis:
-  algorithm: "etkf"
+  algorithm: "letkf"
   inflation: 1.0
+  localization_radius: 10.0
   output_base_file: "D:/linux/pdaf-fork/tutorial/outputs/analysis"

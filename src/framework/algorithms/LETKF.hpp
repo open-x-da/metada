@@ -50,7 +50,8 @@ class LETKF {
         obs_(obs),
         obs_op_(obs_op),
         inflation_(config.Get("inflation").asFloat()),
-        localization_radius_(config.Get("localization_radius").asFloat()) {
+        localization_radius_(config.Get("localization_radius").asFloat()),
+        output_base_file_(config.Get("output_base_file").asString()) {
     logger_.Debug() << "LETKF constructed with radius " << localization_radius_;
   }
 
@@ -202,7 +203,7 @@ class LETKF {
   const ObsOperator<BackendTag>& obs_op_;
   double inflation_;
   double localization_radius_;
-  std::string output_base_file_;
+  std::string output_base_file_ = "analysis";
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
