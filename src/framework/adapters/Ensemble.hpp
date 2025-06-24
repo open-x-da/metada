@@ -6,6 +6,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "State.hpp"
 #include "StateConcepts.hpp"
@@ -60,6 +61,7 @@ class Ensemble : public NonCopyable {
     for (const auto& member_config : member_configs) {
       members_.emplace_back(member_config.GetSubsection("state"), geometry);
     }
+    logger_.Debug() << "Ensemble constructed with " << size_ << " members";
   }
 
   /**
@@ -185,6 +187,7 @@ class Ensemble : public NonCopyable {
   std::unique_ptr<StateType> mean_;
   size_t size_;
   std::vector<std::unique_ptr<StateType>> perturbations_;
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 }  // namespace metada::framework
