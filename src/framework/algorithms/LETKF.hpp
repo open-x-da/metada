@@ -9,6 +9,7 @@
 #include "Logger.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
+#include "PointObservation.hpp"
 
 namespace metada::framework {
 

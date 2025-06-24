@@ -7,6 +7,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObservationConcepts.hpp"
 
@@ -71,7 +72,9 @@ class Observation : private NonCopyable {
    * @param config Configuration object containing initialization parameters
    */
   explicit Observation(const Config<BackendTag>& config)
-      : backend_(config.backend()), initialized_(true) {}
+      : backend_(config.backend()), initialized_(true) {
+    logger_.Info() << "Observation constructed";
+  }
 
   /**
    * @brief Move constructor
@@ -84,6 +87,7 @@ class Observation : private NonCopyable {
   Observation(Observation&& other) noexcept
       : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
     other.initialized_ = false;
+    logger_.Info() << "Observation moved";
   }
 
   /**
@@ -477,6 +481,7 @@ class Observation : private NonCopyable {
 
   ObservationBackend backend_;  ///< Backend implementation instance
   bool initialized_{false};     ///< Initialization flag
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 }  // namespace metada::framework
