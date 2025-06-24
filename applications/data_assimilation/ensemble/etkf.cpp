@@ -12,9 +12,10 @@
  * @return 0 on success, 1 on failure
  */
 
+#include "ETKF.hpp"
+
 #include "ApplicationContext.hpp"
 #include "Config.hpp"
-#include "ETKF.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
 #include "ObsOperator.hpp"

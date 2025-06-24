@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/etkf",
-            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/config.yaml"],
+            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/etkf.yaml"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [
@@ -44,12 +44,12 @@
             ]
         },
         {
-            "name": "Debug forecast Example",
+            "name": "Debug forecast",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/forecast",
             "args": ["${workspaceFolder}/applications/forecast/config.yaml"],
-            "stopAtEntry": false,
+            "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "environment": [

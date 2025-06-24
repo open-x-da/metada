@@ -18,6 +18,7 @@ target_sources(simple_backends
         SimpleEnsemble.hpp
         SimpleObservation.hpp
         SimpleObsOperator.hpp
+        SimpleModel.hpp
     PRIVATE
         SimpleStateIterator.cpp
 )

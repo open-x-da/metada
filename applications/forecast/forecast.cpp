@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
     // Initialize initial state
-    /*logger.Info() << "Initializing model state";
+    logger.Info() << "Initializing model state";
     State<BackendTag> initialState(config.GetSubsection("state"), geometry);
     auto currentState = initialState.clone();
 
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     model.run(currentState, finalState);
 
     // Update current state
-    currentState = std::move(finalState);*/
+    currentState = std::move(finalState);
 
     logger.Info() << "Forecast application completed";
     return 0;

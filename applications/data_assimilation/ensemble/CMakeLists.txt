@@ -1,5 +1,5 @@
 # Add ETKF executable
-add_executable(etkf main.cpp)
+add_executable(etkf etkf.cpp)
 
 # Link with required backend libraries for logging and configuration
 target_link_libraries(etkf
