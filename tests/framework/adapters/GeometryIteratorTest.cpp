@@ -40,7 +40,6 @@ using namespace metada::backends::gmock;
 
 class GeometryIteratorTest : public ::testing::Test {
  protected:
-  MockGeometryIterator mock_iter_;
   std::vector<MockGridPoint> points_;
 
   void SetUp() override { points_ = {{0, 1, 2}, {1, 2, 3}, {2, 3, 4}}; }
@@ -48,25 +47,33 @@ class GeometryIteratorTest : public ::testing::Test {
 
 TEST_F(GeometryIteratorTest, BasicOperations) {
   MockGridPoint point{1, 2, 3};
-  EXPECT_CALL(mock_iter_, dereference()).WillOnce(ReturnRef(point));
-  EXPECT_CALL(mock_iter_, compare(_))
+
+  // Create the mock iterator that will be wrapped by GeometryIterator
+  MockGeometryIterator mock_iter;
+
+  // Set up expectations on the mock iterator
+  EXPECT_CALL(mock_iter, dereference()).WillOnce(ReturnRef(point));
+  EXPECT_CALL(mock_iter, compare(_))
       .WillOnce(Return(true))
       .WillOnce(Return(false));
-  EXPECT_CALL(mock_iter_, increment()).Times(2);
+  EXPECT_CALL(mock_iter, increment()).Times(2);
 
-  GeometryIterator<traits::MockBackendTag> iter(mock_iter_);
+  // Create the GeometryIterator adapter that wraps the mock
+  GeometryIterator<traits::MockBackendTag> iter(mock_iter);
+
+  // Test dereference - this should call mock_iter.dereference()
   MockGridPoint result = *iter;
   EXPECT_EQ(result.x, point.x);
   EXPECT_EQ(result.y, point.y);
   EXPECT_EQ(result.z, point.z);
 
-  // Comparison
+  // Test comparison - this should call mock_iter.compare()
   MockGeometryIterator other_mock_iter;
   GeometryIterator<traits::MockBackendTag> other_iter(other_mock_iter);
   EXPECT_TRUE(iter == other_iter);
   EXPECT_TRUE(iter != other_iter);
 
-  // Increment
+  // Test increment - this should call mock_iter.increment()
   ++iter;
   iter++;
 }
@@ -75,10 +82,11 @@ TEST_F(GeometryIteratorTest, STLIteratorFunctions) {
   // Setup a sequence of points and a vector of iterators
   std::vector<MockGridPoint> test_points = points_;
   std::vector<GeometryIterator<traits::MockBackendTag>> iters;
+
   for (auto& pt : test_points) {
-    MockGeometryIterator it;
-    EXPECT_CALL(it, dereference()).WillRepeatedly(ReturnRef(pt));
-    iters.emplace_back(it);
+    MockGeometryIterator mock_iter;
+    EXPECT_CALL(mock_iter, dereference()).WillRepeatedly(ReturnRef(pt));
+    iters.emplace_back(mock_iter);
   }
 
   // Use STL algorithms with GeometryIterator

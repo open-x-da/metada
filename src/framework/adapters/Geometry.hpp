@@ -114,7 +114,7 @@ class Geometry : private NonCopyable {
    * @throws std::runtime_error If backend initialization fails
    */
   explicit Geometry(const Config<BackendTag>& config)
-      : config_(config), backend_(config.backend()) {
+      : backend_(config.backend()) {
     logger_.Debug() << "Geometry constructed";
   }
 
@@ -122,8 +122,7 @@ class Geometry : private NonCopyable {
    * @brief Move constructor
    * @param other Geometry instance to move from
    */
-  Geometry(Geometry&& other) noexcept
-      : config_(other.config_), backend_(std::move(other.backend_)) {}
+  Geometry(Geometry&& other) noexcept : backend_(std::move(other.backend_)) {}
 
   /**
    * @brief Move assignment operator
@@ -143,9 +142,7 @@ class Geometry : private NonCopyable {
    * @return A new Geometry instance with identical configuration and backend
    * state
    */
-  Geometry clone() const {
-    return Geometry(std::move(backend_.clone()), config_);
-  }
+  Geometry clone() const { return Geometry(std::move(backend_.clone())); }
 
   /**
    * @brief Get iterator to the beginning of the grid
@@ -213,12 +210,6 @@ class Geometry : private NonCopyable {
    */
   const GeometryBackend& backend() const { return backend_; }
 
-  /**
-   * @brief Access the stored configuration
-   * @return Const reference to the configuration
-   */
-  const Config<BackendTag>& config() const { return config_; }
-
   // STL-compliant element access
   reference operator[](size_type idx) { return backend_[idx]; }
   const_reference operator[](size_type idx) const { return backend_[idx]; }
@@ -234,16 +225,10 @@ class Geometry : private NonCopyable {
    * @brief Private constructor used by clone(): create Geometry from an
    * existing backend instance
    * @param backend Backend instance to use
-   * @param config Configuration to associate with this geometry
    */
-  Geometry(GeometryBackend&& backend, const Config<BackendTag>& config)
-      : config_(config), backend_(std::move(backend)) {}
+  Geometry(GeometryBackend&& backend) : backend_(std::move(backend)) {}
 
-  const Config<BackendTag>&
-      config_;  // Holds reference to externally managed config
-  GeometryBackend
-      backend_;  // The actual geometry implementation (grid data/operations)
-  Logger<BackendTag>& logger_ =
-      Logger<BackendTag>::Instance();  // The logger instance
+  GeometryBackend backend_;
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 }  // namespace metada::framework

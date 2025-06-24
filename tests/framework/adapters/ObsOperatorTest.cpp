@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Config.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
@@ -14,15 +15,11 @@
 
 namespace metada::tests {
 
+using namespace metada::framework;
+
 using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
-
-using framework::Config;
-using framework::Geometry;
-using framework::Observation;
-using framework::ObsOperator;
-using framework::State;
 
 /**
  * @brief Test fixture for ObsOperator class
@@ -53,12 +50,18 @@ class ObsOperatorTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     auto config_file = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file);
+
+    // Initialize the Logger singleton before creating any objects that use it
+    Logger<traits::MockBackendTag>::Init(*config_);
+
     geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
   }
 
   void TearDown() override {
     config_.reset();
     geometry_.reset();
+    // Reset the Logger singleton after tests
+    Logger<traits::MockBackendTag>::Reset();
   }
 };
 

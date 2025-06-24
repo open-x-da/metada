@@ -37,19 +37,18 @@
 #include <vector>
 
 #include "Config.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
 #include "State.hpp"
 
 namespace metada::tests {
 
+using namespace metada::framework;
+
 using ::testing::_;
 using ::testing::ByMove;
 using ::testing::Return;
 using ::testing::ReturnRef;
-
-using framework::Config;
-using framework::Geometry;
-using framework::State;
 
 /**
  * @brief Test fixture for State class tests
@@ -68,9 +67,8 @@ class StateTest : public ::testing::Test {
   std::unique_ptr<Geometry<traits::MockBackendTag>> geometry_;
 
   // Common State objects for tests
-  std::unique_ptr<State<traits::MockBackendTag>> state1_;  ///< First test state
-  std::unique_ptr<State<traits::MockBackendTag>>
-      state2_;  ///< Second test state
+  std::unique_ptr<State<traits::MockBackendTag>> state1_;
+  std::unique_ptr<State<traits::MockBackendTag>> state2_;
 
   /**
    * @brief Set up test data before each test
@@ -86,6 +84,10 @@ class StateTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     config_file_ = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
+
+    // Initialize the Logger singleton before creating any objects that use it
+    Logger<traits::MockBackendTag>::Init(*config_);
+
     geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
 
     // Create common State objects
@@ -103,6 +105,8 @@ class StateTest : public ::testing::Test {
     geometry_.reset();
     state1_.reset();
     state2_.reset();
+    // Reset the Logger singleton after tests
+    Logger<traits::MockBackendTag>::Reset();
   }
 
   /**
