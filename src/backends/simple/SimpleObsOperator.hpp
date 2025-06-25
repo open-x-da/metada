@@ -17,10 +17,13 @@
 #include <string>
 #include <vector>
 
+#include "PointObservation.hpp"
 #include "SimpleObservation.hpp"
 #include "SimpleState.hpp"
 
 namespace metada::backends::simple {
+
+using metada::framework::CoordinateSystem;
 
 /**
  * @brief Simple observation operator backend implementation
@@ -145,9 +148,18 @@ class SimpleObsOperator {
       }
 
       // Convert observation location to grid coordinates
-      auto obs_loc = obs_point.getObservationLocation();
-      double x = obs_loc.longitude;
-      double y = obs_loc.latitude;
+      double x, y;
+      if (obs_point.location.getCoordinateSystem() ==
+          CoordinateSystem::GEOGRAPHIC) {
+        auto [lat, lon, level] = obs_point.location.getGeographicCoords();
+        x = lon;
+        y = lat;
+      } else {
+        // For non-geographic coordinates, use grid coordinates directly
+        auto [i, j] = obs_point.location.getGridCoords2D();
+        x = static_cast<double>(i);
+        y = static_cast<double>(j);
+      }
 
       // Perform bilinear interpolation
       double interpolated_value = exactInterpolation(state, x, y, nx, ny);

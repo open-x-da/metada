@@ -49,8 +49,9 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 
 using framework::Config;
+using framework::CoordinateSystem;
+using framework::Location;
 using framework::Observation;
-using framework::ObservationLocation;
 using framework::ObservationPoint;
 
 /**
@@ -168,11 +169,13 @@ class ObservationTest : public ::testing::Test {
     size_t count = 0;
     for (const auto& obs : *obs1_) {
       EXPECT_TRUE(obs.is_valid);
-      auto obs_loc = obs.getObservationLocation();
-      EXPECT_GE(obs_loc.latitude, -90.0);
-      EXPECT_LE(obs_loc.latitude, 90.0);
-      EXPECT_GE(obs_loc.longitude, -180.0);
-      EXPECT_LE(obs_loc.longitude, 180.0);
+      if (obs.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+        auto [lat, lon, level] = obs.location.getGeographicCoords();
+        EXPECT_GE(lat, -90.0);
+        EXPECT_LE(lat, 90.0);
+        EXPECT_GE(lon, -180.0);
+        EXPECT_LE(lon, 180.0);
+      }
       count++;
     }
     EXPECT_EQ(count, obs1_->size());
@@ -300,8 +303,7 @@ TEST_F(ObservationTest, DataAccessAndIteration) {
   // Set up mock observation data
   std::vector<ObservationPoint> mock_obs;
   for (size_t i = 0; i < locations_.size(); ++i) {
-    ObservationLocation loc(locations_[i].first, locations_[i].second,
-                            levels_[i]);
+    Location loc(locations_[i].first, locations_[i].second, levels_[i]);
     mock_obs.emplace_back(loc, values_[i], errors_[i]);
   }
   obs1_->backend().setObservations(mock_obs);
@@ -313,10 +315,12 @@ TEST_F(ObservationTest, DataAccessAndIteration) {
   // Test direct indexing
   for (size_t i = 0; i < obs1_->size(); ++i) {
     const auto& obs = (*obs1_)[i];
-    auto obs_loc = obs.getObservationLocation();
-    EXPECT_DOUBLE_EQ(obs_loc.latitude, locations_[i].first);
-    EXPECT_DOUBLE_EQ(obs_loc.longitude, locations_[i].second);
-    EXPECT_DOUBLE_EQ(obs_loc.level, levels_[i]);
+    if (obs.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+      auto [lat, lon, level] = obs.location.getGeographicCoords();
+      EXPECT_DOUBLE_EQ(lat, locations_[i].first);
+      EXPECT_DOUBLE_EQ(lon, locations_[i].second);
+      EXPECT_DOUBLE_EQ(level, levels_[i]);
+    }
     EXPECT_DOUBLE_EQ(obs.value, values_[i]);
     EXPECT_DOUBLE_EQ(obs.error, errors_[i]);
   }

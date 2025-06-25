@@ -116,28 +116,9 @@ TEST_F(LocationTest, ErrorHandling) {
   EXPECT_THROW(geo_loc.getCartesianCoords(), std::runtime_error);
 }
 
-TEST_F(LocationTest, ObservationLocationCompatibility) {
-  // Test backward compatibility with ObservationLocation
-  ObservationLocation obs_loc(45.0, -120.0, 1000.0);
-
-  // Convert to Location
-  Location loc = obs_loc.toLocation();
-  EXPECT_EQ(loc.getCoordinateSystem(), CoordinateSystem::GEOGRAPHIC);
-
-  auto [lat, lon, level] = loc.getGeographicCoords();
-  EXPECT_DOUBLE_EQ(lat, 45.0);
-  EXPECT_DOUBLE_EQ(lon, -120.0);
-  EXPECT_DOUBLE_EQ(level, 1000.0);
-
-  // Convert back to ObservationLocation
-  ObservationLocation obs_loc2 = ObservationLocation::fromLocation(loc);
-  EXPECT_EQ(obs_loc, obs_loc2);
-}
-
 TEST_F(LocationTest, ObservationPointCompatibility) {
-  // Test that ObservationPoint works with both Location and ObservationLocation
+  // Test that ObservationPoint works with Location
   Location loc(45.0, -120.0, 1000.0);
-  ObservationLocation obs_loc(45.0, -120.0, 1000.0);
 
   // Create ObservationPoint with Location
   ObservationPoint point1(loc, 25.5, 0.5);
@@ -146,20 +127,11 @@ TEST_F(LocationTest, ObservationPointCompatibility) {
   EXPECT_DOUBLE_EQ(point1.error, 0.5);
   EXPECT_TRUE(point1.is_valid);
 
-  // Create ObservationPoint with ObservationLocation (backward compatibility)
-  ObservationPoint point2(obs_loc, 25.5, 0.5);
-  EXPECT_EQ(point2.location,
-            loc);  // Should be converted to Location internally
-  EXPECT_DOUBLE_EQ(point2.value, 25.5);
-  EXPECT_DOUBLE_EQ(point2.error, 0.5);
-  EXPECT_TRUE(point2.is_valid);
-
-  // Test equality
-  EXPECT_EQ(point1, point2);
-
-  // Test getting ObservationLocation back (backward compatibility)
-  ObservationLocation obs_loc2 = point1.getObservationLocation();
-  EXPECT_EQ(obs_loc, obs_loc2);
+  // Test that location coordinates can be accessed
+  auto [lat, lon, level] = point1.location.getGeographicCoords();
+  EXPECT_DOUBLE_EQ(lat, 45.0);
+  EXPECT_DOUBLE_EQ(lon, -120.0);
+  EXPECT_DOUBLE_EQ(level, 1000.0);
 }
 
 TEST_F(LocationTest, MixedCoordinateSystems) {

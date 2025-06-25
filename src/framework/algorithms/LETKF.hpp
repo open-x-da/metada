@@ -79,9 +79,9 @@ class LETKF {
     const auto obs_data = obs_.template getData<std::vector<double>>();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_.size());
 
-    std::vector<ObservationLocation> obs_locations;
+    std::vector<Location> obs_locations;
     for (const auto& obs_point : obs_) {
-      obs_locations.push_back(obs_point.getObservationLocation());
+      obs_locations.push_back(obs_point.location);
     }
 
     // Retrieve geometry from the first ensemble member's state
@@ -135,7 +135,7 @@ class LETKF {
   void updateGridPoint(const GridPointType& grid_point,
                        std::vector<Eigen::VectorXd>& member_data,
                        const Eigen::VectorXd& yo,
-                       const std::vector<ObservationLocation>& obs_locations,
+                       const std::vector<Location>& obs_locations,
                        int ens_size) {
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
@@ -180,8 +180,17 @@ class LETKF {
     // Find local observations using 2D Euclidean distance
     std::vector<int> local_obs_indices;
     for (size_t i = 0; i < obs_locations.size(); ++i) {
-      double obs_x = obs_locations[i].longitude;
-      double obs_y = obs_locations[i].latitude;
+      double obs_x, obs_y;
+      if (obs_locations[i].getCoordinateSystem() ==
+          CoordinateSystem::GEOGRAPHIC) {
+        auto [lat, lon, level] = obs_locations[i].getGeographicCoords();
+        obs_x = lon;
+        obs_y = lat;
+      } else {
+        auto [i_coord, j_coord] = obs_locations[i].getGridCoords2D();
+        obs_x = static_cast<double>(i_coord);
+        obs_y = static_cast<double>(j_coord);
+      }
       double distance =
           std::sqrt((x - obs_x) * (x - obs_x) + (y - obs_y) * (y - obs_y));
       if (distance <= localization_radius_) {

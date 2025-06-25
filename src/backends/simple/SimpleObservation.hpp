@@ -25,7 +25,8 @@
 
 namespace metada::backends::simple {
 
-using metada::framework::ObservationLocation;
+using metada::framework::CoordinateSystem;
+using metada::framework::Location;
 using metada::framework::ObservationPoint;
 
 /**
@@ -364,10 +365,12 @@ class SimpleObservation {
         }
 
         // Check for reasonable latitude/longitude
-        auto obs_loc = obs.getObservationLocation();
-        if (obs_loc.latitude < -90.0 || obs_loc.latitude > 90.0 ||
-            obs_loc.longitude < -180.0 || obs_loc.longitude > 180.0) {
-          obs.is_valid = false;
+        if (obs.location.getCoordinateSystem() ==
+            CoordinateSystem::GEOGRAPHIC) {
+          auto [lat, lon, level] = obs.location.getGeographicCoords();
+          if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+            obs.is_valid = false;
+          }
         }
       }
     }
@@ -395,8 +398,8 @@ class SimpleObservation {
       while (iss >> value) {
         if (value != missing_value) {
           // Location is derived from grid indices, level is 0
-          ObservationLocation location(static_cast<double>(j),
-                                       static_cast<double>(i), 0.0);
+          Location location(static_cast<double>(j), static_cast<double>(i),
+                            0.0);
           observations_.emplace_back(location, value, error);
         }
         i++;
@@ -417,11 +420,14 @@ class SimpleObservation {
 
     for (const auto& obs : observations_) {
       if (obs.is_valid) {
-        auto obs_loc = obs.getObservationLocation();
-        file << std::fixed << std::setprecision(6) << std::setw(10)
-             << obs_loc.latitude << std::setw(10) << obs_loc.longitude
-             << std::setw(10) << obs_loc.level << std::setw(12) << obs.value
-             << std::setw(12) << obs.error << "\n";
+        if (obs.location.getCoordinateSystem() ==
+            CoordinateSystem::GEOGRAPHIC) {
+          auto [lat, lon, level] = obs.location.getGeographicCoords();
+          file << std::fixed << std::setprecision(6) << std::setw(10) << lat
+               << std::setw(10) << lon << std::setw(10) << level
+               << std::setw(12) << obs.value << std::setw(12) << obs.error
+               << "\n";
+        }
       }
     }
   }
@@ -440,10 +446,11 @@ class SimpleObservation {
                                                      double max_lon) const {
     std::vector<ObservationPoint> result;
     for (const auto& obs : observations_) {
-      if (obs.is_valid) {
-        auto obs_loc = obs.getObservationLocation();
-        if (obs_loc.latitude >= min_lat && obs_loc.latitude <= max_lat &&
-            obs_loc.longitude >= min_lon && obs_loc.longitude <= max_lon) {
+      if (obs.is_valid &&
+          obs.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+        auto [lat, lon, level] = obs.location.getGeographicCoords();
+        if (lat >= min_lat && lat <= max_lat && lon >= min_lon &&
+            lon <= max_lon) {
           result.push_back(obs);
         }
       }
@@ -461,9 +468,10 @@ class SimpleObservation {
       double min_level, double max_level) const {
     std::vector<ObservationPoint> result;
     for (const auto& obs : observations_) {
-      if (obs.is_valid) {
-        auto obs_loc = obs.getObservationLocation();
-        if (obs_loc.level >= min_level && obs_loc.level <= max_level) {
+      if (obs.is_valid &&
+          obs.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+        auto [lat, lon, level] = obs.location.getGeographicCoords();
+        if (level >= min_level && level <= max_level) {
           result.push_back(obs);
         }
       }

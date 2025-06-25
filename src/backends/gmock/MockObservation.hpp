@@ -34,7 +34,8 @@
 
 namespace metada::backends::gmock {
 
-using metada::framework::ObservationLocation;
+using metada::framework::CoordinateSystem;
+using metada::framework::Location;
 using metada::framework::ObservationPoint;
 
 /**
@@ -177,9 +178,9 @@ class MockObservation {
     type_variable_map_["obs_A"]["pressure"] = {0, 1, 2};
 
     // Add some default observations for testing
-    addObservation(ObservationLocation(45.0, -120.0, 1000.0), 25.5, 0.5);
-    addObservation(ObservationLocation(46.0, -121.0, 850.0), 15.2, 0.3);
-    addObservation(ObservationLocation(47.0, -122.0, 500.0), -5.8, 0.7);
+    addObservation(Location(45.0, -120.0, 1000.0), 25.5, 0.5);
+    addObservation(Location(46.0, -121.0, 850.0), 15.2, 0.3);
+    addObservation(Location(47.0, -122.0, 500.0), -5.8, 0.7);
 
     // Set default covariance
     covariance_ = {1.0, 0.0, 0.0, 1.0};
@@ -295,8 +296,7 @@ class MockObservation {
     observations_ = obs;
   }
 
-  void addObservation(const ObservationLocation& location, double value,
-                      double error) {
+  void addObservation(const Location& location, double value, double error) {
     observations_.emplace_back(location, value, error);
   }
 

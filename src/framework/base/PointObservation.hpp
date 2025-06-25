@@ -166,52 +166,10 @@ struct Location {
 };
 
 /**
- * @brief Structure to hold observation location information
- * @deprecated Use Location class instead. This is kept for backward
- * compatibility.
- */
-struct ObservationLocation {
-  double latitude;   ///< Latitude in degrees
-  double longitude;  ///< Longitude in degrees
-  double level;      ///< Vertical level (pressure in hPa, height in m, etc.)
-
-  ObservationLocation(double lat, double lon, double lev)
-      : latitude(lat), longitude(lon), level(lev) {}
-
-  /**
-   * @brief Convert to Location object
-   * @return Location object with geographic coordinates
-   */
-  Location toLocation() const {
-    return Location(latitude, longitude, level, CoordinateSystem::GEOGRAPHIC);
-  }
-
-  /**
-   * @brief Create from Location object
-   * @param loc Location object with geographic coordinates
-   * @return ObservationLocation object
-   * @throws std::runtime_error if location is not in geographic format
-   */
-  static ObservationLocation fromLocation(const Location& loc) {
-    if (loc.getCoordinateSystem() != CoordinateSystem::GEOGRAPHIC) {
-      throw std::runtime_error(
-          "Location must be in geographic coordinate system");
-    }
-    auto [lat, lon, level] = loc.getGeographicCoords();
-    return ObservationLocation(lat, lon, level);
-  }
-
-  bool operator==(const ObservationLocation& other) const {
-    return latitude == other.latitude && longitude == other.longitude &&
-           level == other.level;
-  }
-};
-
-/**
  * @brief Structure to hold a single observation point
  */
 struct ObservationPoint {
-  Location location;  ///< Location of the observation (new unified location)
+  Location location;  ///< Location of the observation
   double value;       ///< Observed value
   double error;       ///< Observation error
   bool is_valid;      ///< Whether the observation is valid
@@ -231,33 +189,6 @@ struct ObservationPoint {
    */
   ObservationPoint(const Location& loc)
       : location(loc), value(0.0), error(0.0), is_valid(false) {}
-
-  /**
-   * @brief Constructor with ObservationLocation (for backward compatibility)
-   * @param loc ObservationLocation object
-   * @param val Observed value
-   * @param err Observation error
-   */
-  ObservationPoint(const ObservationLocation& loc, double val, double err)
-      : location(loc.toLocation()), value(val), error(err), is_valid(true) {}
-
-  /**
-   * @brief Constructor with ObservationLocation (invalid observation, for
-   * backward compatibility)
-   * @param loc ObservationLocation object
-   */
-  ObservationPoint(const ObservationLocation& loc)
-      : location(loc.toLocation()), value(0.0), error(0.0), is_valid(false) {}
-
-  /**
-   * @brief Get observation location as ObservationLocation (for backward
-   * compatibility)
-   * @return ObservationLocation object
-   * @throws std::runtime_error if location is not in geographic format
-   */
-  ObservationLocation getObservationLocation() const {
-    return ObservationLocation::fromLocation(location);
-  }
 
   bool operator==(const ObservationPoint& other) const {
     return location == other.location && value == other.value &&

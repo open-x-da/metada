@@ -131,7 +131,7 @@ class ETKFTest : public ::testing::Test {
       double lon = -120.0 + (i * 0.1);  // Start at 120°W, increment by 0.1°
       double level =
           1000.0 - (i * 10.0);  // Start at 1000 hPa, decrement by 10 hPa
-      framework::ObservationLocation loc(lat, lon, level);
+      framework::Location loc(lat, lon, level);
       obs_points.emplace_back(loc, obs_data_[i], 0.1);  // Use 0.1 as error
     }
     obs_->backend().setObservations(obs_points);
