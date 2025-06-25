@@ -5,13 +5,15 @@
 #include <utility>
 #include <vector>
 
+#include "PointObservation.hpp"
 #include "SimpleGeometryIterator.hpp"
 
 namespace metada::backends::simple {
 
 class SimpleGeometry {
  public:
-  using Coord = std::pair<int, int>;
+  using Coord = std::pair<int, int>;  // Keep for backward compatibility
+  using Location = metada::framework::Location;  // New unified location type
   using container_type = std::vector<Coord>;
   using value_type = Coord;
   using reference = value_type&;
@@ -88,6 +90,27 @@ class SimpleGeometry {
   int x_dim() const { return x_dim_; }
   int y_dim() const { return y_dim_; }
   const container_type& coordinates() const { return coordinates_; }
+
+  /**
+   * @brief Get grid point as Location object
+   * @param idx Index of the grid point
+   * @return Location object with grid coordinates
+   */
+  Location getLocation(size_type idx) const {
+    if (idx >= coordinates_.size()) {
+      throw std::out_of_range("Grid point index out of range");
+    }
+    const auto& [x, y] = coordinates_[idx];
+    return Location(x, y);
+  }
+
+  /**
+   * @brief Get grid point as Location object from coordinates
+   * @param x X coordinate
+   * @param y Y coordinate
+   * @return Location object with grid coordinates
+   */
+  Location getLocation(int x, int y) const { return Location(x, y); }
 
  private:
   int x_dim_ = 0;

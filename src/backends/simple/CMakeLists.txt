@@ -23,5 +23,10 @@ target_sources(simple_backends
         SimpleStateIterator.cpp
 )
 
+target_link_libraries(simple_backends
+    PRIVATE
+        metada::base
+)
+
 # Add format target
 AddFormatTarget(simple_backends ${CMAKE_CURRENT_SOURCE_DIR}) 

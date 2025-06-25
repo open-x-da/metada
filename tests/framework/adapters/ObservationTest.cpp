@@ -168,10 +168,11 @@ class ObservationTest : public ::testing::Test {
     size_t count = 0;
     for (const auto& obs : *obs1_) {
       EXPECT_TRUE(obs.is_valid);
-      EXPECT_GE(obs.location.latitude, -90.0);
-      EXPECT_LE(obs.location.latitude, 90.0);
-      EXPECT_GE(obs.location.longitude, -180.0);
-      EXPECT_LE(obs.location.longitude, 180.0);
+      auto obs_loc = obs.getObservationLocation();
+      EXPECT_GE(obs_loc.latitude, -90.0);
+      EXPECT_LE(obs_loc.latitude, 90.0);
+      EXPECT_GE(obs_loc.longitude, -180.0);
+      EXPECT_LE(obs_loc.longitude, 180.0);
       count++;
     }
     EXPECT_EQ(count, obs1_->size());
@@ -312,9 +313,10 @@ TEST_F(ObservationTest, DataAccessAndIteration) {
   // Test direct indexing
   for (size_t i = 0; i < obs1_->size(); ++i) {
     const auto& obs = (*obs1_)[i];
-    EXPECT_DOUBLE_EQ(obs.location.latitude, locations_[i].first);
-    EXPECT_DOUBLE_EQ(obs.location.longitude, locations_[i].second);
-    EXPECT_DOUBLE_EQ(obs.location.level, levels_[i]);
+    auto obs_loc = obs.getObservationLocation();
+    EXPECT_DOUBLE_EQ(obs_loc.latitude, locations_[i].first);
+    EXPECT_DOUBLE_EQ(obs_loc.longitude, locations_[i].second);
+    EXPECT_DOUBLE_EQ(obs_loc.level, levels_[i]);
     EXPECT_DOUBLE_EQ(obs.value, values_[i]);
     EXPECT_DOUBLE_EQ(obs.error, errors_[i]);
   }

@@ -20,6 +20,8 @@
 #include <xtensor/xarray.hpp>
 #endif
 
+#include "PointObservation.hpp"
+
 // Forward declarations
 namespace metada::backends::wrf {
 template <typename ConfigBackend>
@@ -44,6 +46,7 @@ class WRFGeometry {
   // Iterator type aliases
   using iterator = WRFGeometryIterator<ConfigBackend>;
   using const_iterator = WRFGeometryConstIterator<ConfigBackend>;
+  using Location = metada::framework::Location;  // New unified location type
 
   /**
    * @brief Default constructor is deleted
@@ -144,6 +147,65 @@ class WRFGeometry {
    * @return Reference to the elevation array
    */
   const xt::xarray<double>& getElevation() const;
+
+  /**
+   * @brief Get grid point as Location object
+   * @param i X coordinate (west-east)
+   * @param j Y coordinate (south-north)
+   * @param k Z coordinate (bottom-top)
+   * @return Location object with grid coordinates
+   */
+  Location getLocation(size_t i, size_t j, size_t k = 0) const {
+    return Location(static_cast<int>(i), static_cast<int>(j),
+                    static_cast<int>(k));
+  }
+
+  /**
+   * @brief Get grid point as Location object from linear index
+   * @param index Linear index into the grid
+   * @return Location object with grid coordinates
+   */
+  Location getLocation(size_t index) const {
+    if (index >= totalGridSize()) {
+      throw std::out_of_range("Grid index out of range");
+    }
+
+    // Calculate 3D indices from linear index
+    const size_t nx = nx_;
+    const size_t ny = ny_;
+
+    // Using row-major order: index = k*nx*ny + j*nx + i
+    size_t k = index / (nx * ny);
+    const size_t remainder = index % (nx * ny);
+    size_t j = remainder / nx;
+    size_t i = remainder % nx;
+
+    return getLocation(i, j, k);
+  }
+
+  /**
+   * @brief Get geographic location as Location object
+   * @param i X coordinate (west-east)
+   * @param j Y coordinate (south-north)
+   * @return Location object with geographic coordinates
+   */
+  Location getGeographicLocation(size_t i, size_t j) const {
+    if (i >= nx_ || j >= ny_) {
+      throw std::out_of_range("Grid coordinates out of range");
+    }
+
+    double lon = longitude_(j, i);
+    double lat = latitude_(j, i);
+    double level = 0.0;  // Default level, could be enhanced to get actual level
+
+    return Location(lat, lon, level);
+  }
+
+  /**
+   * @brief Get total grid size
+   * @return Total number of grid points
+   */
+  size_t totalGridSize() const { return nx_ * ny_ * nz_; }
 
  private:
   /**

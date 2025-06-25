@@ -364,8 +364,9 @@ class SimpleObservation {
         }
 
         // Check for reasonable latitude/longitude
-        if (obs.location.latitude < -90.0 || obs.location.latitude > 90.0 ||
-            obs.location.longitude < -180.0 || obs.location.longitude > 180.0) {
+        auto obs_loc = obs.getObservationLocation();
+        if (obs_loc.latitude < -90.0 || obs_loc.latitude > 90.0 ||
+            obs_loc.longitude < -180.0 || obs_loc.longitude > 180.0) {
           obs.is_valid = false;
         }
       }
@@ -416,10 +417,11 @@ class SimpleObservation {
 
     for (const auto& obs : observations_) {
       if (obs.is_valid) {
+        auto obs_loc = obs.getObservationLocation();
         file << std::fixed << std::setprecision(6) << std::setw(10)
-             << obs.location.latitude << std::setw(10) << obs.location.longitude
-             << std::setw(10) << obs.location.level << std::setw(12)
-             << obs.value << std::setw(12) << obs.error << "\n";
+             << obs_loc.latitude << std::setw(10) << obs_loc.longitude
+             << std::setw(10) << obs_loc.level << std::setw(12) << obs.value
+             << std::setw(12) << obs.error << "\n";
       }
     }
   }
@@ -438,11 +440,12 @@ class SimpleObservation {
                                                      double max_lon) const {
     std::vector<ObservationPoint> result;
     for (const auto& obs : observations_) {
-      if (obs.is_valid && obs.location.latitude >= min_lat &&
-          obs.location.latitude <= max_lat &&
-          obs.location.longitude >= min_lon &&
-          obs.location.longitude <= max_lon) {
-        result.push_back(obs);
+      if (obs.is_valid) {
+        auto obs_loc = obs.getObservationLocation();
+        if (obs_loc.latitude >= min_lat && obs_loc.latitude <= max_lat &&
+            obs_loc.longitude >= min_lon && obs_loc.longitude <= max_lon) {
+          result.push_back(obs);
+        }
       }
     }
     return result;
@@ -458,9 +461,11 @@ class SimpleObservation {
       double min_level, double max_level) const {
     std::vector<ObservationPoint> result;
     for (const auto& obs : observations_) {
-      if (obs.is_valid && obs.location.level >= min_level &&
-          obs.location.level <= max_level) {
-        result.push_back(obs);
+      if (obs.is_valid) {
+        auto obs_loc = obs.getObservationLocation();
+        if (obs_loc.level >= min_level && obs_loc.level <= max_level) {
+          result.push_back(obs);
+        }
       }
     }
     return result;

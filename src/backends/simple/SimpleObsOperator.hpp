@@ -145,8 +145,9 @@ class SimpleObsOperator {
       }
 
       // Convert observation location to grid coordinates
-      double x = obs_point.location.longitude;
-      double y = obs_point.location.latitude;
+      auto obs_loc = obs_point.getObservationLocation();
+      double x = obs_loc.longitude;
+      double y = obs_loc.latitude;
 
       // Perform bilinear interpolation
       double interpolated_value = exactInterpolation(state, x, y, nx, ny);

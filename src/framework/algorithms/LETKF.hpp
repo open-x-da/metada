@@ -81,7 +81,7 @@ class LETKF {
 
     std::vector<ObservationLocation> obs_locations;
     for (const auto& obs_point : obs_) {
-      obs_locations.push_back(obs_point.location);
+      obs_locations.push_back(obs_point.getObservationLocation());
     }
 
     // Retrieve geometry from the first ensemble member's state
@@ -140,8 +140,20 @@ class LETKF {
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
-    int x = grid_point.first;
-    int y = grid_point.second;
+    // Extract grid coordinates from the grid point
+    // Support both Location objects and std::pair<int, int> for backward
+    // compatibility
+    int x, y;
+    if constexpr (std::is_same_v<GridPointType, Location>) {
+      // New Location class
+      auto [i, j] = grid_point.getGridCoords2D();
+      x = i;
+      y = j;
+    } else {
+      // Legacy std::pair<int, int> support
+      x = grid_point.first;
+      y = grid_point.second;
+    }
 
     // Calculate linear index from 2D coordinates
     // This assumes row-major ordering: index = y * nx + x
