@@ -84,8 +84,14 @@ class LETKF {
       obs_locations.push_back(obs_point.location);
     }
 
-    // Update each grid point locally
-    for (int grid_point = 0; grid_point < state_dim; ++grid_point) {
+    // Retrieve geometry from the first ensemble member's state
+    const auto* geometry = ensemble_.GetMember(0).geometry();
+    if (!geometry) {
+      throw std::runtime_error("Geometry pointer is null in LETKF");
+    }
+
+    // Update each grid point locally using geometry iterator
+    for (const auto& grid_point : *geometry) {
       updateGridPoint(grid_point, member_data, yo, obs_locations, ens_size);
     }
 
@@ -119,13 +125,14 @@ class LETKF {
  private:
   /**
    * @brief Update a single grid point using local observations
-   * @param grid_point Index of the grid point to update
+   * @param grid_point The grid point object to update
    * @param member_data Vector of ensemble member data
    * @param yo Observation vector
    * @param obs_locations Vector of observation locations
    * @param ens_size Ensemble size
    */
-  void updateGridPoint(int grid_point,
+  template <typename GridPointType>
+  void updateGridPoint(const GridPointType& grid_point,
                        std::vector<Eigen::VectorXd>& member_data,
                        const Eigen::VectorXd& yo,
                        const std::vector<ObservationLocation>& obs_locations,
@@ -133,14 +140,16 @@ class LETKF {
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
-    // Find local observations
-    std::vector<int> local_obs_indices;
-    double grid_x = static_cast<double>(grid_point);
+    int x = grid_point.first;
+    int y = grid_point.second;
 
+    // Find local observations using 2D Euclidean distance
+    std::vector<int> local_obs_indices;
     for (size_t i = 0; i < obs_locations.size(); ++i) {
       double obs_x = obs_locations[i].longitude;
-      double distance = std::abs(obs_x - grid_x);
-
+      double obs_y = obs_locations[i].latitude;
+      double distance =
+          std::sqrt((x - obs_x) * (x - obs_x) + (y - obs_y) * (y - obs_y));
       if (distance <= localization_radius_) {
         local_obs_indices.push_back(i);
       }
@@ -182,7 +191,7 @@ class LETKF {
     // Update grid point
     VectorXd xb_local(ens_size);
     for (int i = 0; i < ens_size; ++i) {
-      xb_local(i) = member_data[i](grid_point);
+      xb_local(i) = member_data[i](grid_index);  // Use grid_index
     }
 
     VectorXd xb_mean_local = xb_local.mean() * VectorXd::Ones(ens_size);
@@ -194,7 +203,7 @@ class LETKF {
     VectorXd xa_local = xa_mean_local + Xa_pert_local.rowwise().sum();
 
     for (int i = 0; i < ens_size; ++i) {
-      member_data[i](grid_point) = xa_local(i);
+      member_data[i](grid_index) = xa_local(i);  // Use grid_index
     }
   }
 
