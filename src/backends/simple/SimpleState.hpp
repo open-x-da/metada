@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "Location.hpp"
 #include "SimpleGeometry.hpp"
 #include "SimpleStateIterator.hpp"
 
@@ -186,6 +187,15 @@ class SimpleState {
     }
   }
 
+  double& at(const framework::Location& loc) {
+    auto grid = loc.getGridCoords2D();
+    return at(grid);
+  }
+  const double& at(const framework::Location& loc) const {
+    auto grid = loc.getGridCoords2D();
+    return at(grid);
+  }
+
  private:
   // Private constructor for cloning
   SimpleState(const SimpleState& other, bool)
@@ -221,7 +231,8 @@ class SimpleState {
 // Output operator
 inline std::ostream& operator<<(std::ostream& os, const SimpleState& state) {
   for (const auto& [coord, value] : state) {
-    os << "(" << coord.first << "," << coord.second << ")=" << value << " ";
+    auto [x, y] = coord.getGridCoords2D();
+    os << "(" << x << "," << y << ")=" << value << " ";
   }
   return os;
 }

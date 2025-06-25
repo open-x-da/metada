@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "Config.hpp"
+#include "Location.hpp"
 #include "MockBackendTraits.hpp"
 #include "Observation.hpp"
 #include "PointObservation.hpp"
@@ -303,7 +304,8 @@ TEST_F(ObservationTest, DataAccessAndIteration) {
   // Set up mock observation data
   std::vector<ObservationPoint> mock_obs;
   for (size_t i = 0; i < locations_.size(); ++i) {
-    Location loc(locations_[i].first, locations_[i].second, levels_[i]);
+    Location loc(locations_[i].first, locations_[i].second, levels_[i],
+                 CoordinateSystem::GEOGRAPHIC);
     mock_obs.emplace_back(loc, values_[i], errors_[i]);
   }
   obs1_->backend().setObservations(mock_obs);

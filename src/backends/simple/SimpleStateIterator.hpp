@@ -4,6 +4,7 @@
 #include <iterator>
 #include <utility>
 
+#include "Location.hpp"
 #include "SimpleGeometry.hpp"
 #include "SimpleGeometryIterator.hpp"
 
@@ -14,7 +15,7 @@ class SimpleState;  // Forward declaration
 class SimpleStateIterator {
  public:
   using iterator_category = std::forward_iterator_tag;
-  using value_type = std::pair<SimpleGeometry::Coord, double>;
+  using value_type = std::pair<framework::Location, double>;
   using difference_type = std::ptrdiff_t;
   using pointer = value_type*;
   using reference = value_type&;
@@ -24,7 +25,9 @@ class SimpleStateIterator {
       SimpleState* state,
       SimpleGeometryIterator<std::vector<SimpleGeometry::Coord>::const_iterator>
           it)
-      : state_(state), geom_it_(it) {}
+      : state_(state),
+        geom_it_(it),
+        current_value_({framework::Location(0, 0), 0.0}) {}
 
   // Copy/move constructors/assignments
   SimpleStateIterator(const SimpleStateIterator&) = default;

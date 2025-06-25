@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "Location.hpp"
 #include "PointObservation.hpp"
 #include "SimpleObservation.hpp"
 #include "SimpleState.hpp"
@@ -210,8 +211,8 @@ class SimpleObsOperator {
     if (i >= nx) i = nx - 1;
     if (j >= ny) j = ny - 1;
 
-    // Return exact value at the grid point
-    return state.at({i, j});
+    // Return exact value at the grid point using grid coordinates
+    return state.at(std::make_pair(static_cast<int>(i), static_cast<int>(j)));
   }
 
   bool initialized_ = false;                      ///< Initialization status

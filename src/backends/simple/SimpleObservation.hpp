@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Location.hpp"
 #include "PointObservation.hpp"
 
 namespace metada::backends::simple {
@@ -398,8 +399,7 @@ class SimpleObservation {
       while (iss >> value) {
         if (value != missing_value) {
           // Location is derived from grid indices, level is 0
-          Location location(static_cast<double>(j), static_cast<double>(i),
-                            0.0);
+          Location location(j, i, 0);
           observations_.emplace_back(location, value, error);
         }
         i++;

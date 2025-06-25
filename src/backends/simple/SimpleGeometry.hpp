@@ -15,9 +15,9 @@ class SimpleGeometry {
   using Coord = std::pair<int, int>;  // Keep for backward compatibility
   using Location = metada::framework::Location;  // New unified location type
   using container_type = std::vector<Coord>;
-  using value_type = Coord;
-  using reference = value_type&;
-  using const_reference = const value_type&;
+  using value_type = Location;
+  using reference = value_type;
+  using const_reference = const value_type;
   using pointer = value_type*;
   using const_pointer = const value_type*;
   using size_type = typename container_type::size_type;
@@ -71,14 +71,38 @@ class SimpleGeometry {
   size_type max_size() const { return coordinates_.max_size(); }
 
   // Element access
-  reference operator[](size_type idx) { return coordinates_[idx]; }
-  const_reference operator[](size_type idx) const { return coordinates_[idx]; }
-  reference at(size_type idx) { return coordinates_.at(idx); }
-  const_reference at(size_type idx) const { return coordinates_.at(idx); }
-  reference front() { return coordinates_.front(); }
-  const_reference front() const { return coordinates_.front(); }
-  reference back() { return coordinates_.back(); }
-  const_reference back() const { return coordinates_.back(); }
+  reference operator[](size_type idx) {
+    const auto& [x, y] = coordinates_[idx];
+    return Location(x, y);
+  }
+  const_reference operator[](size_type idx) const {
+    const auto& [x, y] = coordinates_[idx];
+    return Location(x, y);
+  }
+  reference at(size_type idx) {
+    const auto& [x, y] = coordinates_.at(idx);
+    return Location(x, y);
+  }
+  const_reference at(size_type idx) const {
+    const auto& [x, y] = coordinates_.at(idx);
+    return Location(x, y);
+  }
+  reference front() {
+    const auto& [x, y] = coordinates_.front();
+    return Location(x, y);
+  }
+  const_reference front() const {
+    const auto& [x, y] = coordinates_.front();
+    return Location(x, y);
+  }
+  reference back() {
+    const auto& [x, y] = coordinates_.back();
+    return Location(x, y);
+  }
+  const_reference back() const {
+    const auto& [x, y] = coordinates_.back();
+    return Location(x, y);
+  }
 
   // Cloning
   SimpleGeometry clone() const {

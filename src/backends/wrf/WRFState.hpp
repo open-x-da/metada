@@ -19,6 +19,7 @@
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xarray.hpp>
 #endif
+#include "Location.hpp"
 
 namespace metada::backends::wrf {
 
@@ -206,6 +207,18 @@ class WRFState {
    * @throws std::runtime_error If variable doesn't exist
    */
   const xt::xarray<double>& getData(const std::string& variableName = "") const;
+
+  double& at(const Location& loc) {
+    auto [i, j] = loc.getGridCoords2D();
+    // Assume active variable is 2D (j, i) ordering
+    auto& arr = variables_.at(activeVariable_);
+    return arr(j, i);
+  }
+  const double& at(const Location& loc) const {
+    auto [i, j] = loc.getGridCoords2D();
+    const auto& arr = variables_.at(activeVariable_);
+    return arr(j, i);
+  }
 
  private:
   /**

@@ -36,6 +36,7 @@
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
 #include "Geometry.hpp"
+#include "Location.hpp"
 #include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "StateConcepts.hpp"
@@ -382,6 +383,9 @@ class State : private NonCopyable {
    * @return Pointer to the geometry instance, or nullptr if not set
    */
   const Geometry* geometry() const { return geometry_; }
+
+  double& at(const Location& loc) { return backend_.at(loc); }
+  const double& at(const Location& loc) const { return backend_.at(loc); }
 
  private:
   /**

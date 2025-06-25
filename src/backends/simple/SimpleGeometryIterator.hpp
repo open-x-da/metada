@@ -5,16 +5,19 @@
 #include <utility>
 #include <vector>
 
+#include "Location.hpp"
+
 namespace metada::backends::simple {
 
+// Iter should be an iterator over std::pair<int, int>
 template <typename Iter>
 class SimpleGeometryIterator {
  public:
   using iterator_category = std::forward_iterator_tag;
-  using value_type = typename std::iterator_traits<Iter>::value_type;
+  using value_type = metada::framework::Location;
   using difference_type = typename std::iterator_traits<Iter>::difference_type;
-  using pointer = typename std::iterator_traits<Iter>::pointer;
-  using reference = typename std::iterator_traits<Iter>::reference;
+  using pointer = value_type*;   // Not used
+  using reference = value_type;  // Return by value
 
   SimpleGeometryIterator() = default;
   explicit SimpleGeometryIterator(Iter it) : it_(it) {}
@@ -26,9 +29,12 @@ class SimpleGeometryIterator {
   SimpleGeometryIterator& operator=(SimpleGeometryIterator&&) noexcept =
       default;
 
-  // Dereference
-  reference operator*() const { return *it_; }
-  pointer operator->() const { return it_.operator->(); }
+  // Dereference: return Location object
+  value_type operator*() const {
+    auto [x, y] = *it_;
+    return framework::Location(x, y);
+  }
+  // No operator-> needed (Location is returned by value)
 
   // Pre-increment
   SimpleGeometryIterator& operator++() {

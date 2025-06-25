@@ -92,7 +92,7 @@ class LETKF {
 
     // Update each grid point locally using geometry iterator
     for (const auto& grid_point : *geometry) {
-      updateGridPoint(grid_point, member_data, yo, obs_locations, ens_size);
+      updateGridPoint(grid_point, yo, obs_locations, ens_size);
     }
 
     // Update ensemble members
@@ -126,73 +126,20 @@ class LETKF {
   /**
    * @brief Update a single grid point using local observations
    * @param grid_point The grid point object to update
-   * @param member_data Vector of ensemble member data
    * @param yo Observation vector
    * @param obs_locations Vector of observation locations
    * @param ens_size Ensemble size
    */
-  template <typename GridPointType>
-  void updateGridPoint(const GridPointType& grid_point,
-                       std::vector<Eigen::VectorXd>& member_data,
-                       const Eigen::VectorXd& yo,
+  void updateGridPoint(const Location& grid_point, const Eigen::VectorXd& yo,
                        const std::vector<Location>& obs_locations,
                        int ens_size) {
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
-    // Extract grid coordinates from the grid point
-    // Support both Location objects and std::pair<int, int> for backward
-    // compatibility
-    int x, y;
-    if constexpr (std::is_same_v<GridPointType, Location>) {
-      // New Location class
-      auto [i, j] = grid_point.getGridCoords2D();
-      x = i;
-      y = j;
-    } else {
-      // Legacy std::pair<int, int> support
-      x = grid_point.first;
-      y = grid_point.second;
-    }
-
-    // Calculate linear index from 2D coordinates
-    // This assumes row-major ordering: index = y * nx + x
-    // We need to get the grid dimensions from the geometry
-    const auto* geometry = ensemble_.GetMember(0).geometry();
-    if (!geometry) {
-      throw std::runtime_error("Geometry pointer is null in updateGridPoint");
-    }
-
-    // Calculate grid dimensions from geometry size
-    // For a 2D grid, size = nx * ny, so we can estimate nx from size
-    // This is a reasonable approximation for most regular grids
-    size_t total_size = geometry->size();
-    int nx = static_cast<int>(std::sqrt(total_size));  // Approximate nx
-    int grid_index = y * nx + x;
-
-    // Ensure grid_index is within bounds
-    if (grid_index >= static_cast<int>(total_size)) {
-      logger_.Warning() << "Grid index " << grid_index
-                        << " out of bounds for size " << total_size;
-      return;
-    }
-
-    // Find local observations using 2D Euclidean distance
+    // Find local observations using Location::distance_to
     std::vector<int> local_obs_indices;
     for (size_t i = 0; i < obs_locations.size(); ++i) {
-      double obs_x, obs_y;
-      if (obs_locations[i].getCoordinateSystem() ==
-          CoordinateSystem::GEOGRAPHIC) {
-        auto [lat, lon, level] = obs_locations[i].getGeographicCoords();
-        obs_x = lon;
-        obs_y = lat;
-      } else {
-        auto [i_coord, j_coord] = obs_locations[i].getGridCoords2D();
-        obs_x = static_cast<double>(i_coord);
-        obs_y = static_cast<double>(j_coord);
-      }
-      double distance =
-          std::sqrt((x - obs_x) * (x - obs_x) + (y - obs_y) * (y - obs_y));
+      double distance = grid_point.distance_to(obs_locations[i]);
       if (distance <= localization_radius_) {
         local_obs_indices.push_back(i);
       }
@@ -209,7 +156,8 @@ class LETKF {
       yo_local(i) = yo(local_obs_indices[i]);
       // Simplified local observation operator
       for (int j = 0; j < ens_size; ++j) {
-        H_local(i, j) = member_data[j](local_obs_indices[i]);
+        H_local(i, j) =
+            ensemble_.GetMember(j).at(obs_locations[local_obs_indices[i]]);
       }
     }
 
@@ -234,7 +182,7 @@ class LETKF {
     // Update grid point
     VectorXd xb_local(ens_size);
     for (int i = 0; i < ens_size; ++i) {
-      xb_local(i) = member_data[i](grid_index);  // Use grid_index
+      xb_local(i) = ensemble_.GetMember(i).at(grid_point);
     }
 
     VectorXd xb_mean_local = xb_local.mean() * VectorXd::Ones(ens_size);
@@ -246,7 +194,7 @@ class LETKF {
     VectorXd xa_local = xa_mean_local + Xa_pert_local.rowwise().sum();
 
     for (int i = 0; i < ens_size; ++i) {
-      member_data[i](grid_index) = xa_local(i);  // Use grid_index
+      ensemble_.GetMember(i).at(grid_point) = xa_local(i);
     }
   }
 
