@@ -143,6 +143,28 @@ class LETKF {
     int x = grid_point.first;
     int y = grid_point.second;
 
+    // Calculate linear index from 2D coordinates
+    // This assumes row-major ordering: index = y * nx + x
+    // We need to get the grid dimensions from the geometry
+    const auto* geometry = ensemble_.GetMember(0).geometry();
+    if (!geometry) {
+      throw std::runtime_error("Geometry pointer is null in updateGridPoint");
+    }
+
+    // Calculate grid dimensions from geometry size
+    // For a 2D grid, size = nx * ny, so we can estimate nx from size
+    // This is a reasonable approximation for most regular grids
+    size_t total_size = geometry->size();
+    int nx = static_cast<int>(std::sqrt(total_size));  // Approximate nx
+    int grid_index = y * nx + x;
+
+    // Ensure grid_index is within bounds
+    if (grid_index >= static_cast<int>(total_size)) {
+      logger_.Warning() << "Grid index " << grid_index
+                        << " out of bounds for size " << total_size;
+      return;
+    }
+
     // Find local observations using 2D Euclidean distance
     std::vector<int> local_obs_indices;
     for (size_t i = 0; i < obs_locations.size(); ++i) {
