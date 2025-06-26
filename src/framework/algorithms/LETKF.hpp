@@ -6,10 +6,12 @@
 
 #include "Config.hpp"
 #include "Ensemble.hpp"
+#include "Location.hpp"
 #include "Logger.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "PointObservation.hpp"
+#include "State.hpp"
 
 namespace metada::framework {
 
@@ -102,6 +104,15 @@ class LETKF {
       Eigen::Map<VectorXd>(data_ptr, state_dim) = member_data[i];
     }
 
+    // Compute analysis mean by averaging all ensemble members
+    analysis_mean_ = Eigen::VectorXd::Zero(state_dim);
+    for (int i = 0; i < ens_size; ++i) {
+      const auto data_ptr =
+          ensemble_.GetMember(i).template getDataPtr<double>();
+      analysis_mean_ += Eigen::Map<const VectorXd>(data_ptr, state_dim);
+    }
+    analysis_mean_ /= ens_size;
+
     logger_.Debug() << "LETKF analysis completed";
   }
 
@@ -112,6 +123,15 @@ class LETKF {
   void saveEnsemble() const {
     logger_.Debug() << "LETKF saving ensemble";
     const int ens_size = ensemble_.Size();
+
+    // Save analysis mean (computed during analysis)
+    if (analysis_mean_.size() > 0) {
+      State<BackendTag> mean_state = ensemble_.GetMember(0).clone();
+      auto mean_data = mean_state.template getDataPtr<double>();
+      Eigen::Map<Eigen::VectorXd>(mean_data, analysis_mean_.size()) =
+          analysis_mean_;
+      mean_state.saveToFile(output_base_file_ + "_mean.txt");
+    }
 
     // Save individual ensemble members
     for (int i = 0; i < ens_size; ++i) {
@@ -208,6 +228,7 @@ class LETKF {
   double inflation_;
   double localization_radius_;
   std::string output_base_file_ = "analysis";
+  Eigen::VectorXd analysis_mean_;  ///< Analysis mean computed during LETKF
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
