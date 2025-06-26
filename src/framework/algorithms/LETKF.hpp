@@ -176,10 +176,12 @@ class LETKF {
 
     for (int i = 0; i < local_obs_dim; ++i) {
       yo_local(i) = yo(local_obs_indices[i]);
-      // Simplified local observation operator
+      // Use observation operator to apply H to each ensemble member
       for (int j = 0; j < ens_size; ++j) {
-        H_local(i, j) =
-            ensemble_.GetMember(j).at(obs_locations[local_obs_indices[i]]);
+        // Apply observation operator to get observation space values
+        const auto& obs_data = obs_op_.apply(ensemble_.GetMember(j), obs_);
+        // Extract the value for the specific observation location
+        H_local(i, j) = obs_data[local_obs_indices[i]];
       }
     }
 
