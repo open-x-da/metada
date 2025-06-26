@@ -391,20 +391,21 @@ class SimpleObservation {
     }
 
     std::string line;
-    int j = 0;  // row index, used as latitude
+    int y = 0;  // row index (latitude)
     while (std::getline(file, line)) {
       std::istringstream iss(line);
       double value;
-      int i = 0;  // column index, used as longitude
+      int x = 0;  // column index (longitude)
       while (iss >> value) {
         if (value != missing_value) {
           // Location is derived from grid indices, level is 0
-          Location location(j, i, 0);
+          // Use same convention as state/geometry: (x, y) where x=col, y=row
+          Location location(x, y, 0);
           observations_.emplace_back(location, value, error);
         }
-        i++;
+        x++;
       }
-      j++;
+      y++;
     }
   }
 

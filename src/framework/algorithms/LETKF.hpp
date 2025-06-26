@@ -136,6 +136,8 @@ class LETKF {
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
+    logger_.Debug() << "Updating grid point: " << grid_point;
+
     // Find local observations using Location::distance_to
     std::vector<int> local_obs_indices;
     for (size_t i = 0; i < obs_locations.size(); ++i) {
@@ -196,6 +198,8 @@ class LETKF {
     for (int i = 0; i < ens_size; ++i) {
       ensemble_.GetMember(i).at(grid_point) = xa_local(i);
     }
+
+    logger_.Debug() << "Grid point updated: " << grid_point;
   }
 
   Ensemble<BackendTag>& ensemble_;

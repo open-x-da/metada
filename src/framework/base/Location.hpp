@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <iostream>
 #include <stdexcept>
 #include <tuple>
 #include <utility>
@@ -138,6 +139,42 @@ class Location {
   int getGridIndex(int x_dim) const {
     auto [x, y] = getGridCoords2D();
     return y * x_dim + x;
+  }
+
+  /**
+   * @brief Stream operator for Location class
+   * @param os Output stream
+   * @param loc Location to output
+   * @return Reference to the output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os, const Location& loc) {
+    switch (loc.system) {
+      case CoordinateSystem::GRID: {
+        if (std::holds_alternative<std::tuple<int, int, int>>(
+                loc.coordinates)) {
+          auto [i, j, k] = std::get<std::tuple<int, int, int>>(loc.coordinates);
+          os << "Grid(" << i << "," << j << "," << k << ")";
+        } else if (std::holds_alternative<std::pair<int, int>>(
+                       loc.coordinates)) {
+          auto [i, j] = std::get<std::pair<int, int>>(loc.coordinates);
+          os << "Grid(" << i << "," << j << ",0)";
+        }
+        break;
+      }
+      case CoordinateSystem::GEOGRAPHIC: {
+        auto [lat, lon, level] =
+            std::get<std::tuple<double, double, double>>(loc.coordinates);
+        os << "Geo(" << lat << "," << lon << "," << level << ")";
+        break;
+      }
+      case CoordinateSystem::CARTESIAN: {
+        auto [x, y, z] =
+            std::get<std::tuple<double, double, double>>(loc.coordinates);
+        os << "Cart(" << x << "," << y << "," << z << ")";
+        break;
+      }
+    }
+    return os;
   }
 
  private:
