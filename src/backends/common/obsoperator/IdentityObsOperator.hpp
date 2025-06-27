@@ -1,13 +1,13 @@
 /**
- * @file SimpleObsOperator.hpp
- * @brief Simple implementation of observation operator backend
+ * @file IdentityObsOperator.hpp
+ * @brief Identity observation operator backend implementation
  * @ingroup backends
  * @author Metada Framework Team
  *
  * @details
- * This class provides a simple implementation of the observation operator
- * backend interface that maps SimpleState to GridObservation. The observation
- * operator performs interpolation from the model grid to observation locations.
+ * This class provides an identity observation operator backend interface that maps 
+ * any state backend to GridObservation. The observation operator performs nearest-neighbor 
+ * interpolation from the model grid to observation locations.
  */
 
 #pragma once
@@ -20,32 +20,35 @@
 #include "GridObservation.hpp"
 #include "Location.hpp"
 #include "PointObservation.hpp"
-#include "SimpleState.hpp"
 
-namespace metada::backends::simple {
+namespace metada::backends::common::obsoperator {
 
-using common::observation::GridObservation;
 using framework::CoordinateSystem;
+using common::observation::GridObservation;
 
 /**
- * @brief Simple observation operator backend implementation
+ * @brief Identity observation operator backend implementation
  *
  * @details
- * This class implements a basic observation operator that:
+ * This class implements an identity observation operator that:
  * - Maps state variables from model grid to observation locations
- * - Uses bilinear interpolation for grid-to-point mapping
+ * - Uses nearest-neighbor interpolation for grid-to-point mapping
  * - Supports multiple observation types and variables
  * - Handles missing values and quality control
  * - Provides configuration-based initialization
+ * - Works with any state backend that provides required interface
+ *
+ * @tparam StateBackend Type of state backend to operate on
  */
-class SimpleObsOperator {
+template <typename StateBackend>
+class IdentityObsOperator {
  public:
   // Delete default constructor
-  SimpleObsOperator() = delete;
+  IdentityObsOperator() = delete;
 
   // Delete copy constructor and assignment
-  SimpleObsOperator(const SimpleObsOperator&) = delete;
-  SimpleObsOperator& operator=(const SimpleObsOperator&) = delete;
+  IdentityObsOperator(const IdentityObsOperator&) = delete;
+  IdentityObsOperator& operator=(const IdentityObsOperator&) = delete;
 
   /**
    * @brief Constructor that initializes from configuration
@@ -53,7 +56,7 @@ class SimpleObsOperator {
    * @param config Configuration backend instance
    */
   template <typename ConfigBackend>
-  explicit SimpleObsOperator(const ConfigBackend& config) {
+  explicit IdentityObsOperator(const ConfigBackend& config) {
     initialize(config);
   }
 
@@ -61,7 +64,7 @@ class SimpleObsOperator {
    * @brief Move constructor
    * @param other Observation operator to move from
    */
-  SimpleObsOperator(SimpleObsOperator&& other) noexcept
+  IdentityObsOperator(IdentityObsOperator&& other) noexcept
       : initialized_(other.initialized_),
         required_state_vars_(std::move(other.required_state_vars_)),
         required_obs_vars_(std::move(other.required_obs_vars_)) {
@@ -73,7 +76,7 @@ class SimpleObsOperator {
    * @param other Observation operator to move from
    * @return Reference to this observation operator
    */
-  SimpleObsOperator& operator=(SimpleObsOperator&& other) noexcept {
+  IdentityObsOperator& operator=(IdentityObsOperator&& other) noexcept {
     if (this != &other) {
       initialized_ = other.initialized_;
       required_state_vars_ = std::move(other.required_state_vars_);
@@ -91,7 +94,7 @@ class SimpleObsOperator {
   template <typename ConfigBackend>
   void initialize(const ConfigBackend& config) {
     if (isInitialized()) {
-      throw std::runtime_error("SimpleObsOperator already initialized");
+      throw std::runtime_error("IdentityObsOperator already initialized");
     }
 
     // Get required state variables from config
@@ -123,16 +126,16 @@ class SimpleObsOperator {
    * @brief Apply forward observation operator: H(x)
    *
    * @details Maps state to observation space by interpolating from model grid
-   * to observation locations using bilinear interpolation.
+   * to observation locations using nearest-neighbor interpolation.
    *
    * @param state Model state to transform
    * @param obs Output observation to store the result
    * @return Vector of interpolated values at observation locations
    */
-  std::vector<double> apply(const SimpleState& state,
+  std::vector<double> apply(const StateBackend& state,
                             const GridObservation& obs) const {
     if (!isInitialized()) {
-      throw std::runtime_error("SimpleObsOperator not initialized");
+      throw std::runtime_error("IdentityObsOperator not initialized");
     }
 
     std::vector<double> result;
@@ -163,8 +166,8 @@ class SimpleObsOperator {
         y = static_cast<double>(j);
       }
 
-      // Perform bilinear interpolation
-      double interpolated_value = exactInterpolation(state, x, y, nx, ny);
+      // Perform nearest-neighbor interpolation
+      double interpolated_value = nearestNeighborInterpolation(state, x, y, nx, ny);
       result.push_back(interpolated_value);
     }
 
@@ -189,16 +192,16 @@ class SimpleObsOperator {
 
  private:
   /**
-   * @brief Perform exact interpolation from grid to point
+   * @brief Perform nearest-neighbor interpolation from grid to point
    *
    * @param state Model state
    * @param x Longitude coordinate
    * @param y Latitude coordinate
    * @param nx Number of grid points in x direction
    * @param ny Number of grid points in y direction
-   * @return Exact value at the nearest grid point
+   * @return Value at the nearest grid point
    */
-  double exactInterpolation(const SimpleState& state, double x, double y,
+  double nearestNeighborInterpolation(const StateBackend& state, double x, double y,
                             size_t nx, size_t ny) const {
     // Clamp coordinates to grid bounds
     x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
@@ -222,4 +225,4 @@ class SimpleObsOperator {
       required_obs_vars_;  ///< Required observation variables
 };
 
-}  // namespace metada::backends::simple
+}  // namespace metada::backends::common::obsoperator 

@@ -26,6 +26,8 @@
 #include "../backends/wrf/WRFGeometryIterator.hpp"
 #include "../backends/wrf/WRFState.hpp"
 #include "../backends/wrf/WRFModel.hpp"
+#include "../backends/common/observation/GridObservation.hpp"
+#include "../backends/common/obsoperator/IdentityObsOperator.hpp"
 
 namespace metada::traits {
 
@@ -76,6 +78,15 @@ struct BackendTraits<WRFBackendTag> {
   
   /** @brief WRF-specific state vector backend implementation */
   using StateBackend = backends::wrf::WRFState<ConfigBackend, GeometryBackend>;
+  
+  /** @brief WRF-specific ensemble backend implementation (placeholder) */
+  using EnsembleBackend = void; // TODO: Implement WRFEnsemble
+  
+  /** @brief WRF observation backend implementation */
+  using ObservationBackend = backends::common::observation::GridObservation;
+  
+  /** @brief Identity observation operator backend implementation */
+  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend>;
   
   /** @brief WRF-specific model backend implementation */
   using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend>;

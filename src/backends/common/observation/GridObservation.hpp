@@ -2,9 +2,9 @@
 
 namespace metada::backends::common::observation {
 
-using metada::framework::CoordinateSystem;
-using metada::framework::Location;
-using metada::framework::ObservationPoint;
+using framework::CoordinateSystem;
+using framework::Location;
+using framework::ObservationPoint;
 
 /**
  * @brief Iterator for observations
