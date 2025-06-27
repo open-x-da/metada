@@ -27,7 +27,7 @@
 #include "../backends/simple/SimpleGeometryIterator.hpp"
 #include "../backends/simple/SimpleState.hpp"
 #include "../backends/simple/SimpleEnsemble.hpp"
-#include "../backends/common/observation/CommonObservation.hpp"
+#include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/simple/SimpleObsOperator.hpp"
 #include "../backends/simple/SimpleModel.hpp"
 
@@ -86,7 +86,7 @@ struct BackendTraits<SimpleBackendTag> {
   using EnsembleBackend = backends::simple::SimpleEnsemble;
   
   /** @brief Simple observation backend implementation */
-  using ObservationBackend = backends::common::observation::CommonObservation;
+  using ObservationBackend = backends::common::observation::GridObservation;
   
   /** @brief Simple observation operator backend implementation */
   using ObsOperatorBackend = backends::simple::SimpleObsOperator;

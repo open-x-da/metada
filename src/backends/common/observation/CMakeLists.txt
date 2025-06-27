@@ -1,16 +1,20 @@
 # Create common observation library
-add_library(common_observation INTERFACE)
-add_library(metada::backends::common::observation ALIAS common_observation)
+add_library(observation INTERFACE)
+add_library(metada::backends::common::observation ALIAS observation)
 
 # Set include directories
-target_include_directories(common_observation
+target_include_directories(observation
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
+target_sources(observation
+    INTERFACE
+        GridObservation.hpp)
+
 # Link dependencies
-target_link_libraries(common_observation
+target_link_libraries(observation
     INTERFACE
         metada::framework::adapters)
 
 # Add format target
-AddFormatTarget(common_observation ${CMAKE_CURRENT_SOURCE_DIR}) 
+AddFormatTarget(observation ${CMAKE_CURRENT_SOURCE_DIR}) 

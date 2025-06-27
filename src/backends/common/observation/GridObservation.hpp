@@ -53,10 +53,10 @@ class ObservationIterator {
 };
 
 /**
- * @brief Simple observation backend implementation
+ * @brief Grid-based observation backend implementation
  *
  * @details
- * This class implements a basic observation backend that:
+ * This class implements a grid-based observation backend that:
  * - Stores observations as point observations with location information
  * - Each observation has latitude, longitude, and vertical level
  * - Supports iteration over observations
@@ -64,18 +64,18 @@ class ObservationIterator {
  * - Provides basic arithmetic operations
  * - Organizes data by observation type and variable
  */
-class CommonObservation {
+class GridObservation {
  public:
   // Type aliases for concept compliance
   using iterator_type = ObservationIterator;
   using value_type = ObservationPoint;
 
   // Delete default constructor
-  CommonObservation() = delete;
+  GridObservation() = delete;
 
   // Delete copy constructor and assignment
-  CommonObservation(const CommonObservation&) = delete;
-  CommonObservation& operator=(const CommonObservation&) = delete;
+  GridObservation(const GridObservation&) = delete;
+  GridObservation& operator=(const GridObservation&) = delete;
 
   /**
    * @brief Constructor that initializes from configuration
@@ -83,7 +83,7 @@ class CommonObservation {
    * @param config Configuration backend instance
    */
   template <typename ConfigBackend>
-  explicit CommonObservation(const ConfigBackend& config) {
+  explicit GridObservation(const ConfigBackend& config) {
     // Get observation files from config
     const auto type_configs = config.Get("types").asVectorMap();
 
@@ -119,7 +119,7 @@ class CommonObservation {
    * @brief Move constructor
    * @param other Observation to move from
    */
-  CommonObservation(CommonObservation&& other) noexcept
+  GridObservation(GridObservation&& other) noexcept
       : observations_(std::move(other.observations_)),
         type_variable_map_(std::move(other.type_variable_map_)),
         covariance_(std::move(other.covariance_)) {}
@@ -129,7 +129,7 @@ class CommonObservation {
    * @param other Observation to move from
    * @return Reference to this observation
    */
-  CommonObservation& operator=(CommonObservation&& other) noexcept {
+  GridObservation& operator=(GridObservation&& other) noexcept {
     if (this != &other) {
       observations_ = std::move(other.observations_);
       type_variable_map_ = std::move(other.type_variable_map_);
@@ -262,16 +262,15 @@ class CommonObservation {
    * @brief Clone this observation
    * @return Unique pointer to cloned observation
    */
-  std::unique_ptr<CommonObservation> clone() const {
-    return std::unique_ptr<CommonObservation>(
-        new CommonObservation(*this, true));
+  std::unique_ptr<GridObservation> clone() const {
+    return std::unique_ptr<GridObservation>(new GridObservation(*this, true));
   }
 
   /**
    * @brief Add another observation to this one
    * @param other Observation to add
    */
-  void add(const CommonObservation& other) {
+  void add(const GridObservation& other) {
     if (observations_.size() != other.observations_.size()) {
       throw std::runtime_error("Cannot add observations of different sizes");
     }
@@ -287,7 +286,7 @@ class CommonObservation {
    * @brief Subtract another observation from this one
    * @param other Observation to subtract
    */
-  void subtract(const CommonObservation& other) {
+  void subtract(const GridObservation& other) {
     if (observations_.size() != other.observations_.size()) {
       throw std::runtime_error(
           "Cannot subtract observations of different sizes");
@@ -317,7 +316,7 @@ class CommonObservation {
    * @param other Observation to compare with
    * @return true if equal, false otherwise
    */
-  bool equals(const CommonObservation& other) const {
+  bool equals(const GridObservation& other) const {
     return observations_ == other.observations_ &&
            type_variable_map_ == other.type_variable_map_ &&
            covariance_ == other.covariance_;
@@ -462,7 +461,7 @@ class CommonObservation {
    * @param other Observation to clone from
    * @param is_clone Flag to indicate this is a clone operation
    */
-  CommonObservation(const CommonObservation& other, bool)
+  GridObservation(const GridObservation& other, bool)
       : observations_(other.observations_),
         type_variable_map_(other.type_variable_map_),
         covariance_(other.covariance_) {}
