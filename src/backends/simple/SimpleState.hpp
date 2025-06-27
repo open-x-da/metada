@@ -13,7 +13,6 @@
 
 #include "Location.hpp"
 #include "SimpleGeometry.hpp"
-#include "SimpleStateIterator.hpp"
 
 namespace metada::backends::simple {
 
@@ -50,7 +49,7 @@ class SimpleState {
     readFromFile(filename);
   }
 
-  // Data access
+  // Data access - REQUIRED by StateBackendImpl
   void* getData() { return data_.data(); }
   const void* getData() const { return data_.data(); }
 
@@ -64,40 +63,18 @@ class SimpleState {
     return data_[coord.second * x_dim + coord.first];
   }
 
-  // Iterators
-  SimpleStateIterator begin() {
-    return SimpleStateIterator(this, geometry_.begin());
-  }
-  SimpleStateIterator end() {
-    return SimpleStateIterator(this, geometry_.end());
-  }
-
-  const SimpleStateIterator begin() const {
-    return SimpleStateIterator(const_cast<SimpleState*>(this),
-                               geometry_.begin());
-  }
-  const SimpleStateIterator end() const {
-    return SimpleStateIterator(const_cast<SimpleState*>(this), geometry_.end());
-  }
-
-  // Variable information
+  // Variable information - REQUIRED by StateBackendImpl
   const std::vector<std::string>& getVariableNames() const {
     return variable_names_;
   }
 
-  /**
-   * @brief Get the total size of the state vector
-   * @return Total number of elements in the state vector
-   */
+  // Size - REQUIRED by StateBackendImpl
   size_t size() const { return data_.size(); }
 
-  /**
-   * @brief Get access to the geometry
-   * @return Const reference to the geometry
-   */
+  // Geometry access - REQUIRED by IdentityObsOperator
   const SimpleGeometry& geometry() const { return geometry_; }
 
-  // Vector operations
+  // Vector operations - REQUIRED by StateBackendImpl
   void zero() { std::fill(data_.begin(), data_.end(), 0.0); }
 
   void add(const SimpleState& other) {
@@ -150,15 +127,12 @@ class SimpleState {
     return true;
   }
 
-  // Cloning
+  // Cloning - REQUIRED by StateBackendImpl
   std::unique_ptr<SimpleState> clone() const {
     return std::unique_ptr<SimpleState>(new SimpleState(*this, true));
   }
 
-  /**
-   * @brief Save state data to file
-   * @param filename Path to save state file
-   */
+  // File I/O - REQUIRED by StateBackendImpl
   void saveToFile(const std::string& filename) const {
     // Create directory if it doesn't exist
     std::filesystem::path file_path(filename);
@@ -187,6 +161,7 @@ class SimpleState {
     }
   }
 
+  // Location-based access - REQUIRED by framework::State adapter
   double& at(const framework::Location& loc) {
     auto grid = loc.getGridCoords2D();
     return at(grid);
@@ -227,14 +202,5 @@ class SimpleState {
   std::vector<std::string> variable_names_;
   const SimpleGeometry& geometry_;
 };
-
-// Output operator
-inline std::ostream& operator<<(std::ostream& os, const SimpleState& state) {
-  for (const auto& [coord, value] : state) {
-    auto [x, y] = coord.getGridCoords2D();
-    os << "(" << x << "," << y << ")=" << value << " ";
-  }
-  return os;
-}
 
 }  // namespace metada::backends::simple

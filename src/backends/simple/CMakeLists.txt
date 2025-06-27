@@ -14,11 +14,7 @@ target_sources(simple_backends
         SimpleGeometry.hpp
         SimpleGeometryIterator.hpp
         SimpleState.hpp
-        SimpleStateIterator.hpp
-        SimpleEnsemble.hpp
         SimpleModel.hpp
-    PRIVATE
-        SimpleStateIterator.cpp
 )
 
 target_link_libraries(simple_backends
