@@ -24,7 +24,8 @@
 
 namespace metada::backends::simple {
 
-using metada::framework::CoordinateSystem;
+using common::observation::CommonObservation;
+using framework::CoordinateSystem;
 
 /**
  * @brief Simple observation operator backend implementation
