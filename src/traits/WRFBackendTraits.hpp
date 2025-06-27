@@ -86,7 +86,7 @@ struct BackendTraits<WRFBackendTag> {
   using ObservationBackend = backends::common::observation::GridObservation;
   
   /** @brief Identity observation operator backend implementation */
-  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend>;
+  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
   
   /** @brief WRF-specific model backend implementation */
   using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend>;

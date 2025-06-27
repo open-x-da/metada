@@ -6,7 +6,7 @@
  *
  * @details
  * This class provides an identity observation operator backend interface that maps 
- * any state backend to GridObservation. The observation operator performs nearest-neighbor 
+ * any state backend to any observation backend. The observation operator performs nearest-neighbor 
  * interpolation from the model grid to observation locations.
  */
 
@@ -17,14 +17,12 @@
 #include <string>
 #include <vector>
 
-#include "GridObservation.hpp"
 #include "Location.hpp"
 #include "PointObservation.hpp"
 
 namespace metada::backends::common::obsoperator {
 
 using framework::CoordinateSystem;
-using common::observation::GridObservation;
 
 /**
  * @brief Identity observation operator backend implementation
@@ -36,11 +34,12 @@ using common::observation::GridObservation;
  * - Supports multiple observation types and variables
  * - Handles missing values and quality control
  * - Provides configuration-based initialization
- * - Works with any state backend that provides required interface
+ * - Works with any state and observation backends that provide required interfaces
  *
  * @tparam StateBackend Type of state backend to operate on
+ * @tparam ObsBackend Type of observation backend to operate on
  */
-template <typename StateBackend>
+template <typename StateBackend, typename ObsBackend>
 class IdentityObsOperator {
  public:
   // Delete default constructor
@@ -133,7 +132,7 @@ class IdentityObsOperator {
    * @return Vector of interpolated values at observation locations
    */
   std::vector<double> apply(const StateBackend& state,
-                            const GridObservation& obs) const {
+                            const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("IdentityObsOperator not initialized");
     }

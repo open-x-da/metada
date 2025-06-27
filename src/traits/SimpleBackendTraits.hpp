@@ -89,7 +89,7 @@ struct BackendTraits<SimpleBackendTag> {
   using ObservationBackend = backends::common::observation::GridObservation;
   
   /** @brief Identity observation operator backend implementation */
-  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend>;
+  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
   
   /** @brief Simple model backend implementation */
   using ModelBackend = backends::simple::SimpleModel;

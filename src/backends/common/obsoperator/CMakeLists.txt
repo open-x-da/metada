@@ -14,7 +14,7 @@ target_sources(obsoperator
 # Link dependencies
 target_link_libraries(obsoperator
     INTERFACE
-        metada::backends::common::observation)
+        metada::framework::adapters)
 
 # Add format target
 AddFormatTarget(obsoperator ${CMAKE_CURRENT_SOURCE_DIR}) 

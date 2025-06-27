@@ -71,7 +71,7 @@ struct BackendTraits<L63BackendTag> {
   using ObservationBackend = backends::common::observation::GridObservation;
   
   /** @brief Identity observation operator backend implementation */
-  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend>;
+  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
   
   /** @brief L63 model backend implementation (placeholder) */
   using ModelBackend = void; // TODO: Implement L63Model
