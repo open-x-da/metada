@@ -1,30 +1,6 @@
-/**
- * @file SimpleObservation.hpp
- * @brief Simple implementation of observation backend
- * @ingroup backends
- * @author Metada Framework Team
- *
- * @details
- * This class provides a simple implementation of the observation backend
- * interface that reads observation data from a text file. The observations are
- * stored as point observations with location information (latitude, longitude,
- * vertical level) and observational values.
- */
-
 #pragma once
 
-#include <fstream>
-#include <iomanip>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
-#include "Location.hpp"
-#include "PointObservation.hpp"
-
-namespace metada::backends::simple {
+namespace metada::backends::common::observation {
 
 using metada::framework::CoordinateSystem;
 using metada::framework::Location;
@@ -88,18 +64,18 @@ class ObservationIterator {
  * - Provides basic arithmetic operations
  * - Organizes data by observation type and variable
  */
-class SimpleObservation {
+class CommonObservation {
  public:
   // Type aliases for concept compliance
   using iterator_type = ObservationIterator;
   using value_type = ObservationPoint;
 
   // Delete default constructor
-  SimpleObservation() = delete;
+  CommonObservation() = delete;
 
   // Delete copy constructor and assignment
-  SimpleObservation(const SimpleObservation&) = delete;
-  SimpleObservation& operator=(const SimpleObservation&) = delete;
+  CommonObservation(const CommonObservation&) = delete;
+  CommonObservation& operator=(const CommonObservation&) = delete;
 
   /**
    * @brief Constructor that initializes from configuration
@@ -107,7 +83,7 @@ class SimpleObservation {
    * @param config Configuration backend instance
    */
   template <typename ConfigBackend>
-  explicit SimpleObservation(const ConfigBackend& config) {
+  explicit CommonObservation(const ConfigBackend& config) {
     // Get observation files from config
     const auto type_configs = config.Get("types").asVectorMap();
 
@@ -143,7 +119,7 @@ class SimpleObservation {
    * @brief Move constructor
    * @param other Observation to move from
    */
-  SimpleObservation(SimpleObservation&& other) noexcept
+  CommonObservation(CommonObservation&& other) noexcept
       : observations_(std::move(other.observations_)),
         type_variable_map_(std::move(other.type_variable_map_)),
         covariance_(std::move(other.covariance_)) {}
@@ -153,7 +129,7 @@ class SimpleObservation {
    * @param other Observation to move from
    * @return Reference to this observation
    */
-  SimpleObservation& operator=(SimpleObservation&& other) noexcept {
+  CommonObservation& operator=(CommonObservation&& other) noexcept {
     if (this != &other) {
       observations_ = std::move(other.observations_);
       type_variable_map_ = std::move(other.type_variable_map_);
@@ -286,16 +262,16 @@ class SimpleObservation {
    * @brief Clone this observation
    * @return Unique pointer to cloned observation
    */
-  std::unique_ptr<SimpleObservation> clone() const {
-    return std::unique_ptr<SimpleObservation>(
-        new SimpleObservation(*this, true));
+  std::unique_ptr<CommonObservation> clone() const {
+    return std::unique_ptr<CommonObservation>(
+        new CommonObservation(*this, true));
   }
 
   /**
    * @brief Add another observation to this one
    * @param other Observation to add
    */
-  void add(const SimpleObservation& other) {
+  void add(const CommonObservation& other) {
     if (observations_.size() != other.observations_.size()) {
       throw std::runtime_error("Cannot add observations of different sizes");
     }
@@ -311,7 +287,7 @@ class SimpleObservation {
    * @brief Subtract another observation from this one
    * @param other Observation to subtract
    */
-  void subtract(const SimpleObservation& other) {
+  void subtract(const CommonObservation& other) {
     if (observations_.size() != other.observations_.size()) {
       throw std::runtime_error(
           "Cannot subtract observations of different sizes");
@@ -341,7 +317,7 @@ class SimpleObservation {
    * @param other Observation to compare with
    * @return true if equal, false otherwise
    */
-  bool equals(const SimpleObservation& other) const {
+  bool equals(const CommonObservation& other) const {
     return observations_ == other.observations_ &&
            type_variable_map_ == other.type_variable_map_ &&
            covariance_ == other.covariance_;
@@ -486,7 +462,7 @@ class SimpleObservation {
    * @param other Observation to clone from
    * @param is_clone Flag to indicate this is a clone operation
    */
-  SimpleObservation(const SimpleObservation& other, bool)
+  CommonObservation(const CommonObservation& other, bool)
       : observations_(other.observations_),
         type_variable_map_(other.type_variable_map_),
         covariance_(other.covariance_) {}
@@ -503,4 +479,4 @@ class SimpleObservation {
   std::vector<double> covariance_;  ///< Observation error covariance matrix
 };
 
-}  // namespace metada::backends::simple
+}  // namespace metada::backends::common::observation

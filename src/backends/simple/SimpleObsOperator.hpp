@@ -6,7 +6,7 @@
  *
  * @details
  * This class provides a simple implementation of the observation operator
- * backend interface that maps SimpleState to SimpleObservation. The observation
+ * backend interface that maps SimpleState to CommonObservation. The observation
  * operator performs interpolation from the model grid to observation locations.
  */
 
@@ -17,9 +17,9 @@
 #include <string>
 #include <vector>
 
+#include "CommonObservation.hpp"
 #include "Location.hpp"
 #include "PointObservation.hpp"
-#include "SimpleObservation.hpp"
 #include "SimpleState.hpp"
 
 namespace metada::backends::simple {
@@ -129,7 +129,7 @@ class SimpleObsOperator {
    * @return Vector of interpolated values at observation locations
    */
   std::vector<double> apply(const SimpleState& state,
-                            const SimpleObservation& obs) const {
+                            const CommonObservation& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("SimpleObsOperator not initialized");
     }

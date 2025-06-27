@@ -12,6 +12,7 @@ target_link_libraries(etkf
         metada::base
         metada::framework::runs
         metada::backends::common::utils
+        metada::backends::common::observation
         metada::framework::algorithms
         metada::backends::simple
 )
@@ -23,6 +24,7 @@ target_link_libraries(letkf
         metada::base
         metada::framework::runs
         metada::backends::common::utils
+        metada::backends::common::observation
         metada::framework::algorithms
         metada::backends::simple
 )
