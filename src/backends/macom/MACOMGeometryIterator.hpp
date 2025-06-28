@@ -26,15 +26,19 @@ namespace metada::backends::macom {
 template <typename ConfigBackend>
 class MACOMGeometry;
 
+// Forward declarations for data structures (defined in MACOMGeometry.hpp)
 struct GeoPoint;
 struct GeoQueryResult;
 template <typename T>
 struct PointCloud;
 
 /**
- * @brief Iterator for MACOMGeometry grid with KD-tree functionality
+ * @brief Iterator for MACOM geometry backend
  *
- * @tparam ConfigBackend Configuration backend type
+ * @details
+ * This iterator provides access to grid points in the MACOM geometry.
+ * It supports various spatial queries including nearest neighbor search
+ * and radius-based queries using KD-tree data structures.
  */
 template <typename ConfigBackend>
 class MACOMGeometryIterator {

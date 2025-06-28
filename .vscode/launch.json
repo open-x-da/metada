@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Debug ETKF",
             "type": "cppdbg",
@@ -86,14 +87,12 @@
             ]
         },
         {
-            "name": "Debug forecast",
+            "name": "Debug forecast Example",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/forecast",
-            "args": ["${workspaceFolder}/applications/forecast/config.yaml"],
-            "stopAtEntry": true,
-            // "args": ["${workspaceFolder}/applications/forecast/macom_config.yaml"],
-            // "stopAtEntry": false,
+            "args": ["${workspaceFolder}/applications/forecast/macom_config.yaml"],
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             // "console": "integratedTerminal",
             "externalConsole": false,
@@ -155,9 +154,9 @@
               {
                 "description": "Enable pretty-printing",
                 "text": "-enable-pretty-printing",
-                "ignoreFailures": true
-              }
+                    "ignoreFailures": true
+                }
             ]
-        }        
+        }
     ]
 }

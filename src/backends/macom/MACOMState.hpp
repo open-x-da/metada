@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <netcdf>
@@ -203,6 +204,44 @@ class MACOMState {
    * @return True if initialized, false otherwise
    */
   bool isInitialized() const { return initialized_; }
+
+  /**
+   * @brief Get the total size of all state variables
+   *
+   * @return Total number of elements across all variables
+   */
+  size_t size() const {
+    size_t total_size = 0;
+    for (const auto& [name, data] : variables_) {
+      total_size += data.size();
+    }
+    return total_size;
+  }
+
+  /**
+   * @brief Save state data to file
+   *
+   * @param filename Path to the output file
+   * @throws std::runtime_error If file cannot be written
+   */
+  void saveToFile(const std::string& filename) const {
+    // For now, implement a simple text-based save
+    // In a full implementation, this would save to NetCDF format
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("Cannot open file for writing: " + filename);
+    }
+
+    // Write variable data
+    for (const auto& [name, data] : variables_) {
+      file << "# Variable: " << name << "\n";
+      for (size_t i = 0; i < data.size(); ++i) {
+        file << data[i];
+        if (i < data.size() - 1) file << " ";
+      }
+      file << "\n";
+    }
+  }
 
   /**
    * @brief Get the values of a variable at the nearest grid points for multiple

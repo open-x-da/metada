@@ -20,8 +20,9 @@
 #include <utility>  // for std::pair
 #include <vector>
 
-// Include nanoflann library (add to project dependencies)
+#include "Location.hpp"
 #include "MACOMParallel.hpp"
+#include "PointObservation.hpp"
 #include "include/MACOMlogging.hpp"
 #include "nanoflann.hpp"
 
@@ -80,6 +81,7 @@ struct VerticalPoint {
   double upper_depth;   // Depth of the upper grid point
   double target_depth;  // Target depth that was queried
 };
+
 }  // namespace metada::backends::macom
 
 namespace metada::backends::macom {
@@ -95,6 +97,15 @@ namespace metada::backends::macom {
 template <typename ConfigBackend>
 class MACOMGeometry {
  public:
+  // Type aliases required by the framework
+  using value_type = framework::Location;
+  using reference = value_type;
+  using const_reference = value_type;
+  using pointer = value_type*;
+  using const_pointer = const value_type*;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
   // Iterator type aliases
   using iterator = MACOMGeometryIterator<ConfigBackend>;
   using const_iterator = MACOMGeometryConstIterator<ConfigBackend>;
@@ -167,11 +178,116 @@ class MACOMGeometry {
   const_iterator end() const;
 
   /**
+   * @brief Get const iterator to the beginning of the grid (alias for begin())
+   *
+   * @return Const iterator pointing to the first grid point
+   */
+  const_iterator cbegin() const { return begin(); }
+
+  /**
+   * @brief Get const iterator to the end of the grid (alias for end())
+   *
+   * @return Const iterator pointing past the last grid point
+   */
+  const_iterator cend() const { return end(); }
+
+  /**
    * @brief Get the total number of grid points
    *
    * @return Total number of grid points in the geometry
    */
   std::size_t totalGridSize() const;
+
+  /**
+   * @brief Get the total number of grid points (alias for totalGridSize)
+   *
+   * @return Total number of grid points in the geometry
+   */
+  size_type size() const { return totalGridSize(); }
+
+  /**
+   * @brief Check if the geometry is empty
+   *
+   * @return True if the geometry has no grid points, false otherwise
+   */
+  bool empty() const { return totalGridSize() == 0; }
+
+  /**
+   * @brief Element access by index
+   *
+   * @param idx Index of the grid point
+   * @return Location object representing the grid point
+   */
+  value_type operator[](size_type idx) const {
+    // For MACOM, we'll need to convert from grid index to Location
+    // This is a simplified implementation - in practice, you'd use actual grid
+    // coordinates
+    return framework::Location(static_cast<double>(idx % 100),
+                               static_cast<double>(idx / 100));
+  }
+
+  /**
+   * @brief Element access by index (non-const version)
+   *
+   * @param idx Index of the grid point
+   * @return Location object representing the grid point
+   */
+  reference operator[](size_type idx) {
+    // For MACOM, we'll need to convert from grid index to Location
+    // This is a simplified implementation - in practice, you'd use actual grid
+    // coordinates
+    return framework::Location(static_cast<double>(idx % 100),
+                               static_cast<double>(idx / 100));
+  }
+
+  /**
+   * @brief Element access by index with bounds checking
+   *
+   * @param idx Index of the grid point
+   * @return Location object representing the grid point
+   * @throws std::out_of_range if index is out of bounds
+   */
+  value_type at(size_type idx) const {
+    if (idx >= totalGridSize()) {
+      throw std::out_of_range("Grid point index out of range");
+    }
+    return operator[](idx);
+  }
+
+  /**
+   * @brief Access to the first element
+   *
+   * @return Location object representing the first grid point
+   */
+  reference front() { return operator[](0); }
+
+  /**
+   * @brief Access to the first element (const version)
+   *
+   * @return Location object representing the first grid point
+   */
+  const_reference front() const { return operator[](0); }
+
+  /**
+   * @brief Access to the last element
+   *
+   * @return Location object representing the last grid point
+   */
+  reference back() { return operator[](totalGridSize() - 1); }
+
+  /**
+   * @brief Access to the last element (const version)
+   *
+   * @return Location object representing the last grid point
+   */
+  const_reference back() const { return operator[](totalGridSize() - 1); }
+
+  /**
+   * @brief Get the maximum possible size
+   *
+   * @return Maximum possible size
+   */
+  size_type max_size() const { return std::numeric_limits<size_type>::max(); }
 
   /**
    * @brief Check if geometry is properly initialized

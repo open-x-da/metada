@@ -30,8 +30,8 @@ target_link_libraries(forecast
         metada::backends::common::observation
         metada::backends::simple
         # metada::backends::wrf
-        # metada::backends::macom
-        # $<$<BOOL:${USE_MPI}>:${MPI_CXX_LIBRARIES}>
+        metada::backends::macom
+        $<$<BOOL:${USE_MPI}>:${MPI_CXX_LIBRARIES}>
 )
 
 # Set output directory

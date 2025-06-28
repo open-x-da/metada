@@ -17,7 +17,7 @@
 #include "include/MACOMlogging.hpp"
 
 // Include MACOM specific interfaces
-// #include "MACOMState.hpp"
+#include "MACOMState.hpp"
 #include "include/MACOMFortranInterface.hpp"  // Changed from MACOMFortranInterface.hpp
 
 // Metada framework utilities (if needed)

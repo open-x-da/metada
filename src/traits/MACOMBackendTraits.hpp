@@ -1,5 +1,5 @@
 #pragma once
-#include <BackendTraits.hpp>
+#include "BackendTraits.hpp"
 
 // Include backend headers based on CMake configuration
 #ifdef CONFIG_BACKEND_JSON
@@ -18,11 +18,19 @@
 #include "../backends/common/utils/logger/console/ConsoleLogger.hpp"
 #endif
 
-// Include MACOM backend headers
+#ifdef LOGGER_BACKEND_NGLOG
+#include "../backends/common/utils/logger/nglog/NgLogger.hpp"
+#endif
+
+// Include MACOM backend headers first to provide context
 #include "../backends/macom/MACOMGeometry.hpp"
 #include "../backends/macom/MACOMGeometryIterator.hpp"
 #include "../backends/macom/MACOMState.hpp"
 #include "../backends/macom/MACOMModel.hpp"
+
+// Now include the common observation-related headers
+#include "../backends/common/observation/GridObservation.hpp"
+#include "../backends/common/obsoperator/IdentityObsOperator.hpp"
 
 #ifdef USE_MPI
 #include "../backends/macom/MACOMParallel.hpp"
@@ -30,11 +38,20 @@
 
 namespace metada::traits {
 
+/**
+ * @brief Tag type for MACOM backend implementations.
+ * @details This empty struct serves as a tag for selecting the MACOM backend.
+ */
 struct MACOMBackendTag {};
 
+/**
+ * @brief BackendTraits specialization for MACOM implementations.
+ * @details This specialization maps the MACOMBackendTag to concrete MACOM
+ * implementation types for each backend component.
+ */
 template<>
 struct BackendTraits<MACOMBackendTag> {
-    // Select ConfigBackend based on CMake configuration
+    /** @brief Configuration backend implementation */
 #ifdef CONFIG_BACKEND_JSON
     using ConfigBackend = backends::config::JsonConfig;
 #elif defined(CONFIG_BACKEND_YAML)
@@ -43,8 +60,10 @@ struct BackendTraits<MACOMBackendTag> {
     using ConfigBackend = backends::config::YamlConfig; // Default
 #endif
 
-    // Select LoggerBackend based on CMake configuration
-#ifdef LOGGER_BACKEND_GLOG
+    /** @brief Logger backend implementation */
+#ifdef LOGGER_BACKEND_NGLOG
+    using LoggerBackend = backends::logger::NgLogger<ConfigBackend>;
+#elif defined(LOGGER_BACKEND_GLOG)
     using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>;
 #elif defined(LOGGER_BACKEND_CONSOLE)
     using LoggerBackend = backends::logger::ConsoleLogger<ConfigBackend>;
@@ -52,12 +71,26 @@ struct BackendTraits<MACOMBackendTag> {
     using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>; // Default
 #endif
 
-    // MACOM specific backend components
+    /** @brief MACOM geometry backend implementation */
     using GeometryBackend = backends::macom::MACOMGeometry<ConfigBackend>;
+
+    /** @brief MACOM geometry iterator backend implementation */
     using GeometryIteratorBackend = backends::macom::MACOMGeometryIterator<ConfigBackend>;
+
+    /** @brief MACOM state vector backend implementation */
     using StateBackend = backends::macom::MACOMState<ConfigBackend, GeometryBackend>;
+
+    /** @brief Observation backend implementation for MACOM */
+    using ObservationBackend = backends::common::observation::GridObservation;
+    
+    /** @brief Observation operator backend implementation for MACOM */
+    using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
+
+    /** @brief MACOM model backend implementation */
     using ModelBackend = backends::macom::MACOMModel<ConfigBackend, StateBackend>;
+
 #ifdef USE_MPI
+    /** @brief MACOM parallel backend implementation */
     using ParallelBackend = backends::macom::MACOMParallel;
 #endif
 };
