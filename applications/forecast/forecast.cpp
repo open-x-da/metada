@@ -66,36 +66,37 @@ int main(int argc, char** argv) {
     logger.Info() << "Initializing model state";
 #endif
     State<BackendTag> initialState(config.GetSubsection("state"), geometry);
-    auto currentState = initialState.clone();
+    //     auto currentState = initialState.clone();
 
-#ifdef USE_MPI
-    parallel.barrier();
+    // #ifdef USE_MPI
+    //     parallel.barrier();
 
-    if (parallel.getRank() == 0) {
-      logger.Info() << "Starting forecast application";
-      logger.Info() << "Using configuration file: " << argv[1];
-    } else {
-      parallel.finalize();
-      return 0;
-    }
-#endif
+    //     if (parallel.getRank() == 0) {
+    //       logger.Info() << "Starting forecast application";
+    //       logger.Info() << "Using configuration file: " << argv[1];
+    //     } else {
+    //       parallel.finalize();
+    //       return 0;
+    //     }
+    // #endif
 
-    // Initialize model
-    logger.Info() << "Initializing forecast model";
-    Model<BackendTag> model(config.GetSubsection("model"));
+    //     // Initialize model
+    //     logger.Info() << "Initializing forecast model";
+    //     Model<BackendTag> model(config.GetSubsection("model"));
 
-    // Create final state
-    auto finalState = initialState.clone();
-    // State<BackendTag> finalState(config.GetSubsection("state"), geometry);
+    //     // Create final state
+    //     auto finalState = initialState.clone();
+    //     // State<BackendTag> finalState(config.GetSubsection("state"),
+    //     geometry);
 
-    // Run the model
-    logger.Info() << "Running forecast model...";
-    model.run(currentState, finalState);
+    //     // Run the model
+    //     logger.Info() << "Running forecast model...";
+    //     model.run(currentState, finalState);
 
-    // Update current state
-    currentState = std::move(finalState);
+    //     // Update current state
+    //     currentState = std::move(finalState);
 
-    logger.Info() << "Forecast application completed";
+    //     logger.Info() << "Forecast application completed";
 
 #ifdef USE_MPI
     // Finalize MPI if MPI support is enabled

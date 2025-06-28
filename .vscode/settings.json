@@ -4,7 +4,8 @@
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "Debug",
         "USE_MPI": "ON",
-        "CMAKE_Fortran_COMPILER": "C:/msys64/mingw64/bin/gfortran.exe"
+        "CMAKE_Fortran_COMPILER": "C:/msys64/mingw64/bin/gfortran.exe",
+        "CMAKE_Fortran_FLAGS": "-Wno-unused-dummy-argument -Wno-unused-variable -Wno-conversion"
     },
     "cmake.configureArgs": [
         "-DLOGGER_BACKEND=GLOG",
