@@ -1,12 +1,11 @@
 #pragma once
 
-#include <memory>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObsOperatorConcepts.hpp"
 #include "ObservationConcepts.hpp"
@@ -66,7 +65,8 @@ class ObsOperator : public NonCopyable {
    * @brief Constructor that initializes observation operator with configuration
    *
    * @details Creates and initializes the observation operator backend using the
-   * provided configuration object.
+   * provided configuration object. The backend handles its own initialization
+   * in its constructor.
    *
    * @tparam ConfigBackend The configuration backend type
    * @param config Configuration object containing initialization parameters
@@ -74,14 +74,14 @@ class ObsOperator : public NonCopyable {
   template <typename ConfigBackend>
   explicit ObsOperator(const Config<ConfigBackend>& config)
       : backend_(config.backend()) {
-    initialize(config);
+    logger_.Debug() << "ObsOperator constructed";
   }
 
   /**
    * @brief Move constructor
    *
    * @details Transfers ownership of the backend from another observation
-   * operator and updates initialization state.
+   * operator.
    *
    * @param other The observation operator to move from
    */
@@ -92,7 +92,7 @@ class ObsOperator : public NonCopyable {
    * @brief Move assignment operator
    *
    * @details Transfers ownership of the backend from another observation
-   * operator and updates initialization state.
+   * operator.
    *
    * @param other The observation operator to move from
    * @return Reference to this observation operator after assignment
@@ -110,25 +110,6 @@ class ObsOperator : public NonCopyable {
    * @return Const reference to the backend implementation
    */
   const ObsOperatorBackend& backend() const { return backend_; }
-
-  /**
-   * @brief Initialize with configuration
-   *
-   * @details Initializes the observation operator backend with the provided
-   * configuration object. Throws an exception if already initialized.
-   *
-   * @tparam ConfigBackend The configuration backend type
-   * @param config Configuration object containing initialization parameters
-   * @throws std::runtime_error If the observation operator is already
-   * initialized
-   */
-  template <typename ConfigBackend>
-  void initialize(const Config<ConfigBackend>& config) {
-    if (isInitialized()) {
-      throw std::runtime_error("ObsOperator already initialized");
-    }
-    backend_.initialize(config.backend());
-  }
 
   /**
    * @brief Check if the observation operator is initialized
@@ -151,9 +132,11 @@ class ObsOperator : public NonCopyable {
    * @throws std::runtime_error If the observation operator is not initialized
    */
   template <typename StateBackend, typename ObsBackend>
-  void apply(const State<StateBackend>& state,
-             Observation<ObsBackend>& obs) const {
-    backend_.apply(state.backend(), obs.backend());
+  std::vector<double> apply(const State<StateBackend>& state,
+                            const Observation<ObsBackend>& obs) const {
+    logger_.Debug() << "Applying observation operator";
+
+    return backend_.apply(state.backend(), obs.backend());
   }
 
   /**
@@ -176,6 +159,7 @@ class ObsOperator : public NonCopyable {
 
  private:
   ObsOperatorBackend backend_; /**< Backend implementation */
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 }  // namespace metada::framework

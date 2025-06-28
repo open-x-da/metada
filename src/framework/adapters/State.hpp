@@ -28,6 +28,7 @@
 #pragma once
 
 #include <concepts>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,6 +36,8 @@
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
 #include "Geometry.hpp"
+#include "Location.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "StateConcepts.hpp"
 
@@ -103,7 +106,9 @@ class State : private NonCopyable {
   State(const Config<BackendTag>& config, const Geometry& geometry)
       : backend_(config.backend(), geometry.backend()),
         geometry_(&geometry),
-        initialized_(true) {}
+        initialized_(true) {
+    logger_.Debug() << "State constructed";
+  }
 
   /**
    * @brief Move constructor
@@ -211,6 +216,26 @@ class State : private NonCopyable {
     return *static_cast<const T*>(backend_.getData());
   }
 
+  /**
+   * @brief Get pointer to underlying data array
+   * @tparam T Type of data to access
+   * @return Pointer to data array of type T
+   */
+  template <typename T>
+  T* getDataPtr() {
+    return static_cast<T*>(backend_.getData());
+  }
+
+  /**
+   * @brief Get const pointer to underlying data array
+   * @tparam T Type of data to access
+   * @return Const pointer to data array of type T
+   */
+  template <typename T>
+  const T* getDataPtr() const {
+    return static_cast<const T*>(backend_.getData());
+  }
+
   // State information
   /**
    * @brief Get names of state variables
@@ -232,14 +257,20 @@ class State : private NonCopyable {
   }
 
   /**
-   * @brief Get dimensions of state space
-   * @param name Name of the variable to get dimensions for
-   * @return Const reference to vector of dimension sizes
+   * @brief Get the total size of the state vector
+   * @return Total number of elements in the state vector
    */
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    return backend_.getDimensions(name);
+  size_t size() const { return backend_.size(); }
+
+  /**
+   * @brief Save state data to file
+   * @param filename Path to save state file
+   */
+  void saveToFile(const std::string& filename) const {
+    backend_.saveToFile(filename);
   }
 
+  // Arithmetic operations
   /**
    * @brief Addition operator
    * @param other State to add
@@ -353,6 +384,9 @@ class State : private NonCopyable {
    */
   const Geometry* geometry() const { return geometry_; }
 
+  double& at(const Location& loc) { return backend_.at(loc); }
+  const double& at(const Location& loc) const { return backend_.at(loc); }
+
  private:
   /**
    * @brief Private constructor to be used internally by clone
@@ -361,11 +395,19 @@ class State : private NonCopyable {
   explicit State(StateBackend&& backend)
       : backend_(std::move(backend)), geometry_(nullptr), initialized_(true) {}
 
-  StateBackend backend_;  ///< Instance of the state backend
-  const Geometry* geometry_ =
-      nullptr;               ///< Pointer to associated geometry (optional)
-  bool initialized_{false};  ///< Initialization flag
+  StateBackend backend_;
+  const Geometry* geometry_ = nullptr;
+  bool initialized_{false};
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
+
+// Output operator
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+inline std::ostream& operator<<(std::ostream& os,
+                                const State<BackendTag>& state) {
+  return os << state.backend();
+}
 
 }  // namespace metada::framework
 

@@ -5,10 +5,11 @@ logger:
   console: true
 
 geometry:
-  input_file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+  x_dim: 36
+  y_dim: 18
 
 state:
-  input_file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+  file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_1.txt"
   timestamp: "2000-01-24T12:00:00Z"
   variables:
     - U

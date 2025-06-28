@@ -1,7 +1,9 @@
 #pragma once
 
-#include <concepts>
 #include <filesystem>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
@@ -152,6 +154,16 @@ class Config : public NonCopyable {
    * @param backend The backend instance to use
    */
   explicit Config(ConfigBackend&& backend) : backend_(std::move(backend)) {}
+
+  /**
+   * @brief Constructor that takes a ConfigMap and forwards it to the backend
+   *
+   * @details Creates a Config object from an existing ConfigMap. This is used
+   * internally for creating subsections.
+   *
+   * @param map The ConfigMap to use
+   */
+  explicit Config(const framework::ConfigMap& map) : backend_(map) {}
 
   /**
    * @brief Get direct access to the backend instance
@@ -312,6 +324,29 @@ class Config : public NonCopyable {
   bool HasSubsection(const std::string& key) const {
     auto value = Get(key);
     return value.isMap();
+  }
+
+  /**
+   * @brief Get a vector of Config subsections from a vector of maps at the
+   * given key
+   *
+   * @details Retrieves the vector of ConfigValue at the specified key. For each
+   * element, if it is a map, constructs a Config from it. Returns a vector of
+   * Config objects.
+   *
+   * @param key Dot-separated path to the vector of maps
+   * @return std::vector<Config<BackendTag>> containing Config objects for each
+   * map
+   */
+  std::vector<Config> GetSubsectionsFromVector(const std::string& key) const {
+    std::vector<Config> result;
+    auto vec = Get(key).asVectorConfigValue();
+    for (const auto& val : vec) {
+      if (val.isMap()) {
+        result.emplace_back(val.asMap());
+      }
+    }
+    return result;
   }
 
  private:

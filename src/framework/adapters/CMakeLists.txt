@@ -8,6 +8,7 @@ add_library(metada::framework::adapters ALIAS adapters)
 target_include_directories(adapters
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common/utils/config>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common/utils/logger>
         )

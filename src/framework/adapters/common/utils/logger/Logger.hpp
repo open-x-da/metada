@@ -1,6 +1,8 @@
 #pragma once
 
+#include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
@@ -153,9 +155,45 @@ class Logger : public NonCopyable {
    */
   LoggerBackend& backend() { return backend_; }
 
+  /**
+   * @brief Get the singleton instance of the logger
+   * @details Must call Init(config) before using Instance(). Throws if not
+   * initialized.
+   * @return Reference to the singleton Logger instance
+   */
+  static Logger& Instance() {
+    if (!instance_) {
+      throw std::runtime_error(
+          "Logger singleton not initialized. Call Logger::Init(config) first.");
+    }
+    return *instance_;
+  }
+
+  /**
+   * @brief Initialize the singleton logger with a config
+   * @details Only the first call has effect. Subsequent calls do nothing unless
+   * Reset() is called.
+   * @param[in] config The config to use for initializing the logger backend
+   */
+  static void Init(const Config<BackendTag>& config) {
+    if (!instance_) {
+      instance_ = new Logger(config);
+    }
+  }
+
+  /**
+   * @brief Reset the singleton logger instance (for testing or reconfiguration)
+   * @details Deletes the current instance and allows re-initialization.
+   */
+  static void Reset() {
+    delete instance_;
+    instance_ = nullptr;
+  }
+
  private:
   LoggerBackend backend_;  ///< The underlying logger backend instance that
                            ///< performs actual logging
+  inline static Logger* instance_ = nullptr;  ///< Singleton instance pointer
 };
 
 }  // namespace metada::framework

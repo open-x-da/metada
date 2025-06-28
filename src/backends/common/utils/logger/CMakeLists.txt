@@ -1,10 +1,13 @@
 # Logger backend selection
 #
-# Supports Google Glog or basic console logging.
-# Console logger is used as fallback if Glog is not available.
+# Supports ng-log, Google Glog, or basic console logging.
+# Console logger is used as fallback if ng-log or Glog is not available.
 
 if(NOT DEFINED LOGGER_BACKEND)
-    if(Glog_FOUND)
+    if(nglog_FOUND)
+        set(LOGGER_BACKEND "NGLOG" CACHE STRING "Select logger backend (NGLOG, GLOG, or CONSOLE)")
+        set_property(CACHE LOGGER_BACKEND PROPERTY STRINGS "NGLOG" "GLOG" "CONSOLE")
+    elseif(Glog_FOUND)
         set(LOGGER_BACKEND "GLOG" CACHE STRING "Select logger backend (GLOG or CONSOLE)")
         set_property(CACHE LOGGER_BACKEND PROPERTY STRINGS "GLOG" "CONSOLE")
     else()
@@ -13,13 +16,13 @@ if(NOT DEFINED LOGGER_BACKEND)
 else()
     # Validate user-selected backend
     string(TOUPPER ${LOGGER_BACKEND} LOGGER_BACKEND_UPPER)
-    if(LOGGER_BACKEND_UPPER STREQUAL "GLOG" AND NOT Glog_FOUND)
+    if(LOGGER_BACKEND_UPPER STREQUAL "NGLOG" AND NOT ng-log_FOUND)
+        message(FATAL_ERROR "NGLOG logger backend requested but nglog is not available")
+    elseif(LOGGER_BACKEND_UPPER STREQUAL "GLOG" AND NOT Glog_FOUND)
         message(FATAL_ERROR "GLOG logger backend requested but Glog is not available")
-    elseif(NOT LOGGER_BACKEND_UPPER STREQUAL "GLOG" AND NOT LOGGER_BACKEND_UPPER STREQUAL "CONSOLE")
-        message(FATAL_ERROR "Invalid logger backend: ${LOGGER_BACKEND}. Valid options are: GLOG, CONSOLE")
+    elseif(NOT LOGGER_BACKEND_UPPER STREQUAL "NGLOG" AND NOT LOGGER_BACKEND_UPPER STREQUAL "GLOG" AND NOT LOGGER_BACKEND_UPPER STREQUAL "CONSOLE")
+        message(FATAL_ERROR "Invalid logger backend: ${LOGGER_BACKEND}. Valid options are: NGLOG, GLOG, CONSOLE")
     endif()
-    
-    # Normalize backend name
     set(LOGGER_BACKEND ${LOGGER_BACKEND_UPPER})
 endif()
 

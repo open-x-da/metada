@@ -29,7 +29,7 @@ namespace metada::framework {
  * @details A valid state backend implementation must provide:
  * - Data access methods (getData for both mutable and const access)
  * - Variable name access method
- * - Dimension information for each variable
+ * - Total state vector size (size method)
  * - Support for cloning the state
  * - Vector arithmetic operations (add, dot product, norm)
  * - Equality comparison
@@ -46,8 +46,9 @@ namespace metada::framework {
  */
 template <typename T, typename ConfigBackend, typename GeometryBackend>
 concept StateBackendImpl =
-    requires(T& t, const T& ct, const T& other, const std::string& varName,
-             const ConfigBackend& config, const GeometryBackend& geometry) {
+    requires(T& t, const T& ct, const T& other, double scalar,
+             const ConfigBackend& config, const GeometryBackend& geometry,
+             const std::string& filename) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
       // TODO: Add const data access
@@ -57,7 +58,7 @@ concept StateBackendImpl =
       {
         ct.getVariableNames()
       } -> std::same_as<const std::vector<std::string>&>;
-      { ct.getDimensions(varName) } -> std::same_as<const std::vector<size_t>&>;
+      { ct.size() } -> std::convertible_to<size_t>;
 
       // Construction and cloning
       { T(config, geometry) } -> std::same_as<T>;
@@ -66,11 +67,16 @@ concept StateBackendImpl =
       // Vector arithmetic
       { t.zero() } -> std::same_as<void>;
       { t.add(other) } -> std::same_as<void>;
+      { t.subtract(other) } -> std::same_as<void>;
+      { t.multiply(scalar) } -> std::same_as<void>;
       { ct.dot(other) } -> std::convertible_to<double>;
       { ct.norm() } -> std::convertible_to<double>;
 
       // Comparison
       { ct.equals(other) } -> std::convertible_to<bool>;
+
+      // File I/O operations
+      { ct.saveToFile(filename) } -> std::same_as<void>;
 
       // Resource management constraints
       requires HasDeletedDefaultConstructor<T>;

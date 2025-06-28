@@ -15,9 +15,7 @@
 
 #include <concepts>
 #include <memory>
-#include <string>
 #include <type_traits>
-#include <vector>
 
 namespace metada::framework {
 
@@ -54,6 +52,9 @@ concept HasLoggerBackend =
  * defines a GeometryBackend type through the BackendTraits specialization.
  * The GeometryBackend is responsible for handling spatial domain
  * representations.
+ *
+ * Note: GeometryBackend does not need to be a template class; it can be a
+ * concrete type or a class with a templated constructor.
  *
  * @tparam T The backend tag type to check
  */

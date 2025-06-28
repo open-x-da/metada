@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <compare>
-#include <concepts>
 #include <format>
 #include <ostream>
 #include <stdexcept>

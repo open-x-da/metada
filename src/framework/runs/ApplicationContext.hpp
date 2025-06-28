@@ -83,9 +83,10 @@ class ApplicationContext {
    * 4. Logs successful initialization with application name
    */
   ApplicationContext(const int argc, char** argv)
-      : config_(validateAndGetConfigPath(argc, argv)),
-        logger_(config_.GetSubsection("logger")) {
-    logger_.Info() << "Application context initialized: " << argv[0];
+      : config_(validateAndGetConfigPath(argc, argv)) {
+    Logger<BackendTag>::Init(config_.GetSubsection("logger"));
+    Logger<BackendTag>::Instance().Info()
+        << "Application context initialized: " << argv[0];
   }
 
   /**
@@ -96,7 +97,9 @@ class ApplicationContext {
    * 2. Logger
    * 3. Configuration
    */
-  ~ApplicationContext() { logger_.Info() << "Application context destroyed"; }
+  ~ApplicationContext() {
+    Logger<BackendTag>::Instance().Info() << "Application context destroyed";
+  }
 
   /**
    * @brief Disabled copy constructor
@@ -140,7 +143,7 @@ class ApplicationContext {
    *
    * @return Reference to the logger instance
    */
-  Logger<BackendTag>& getLogger() { return logger_; }
+  Logger<BackendTag>& getLogger() { return Logger<BackendTag>::Instance(); }
 
   /**
    * @brief Get reference to the configuration service
@@ -176,7 +179,6 @@ class ApplicationContext {
   }
 
   Config<BackendTag> config_;  ///< Configuration service instance
-  Logger<BackendTag> logger_;  ///< Logging service instance
   // Timer timer_;  // To be implemented
 };
 

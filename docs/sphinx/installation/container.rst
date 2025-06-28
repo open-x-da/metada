@@ -112,7 +112,6 @@ Building Custom Container
       :language: dockerfile
       :caption: Dockerfile
 
-
 2. Build the container:
 
    .. code-block:: bash
@@ -180,7 +179,9 @@ Inside the container:
 .. code-block:: bash
 
    cd /opt/metada
-   cmake -S . -B build
+   cmake -S . -B build -G Ninja \
+     -DCMAKE_BUILD_TYPE=Debug \
+     -DCMAKE_CXX_STANDARD=17
    cmake --build build -j$(nproc)
    ctest --test-dir build --output-on-failure
 

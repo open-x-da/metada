@@ -11,11 +11,11 @@
 #include "DateTime.hpp"
 #include "Geometry.hpp"
 #include "Model.hpp"
+#include "SimpleBackendTraits.hpp"
 #include "State.hpp"
-#include "WRFBackendTraits.hpp"
 
 // Default backends, can be changed with template parameters
-using BackendTag = metada::traits::WRFBackendTag;
+using BackendTag = metada::traits::SimpleBackendTag;
 using namespace metada;
 using namespace metada::framework;
 

@@ -1,0 +1,19 @@
+# Test configuration for LETKF
+model:
+  name: "test_model"
+  dimensions: [3]  # 3D state space
+  variables: ["temperature", "pressure", "humidity"]
+
+ensemble:
+  size: 3  # 3 ensemble members
+  inflation: 1.1
+
+observation:
+  variables: ["temperature", "pressure"]
+  dimensions: [2]  # 2D observation space
+  error_covariance: [0.1, 0.0, 0.0, 0.1]  # 2x2 matrix
+
+geometry:
+  type: "regular"
+  resolution: 1.0
+  domain: [0.0, 10.0]  # 1D domain from 0 to 10 

@@ -5,7 +5,6 @@
 #endif
 #include <yaml-cpp/yaml.h>
 
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -98,6 +97,12 @@ class YamlConfig {
    * @throws std::runtime_error If loading fails
    */
   explicit YamlConfig(const std::string& filename) { LoadFromFile(filename); }
+
+  /**
+   * @brief Constructor that loads configuration from a ConfigMap
+   * @param map ConfigMap containing the configuration data
+   */
+  explicit YamlConfig(const framework::ConfigMap& map);
 
   /**
    * @brief Load configuration from a YAML file

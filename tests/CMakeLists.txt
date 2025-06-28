@@ -4,5 +4,6 @@ if(BUILD_TESTING)
 
   # Add test directories
   add_subdirectory(framework/base)
+  add_subdirectory(framework/algorithms)
   add_subdirectory(framework/adapters)
 endif()
