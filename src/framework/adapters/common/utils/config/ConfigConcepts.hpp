@@ -46,31 +46,32 @@ namespace metada::framework {
  * @see HasDeletedCopyAssignment
  */
 template <typename T>
-concept ConfigBackendImpl =
-    requires(T& t, const T& ct, const std::string& key,
-             const std::string& filename, const ConfigValue& value) {
-      // File construction and loading
-      { T(filename) } -> std::same_as<T>;
-      { t.LoadFromFile(filename) } -> std::same_as<bool>;
-      { t.LoadFromString(filename) } -> std::same_as<bool>;
+concept ConfigBackendImpl = requires(
+    T& t, const T& ct, const std::string& key, const std::string& filename,
+    const ConfigValue& value, const ConfigMap& map) {
+  // File construction and loading
+  { T(filename) } -> std::same_as<T>;
+  { T(map) } -> std::same_as<T>;
+  { t.LoadFromFile(filename) } -> std::same_as<bool>;
+  { t.LoadFromString(filename) } -> std::same_as<bool>;
 
-      // Value access
-      { t.Get(key) } -> std::same_as<ConfigValue>;
-      { t.Set(key, value) } -> std::same_as<void>;
-      { t.HasKey(key) } -> std::same_as<bool>;
+  // Value access
+  { t.Get(key) } -> std::same_as<ConfigValue>;
+  { t.Set(key, value) } -> std::same_as<void>;
+  { t.HasKey(key) } -> std::same_as<bool>;
 
-      // Persistence
-      { t.SaveToFile(filename) } -> std::same_as<bool>;
-      { t.ToString() } -> std::same_as<std::string>;
+  // Persistence
+  { t.SaveToFile(filename) } -> std::same_as<bool>;
+  { t.ToString() } -> std::same_as<std::string>;
 
-      // Structure management
-      { t.Clear() } -> std::same_as<void>;
-      { t.CreateSubsection(key) } -> std::same_as<T>;
+  // Structure management
+  { t.Clear() } -> std::same_as<void>;
+  { t.CreateSubsection(key) } -> std::same_as<T>;
 
-      // Resource management constraints
-      requires HasDeletedCopyConstructor<T>;
-      requires HasDeletedCopyAssignment<T>;
-    };
+  // Resource management constraints
+  requires HasDeletedCopyConstructor<T>;
+  requires HasDeletedCopyAssignment<T>;
+};
 
 /**
  * @brief Concept that defines requirements for a configuration backend tag type

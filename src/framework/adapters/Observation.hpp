@@ -1,6 +1,5 @@
 #pragma once
 
-#include <map>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -8,6 +7,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObservationConcepts.hpp"
 
@@ -44,6 +44,7 @@ class Config;
  * - Arithmetic operations for observation-space calculations
  * - Explicit cloning mechanism for controlled copying
  * - Move semantics for efficient resource management
+ * - Hierarchical data organization: type → variable → data
  *
  * @tparam BackendTag The backend tag type that must satisfy
  * ObservationBackendType concept
@@ -71,7 +72,9 @@ class Observation : private NonCopyable {
    * @param config Configuration object containing initialization parameters
    */
   explicit Observation(const Config<BackendTag>& config)
-      : backend_(config.backend()), initialized_(true) {}
+      : backend_(config.backend()), initialized_(true) {
+    logger_.Info() << "Observation constructed";
+  }
 
   /**
    * @brief Move constructor
@@ -84,6 +87,7 @@ class Observation : private NonCopyable {
   Observation(Observation&& other) noexcept
       : backend_(std::move(other.backend_)), initialized_(other.initialized_) {
     other.initialized_ = false;
+    logger_.Info() << "Observation moved";
   }
 
   /**
@@ -139,9 +143,12 @@ class Observation : private NonCopyable {
    * from the specified file and initialize this observation object.
    *
    * @param filename Path to the file containing observation data
+   * @param error Error value to use for missing data
+   * @param missing_value Missing value to use for missing data
    */
-  void loadFromFile(const std::string& filename) {
-    backend_.loadFromFile(filename);
+  void loadFromFile(const std::string& filename, double error,
+                    double missing_value) {
+    backend_.loadFromFile(filename, error, missing_value);
     initialized_ = true;
   }
 
@@ -189,64 +196,106 @@ class Observation : private NonCopyable {
    * type. The caller is responsible for ensuring the type is correct.
    *
    * @tparam T The expected data type
-   * @return Reference to the data cast to the specified type
+   * @return The data of the specified type
    */
   template <typename T>
-  T& getData() {
-    return *static_cast<T*>(backend_.getData());
+  T getData() {
+    return backend_.template getData<T>();
   }
 
   /**
-   * @brief Get const typed access to the underlying data
+   * @brief Get typed access to the underlying data (const version)
    *
-   * @details Provides read-only access to the observation data cast to the
+   * @details Provides const access to the observation data cast to the
    * specified type. The caller is responsible for ensuring the type is correct.
    *
    * @tparam T The expected data type
-   * @return Const reference to the data cast to the specified type
+   * @return The data of the specified type
    */
   template <typename T>
-  const T& getData() const {
-    return *static_cast<const T*>(backend_.getData());
+  T getData() const {
+    return backend_.template getData<T>();
   }
 
   /**
-   * @brief Get the names of variables in this observation
+   * @brief Get the observation error variances
    *
-   * @details Retrieves the list of variable names contained in this
+   * @details Returns the observation error variances as a vector of doubles.
+   * Each element corresponds to the variance of one observation.
+   *
+   * @return Vector of observation error variances
+   */
+  std::vector<double> getCovariance() const { return backend_.getCovariance(); }
+
+  /**
+   * @brief Get the names of observation types
+   *
+   * @details Retrieves the list of observation type names contained in this
    * observation.
    *
-   * @return Const reference to vector of variable names
+   * @return Vector of observation type names
    */
-  const std::vector<std::string>& getVariableNames() const {
-    return backend_.getVariableNames();
+  std::vector<std::string> getTypeNames() const {
+    return backend_.getTypeNames();
   }
 
   /**
-   * @brief Check if a specific variable exists in this observation
+   * @brief Get the names of variables for a specific observation type
+   *
+   * @details Retrieves the list of variable names for the specified observation
+   * type.
+   *
+   * @param typeName Name of the observation type
+   * @return Vector of variable names for the type
+   */
+  std::vector<std::string> getVariableNames(const std::string& typeName) const {
+    return backend_.getVariableNames(typeName);
+  }
+
+  /**
+   * @brief Check if a specific observation type exists
+   *
+   * @details Searches for the specified observation type name in the list of
+   * types contained in this observation.
+   *
+   * @param typeName Name of the observation type to check
+   * @return True if the observation type exists, false otherwise
+   */
+  bool hasType(const std::string& typeName) const {
+    const auto& types = getTypeNames();
+    return std::find(types.begin(), types.end(), typeName) != types.end();
+  }
+
+  /**
+   * @brief Check if a specific variable exists in a specific observation type
    *
    * @details Searches for the specified variable name in the list of variables
-   * contained in this observation.
+   * for the specified observation type.
    *
-   * @param name Name of the variable to check
-   * @return True if the variable exists, false otherwise
+   * @param typeName Name of the observation type
+   * @param varName Name of the variable to check
+   * @return True if the variable exists in the type, false otherwise
    */
-  bool hasVariable(const std::string& name) const {
-    const auto& variables = getVariableNames();
-    return std::find(variables.begin(), variables.end(), name) !=
+  bool hasVariable(const std::string& typeName,
+                   const std::string& varName) const {
+    const auto& variables = getVariableNames(typeName);
+    return std::find(variables.begin(), variables.end(), varName) !=
            variables.end();
   }
 
   /**
-   * @brief Get the dimensions of a specific variable in this observation
+   * @brief Get the size of observation data for a specific type/variable
    *
-   * @details Retrieves the dimension sizes for the specified variable.
+   * @details Retrieves the size of the observation data vector for the
+   * specified type and variable.
    *
-   * @param name Name of the variable to get dimensions for
-   * @return Const reference to vector of dimension sizes
+   * @param typeName Name of the observation type
+   * @param varName Name of the variable
+   * @return Size of the observation data vector
    */
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    return backend_.getDimensions(name);
+  size_t getSize(const std::string& typeName,
+                 const std::string& varName) const {
+    return backend_.getSize(typeName, varName);
   }
 
   /**
@@ -369,6 +418,55 @@ class Observation : private NonCopyable {
    */
   const ObservationBackend& backend() const { return backend_; }
 
+  /**
+   * @brief Get iterator to beginning of observations
+   * @return Iterator to first observation
+   */
+  auto begin() const { return backend_.begin(); }
+
+  /**
+   * @brief Get iterator to end of observations
+   * @return Iterator past last observation
+   */
+  auto end() const { return backend_.end(); }
+
+  /**
+   * @brief Get number of observations
+   * @return Total number of observations
+   */
+  size_t size() const { return backend_.size(); }
+
+  /**
+   * @brief Get observation at specific index
+   * @param index Index of the observation
+   * @return Reference to the observation
+   */
+  auto operator[](size_t index) const { return backend_[index]; }
+
+  /**
+   * @brief Get observations within a geographic bounding box
+   * @param min_lat Minimum latitude
+   * @param max_lat Maximum latitude
+   * @param min_lon Minimum longitude
+   * @param max_lon Maximum longitude
+   * @return Vector of observations within the bounding box
+   */
+  auto getObservationsInBox(double min_lat, double max_lat, double min_lon,
+                            double max_lon) const {
+    return backend_.getObservationsInBox(min_lat, max_lat, min_lon, max_lon);
+  }
+
+  /**
+   * @brief Get observations within a vertical range
+   * @param min_level Minimum vertical level
+   * @param max_level Maximum vertical level
+   * @return Vector of observations within the vertical range
+   */
+  auto getObservationsInVerticalRange(double min_level,
+                                      double max_level) const {
+    return backend_.getObservationsInVerticalRange(min_level, max_level);
+  }
+
  private:
   /**
    * @brief Private constructor to be used internally by clone
@@ -383,6 +481,7 @@ class Observation : private NonCopyable {
 
   ObservationBackend backend_;  ///< Backend implementation instance
   bool initialized_{false};     ///< Initialization flag
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 }  // namespace metada::framework

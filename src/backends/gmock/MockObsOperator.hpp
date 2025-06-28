@@ -89,8 +89,8 @@ class MockObsOperator {
    * @param state Input state
    * @param obs Output observation
    */
-  MOCK_METHOD(void, apply, (const StateBackend& state, ObsBackend& obs),
-              (const));
+  MOCK_METHOD(std::vector<double>, apply,
+              (const StateBackend& state, const ObsBackend& obs), (const));
 
   /**
    * @brief Get the list of required state variables

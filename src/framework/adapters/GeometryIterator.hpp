@@ -70,9 +70,18 @@ class GeometryIterator {
   /** @brief Backend iterator type from traits */
   using GeometryIteratorBackend =
       typename traits::BackendTraits<BackendTag>::GeometryIteratorBackend;
+  using iterator_category = std::forward_iterator_tag;
+  using value_type =
+      typename std::iterator_traits<GeometryIteratorBackend>::value_type;
+  using difference_type =
+      typename std::iterator_traits<GeometryIteratorBackend>::difference_type;
+  using pointer =
+      typename std::iterator_traits<GeometryIteratorBackend>::pointer;
+  using reference =
+      typename std::iterator_traits<GeometryIteratorBackend>::reference;
 
   /** @brief Default constructor (for end/sentinels) */
-  GeometryIterator() = delete;
+  GeometryIterator() = default;
 
   /** @brief Copy constructor */
   GeometryIterator(const GeometryIterator&) = default;
@@ -97,7 +106,13 @@ class GeometryIterator {
    * @brief Dereference operator to access the current grid point
    * @return Reference to the current grid point
    */
-  auto operator*() const { return *iter_; }
+  reference operator*() const { return *iter_; }
+
+  /**
+   * @brief Arrow operator to access the current grid point
+   * @return Pointer to the current grid point
+   */
+  pointer operator->() const { return iter_.operator->(); }
 
   /**
    * @brief Pre-increment operator to advance to the next grid point
@@ -110,14 +125,12 @@ class GeometryIterator {
 
   /**
    * @brief Post-increment operator to advance to the next grid point
-   * @return Reference to this iterator after advancement
-   * @note This is deliberately inefficient as backend iterators don't support
-   * copying. Prefer pre-increment (++iter) over post-increment (iter++) for
-   * better performance.
+   * @return Value of this iterator before advancement
    */
-  GeometryIterator& operator++(int) {
-    ++(*this);     // Just do a pre-increment
-    return *this;  // Return reference to this
+  GeometryIterator operator++(int) {
+    GeometryIterator tmp = *this;
+    ++(*this);
+    return tmp;
   }
 
   /**

@@ -44,7 +44,7 @@ concept ObsOperatorBackendImpl =
       { t.isInitialized() } -> std::same_as<bool>;
 
       // Apply method
-      { ct.apply(state, obs) } -> std::same_as<void>;
+      { ct.apply(state, obs) } -> std::same_as<std::vector<double>>;
 
       // Required variables
       {
