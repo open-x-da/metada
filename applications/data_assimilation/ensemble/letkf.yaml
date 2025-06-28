@@ -6,31 +6,30 @@ logger:
 
 # Geometry for the ensemble
 geometry:
-  x_dim: 36
-  y_dim: 18
+  input_file: "D:/linux/metada/applications/forecast/wrfinput_d01"
 
 # Ensemble variables to analyze
 ensemble:
   variables: "simple"
   members:
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_1.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_2.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_3.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_4.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_5.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_6.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_7.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_8.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_9.txt"
+        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
 
 # Observation settings
 observations:

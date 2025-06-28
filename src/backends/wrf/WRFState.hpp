@@ -208,17 +208,61 @@ class WRFState {
    */
   const xt::xarray<double>& getData(const std::string& variableName = "") const;
 
-  double& at(const Location& loc) {
+  double& at(const framework::Location& loc) {
     auto [i, j] = loc.getGridCoords2D();
     // Assume active variable is 2D (j, i) ordering
     auto& arr = variables_.at(activeVariable_);
     return arr(j, i);
   }
-  const double& at(const Location& loc) const {
+  const double& at(const framework::Location& loc) const {
     auto [i, j] = loc.getGridCoords2D();
     const auto& arr = variables_.at(activeVariable_);
     return arr(j, i);
   }
+
+  // --- Begin: Additions for StateBackendType/Impl concept compliance ---
+  using value_type = double;
+  using reference = double&;
+  using const_reference = const double&;
+  using pointer = double*;
+  using const_pointer = const double*;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+  // --- End: Additions for StateBackendType/Impl concept compliance ---
+
+  // --- Begin: More additions for StateBackendType/Impl concept compliance ---
+  bool empty() const { return size() == 0; }
+  size_type max_size() const { return size(); }
+
+  reference operator[](size_type idx) {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+  const_reference operator[](size_type idx) const {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+  reference at(size_type idx) {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+  const_reference at(size_type idx) const {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+  reference front() { return variables_.at(activeVariable_).flat(0); }
+  const_reference front() const {
+    return variables_.at(activeVariable_).flat(0);
+  }
+  reference back() { return variables_.at(activeVariable_).flat(size() - 1); }
+  const_reference back() const {
+    return variables_.at(activeVariable_).flat(size() - 1);
+  }
+  // --- End: More additions for StateBackendType/Impl concept compliance ---
+
+  // --- Begin: Add saveToFile for StateBackendImpl concept compliance ---
+  void saveToFile(const std::string& filename) const {
+    throw std::runtime_error("saveToFile not implemented for WRFState");
+  }
+  // --- End: Add saveToFile for StateBackendImpl concept compliance ---
+
+  const GeometryBackend& geometry() const { return geometry_; }
 
  private:
   /**
@@ -226,7 +270,6 @@ class WRFState {
    *
    * @param filename Path to the WRF NetCDF file
    * @param variables List of variables to load
-   * @param timestamp Timestamp to read from the file
    */
   void loadStateData(const std::string& filename,
                      const std::vector<std::string>& variables);
@@ -244,7 +287,6 @@ class WRFState {
 
   // WRF NetCDF file information
   std::string wrfFilename_;
-  std::string timestamp_;
   bool initialized_ = false;
 
   // State data
@@ -260,8 +302,7 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
     const ConfigBackend& config, const GeometryBackend& geometry)
     : config_(config),
       geometry_(geometry),
-      wrfFilename_(config.Get("input_file").asString()),
-      timestamp_(config.Get("timestamp").asString()),
+      wrfFilename_(config.Get("file").asString()),
       initialized_(false) {
   if (wrfFilename_.empty()) {
     throw std::runtime_error(
@@ -296,7 +337,6 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
     : config_(other.config_),
       geometry_(other.geometry_),
       wrfFilename_(std::move(other.wrfFilename_)),
-      timestamp_(std::move(other.timestamp_)),
       initialized_(other.initialized_),
       variables_(std::move(other.variables_)),
       dimensions_(std::move(other.dimensions_)),
@@ -316,7 +356,6 @@ WRFState<ConfigBackend, GeometryBackend>::operator=(
   if (this != &other) {
     // config_ and geometry_ are references, so no assignment needed
     wrfFilename_ = std::move(other.wrfFilename_);
-    timestamp_ = std::move(other.timestamp_);
     initialized_ = other.initialized_;
     variables_ = std::move(other.variables_);
     dimensions_ = std::move(other.dimensions_);
@@ -339,7 +378,6 @@ WRFState<ConfigBackend, GeometryBackend>::clone() const {
       config_, geometry_);
   // Copy all the state data to the cloned object
   cloned->wrfFilename_ = this->wrfFilename_;
-  cloned->timestamp_ = this->timestamp_;
   cloned->initialized_ = this->initialized_;
   cloned->variables_ = this->variables_;
   cloned->dimensions_ = this->dimensions_;

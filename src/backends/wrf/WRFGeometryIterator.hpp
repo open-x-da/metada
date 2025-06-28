@@ -21,7 +21,7 @@ class WRFGeometryIterator {
  public:
   // Iterator traits
   using iterator_category = std::forward_iterator_tag;
-  using value_type = std::tuple<size_t, size_t, size_t>;  // i, j, k indices
+  using value_type = framework::Location;
   using difference_type = std::ptrdiff_t;
   using pointer = value_type*;
   using reference = value_type&;
@@ -60,9 +60,12 @@ class WRFGeometryIterator {
   /**
    * @brief Dereference operator
    *
-   * @return Tuple containing (i, j, k) indices of current position
+   * @return Location object at the current position
    */
-  value_type operator*() const { return std::make_tuple(i_, j_, k_); }
+  value_type operator*() const {
+    return framework::Location(static_cast<int>(i_), static_cast<int>(j_),
+                               static_cast<int>(k_));
+  }
 
   /**
    * @brief Pre-increment operator

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fstream>
+
 namespace metada::backends::common::observation {
 
 using framework::CoordinateSystem;
