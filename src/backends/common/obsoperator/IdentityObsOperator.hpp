@@ -215,7 +215,7 @@ class IdentityObsOperator {
     if (j >= ny) j = ny - 1;
 
     // Return exact value at the grid point using grid coordinates
-    return state.at(std::make_pair(static_cast<int>(i), static_cast<int>(j)));
+    return state.at(framework::Location(static_cast<int>(i), static_cast<int>(j), 0));
   }
 
   bool initialized_ = false;                      ///< Initialization status

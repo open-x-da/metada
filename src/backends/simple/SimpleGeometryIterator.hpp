@@ -14,7 +14,7 @@ template <typename Iter>
 class SimpleGeometryIterator {
  public:
   using iterator_category = std::forward_iterator_tag;
-  using value_type = metada::framework::Location;
+  using value_type = framework::Location;
   using difference_type = typename std::iterator_traits<Iter>::difference_type;
   using pointer = value_type*;   // Not used
   using reference = value_type;  // Return by value

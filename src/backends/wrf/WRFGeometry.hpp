@@ -48,6 +48,35 @@ class WRFGeometry {
   using const_iterator = WRFGeometryConstIterator<ConfigBackend>;
   using Location = metada::framework::Location;  // New unified location type
 
+  // --- Begin: Additions for GeometryBackendImpl concept compliance ---
+  using value_type = Location;
+  using reference = Location;
+  using const_reference = const Location;
+  using pointer = Location*;
+  using const_pointer = const Location*;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
+  // Iteration
+  const_iterator cbegin() const { return begin(); }
+  const_iterator cend() const { return end(); }
+
+  // Size information
+  size_type size() const { return totalGridSize(); }
+  bool empty() const { return size() == 0; }
+  size_type max_size() const { return size(); }
+
+  // Element access
+  reference operator[](size_type idx) { return getLocation(idx); }
+  const_reference operator[](size_type idx) const { return getLocation(idx); }
+  reference at(size_type idx) { return getLocation(idx); }
+  const_reference at(size_type idx) const { return getLocation(idx); }
+  reference front() { return getLocation(0); }
+  const_reference front() const { return getLocation(0); }
+  reference back() { return getLocation(size() - 1); }
+  const_reference back() const { return getLocation(size() - 1); }
+  // --- End: Additions for GeometryBackendImpl concept compliance ---
+
   /**
    * @brief Default constructor is deleted
    */
@@ -206,6 +235,9 @@ class WRFGeometry {
    * @return Total number of grid points
    */
   size_t totalGridSize() const { return nx_ * ny_ * nz_; }
+
+  size_t x_dim() const { return nx_; }
+  size_t y_dim() const { return ny_; }
 
  private:
   /**
