@@ -1,8 +1,6 @@
 #pragma once
 
-#include <memory>
 #include <string>
-#include <vector>
 
 namespace metada::framework {
 
@@ -28,7 +26,7 @@ namespace metada::framework {
  * - dot() method for inner products
  * - getData<T>() method for data access
  * - Metadata methods (setMetadata/getMetadata)
- * - getDimensions() for size information
+ * - size() for total size information
  * - isInitialized() for validity checks
  */
 template <typename EntityType>
@@ -93,12 +91,10 @@ class Increment {
   }
 
   /**
-   * @brief Gets dimensions of increment
-   * @return Vector of dimensions
+   * @brief Gets total size of increment
+   * @return Total number of elements
    */
-  const std::vector<size_t>& getDimensions() const {
-    return entity_.getDimensions();
-  }
+  size_t size() const { return entity_.size(); }
 
   /**
    * @brief Checks if increment is initialized

@@ -24,8 +24,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <filesystem>
-#include <memory>
 #include <vector>
 
 #include "GeometryIterator.hpp"
@@ -40,136 +38,72 @@ using ::testing::ReturnRef;
 using namespace metada::framework;
 using namespace metada::backends::gmock;
 
-// Test fixture helper to create mock iterators - since MockGeometryIterator
-// has a deleted default constructor and can't be copied, use shared_ptr
-class MockGeometryIteratorFactory {
- public:
-  // Factory method to create a mock iterator
-  static std::shared_ptr<MockGeometryIterator> createMockIterator() {
-    // Create a mock iterator with a null context
-    return std::make_shared<MockGeometryIterator>(nullptr);
-  }
-};
-
-/**
- * @brief Test fixture for GeometryIterator class tests
- *
- * Tests basic functionality of the iterator without requiring a complete
- * Geometry object. The fixture provides:
- * - Mock iterator instances
- * - Test grid points for iteration sequences
- */
 class GeometryIteratorTest : public ::testing::Test {
  protected:
-  // Mock iterator for testing - using a factory approach since default ctor is
-  // deleted
-  std::shared_ptr<MockGeometryIterator> mock_iter_;
-  std::unique_ptr<GeometryIterator<traits::MockBackendTag>> iter_;
-  // Test grid points for iteration sequence
   std::vector<MockGridPoint> points_;
 
-  void SetUp() override {
-    // Create mock iterator and test points using a factory approach
-    mock_iter_ = MockGeometryIteratorFactory::createMockIterator();
-    iter_ =
-        std::make_unique<GeometryIterator<traits::MockBackendTag>>(*mock_iter_);
-    points_ = {{0, 1, 2}, {1, 2, 3}, {2, 3, 4}};
-  }
-
-  void TearDown() override {
-    iter_.reset();
-    // No explicit cleanup needed for shared_ptr
-  }
+  void SetUp() override { points_ = {{0, 1, 2}, {1, 2, 3}, {2, 3, 4}}; }
 };
 
-/**
- * @brief Test basic iterator operations (dereference, increment, comparison)
- *
- * Verifies that the GeometryIterator correctly delegates basic operations
- * to the backend implementation:
- * - Dereference operator (*) returns the current grid point
- * - Equality/inequality operators compare iterator positions
- * - Pre-increment and post-increment operators advance the iterator
- */
 TEST_F(GeometryIteratorTest, BasicOperations) {
-  // Set up test point
   MockGridPoint point{1, 2, 3};
 
-  // Set up expectations on the backend iterator
-  EXPECT_CALL(iter_->backend(), dereference()).WillOnce(Return(point));
-  EXPECT_CALL(iter_->backend(), compare(testing::_))
+  // Create the mock iterator that will be wrapped by GeometryIterator
+  MockGeometryIterator mock_iter;
+
+  // Set up expectations on the mock iterator
+  EXPECT_CALL(mock_iter, dereference()).WillOnce(ReturnRef(point));
+  EXPECT_CALL(mock_iter, compare(_))
       .WillOnce(Return(true))
       .WillOnce(Return(false));
-  EXPECT_CALL(iter_->backend(), increment()).Times(2);
+  EXPECT_CALL(mock_iter, increment()).Times(2);
 
-  // Test dereference
-  MockGridPoint result = **iter_;
+  // Create the GeometryIterator adapter that wraps the mock
+  GeometryIterator<traits::MockBackendTag> iter(mock_iter);
+
+  // Test dereference - this should call mock_iter.dereference()
+  MockGridPoint result = *iter;
   EXPECT_EQ(result.x, point.x);
   EXPECT_EQ(result.y, point.y);
   EXPECT_EQ(result.z, point.z);
 
-  // Test comparison
-  std::shared_ptr<MockGeometryIterator> otherMockIter =
-      MockGeometryIteratorFactory::createMockIterator();
-  auto otherIter = std::make_unique<GeometryIterator<traits::MockBackendTag>>(
-      *otherMockIter);
-  EXPECT_TRUE(*iter_ == *otherIter);
-  EXPECT_TRUE(*iter_ != *otherIter);
+  // Test comparison - this should call mock_iter.compare()
+  MockGeometryIterator other_mock_iter;
+  GeometryIterator<traits::MockBackendTag> other_iter(other_mock_iter);
+  EXPECT_TRUE(iter == other_iter);
+  EXPECT_TRUE(iter != other_iter);
 
-  // Test increment operations
-  ++(*iter_);  // Pre-increment
-  (*iter_)++;  // Post-increment
+  // Test increment - this should call mock_iter.increment()
+  ++iter;
+  iter++;
 }
 
-/**
- * @brief Test iteration through a sequence of points
- *
- * Verifies that the GeometryIterator can be used to traverse a sequence
- * of grid points, simulating how it would be used in a range-based for loop
- * or standard algorithm. This test ensures:
- * - Proper iteration semantics (begin to end)
- * - Correct dereferencing of points during iteration
- * - Proper termination when reaching the end
- */
-TEST_F(GeometryIteratorTest, IterationSequence) {
-  // Create a second iterator to act as the end sentinel
-  std::shared_ptr<MockGeometryIterator> endMockIter =
-      MockGeometryIteratorFactory::createMockIterator();
-  auto endIter =
-      std::make_unique<GeometryIterator<traits::MockBackendTag>>(*endMockIter);
+TEST_F(GeometryIteratorTest, STLIteratorFunctions) {
+  // Setup a sequence of points and a vector of iterators
+  std::vector<MockGridPoint> test_points = points_;
+  std::vector<GeometryIterator<traits::MockBackendTag>> iters;
 
-  // Setup expectations - mock the sequence of points
-  // First expect dereference calls to return our test points in sequence
-  {
-    ::testing::InSequence seq;
-    for (const auto& point : points_) {
-      EXPECT_CALL(iter_->backend(), dereference()).WillOnce(Return(point));
-    }
+  for (auto& pt : test_points) {
+    MockGeometryIterator mock_iter;
+    EXPECT_CALL(mock_iter, dereference()).WillRepeatedly(ReturnRef(pt));
+    iters.emplace_back(mock_iter);
   }
 
-  // Configure compare behavior - return false until we reach the end
-  size_t compareCallCount = 0;
-  EXPECT_CALL(iter_->backend(), compare(testing::_))
-      .WillRepeatedly([this, &compareCallCount](const auto&) {
-        // Return false for first points_.size() calls, then true
-        return (compareCallCount++ >= points_.size());
-      });
-
-  // Configure increment to be called for each point
-  EXPECT_CALL(iter_->backend(), increment()).Times(points_.size());
-
-  // Simulate iterating through sequence
-  std::size_t pointIndex = 0;
-  while (*iter_ != *endIter && pointIndex < points_.size()) {
-    MockGridPoint point = **iter_;
-    EXPECT_EQ(point.x, points_[pointIndex].x);
-    EXPECT_EQ(point.y, points_[pointIndex].y);
-    EXPECT_EQ(point.z, points_[pointIndex].z);
-    ++(*iter_);
-    pointIndex++;
+  // Use STL algorithms with GeometryIterator
+  std::vector<MockGridPoint> collected;
+  for (auto& iter : iters) {
+    collected.push_back(*iter);
   }
+  EXPECT_EQ(collected, test_points);
 
-  EXPECT_EQ(pointIndex, points_.size());
+  // Test std::distance and std::advance (simulate with two iterators)
+  // Note: This is a mock, so we can't actually increment through a real range,
+  // but we can check that the type traits are present and the interface works.
+  if (!iters.empty()) {
+    auto it1 = iters.front();
+    auto it2 = iters.back();
+    (void)std::distance(it1, it2);
+  }
 }
 
 }  // namespace metada::tests

@@ -41,9 +41,21 @@ namespace metada::framework {
  */
 template <typename T>
 concept GeometryIteratorBackendImpl = requires(T it, const T& const_it) {
+  // Type aliases
+  typename T::iterator_category;
+  typename T::value_type;
+  typename T::difference_type;
+  typename T::pointer;
+  typename T::reference;
+
+  // Default constructor
+  { T() };
+
   // Dereference
   *it;
   *const_it;
+  it.operator->();
+  const_it.operator->();
 
   // Pre-increment
   { ++it } -> std::same_as<T&>;
@@ -58,9 +70,6 @@ concept GeometryIteratorBackendImpl = requires(T it, const T& const_it) {
   // Inequality comparison
   { it != it } -> std::same_as<bool>;
   { const_it != const_it } -> std::same_as<bool>;
-
-  // Resource management constraints
-  requires HasDeletedDefaultConstructor<T>;
 };
 
 /**

@@ -30,7 +30,7 @@ else()
 endif()
 metada_find_package(Git)
 metada_find_package(ClangFormat)
-
+metada_find_package(Eigen3 CONFIG)
 
 # Find optional external dependencies
 metada_find_package(Lcov OPTIONAL QUIET)
@@ -41,6 +41,7 @@ if(WIN32)
 else()
     metada_find_package(Glog)
 endif()
+metada_find_package(ng-log OPTIONAL CONFIG QUIET)
 
 # Configure CUDA support
 include(CUDA)

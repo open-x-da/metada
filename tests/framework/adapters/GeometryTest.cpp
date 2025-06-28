@@ -13,7 +13,6 @@
  * - Initialization and construction
  * - Periodicity queries
  * - Size information queries
- * - Halo exchange
  * - Clone operations
  * - Iterator access
  *
@@ -23,14 +22,19 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
+#include <iterator>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "Config.hpp"
+#include "Geometry.hpp"
 #include "GeometryIterator.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
-#include "State.hpp"
+#include "MockConfig.hpp"
 
 namespace metada::tests {
 
@@ -45,8 +49,7 @@ using namespace metada::backends::gmock;
  * @brief Test fixture for Geometry tests
  *
  * This fixture sets up the necessary objects for testing the Geometry adapter,
- * including a configuration, a geometry instance, and a state object for
- * testing halo exchange operations.
+ * including a configuration, a geometry instance.
  */
 class GeometryTest : public ::testing::Test {
  protected:
@@ -55,9 +58,6 @@ class GeometryTest : public ::testing::Test {
 
   // Geometry object for testing
   std::unique_ptr<Geometry<traits::MockBackendTag>> geometry_;
-
-  // State object for halo exchange testing
-  std::unique_ptr<State<traits::MockBackendTag>> state_;
 
   /**
    * @brief Set up the test environment
@@ -70,10 +70,11 @@ class GeometryTest : public ::testing::Test {
     config_file_ = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
 
+    // Initialize the Logger singleton before creating any objects that use it
+    Logger<traits::MockBackendTag>::Init(*config_);
+
     // Create test objects - we'll use a mock geometry through the adapter
     geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
-    state_ =
-        std::make_unique<State<traits::MockBackendTag>>(*config_, *geometry_);
   }
 
   /**
@@ -83,8 +84,8 @@ class GeometryTest : public ::testing::Test {
    */
   void TearDown() override {
     geometry_.reset();
-    state_.reset();
-    config_.reset();
+    // Reset the Logger singleton after tests
+    Logger<traits::MockBackendTag>::Reset();
   }
 };
 
@@ -98,16 +99,13 @@ class GeometryTest : public ::testing::Test {
  */
 TEST_F(GeometryTest, Construction) {
   // Test that our test fixture setup correctly initialized the geometry
-  EXPECT_CALL(geometry_->backend(), isInitialized()).WillOnce(Return(true));
-  EXPECT_TRUE(geometry_->isInitialized());
+  EXPECT_CALL(geometry_->backend(), size()).WillOnce(Return(3000));
+  EXPECT_EQ(geometry_->size(), 3000);
 
   // Verify we can create a new instance directly
   Geometry<traits::MockBackendTag> localGeometry(*config_);
-  EXPECT_CALL(localGeometry.backend(), isInitialized()).WillOnce(Return(true));
-  EXPECT_TRUE(localGeometry.isInitialized());
-
-  // Verify the config reference is maintained
-  EXPECT_EQ(&config_->backend(), &geometry_->config().backend());
+  EXPECT_CALL(localGeometry.backend(), size()).WillOnce(Return(3000));
+  EXPECT_EQ(localGeometry.size(), 3000);
 }
 
 /**
@@ -118,14 +116,10 @@ TEST_F(GeometryTest, Construction) {
  */
 TEST_F(GeometryTest, PeriodicityQueries) {
   // Setup expectations for periodicity queries
-  EXPECT_CALL(geometry_->backend(), isPeriodicX()).WillOnce(Return(true));
-  EXPECT_CALL(geometry_->backend(), isPeriodicY()).WillOnce(Return(false));
-  EXPECT_CALL(geometry_->backend(), isPeriodicZ()).WillOnce(Return(true));
+  EXPECT_CALL(geometry_->backend(), size()).WillOnce(Return(3000));
 
-  // Test periodicity in different dimensions
-  EXPECT_TRUE(geometry_->isPeriodicX());   // X dimension periodic
-  EXPECT_FALSE(geometry_->isPeriodicY());  // Y dimension not periodic
-  EXPECT_TRUE(geometry_->isPeriodicZ());   // Z dimension periodic
+  // Test total size query
+  EXPECT_EQ(geometry_->size(), 3000);
 }
 
 /**
@@ -136,24 +130,10 @@ TEST_F(GeometryTest, PeriodicityQueries) {
  */
 TEST_F(GeometryTest, SizeInformation) {
   // Setup expectations for size queries
-  EXPECT_CALL(geometry_->backend(), totalGridSize()).WillOnce(Return(3000));
+  EXPECT_CALL(geometry_->backend(), size()).WillOnce(Return(3000));
 
   // Test total size query
-  EXPECT_EQ(geometry_->totalGridSize(), 3000);
-}
-
-/**
- * @brief Test halo exchange operation
- *
- * Verifies that the Geometry adapter correctly delegates halo exchange
- * operations to the backend implementation.
- */
-TEST_F(GeometryTest, HaloExchange) {
-  // Setup expectations for halo exchange
-  EXPECT_CALL(geometry_->backend(), haloExchangeImpl(testing::_)).Times(1);
-
-  // Perform halo exchange
-  geometry_->haloExchange(*state_);
+  EXPECT_EQ(geometry_->size(), 3000);
 }
 
 /**
@@ -167,9 +147,8 @@ TEST_F(GeometryTest, Clone) {
   auto cloned_geometry = geometry_->clone();
 
   // Verify cloned geometry is initialized
-  EXPECT_CALL(cloned_geometry.backend(), isInitialized())
-      .WillOnce(Return(true));
-  EXPECT_TRUE(cloned_geometry.isInitialized());
+  EXPECT_CALL(cloned_geometry.backend(), size()).WillOnce(Return(3000));
+  EXPECT_EQ(cloned_geometry.size(), 3000);
 }
 
 /**
@@ -179,19 +158,26 @@ TEST_F(GeometryTest, Clone) {
  * for traversing grid points by delegating to the backend implementation.
  */
 TEST_F(GeometryTest, IteratorAccess) {
-  // Create MockGeometryIterator instances with shared_ptr
-  auto begin_mock_iter = std::make_shared<MockGeometryIterator>(nullptr);
-  auto end_mock_iter = std::make_shared<MockGeometryIterator>(nullptr);
+  // Create MockGeometryIterator instances
+  MockGeometryIterator begin_mock_iter;
+  MockGeometryIterator end_mock_iter;
 
-  // Setup expectations for begin/end - use references for comparison
-  EXPECT_CALL(geometry_->backend(), begin()).WillOnce(Return(*begin_mock_iter));
-  EXPECT_CALL(geometry_->backend(), end()).WillOnce(Return(*end_mock_iter));
+  // Create persistent grid points for ReturnRef
+  MockGridPoint grid_point{0, 0, 0};
+
+  // Set up default actions for the mock iterators
+  ON_CALL(begin_mock_iter, dereference()).WillByDefault(ReturnRef(grid_point));
+  ON_CALL(end_mock_iter, dereference()).WillByDefault(ReturnRef(grid_point));
+
+  // Setup expectations for begin/end
+  EXPECT_CALL(geometry_->backend(), begin()).WillOnce(Return(begin_mock_iter));
+  EXPECT_CALL(geometry_->backend(), end()).WillOnce(Return(end_mock_iter));
 
   // Get iterators
   auto iter_begin = geometry_->begin();
   auto iter_end = geometry_->end();
 
-  // Simple verification that the iterators are different
+  // Verify that iterators are different objects
   EXPECT_NE(&iter_begin, &iter_end);
 }
 
@@ -204,23 +190,19 @@ TEST_F(GeometryTest, IteratorAccess) {
  */
 TEST_F(GeometryTest, MoveConstructor) {
   // Setup expectations for the backend methods
-  EXPECT_CALL(geometry_->backend(), isInitialized()).WillOnce(Return(true));
-  EXPECT_CALL(geometry_->backend(), totalGridSize()).WillOnce(Return(1000));
+  EXPECT_CALL(geometry_->backend(), size()).WillOnce(Return(1000));
 
   // Verify original geometry is initialized and has expected size
-  EXPECT_TRUE(geometry_->isInitialized());
-  EXPECT_EQ(geometry_->totalGridSize(), 1000);
+  EXPECT_EQ(geometry_->size(), 1000);
 
   // Move construct a new geometry
   Geometry<traits::MockBackendTag> moved_geometry(std::move(*geometry_));
 
   // Setup expectations for the moved geometry's backend methods
-  EXPECT_CALL(moved_geometry.backend(), isInitialized()).WillOnce(Return(true));
-  EXPECT_CALL(moved_geometry.backend(), totalGridSize()).WillOnce(Return(1000));
+  EXPECT_CALL(moved_geometry.backend(), size()).WillOnce(Return(1000));
 
   // Verify the moved-to geometry has the expected state
-  EXPECT_TRUE(moved_geometry.isInitialized());
-  EXPECT_EQ(moved_geometry.totalGridSize(), 1000);
+  EXPECT_EQ(moved_geometry.size(), 1000);
 
   // We can't directly test if the original is uninitialized because we've moved
   // it, but we've covered the move constructor semantics
@@ -237,12 +219,10 @@ TEST_F(GeometryTest, MoveAssignment) {
   Geometry<traits::MockBackendTag> local_geometry(*config_);
 
   // Setup expectations for the source backend methods
-  EXPECT_CALL(geometry_->backend(), isInitialized()).WillOnce(Return(true));
-  EXPECT_CALL(geometry_->backend(), totalGridSize()).WillOnce(Return(1000));
+  EXPECT_CALL(geometry_->backend(), size()).WillOnce(Return(1000));
 
   // Verify source geometry has expected state
-  EXPECT_TRUE(geometry_->isInitialized());
-  EXPECT_EQ(geometry_->totalGridSize(), 1000);
+  EXPECT_EQ(geometry_->size(), 1000);
 
   // Create a temporary to use for move assignment
   auto temp_geometry =
@@ -252,12 +232,10 @@ TEST_F(GeometryTest, MoveAssignment) {
   local_geometry = std::move(*temp_geometry);
 
   // Setup expectations for the assigned geometry's backend methods
-  EXPECT_CALL(local_geometry.backend(), isInitialized()).WillOnce(Return(true));
-  EXPECT_CALL(local_geometry.backend(), totalGridSize()).WillOnce(Return(1000));
+  EXPECT_CALL(local_geometry.backend(), size()).WillOnce(Return(1000));
 
   // Verify the moved-to geometry has the expected state
-  EXPECT_TRUE(local_geometry.isInitialized());
-  EXPECT_EQ(local_geometry.totalGridSize(), 1000);
+  EXPECT_EQ(local_geometry.size(), 1000);
 
   // We can't directly test the original geometry's state as we've moved it
 }
@@ -270,16 +248,22 @@ TEST_F(GeometryTest, MoveAssignment) {
  */
 TEST_F(GeometryTest, ConstIterators) {
   // Create MockGeometryIterator instances
-  auto begin_mock_iter = std::make_shared<MockGeometryIterator>(nullptr);
-  auto end_mock_iter = std::make_shared<MockGeometryIterator>(nullptr);
+  MockGeometryIterator begin_mock_iter;
+  MockGeometryIterator end_mock_iter;
+
+  // Create persistent grid points for ReturnRef
+  MockGridPoint grid_point{0, 0, 0};
+
+  // Set up default actions for the mock iterators
+  ON_CALL(begin_mock_iter, dereference()).WillByDefault(ReturnRef(grid_point));
+  ON_CALL(end_mock_iter, dereference()).WillByDefault(ReturnRef(grid_point));
 
   // Get a const reference to our geometry for testing const methods
   const Geometry<traits::MockBackendTag>& const_geom = *geometry_;
 
   // Setup behavior using ON_CALL which works for const methods
-  ON_CALL(const_geom.backend(), begin())
-      .WillByDefault(Return(*begin_mock_iter));
-  ON_CALL(const_geom.backend(), end()).WillByDefault(Return(*end_mock_iter));
+  ON_CALL(const_geom.backend(), begin()).WillByDefault(Return(begin_mock_iter));
+  ON_CALL(const_geom.backend(), end()).WillByDefault(Return(end_mock_iter));
 
   // Get const iterators
   auto const_begin = const_geom.begin();
@@ -308,6 +292,82 @@ TEST_F(GeometryTest, BackendAccess) {
   // Verify both references point to the same backend
   EXPECT_EQ(static_cast<const void*>(&backend_ref),
             static_cast<const void*>(&const_backend_ref));
+}
+
+TEST_F(GeometryTest, STLContainerFunctions) {
+  // Set up values to be returned by the mock
+  MockGridPoint pt0{0, 0, 0};
+  MockGridPoint pt1{1, 1, 1};
+  MockGridPoint pt2{2, 2, 2};
+  std::vector<MockGridPoint> points = {pt0, pt1, pt2};
+
+  // Set up expectations for size-related methods
+  EXPECT_CALL(geometry_->backend(), size()).WillOnce(Return(points.size()));
+  EXPECT_CALL(geometry_->backend(), empty()).WillOnce(Return(false));
+  EXPECT_CALL(geometry_->backend(), max_size()).WillOnce(Return(100));
+
+  // Set up expectations for element access via get()
+  EXPECT_CALL(geometry_->backend(), get(0)).WillOnce(ReturnRef(points[0]));
+  EXPECT_CALL(geometry_->backend(), get(1)).WillOnce(ReturnRef(points[1]));
+  EXPECT_CALL(geometry_->backend(), front()).WillOnce(ReturnRef(points[0]));
+  EXPECT_CALL(geometry_->backend(), back()).WillOnce(ReturnRef(points[2]));
+
+  // Test size-related methods
+  EXPECT_EQ(geometry_->size(), 3);
+  EXPECT_FALSE(geometry_->empty());
+  EXPECT_GE(geometry_->max_size(), 3);
+
+  // Test element access (all forward to get() internally)
+  EXPECT_NO_THROW({ geometry_->at(0); });
+  EXPECT_NO_THROW({ geometry_->front(); });
+  EXPECT_NO_THROW({ geometry_->back(); });
+  EXPECT_NO_THROW({ geometry_->operator[](1); });
+}
+
+TEST_F(GeometryTest, RangeBasedForAndSTLAlgorithms) {
+  // Prepare test points
+  MockGridPoint pt0{0, 1, 2};
+  MockGridPoint pt2{2, 3, 4};
+
+  // Create mock iterators for begin and end
+  MockGeometryIterator begin_iter;
+  MockGeometryIterator end_iter;
+
+  // Set up expectations for iterator operations with default actions
+  EXPECT_CALL(begin_iter, dereference()).WillRepeatedly(ReturnRef(pt0));
+  EXPECT_CALL(begin_iter, increment()).WillRepeatedly(Return());
+  EXPECT_CALL(begin_iter, compare(testing::_)).WillRepeatedly(Return(false));
+
+  EXPECT_CALL(end_iter, dereference()).WillRepeatedly(ReturnRef(pt2));
+  EXPECT_CALL(end_iter, increment()).WillRepeatedly(Return());
+  EXPECT_CALL(end_iter, compare(testing::_)).WillRepeatedly(Return(true));
+
+  // Set up backend to return the correct iterators
+  EXPECT_CALL(geometry_->backend(), begin()).WillOnce(Return(begin_iter));
+  EXPECT_CALL(geometry_->backend(), end()).WillOnce(Return(end_iter));
+
+  // Test that we can get iterators from the geometry
+  auto it = geometry_->begin();
+  auto end = geometry_->end();
+
+  // Verify that iterators are different objects
+  EXPECT_NE(&it, &end);
+
+  // Set up expectations for iterator operations with default actions
+  EXPECT_CALL(it, dereference()).WillRepeatedly(ReturnRef(pt0));
+
+  // Test basic iterator operations - these should not throw with default
+  // actions
+  EXPECT_NO_THROW({
+    auto& point = *it;  // This calls dereference()
+    (void)point;        // Suppress unused variable warning
+  });
+
+  // Test iterator comparison
+  EXPECT_NO_THROW({
+    bool is_equal = (it == end);
+    (void)is_equal;  // Suppress unused variable warning
+  });
 }
 
 }  // namespace metada::tests

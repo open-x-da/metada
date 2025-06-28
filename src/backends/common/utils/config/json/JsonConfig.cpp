@@ -1,8 +1,9 @@
 #include "JsonConfig.hpp"
 
 #include <fstream>
-#include <sstream>
 #include <stdexcept>
+#include <iomanip>
+#include <string>
 
 namespace metada::backends::config {
 
@@ -305,6 +306,13 @@ ConfigValue JsonConfig::JsonToConfigValue(const nlohmann::json& j) {
         vec.push_back(item.get<std::string>());
       }
       return ConfigValue(vec);
+    } else if (j[0].is_object()) {
+      // Support for array of objects (nested maps)
+      std::vector<framework::ConfigValue> vec;
+      for (const auto& item : j) {
+        vec.push_back(JsonToConfigValue(item));
+      }
+      return ConfigValue(vec);
     }
   } else if (j.is_object()) {
     ConfigMap map;
@@ -350,6 +358,12 @@ nlohmann::json JsonConfig::ConfigValueToJson(const ConfigValue& value) {
     return nlohmann::json(value.asVectorFloat());
   } else if (value.isVectorString()) {
     return nlohmann::json(value.asVectorString());
+  } else if (value.isVectorConfigValue()) {
+    nlohmann::json arr = nlohmann::json::array();
+    for (const auto& item : value.asVectorConfigValue()) {
+      arr.push_back(ConfigValueToJson(item));
+    }
+    return arr;
   } else if (value.isMap()) {
     nlohmann::json result = nlohmann::json::object();
     for (const auto& [key, val] : value.asMap()) {
@@ -358,6 +372,14 @@ nlohmann::json JsonConfig::ConfigValueToJson(const ConfigValue& value) {
     return result;
   }
   throw std::runtime_error("Unsupported ConfigValue type");
+}
+
+JsonConfig::JsonConfig(const framework::ConfigMap& map) {
+  // Convert ConfigMap to nlohmann::json object
+  root_ = nlohmann::json::object();
+  for (const auto& [key, value] : map) {
+    root_[key] = ConfigValueToJson(value);
+  }
 }
 
 }  // namespace metada::backends::config

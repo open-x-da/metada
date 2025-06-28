@@ -21,11 +21,14 @@
 #include <string>
 
 #include "Config.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
 #include "Model.hpp"
 #include "State.hpp"
 
 namespace metada::tests {
+
+using namespace metada::framework;
 
 using ::testing::_;
 using ::testing::AtLeast;
@@ -57,6 +60,10 @@ class ModelTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     config_file_ = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
+
+    // Initialize the Logger singleton before creating any objects that use it
+    Logger<traits::MockBackendTag>::Init(*config_);
+
     geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
     mockModel_ = std::make_unique<Model<traits::MockBackendTag>>(*config_);
   }
@@ -66,6 +73,8 @@ class ModelTest : public ::testing::Test {
     config_.reset();
     geometry_.reset();
     mockModel_.reset();
+    // Reset the Logger singleton after tests
+    Logger<traits::MockBackendTag>::Reset();
   }
 };
 

@@ -63,7 +63,7 @@ jobs:
           mingw-w64-x86_64-nlohmann-json
           mingw-w64-x86_64-netcdf
           mingw-w64-x86_64-netcdf-cxx
-          
+
     - name: Install xtl and xtensor
       run: |
         git clone https://github.com/xtensor-stack/xtl.git
@@ -78,6 +78,16 @@ jobs:
         cd xtensor/build
         cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
         cmake --build .
+        ninja install
+
+    - name: Install ng-log
+      run: |
+        git clone --depth 1 --branch v0.8.0 https://github.com/ng-log/ng-log.git
+        cd ng-log
+        mkdir build
+        cd build
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw64
+        ninja
         ninja install
 
     - name: Configure CMake
@@ -98,4 +108,4 @@ jobs:
     - name: Test
       run: |
         cd build
-        ctest --output-on-failure 
+        ctest --output-on-failure
