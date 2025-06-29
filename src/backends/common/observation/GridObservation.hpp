@@ -1,6 +1,17 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_map>
+#include <vector>
+
+#include "PointObservation.hpp"
 
 namespace metada::backends::common::observation {
 
@@ -111,7 +122,24 @@ class GridObservation {
           }
           double error = var_backend.Get("error").asFloat();
           double missing_value = var_backend.Get("missing_value").asFloat();
-          loadFromFile(filename, error, missing_value);
+
+          // Get dimensions from variable config
+          std::vector<size_t> dimensions;
+          try {
+            const auto dim_values = var_backend.Get("dimensions").asVectorInt();
+            dimensions.reserve(dim_values.size());
+            for (const auto& dim : dim_values) {
+              dimensions.push_back(static_cast<size_t>(dim));
+            }
+          } catch (const std::exception&) {
+            throw std::runtime_error(
+                "Missing 'dimensions' field in variable '" + var_name +
+                "' of observation type '" + type_name +
+                "'. Please specify data dimensions as [nx, ny, nz, nt, ...]");
+          }
+
+          // Use new API with dimensions
+          loadFromFile(filename, error, missing_value, dimensions);
         }
       }
     }
@@ -355,35 +383,126 @@ class GridObservation {
   }
 
   /**
-   * @brief Load observation data from file
+   * @brief Load observation data from file with specified dimensions
    * @param filename Path to observation file
-   * @param error The observation error to assign to all valid points.
-   * @param missing_value The value that indicates a missing observation.
+   * @param error The observation error to assign to all valid points
+   * @param missing_value The value that indicates a missing observation
+   * @param dimensions Vector specifying data dimensions [nx, ny, nz, nt, ...]
    */
   void loadFromFile(const std::string& filename, double error,
-                    double missing_value) {
+                    double missing_value,
+                    const std::vector<size_t>& dimensions) {
     std::ifstream file(filename);
     if (!file.is_open()) {
       throw std::runtime_error("Could not open observation file: " + filename);
     }
 
-    std::string line;
-    int y = 0;  // row index (latitude)
-    while (std::getline(file, line)) {
-      std::istringstream iss(line);
-      double value;
-      int x = 0;  // column index (longitude)
-      while (iss >> value) {
-        if (value != missing_value) {
-          // Location is derived from grid indices, level is 0
-          // Use same convention as state/geometry: (x, y) where x=col, y=row
-          Location location(x, y, 0);
-          observations_.emplace_back(location, value, error);
-        }
-        x++;
-      }
-      y++;
+    // Read all values from file (space or comma separated)
+    std::vector<double> values;
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+
+    // Replace commas with spaces for uniform parsing
+    std::replace(content.begin(), content.end(), ',', ' ');
+
+    std::istringstream iss(content);
+    double value;
+    while (iss >> value) {
+      values.push_back(value);
     }
+
+    if (values.empty()) {
+      throw std::runtime_error("No valid data found in file: " + filename);
+    }
+
+    // Dimensions must be provided
+    if (dimensions.empty()) {
+      throw std::runtime_error(
+          "Dimensions must be specified. Cannot infer dimensions from data "
+          "alone.");
+    }
+
+    // Use provided dimensions
+    loadWithDimensions(values, dimensions, error, missing_value);
+  }
+
+ private:
+  /**
+   * @brief Load data with specified dimensions
+   */
+  void loadWithDimensions(const std::vector<double>& values,
+                          const std::vector<size_t>& dimensions, double error,
+                          double missing_value) {
+    // Calculate total expected size
+    size_t expected_size = 1;
+    for (size_t dim : dimensions) {
+      expected_size *= dim;
+    }
+
+    if (values.size() != expected_size) {
+      throw std::runtime_error(
+          "Data size (" + std::to_string(values.size()) +
+          ") does not match expected size from dimensions (" +
+          std::to_string(expected_size) + ")");
+    }
+
+    // Clear existing observations
+    observations_.clear();
+
+    // Process each value with its multi-dimensional index
+    for (size_t linear_idx = 0; linear_idx < values.size(); ++linear_idx) {
+      double value = values[linear_idx];
+
+      if (value != missing_value) {
+        // Convert linear index to multi-dimensional indices
+        std::vector<int> indices = linearToMultiDim(linear_idx, dimensions);
+
+        // Create location based on dimensions
+        Location location = [&]() {
+          if (dimensions.size() == 1) {
+            // 1D: (x, 0, 0)
+            return Location(indices[0], 0, 0);
+          } else if (dimensions.size() == 2) {
+            // 2D: (x, y, 0)
+            return Location(indices[1], indices[0],
+                            0);  // Note: y, x order for row-major
+          } else if (dimensions.size() == 3) {
+            // 3D: (x, y, z)
+            return Location(indices[2], indices[1], indices[0]);
+          } else if (dimensions.size() == 4) {
+            // 4D: assume [t, z, y, x] - use spatial indices, ignore time for
+            // now
+            return Location(indices[3], indices[2], indices[1]);
+          } else {
+            // Higher dimensions: use last 3 as spatial coordinates
+            size_t n = dimensions.size();
+            return Location(indices[n - 1], indices[n - 2], indices[n - 3]);
+          }
+        }();
+
+        observations_.emplace_back(location, value, error);
+      }
+    }
+  }
+
+  /**
+   * @brief Convert linear index to multi-dimensional indices
+   * @param linear_idx Linear index into flattened array
+   * @param dimensions Dimension sizes
+   * @return Vector of indices for each dimension
+   */
+  std::vector<int> linearToMultiDim(size_t linear_idx,
+                                    const std::vector<size_t>& dimensions) {
+    std::vector<int> indices(dimensions.size());
+    size_t remaining = linear_idx;
+
+    // Convert using row-major order (C-style)
+    for (int i = dimensions.size() - 1; i >= 0; --i) {
+      indices[i] = remaining % dimensions[i];
+      remaining /= dimensions[i];
+    }
+
+    return indices;
   }
 
   /**

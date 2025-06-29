@@ -36,18 +36,22 @@ struct VariableGridInfo {
   enum class GridType {
     UNSTAGGERED,  // Uses unstaggered_grid() from WRFGeometry
     U_STAGGERED,  // Uses u_staggered_grid() from WRFGeometry
-    V_STAGGERED   // Uses v_staggered_grid() from WRFGeometry
+    V_STAGGERED,  // Uses v_staggered_grid() from WRFGeometry
+    W_STAGGERED   // Uses w_staggered_grid() from WRFGeometry
   };
   GridType grid_type = GridType::UNSTAGGERED;
 
   // Helper method to determine grid type
   GridType determineGridType() const {
-    if (x_staggered && !y_staggered) {
+    if (x_staggered && !y_staggered && !z_staggered) {
       return GridType::U_STAGGERED;  // Staggered in X (U wind component)
-    } else if (!x_staggered && y_staggered) {
+    } else if (!x_staggered && y_staggered && !z_staggered) {
       return GridType::V_STAGGERED;  // Staggered in Y (V wind component)
+    } else if (!x_staggered && !y_staggered && z_staggered) {
+      return GridType::W_STAGGERED;  // Staggered in Z (W wind component)
     } else {
-      return GridType::UNSTAGGERED;  // Not staggered or both staggered (rare)
+      return GridType::UNSTAGGERED;  // Not staggered or multiple staggering
+                                     // (rare)
     }
   }
 
@@ -60,6 +64,8 @@ struct VariableGridInfo {
         return "u_staggered";
       case GridType::V_STAGGERED:
         return "v_staggered";
+      case GridType::W_STAGGERED:
+        return "w_staggered";
       default:
         return "unknown";
     }
@@ -231,18 +237,6 @@ class WRFState {
   bool isInitialized() const;
 
   /**
-   * @brief Set data for a specific variable
-   *
-   * @param values Vector of values to set
-   * @param variableName Optional variable name (uses active variable if not
-   * specified)
-   * @throws std::runtime_error If variable doesn't exist or dimensions don't
-   * match
-   */
-  void setData(const std::vector<double>& values,
-               const std::string& variableName = "");
-
-  /**
    * @brief Get data for a specific variable
    *
    * @param variableName Optional variable name (uses active variable if not
@@ -342,6 +336,8 @@ class WRFState {
         return geometry_.u_staggered_info();
       case VariableGridInfo::GridType::V_STAGGERED:
         return geometry_.v_staggered_info();
+      case VariableGridInfo::GridType::W_STAGGERED:
+        return geometry_.w_staggered_info();
       default:
         throw std::runtime_error("Unknown grid type for variable: " +
                                  variableName);
@@ -375,21 +371,29 @@ class WRFState {
       const auto& geom_grid = getVariableGeometryGrid(variableName);
       const auto& var_dims = dimensions_.at(variableName);
 
-      // Check if 2D dimensions match
+      // Check if 2D/3D dimensions match
       if (var_dims.size() >= 2) {
-        size_t expected_nx, expected_ny;
+        size_t expected_nx, expected_ny, expected_nz;
         switch (grid_info.grid_type) {
           case VariableGridInfo::GridType::UNSTAGGERED:
             expected_nx = geometry_.x_dim();
             expected_ny = geometry_.y_dim();
+            expected_nz = geometry_.z_dim();
             break;
           case VariableGridInfo::GridType::U_STAGGERED:
             expected_nx = geometry_.x_stag_dim();
             expected_ny = geometry_.y_dim();
+            expected_nz = geometry_.z_dim();
             break;
           case VariableGridInfo::GridType::V_STAGGERED:
             expected_nx = geometry_.x_dim();
             expected_ny = geometry_.y_stag_dim();
+            expected_nz = geometry_.z_dim();
+            break;
+          case VariableGridInfo::GridType::W_STAGGERED:
+            expected_nx = geometry_.x_dim();
+            expected_ny = geometry_.y_dim();
+            expected_nz = geometry_.z_stag_dim();
             break;
           default:
             return false;
@@ -397,11 +401,19 @@ class WRFState {
 
         // For 2D variables: [Y, X]
         // For 3D variables: [Z, Y, X]
-        size_t y_idx = var_dims.size() - 2;
-        size_t x_idx = var_dims.size() - 1;
-
-        return (var_dims[x_idx] == expected_nx &&
-                var_dims[y_idx] == expected_ny);
+        if (var_dims.size() == 2) {
+          size_t y_idx = 0;
+          size_t x_idx = 1;
+          return (var_dims[x_idx] == expected_nx &&
+                  var_dims[y_idx] == expected_ny);
+        } else if (var_dims.size() == 3) {
+          size_t z_idx = 0;
+          size_t y_idx = 1;
+          size_t x_idx = 2;
+          return (var_dims[x_idx] == expected_nx &&
+                  var_dims[y_idx] == expected_ny &&
+                  var_dims[z_idx] == expected_nz);
+        }
       }
       return false;
     } catch (const std::exception&) {
@@ -418,7 +430,8 @@ class WRFState {
 
     for (const auto& gridType : {VariableGridInfo::GridType::UNSTAGGERED,
                                  VariableGridInfo::GridType::U_STAGGERED,
-                                 VariableGridInfo::GridType::V_STAGGERED}) {
+                                 VariableGridInfo::GridType::V_STAGGERED,
+                                 VariableGridInfo::GridType::W_STAGGERED}) {
       auto vars = getVariablesByGridType(gridType);
       if (!vars.empty()) {
         std::string gridName;
@@ -431,6 +444,9 @@ class WRFState {
             break;
           case VariableGridInfo::GridType::V_STAGGERED:
             gridName = "V-Staggered";
+            break;
+          case VariableGridInfo::GridType::W_STAGGERED:
+            gridName = "W-Staggered";
             break;
         }
 
@@ -757,35 +773,6 @@ bool WRFState<ConfigBackend, GeometryBackend>::isInitialized() const {
   return initialized_;
 }
 
-// Set data implementation
-template <typename ConfigBackend, typename GeometryBackend>
-void WRFState<ConfigBackend, GeometryBackend>::setData(
-    const std::vector<double>& values, const std::string& variableName) {
-  // Use active variable if none specified
-  std::string varName = variableName.empty() ? activeVariable_ : variableName;
-
-  if (varName.empty() || variables_.find(varName) == variables_.end()) {
-    throw std::runtime_error("Variable not found: " + varName);
-  }
-
-  auto& data = variables_.at(varName);
-  const auto& dims = dimensions_.at(varName);
-
-  // Calculate total size from dimensions
-  size_t totalSize = 1;
-  for (size_t dim : dims) {
-    totalSize *= dim;
-  }
-
-  // Check if input data size matches expected size
-  if (values.size() != totalSize) {
-    throw std::runtime_error("Data size mismatch for variable: " + varName);
-  }
-
-  // Copy data to the array
-  std::copy(values.begin(), values.end(), data.begin());
-}
-
 // Get data implementation
 template <typename ConfigBackend, typename GeometryBackend>
 const xt::xarray<double>& WRFState<ConfigBackend, GeometryBackend>::getData(
@@ -891,6 +878,19 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
                                  "unexpected dimensions: "
                               << grid_info.x_dim_name << ", "
                               << grid_info.y_dim_name << std::endl;
+                  }
+                  break;
+                case VariableGridInfo::GridType::W_STAGGERED:
+                  // Check if dimensions match W-staggered grid
+                  if (grid_info.x_dim_name != "west_east" ||
+                      grid_info.y_dim_name != "south_north" ||
+                      grid_info.z_dim_name != "bottom_top_stag") {
+                    std::cerr << "Warning: Variable " << varName
+                              << " classified as W-staggered but has "
+                                 "unexpected dimensions: "
+                              << grid_info.x_dim_name << ", "
+                              << grid_info.y_dim_name << ", "
+                              << grid_info.z_dim_name << std::endl;
                   }
                   break;
               }

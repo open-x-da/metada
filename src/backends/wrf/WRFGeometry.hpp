@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <memory>
 #include <netcdf>
 #include <stdexcept>
 #include <string>
@@ -20,15 +19,13 @@
 #include <xtensor/xarray.hpp>
 #endif
 
-#include "PointObservation.hpp"
 #include "WRFGeometryIterator.hpp"
 
 // --- Begin: GridDimensionInfo struct ---
 struct GridDimensionInfo {
-  std::string name;  // e.g., "west_east", "west_east_stag"
+  std::string name;  // e.g., "unstaggered", "u_staggered"
   bool is_staggered = false;
-  size_t size = 0;
-  std::vector<double> coordinates;  // 1D coordinate array for this dimension
+  size_t size = 0;  // Total 3D grid size (nx * ny * nz)
 
   // 2D geographic coordinate arrays (for longitude/latitude grids)
   std::vector<double> longitude_2d;  // 2D longitude array (flattened)
@@ -36,9 +33,17 @@ struct GridDimensionInfo {
   size_t nx = 0;                     // X-dimension size for 2D arrays
   size_t ny = 0;                     // Y-dimension size for 2D arrays
 
+  // Vertical coordinate arrays
+  std::vector<double> vertical_coords;  // ZNU or ZNW eta levels
+  size_t nz = 0;                        // Z-dimension size
+
   // Helper methods
   bool has_2d_coords() const {
     return !longitude_2d.empty() && !latitude_2d.empty() && nx > 0 && ny > 0;
+  }
+
+  bool has_vertical_coords() const {
+    return !vertical_coords.empty() && nz > 0;
   }
 
   void resize_2d_coords(size_t nx_size, size_t ny_size) {
@@ -46,6 +51,11 @@ struct GridDimensionInfo {
     ny = ny_size;
     longitude_2d.resize(nx * ny);
     latitude_2d.resize(nx * ny);
+  }
+
+  void resize_vertical_coords(size_t nz_size) {
+    nz = nz_size;
+    vertical_coords.resize(nz);
   }
 };
 // --- End: GridDimensionInfo struct ---
@@ -66,11 +76,10 @@ namespace metada::backends::wrf {
  * @details
  * This class implements a geometry backend for the WRF model. It reads
  * geographical data from a WRF NetCDF file and provides methods for
- * traversing the grid and managing boundary conditions.
+ * traversing the grid points.
  *
- * It provides access to all possible coordinate arrays and sizes for both
- * staggered and unstaggered axes, but does not know which variable uses which
- * grid.
+ * It provides access to coordinate arrays and grid dimensions for both
+ * staggered and unstaggered grids used in WRF's Arakawa-C grid system.
  */
 template <typename ConfigBackend>
 class WRFGeometry {
@@ -195,8 +204,12 @@ class WRFGeometry {
   }
   size_t x_stag_dim() const { return u_staggered_grid_.nx; }
   size_t y_stag_dim() const { return v_staggered_grid_.ny; }
+  size_t z_stag_dim() const {
+    return w_staggered_grid_.size /
+           (w_staggered_grid_.nx * w_staggered_grid_.ny);
+  }
 
-  // Legacy accessors for compatibility - now return proper dimension info
+  // Grid accessors - provide access to different grid types
   const GridDimensionInfo& unstaggered_info() const {
     return unstaggered_grid_;
   }
@@ -206,19 +219,9 @@ class WRFGeometry {
   const GridDimensionInfo& v_staggered_info() const {
     return v_staggered_grid_;
   }
-  // --- End axis/coordinate accessors ---
-
-  // --- Begin: Coordinate grid accessors ---
-  const GridDimensionInfo& unstaggered_grid() const {
-    return unstaggered_grid_;
+  const GridDimensionInfo& w_staggered_info() const {
+    return w_staggered_grid_;
   }
-  const GridDimensionInfo& u_staggered_grid() const {
-    return u_staggered_grid_;
-  }
-  const GridDimensionInfo& v_staggered_grid() const {
-    return v_staggered_grid_;
-  }
-  // --- End: Coordinate grid accessors ---
 
   /**
    * @brief Get grid point as Location object
@@ -256,24 +259,6 @@ class WRFGeometry {
   }
 
   /**
-   * @brief Get geographic location as Location object
-   * @param i X coordinate (west-east)
-   * @param j Y coordinate (south-north)
-   * @return Location object with geographic coordinates
-   */
-  Location getGeographicLocation(size_t i, size_t j) const {
-    if (i >= x_dim() || j >= y_dim()) {
-      throw std::out_of_range("Grid coordinates out of range");
-    }
-
-    double lon = unstaggered_grid_.longitude_2d[j * x_dim() + i];
-    double lat = unstaggered_grid_.latitude_2d[j * x_dim() + i];
-    double level = 0.0;  // Default level, could be enhanced to get actual level
-
-    return Location(lat, lon, level);
-  }
-
-  /**
    * @brief Get total grid size
    * @return Total number of grid points
    */
@@ -291,14 +276,13 @@ class WRFGeometry {
   GridDimensionInfo unstaggered_grid_;
   GridDimensionInfo u_staggered_grid_;
   GridDimensionInfo v_staggered_grid_;
+  GridDimensionInfo w_staggered_grid_;  // For variables staggered in Z
+                                        // direction (like W wind component)
   // --- End: GridDimensionInfo members ---
 
   // WRF NetCDF file
   std::string wrfFilename_;
   bool initialized_ = false;
-
-  // Friend declaration for iterator
-  friend class WRFGeometryIterator<ConfigBackend>;
 };
 
 // Move constructor implementation
@@ -308,12 +292,14 @@ WRFGeometry<ConfigBackend>::WRFGeometry(WRFGeometry&& other) noexcept
       initialized_(other.initialized_),
       unstaggered_grid_(std::move(other.unstaggered_grid_)),
       u_staggered_grid_(std::move(other.u_staggered_grid_)),
-      v_staggered_grid_(std::move(other.v_staggered_grid_)) {
+      v_staggered_grid_(std::move(other.v_staggered_grid_)),
+      w_staggered_grid_(std::move(other.w_staggered_grid_)) {
   // Reset the moved-from object
   other.initialized_ = false;
   other.unstaggered_grid_.size = 0;
   other.u_staggered_grid_.size = 0;
   other.v_staggered_grid_.size = 0;
+  other.w_staggered_grid_.size = 0;
 }
 
 // Move assignment operator implementation
@@ -326,12 +312,14 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
     unstaggered_grid_ = std::move(other.unstaggered_grid_);
     u_staggered_grid_ = std::move(other.u_staggered_grid_);
     v_staggered_grid_ = std::move(other.v_staggered_grid_);
+    w_staggered_grid_ = std::move(other.w_staggered_grid_);
 
     // Reset the moved-from object
     other.initialized_ = false;
     other.unstaggered_grid_.size = 0;
     other.u_staggered_grid_.size = 0;
     other.v_staggered_grid_.size = 0;
+    other.w_staggered_grid_.size = 0;
   }
   return *this;
 }
@@ -339,7 +327,11 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
 // Clone implementation
 template <typename ConfigBackend>
 WRFGeometry<ConfigBackend> WRFGeometry<ConfigBackend>::clone() const {
-  return *this;
+  // Clone is not easily implementable without storing the original config
+  // For WRF, geometry instances should be created from configuration
+  throw std::runtime_error(
+      "WRFGeometry::clone() not implemented - create new instance from "
+      "configuration instead");
 }
 
 // ConfigBackend constructor implementation
@@ -397,6 +389,15 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
       v_staggered_grid_.resize_2d_coords(dim_west_east.getSize(),
                                          dim_south_north_stag.getSize());
 
+      // Setup W-staggered grid (staggered in Z direction)
+      w_staggered_grid_.name = "w_staggered";
+      w_staggered_grid_.is_staggered = true;
+      w_staggered_grid_.size = dim_west_east.getSize() *
+                               dim_south_north.getSize() *
+                               dim_bottom_top_stag.getSize();
+      w_staggered_grid_.resize_2d_coords(dim_west_east.getSize(),
+                                         dim_south_north.getSize());
+
       // Read unstaggered coordinate arrays (XLONG, XLAT)
       auto var_longitude = wrf_file.getVar("XLONG");
       auto var_latitude = wrf_file.getVar("XLAT");
@@ -433,24 +434,57 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
                               v_staggered_grid_.latitude_2d.data());
       }
 
-      // Populate 1D coordinate arrays for dimensional indexing
-      // Unstaggered grid coordinates
-      unstaggered_grid_.coordinates.resize(unstaggered_grid_.nx);
-      for (size_t i = 0; i < unstaggered_grid_.nx; ++i) {
-        unstaggered_grid_.coordinates[i] = static_cast<double>(i);
+      // Read vertical coordinate arrays (ZNU for unstaggered, ZNW for
+      // staggered)
+      auto var_znu = wrf_file.getVar("ZNU");
+      auto var_znw = wrf_file.getVar("ZNW");
+
+      if (!var_znu.isNull()) {
+        // ZNU: eta values on half (mass) levels - unstaggered vertical
+        // coordinates
+        std::vector<size_t> znu_start = {0, 0};
+        std::vector<size_t> znu_count = {1, dim_bottom_top.getSize()};
+        std::vector<double> znu_data(dim_bottom_top.getSize());
+        var_znu.getVar(znu_start, znu_count, znu_data.data());
+
+        // Store ZNU coordinates in grids that use unstaggered vertical levels
+        unstaggered_grid_.resize_vertical_coords(dim_bottom_top.getSize());
+        unstaggered_grid_.vertical_coords = znu_data;
+
+        u_staggered_grid_.resize_vertical_coords(dim_bottom_top.getSize());
+        u_staggered_grid_.vertical_coords = znu_data;
+
+        v_staggered_grid_.resize_vertical_coords(dim_bottom_top.getSize());
+        v_staggered_grid_.vertical_coords = znu_data;
+
+        // ZNU coordinates loaded successfully
+      } else {
+        std::cerr << "Warning: ZNU (unstaggered vertical coordinates) not "
+                     "found in WRF file"
+                  << std::endl;
       }
 
-      // U-staggered grid coordinates
-      u_staggered_grid_.coordinates.resize(u_staggered_grid_.nx);
-      for (size_t i = 0; i < u_staggered_grid_.nx; ++i) {
-        u_staggered_grid_.coordinates[i] = static_cast<double>(i) - 0.5;
+      if (!var_znw.isNull()) {
+        // ZNW: eta values on full (w) levels - staggered vertical coordinates
+        std::vector<size_t> znw_start = {0, 0};
+        std::vector<size_t> znw_count = {1, dim_bottom_top_stag.getSize()};
+        std::vector<double> znw_data(dim_bottom_top_stag.getSize());
+        var_znw.getVar(znw_start, znw_count, znw_data.data());
+
+        // Store ZNW coordinates in W-staggered grid
+        w_staggered_grid_.resize_vertical_coords(dim_bottom_top_stag.getSize());
+        w_staggered_grid_.vertical_coords = znw_data;
+
+        // ZNW coordinates loaded successfully
+      } else {
+        std::cerr << "Warning: ZNW (staggered vertical coordinates) not found "
+                     "in WRF file"
+                  << std::endl;
       }
 
-      // V-staggered grid coordinates
-      v_staggered_grid_.coordinates.resize(v_staggered_grid_.nx);
-      for (size_t i = 0; i < v_staggered_grid_.nx; ++i) {
-        v_staggered_grid_.coordinates[i] = static_cast<double>(i);
-      }
+      // Note: 1D coordinate arrays are not populated as they're not used
+      // Geographic coordinates are available in the 2D longitude_2d/latitude_2d
+      // arrays
 
     } else {
       throw std::runtime_error("Failed to open WRF file: " + filename);
