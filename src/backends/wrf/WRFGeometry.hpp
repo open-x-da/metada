@@ -369,7 +369,7 @@ WRFGeometry<ConfigBackend>::WRFGeometry(const std::string& fn, bool px, bool py,
 // ConfigBackend constructor implementation
 template <typename ConfigBackend>
 WRFGeometry<ConfigBackend>::WRFGeometry(const ConfigBackend& config)
-    : wrfFilename_(config.Get("input_file").asString()),
+    : wrfFilename_(config.Get("file").asString()),
       initialized_(false),
       periodicX_(false),
       periodicY_(false),

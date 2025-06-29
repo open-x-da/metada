@@ -6,30 +6,47 @@ logger:
 
 # Geometry for the ensemble
 geometry:
-  input_file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+  file: "D:/linux/metada/applications/forecast/wrfinput_d01"
 
 # Ensemble variables to analyze
 ensemble:
-  variables: "simple"
   members:
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+        variables:
+          - "U"
 
 # Observation settings
 observations:
