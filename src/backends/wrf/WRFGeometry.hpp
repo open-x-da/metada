@@ -22,6 +22,15 @@
 
 #include "PointObservation.hpp"
 
+// --- Begin: GridDimensionInfo struct ---
+struct GridDimensionInfo {
+  std::string name;  // e.g., "west_east", "west_east_stag"
+  bool is_staggered = false;
+  size_t size = 0;
+  std::vector<double> coordinates;
+};
+// --- End: GridDimensionInfo struct ---
+
 // Forward declarations
 namespace metada::backends::wrf {
 template <typename ConfigBackend>
@@ -39,6 +48,10 @@ namespace metada::backends::wrf {
  * This class implements a geometry backend for the WRF model. It reads
  * geographical data from a WRF NetCDF file and provides methods for
  * traversing the grid and managing boundary conditions.
+ *
+ * It provides access to all possible coordinate arrays and sizes for both
+ * staggered and unstaggered axes, but does not know which variable uses which
+ * grid.
  */
 template <typename ConfigBackend>
 class WRFGeometry {
@@ -46,7 +59,7 @@ class WRFGeometry {
   // Iterator type aliases
   using iterator = WRFGeometryIterator<ConfigBackend>;
   using const_iterator = WRFGeometryConstIterator<ConfigBackend>;
-  using Location = metada::framework::Location;  // New unified location type
+  using Location = metada::framework::Location;
 
   // --- Begin: Additions for GeometryBackendImpl concept compliance ---
   using value_type = Location;
@@ -154,28 +167,14 @@ class WRFGeometry {
    */
   const_iterator end() const;
 
-  // WRF specific methods
-
-  /**
-   * @brief Get the longitude array
-   *
-   * @return Reference to the longitude array
-   */
-  const xt::xarray<double>& getLongitude() const;
-
-  /**
-   * @brief Get the latitude array
-   *
-   * @return Reference to the latitude array
-   */
-  const xt::xarray<double>& getLatitude() const;
-
-  /**
-   * @brief Get the elevation array
-   *
-   * @return Reference to the elevation array
-   */
-  const xt::xarray<double>& getElevation() const;
+  // --- Axis/coordinate accessors using GridDimensionInfo ---
+  const GridDimensionInfo& x_info() const { return x_info_; }
+  const GridDimensionInfo& y_info() const { return y_info_; }
+  const GridDimensionInfo& z_info() const { return z_info_; }
+  const GridDimensionInfo& x_stag_info() const { return x_stag_info_; }
+  const GridDimensionInfo& y_stag_info() const { return y_stag_info_; }
+  const GridDimensionInfo& z_stag_info() const { return z_stag_info_; }
+  // --- End axis/coordinate accessors ---
 
   /**
    * @brief Get grid point as Location object
@@ -200,8 +199,8 @@ class WRFGeometry {
     }
 
     // Calculate 3D indices from linear index
-    const size_t nx = nx_;
-    const size_t ny = ny_;
+    const size_t nx = x_info_.size;
+    const size_t ny = y_info_.size;
 
     // Using row-major order: index = k*nx*ny + j*nx + i
     size_t k = index / (nx * ny);
@@ -219,12 +218,12 @@ class WRFGeometry {
    * @return Location object with geographic coordinates
    */
   Location getGeographicLocation(size_t i, size_t j) const {
-    if (i >= nx_ || j >= ny_) {
+    if (i >= x_info_.size || j >= y_info_.size) {
       throw std::out_of_range("Grid coordinates out of range");
     }
 
-    double lon = longitude_(j, i);
-    double lat = latitude_(j, i);
+    double lon = x_info_.coordinates[i];
+    double lat = y_info_.coordinates[j];
     double level = 0.0;  // Default level, could be enhanced to get actual level
 
     return Location(lat, lon, level);
@@ -234,10 +233,12 @@ class WRFGeometry {
    * @brief Get total grid size
    * @return Total number of grid points
    */
-  size_t totalGridSize() const { return nx_ * ny_ * nz_; }
+  size_t totalGridSize() const {
+    return x_info_.size * y_info_.size * z_info_.size;
+  }
 
-  size_t x_dim() const { return nx_; }
-  size_t y_dim() const { return ny_; }
+  size_t x_dim() const { return x_info_.size; }
+  size_t y_dim() const { return y_info_.size; }
 
  private:
   /**
@@ -250,19 +251,14 @@ class WRFGeometry {
   // Special constructor for cloning
   WRFGeometry(const std::string& fn, bool px, bool py, bool pz);
 
+  // --- Begin: GridDimensionInfo members ---
+  GridDimensionInfo x_info_, y_info_, z_info_;
+  GridDimensionInfo x_stag_info_, y_stag_info_, z_stag_info_;
+  // --- End: GridDimensionInfo members ---
+
   // WRF NetCDF file
   std::string wrfFilename_;
   bool initialized_ = false;
-
-  // Geographic data
-  xt::xarray<double> longitude_;  // Longitude points
-  xt::xarray<double> latitude_;   // Latitude points
-  xt::xarray<double> elevation_;  // Elevation/terrain height
-
-  // Grid dimensions
-  std::size_t nx_ = 0;  // X dimension (west-east)
-  std::size_t ny_ = 0;  // Y dimension (south-north)
-  std::size_t nz_ = 0;  // Z dimension (vertical levels)
 
   // Periodicity flags
   bool periodicX_ = false;
@@ -278,20 +274,20 @@ template <typename ConfigBackend>
 WRFGeometry<ConfigBackend>::WRFGeometry(WRFGeometry&& other) noexcept
     : wrfFilename_(std::move(other.wrfFilename_)),
       initialized_(other.initialized_),
-      longitude_(std::move(other.longitude_)),
-      latitude_(std::move(other.latitude_)),
-      elevation_(std::move(other.elevation_)),
-      nx_(other.nx_),
-      ny_(other.ny_),
-      nz_(other.nz_),
+      x_info_(std::move(other.x_info_)),
+      y_info_(std::move(other.y_info_)),
+      z_info_(std::move(other.z_info_)),
+      x_stag_info_(std::move(other.x_stag_info_)),
+      y_stag_info_(std::move(other.y_stag_info_)),
+      z_stag_info_(std::move(other.z_stag_info_)),
       periodicX_(other.periodicX_),
       periodicY_(other.periodicY_),
       periodicZ_(other.periodicZ_) {
   // Reset the moved-from object
   other.initialized_ = false;
-  other.nx_ = 0;
-  other.ny_ = 0;
-  other.nz_ = 0;
+  other.x_info_.size = 0;
+  other.y_info_.size = 0;
+  other.z_info_.size = 0;
 }
 
 // Move assignment operator implementation
@@ -301,21 +297,21 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
   if (this != &other) {
     wrfFilename_ = std::move(other.wrfFilename_);
     initialized_ = other.initialized_;
-    longitude_ = std::move(other.longitude_);
-    latitude_ = std::move(other.latitude_);
-    elevation_ = std::move(other.elevation_);
-    nx_ = other.nx_;
-    ny_ = other.ny_;
-    nz_ = other.nz_;
+    x_info_ = std::move(other.x_info_);
+    y_info_ = std::move(other.y_info_);
+    z_info_ = std::move(other.z_info_);
+    x_stag_info_ = std::move(other.x_stag_info_);
+    y_stag_info_ = std::move(other.y_stag_info_);
+    z_stag_info_ = std::move(other.z_stag_info_);
     periodicX_ = other.periodicX_;
     periodicY_ = other.periodicY_;
     periodicZ_ = other.periodicZ_;
 
     // Reset the moved-from object
     other.initialized_ = false;
-    other.nx_ = 0;
-    other.ny_ = 0;
-    other.nz_ = 0;
+    other.x_info_.size = 0;
+    other.y_info_.size = 0;
+    other.z_info_.size = 0;
   }
   return *this;
 }
@@ -328,42 +324,15 @@ WRFGeometry<ConfigBackend> WRFGeometry<ConfigBackend>::clone() const {
                                    periodicZ_);
 
   // Copy data members
-  clone.longitude_ = longitude_;
-  clone.latitude_ = latitude_;
-  clone.elevation_ = elevation_;
-  clone.nx_ = nx_;
-  clone.ny_ = ny_;
-  clone.nz_ = nz_;
+  clone.x_info_ = x_info_;
+  clone.y_info_ = y_info_;
+  clone.z_info_ = z_info_;
+  clone.x_stag_info_ = x_stag_info_;
+  clone.y_stag_info_ = y_stag_info_;
+  clone.z_stag_info_ = z_stag_info_;
   clone.initialized_ = initialized_;
 
   return clone;
-}
-
-// Get accessor methods implementation
-template <typename ConfigBackend>
-const xt::xarray<double>& WRFGeometry<ConfigBackend>::getLongitude() const {
-  return longitude_;
-}
-
-template <typename ConfigBackend>
-const xt::xarray<double>& WRFGeometry<ConfigBackend>::getLatitude() const {
-  return latitude_;
-}
-
-template <typename ConfigBackend>
-const xt::xarray<double>& WRFGeometry<ConfigBackend>::getElevation() const {
-  return elevation_;
-}
-
-template <typename ConfigBackend>
-WRFGeometry<ConfigBackend>::WRFGeometry(const std::string& fn, bool px, bool py,
-                                        bool pz)
-    : wrfFilename_(fn),
-      initialized_(false),
-      periodicX_(px),
-      periodicY_(py),
-      periodicZ_(pz) {
-  // The rest will be populated by clone() method
 }
 
 // ConfigBackend constructor implementation
@@ -403,9 +372,9 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
         throw std::runtime_error("Missing required dimensions in WRF file");
       }
 
-      nx_ = dim_west_east.getSize();
-      ny_ = dim_south_north.getSize();
-      nz_ = dim_bottom_top.getSize();
+      x_info_.size = dim_west_east.getSize();
+      y_info_.size = dim_south_north.getSize();
+      z_info_.size = dim_bottom_top.getSize();
 
       // Read geographic data variables
       auto var_longitude = wrf_file.getVar("XLONG");
@@ -428,25 +397,22 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
 
       // Allocate arrays for geographic data
       std::vector<size_t> start = {time_idx, 0, 0};
-      std::vector<size_t> count = {1, ny_, nx_};
+      std::vector<size_t> count = {1, y_info_.size, x_info_.size};
 
       // Read longitude data
-      std::vector<double> longitude_data(nx_ * ny_);
+      std::vector<double> longitude_data(x_info_.size * y_info_.size);
       var_longitude.getVar(start, count, longitude_data.data());
-      longitude_ =
-          xt::reshape_view(xt::adapt(longitude_data, {ny_, nx_}), {ny_, nx_});
+      x_info_.coordinates = longitude_data;
 
       // Read latitude data
-      std::vector<double> latitude_data(nx_ * ny_);
+      std::vector<double> latitude_data(x_info_.size * y_info_.size);
       var_latitude.getVar(start, count, latitude_data.data());
-      latitude_ =
-          xt::reshape_view(xt::adapt(latitude_data, {ny_, nx_}), {ny_, nx_});
+      y_info_.coordinates = latitude_data;
 
       // Read terrain/elevation data
-      std::vector<double> elevation_data(nx_ * ny_);
+      std::vector<double> elevation_data(x_info_.size * y_info_.size);
       var_terrain.getVar(start, count, elevation_data.data());
-      elevation_ =
-          xt::reshape_view(xt::adapt(elevation_data, {ny_, nx_}), {ny_, nx_});
+      z_info_.coordinates = elevation_data;
 
     } else {
       throw std::runtime_error("Failed to open WRF file: " + filename);
@@ -477,7 +443,7 @@ WRFGeometry<ConfigBackend>::begin() {
 template <typename ConfigBackend>
 inline typename WRFGeometry<ConfigBackend>::iterator
 WRFGeometry<ConfigBackend>::end() {
-  return iterator(this, nx_ * ny_ * nz_);
+  return iterator(this, x_info_.size * y_info_.size * z_info_.size);
 }
 
 template <typename ConfigBackend>
@@ -489,7 +455,7 @@ WRFGeometry<ConfigBackend>::begin() const {
 template <typename ConfigBackend>
 inline typename WRFGeometry<ConfigBackend>::const_iterator
 WRFGeometry<ConfigBackend>::end() const {
-  return const_iterator(this, nx_ * ny_ * nz_);
+  return const_iterator(this, x_info_.size * y_info_.size * z_info_.size);
 }
 
 }  // namespace metada::backends::wrf

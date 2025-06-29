@@ -23,6 +23,17 @@
 
 namespace metada::backends::wrf {
 
+// --- Begin: VariableGridInfo struct ---
+struct VariableGridInfo {
+  std::string x_dim_name;
+  std::string y_dim_name;
+  std::string z_dim_name;
+  bool x_staggered = false;
+  bool y_staggered = false;
+  bool z_staggered = false;
+};
+// --- End: VariableGridInfo struct ---
+
 /**
  * @brief WRF state backend implementation
  *
@@ -263,6 +274,10 @@ class WRFState {
   // --- End: Add saveToFile for StateBackendImpl concept compliance ---
 
   const GeometryBackend& geometry() const { return geometry_; }
+
+  // --- Variable-to-grid mapping ---
+  std::unordered_map<std::string, VariableGridInfo> variable_grid_info_;
+  // --- End variable-to-grid mapping ---
 
  private:
   /**
@@ -620,28 +635,11 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
     netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
 
     if (!wrf_file.isNull()) {
-      // Read dimensions
-      auto dim_west_east = wrf_file.getDim("west_east");
-      auto dim_south_north = wrf_file.getDim("south_north");
-      auto dim_bottom_top = wrf_file.getDim("bottom_top");
-
-      if (dim_west_east.isNull() || dim_south_north.isNull() ||
-          dim_bottom_top.isNull()) {
-        throw std::runtime_error("Missing required dimensions in WRF file");
-      }
-
-      // Find time index for the requested timestamp
-      size_t time_idx = 0;  // Default to first time step
-      auto times_var = wrf_file.getVar("Times");
-      if (!times_var.isNull()) {
-        // Code to find matching timestamp would go here
-        // For simplicity, we'll use index 0
-      }
-
       // Clear any existing data
       variables_.clear();
       dimensions_.clear();
       variableNames_.clear();
+      variable_grid_info_.clear();
 
       // Load each requested variable
       for (const auto& varName : variables) {
@@ -651,6 +649,27 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
           // Get variable dimensions
           const auto& varDims = var.getDims();
           std::vector<size_t> dims;
+
+          // --- Begin: Fill VariableGridInfo ---
+          VariableGridInfo grid_info;
+          size_t dim_offset = 0;
+          if (!varDims.empty() && varDims[0].getName() == "Time") {
+            dim_offset = 1;
+          }
+          // Assume WRF variable dimensions are ordered as [Z, Y, X] after Time
+          if (varDims.size() >= dim_offset + 3) {
+            grid_info.z_dim_name = varDims[dim_offset + 0].getName();
+            grid_info.y_dim_name = varDims[dim_offset + 1].getName();
+            grid_info.x_dim_name = varDims[dim_offset + 2].getName();
+            grid_info.z_staggered =
+                (grid_info.z_dim_name.find("_stag") != std::string::npos);
+            grid_info.y_staggered =
+                (grid_info.y_dim_name.find("_stag") != std::string::npos);
+            grid_info.x_staggered =
+                (grid_info.x_dim_name.find("_stag") != std::string::npos);
+          }
+          variable_grid_info_[varName] = grid_info;
+          // --- End: Fill VariableGridInfo ---
 
           // Skip time dimension if present
           bool hasTimeDim =
@@ -675,7 +694,7 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
           std::vector<size_t> count(varDims.size(), 1);
 
           if (hasTimeDim) {
-            start[0] = time_idx;
+            start[0] = 0;  // or time_idx if you want to support multiple times
           }
 
           for (size_t i = startDim; i < varDims.size(); ++i) {

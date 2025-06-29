@@ -41,8 +41,8 @@ class WRFGeometryIterator {
       : geometry_(geometry), index_(index) {
     if (geometry_ && index_ < geometry_->totalGridSize()) {
       // Calculate 3D indices from linear index
-      const size_t nx = geometry_->nx_;
-      const size_t ny = geometry_->ny_;
+      const size_t nx = geometry_->x_info().size;
+      const size_t ny = geometry_->y_info().size;
 
       // Using row-major order: index = k*nx*ny + j*nx + i
       k_ = index_ / (nx * ny);
@@ -79,8 +79,8 @@ class WRFGeometryIterator {
 
       if (index_ < geometry_->totalGridSize()) {
         // Recalculate 3D indices
-        const size_t nx = geometry_->nx_;
-        const size_t ny = geometry_->ny_;
+        const size_t nx = geometry_->x_info().size;
+        const size_t ny = geometry_->y_info().size;
 
         // Increment i (west-east) first
         ++i_;
