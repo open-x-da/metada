@@ -21,13 +21,32 @@
 #endif
 
 #include "PointObservation.hpp"
+#include "WRFGeometryIterator.hpp"
 
 // --- Begin: GridDimensionInfo struct ---
 struct GridDimensionInfo {
   std::string name;  // e.g., "west_east", "west_east_stag"
   bool is_staggered = false;
   size_t size = 0;
-  std::vector<double> coordinates;
+  std::vector<double> coordinates;  // 1D coordinate array for this dimension
+
+  // 2D geographic coordinate arrays (for longitude/latitude grids)
+  std::vector<double> longitude_2d;  // 2D longitude array (flattened)
+  std::vector<double> latitude_2d;   // 2D latitude array (flattened)
+  size_t nx = 0;                     // X-dimension size for 2D arrays
+  size_t ny = 0;                     // Y-dimension size for 2D arrays
+
+  // Helper methods
+  bool has_2d_coords() const {
+    return !longitude_2d.empty() && !latitude_2d.empty() && nx > 0 && ny > 0;
+  }
+
+  void resize_2d_coords(size_t nx_size, size_t ny_size) {
+    nx = nx_size;
+    ny = ny_size;
+    longitude_2d.resize(nx * ny);
+    latitude_2d.resize(nx * ny);
+  }
 };
 // --- End: GridDimensionInfo struct ---
 
@@ -144,37 +163,62 @@ class WRFGeometry {
    *
    * @return Iterator pointing to the first grid point
    */
-  iterator begin();
+  iterator begin() { return iterator(this, 0); }
 
   /**
    * @brief Get iterator to the end of the grid
    *
    * @return Iterator pointing past the last grid point
    */
-  iterator end();
+  iterator end() { return iterator(this, totalGridSize()); }
 
   /**
    * @brief Get const iterator to the beginning of the grid
    *
    * @return Const iterator pointing to the first grid point
    */
-  const_iterator begin() const;
+  const_iterator begin() const { return const_iterator(this, 0); }
 
   /**
    * @brief Get const iterator to the end of the grid
    *
    * @return Const iterator pointing past the last grid point
    */
-  const_iterator end() const;
+  const_iterator end() const { return const_iterator(this, totalGridSize()); }
 
   // --- Axis/coordinate accessors using GridDimensionInfo ---
-  const GridDimensionInfo& x_info() const { return x_info_; }
-  const GridDimensionInfo& y_info() const { return y_info_; }
-  const GridDimensionInfo& z_info() const { return z_info_; }
-  const GridDimensionInfo& x_stag_info() const { return x_stag_info_; }
-  const GridDimensionInfo& y_stag_info() const { return y_stag_info_; }
-  const GridDimensionInfo& z_stag_info() const { return z_stag_info_; }
+  size_t x_dim() const { return unstaggered_grid_.nx; }
+  size_t y_dim() const { return unstaggered_grid_.ny; }
+  size_t z_dim() const {
+    return unstaggered_grid_.size /
+           (unstaggered_grid_.nx * unstaggered_grid_.ny);
+  }
+  size_t x_stag_dim() const { return u_staggered_grid_.nx; }
+  size_t y_stag_dim() const { return v_staggered_grid_.ny; }
+
+  // Legacy accessors for compatibility - now return proper dimension info
+  const GridDimensionInfo& unstaggered_info() const {
+    return unstaggered_grid_;
+  }
+  const GridDimensionInfo& u_staggered_info() const {
+    return u_staggered_grid_;
+  }
+  const GridDimensionInfo& v_staggered_info() const {
+    return v_staggered_grid_;
+  }
   // --- End axis/coordinate accessors ---
+
+  // --- Begin: Coordinate grid accessors ---
+  const GridDimensionInfo& unstaggered_grid() const {
+    return unstaggered_grid_;
+  }
+  const GridDimensionInfo& u_staggered_grid() const {
+    return u_staggered_grid_;
+  }
+  const GridDimensionInfo& v_staggered_grid() const {
+    return v_staggered_grid_;
+  }
+  // --- End: Coordinate grid accessors ---
 
   /**
    * @brief Get grid point as Location object
@@ -199,8 +243,8 @@ class WRFGeometry {
     }
 
     // Calculate 3D indices from linear index
-    const size_t nx = x_info_.size;
-    const size_t ny = y_info_.size;
+    const size_t nx = x_dim();
+    const size_t ny = y_dim();
 
     // Using row-major order: index = k*nx*ny + j*nx + i
     size_t k = index / (nx * ny);
@@ -218,12 +262,12 @@ class WRFGeometry {
    * @return Location object with geographic coordinates
    */
   Location getGeographicLocation(size_t i, size_t j) const {
-    if (i >= x_info_.size || j >= y_info_.size) {
+    if (i >= x_dim() || j >= y_dim()) {
       throw std::out_of_range("Grid coordinates out of range");
     }
 
-    double lon = x_info_.coordinates[i];
-    double lat = y_info_.coordinates[j];
+    double lon = unstaggered_grid_.longitude_2d[j * x_dim() + i];
+    double lat = unstaggered_grid_.latitude_2d[j * x_dim() + i];
     double level = 0.0;  // Default level, could be enhanced to get actual level
 
     return Location(lat, lon, level);
@@ -233,12 +277,7 @@ class WRFGeometry {
    * @brief Get total grid size
    * @return Total number of grid points
    */
-  size_t totalGridSize() const {
-    return x_info_.size * y_info_.size * z_info_.size;
-  }
-
-  size_t x_dim() const { return x_info_.size; }
-  size_t y_dim() const { return y_info_.size; }
+  size_t totalGridSize() const { return x_dim() * y_dim() * z_dim(); }
 
  private:
   /**
@@ -248,22 +287,15 @@ class WRFGeometry {
    */
   void loadGeometryData(const std::string& filename);
 
-  // Special constructor for cloning
-  WRFGeometry(const std::string& fn, bool px, bool py, bool pz);
-
   // --- Begin: GridDimensionInfo members ---
-  GridDimensionInfo x_info_, y_info_, z_info_;
-  GridDimensionInfo x_stag_info_, y_stag_info_, z_stag_info_;
+  GridDimensionInfo unstaggered_grid_;
+  GridDimensionInfo u_staggered_grid_;
+  GridDimensionInfo v_staggered_grid_;
   // --- End: GridDimensionInfo members ---
 
   // WRF NetCDF file
   std::string wrfFilename_;
   bool initialized_ = false;
-
-  // Periodicity flags
-  bool periodicX_ = false;
-  bool periodicY_ = false;
-  bool periodicZ_ = false;
 
   // Friend declaration for iterator
   friend class WRFGeometryIterator<ConfigBackend>;
@@ -274,20 +306,14 @@ template <typename ConfigBackend>
 WRFGeometry<ConfigBackend>::WRFGeometry(WRFGeometry&& other) noexcept
     : wrfFilename_(std::move(other.wrfFilename_)),
       initialized_(other.initialized_),
-      x_info_(std::move(other.x_info_)),
-      y_info_(std::move(other.y_info_)),
-      z_info_(std::move(other.z_info_)),
-      x_stag_info_(std::move(other.x_stag_info_)),
-      y_stag_info_(std::move(other.y_stag_info_)),
-      z_stag_info_(std::move(other.z_stag_info_)),
-      periodicX_(other.periodicX_),
-      periodicY_(other.periodicY_),
-      periodicZ_(other.periodicZ_) {
+      unstaggered_grid_(std::move(other.unstaggered_grid_)),
+      u_staggered_grid_(std::move(other.u_staggered_grid_)),
+      v_staggered_grid_(std::move(other.v_staggered_grid_)) {
   // Reset the moved-from object
   other.initialized_ = false;
-  other.x_info_.size = 0;
-  other.y_info_.size = 0;
-  other.z_info_.size = 0;
+  other.unstaggered_grid_.size = 0;
+  other.u_staggered_grid_.size = 0;
+  other.v_staggered_grid_.size = 0;
 }
 
 // Move assignment operator implementation
@@ -297,21 +323,15 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
   if (this != &other) {
     wrfFilename_ = std::move(other.wrfFilename_);
     initialized_ = other.initialized_;
-    x_info_ = std::move(other.x_info_);
-    y_info_ = std::move(other.y_info_);
-    z_info_ = std::move(other.z_info_);
-    x_stag_info_ = std::move(other.x_stag_info_);
-    y_stag_info_ = std::move(other.y_stag_info_);
-    z_stag_info_ = std::move(other.z_stag_info_);
-    periodicX_ = other.periodicX_;
-    periodicY_ = other.periodicY_;
-    periodicZ_ = other.periodicZ_;
+    unstaggered_grid_ = std::move(other.unstaggered_grid_);
+    u_staggered_grid_ = std::move(other.u_staggered_grid_);
+    v_staggered_grid_ = std::move(other.v_staggered_grid_);
 
     // Reset the moved-from object
     other.initialized_ = false;
-    other.x_info_.size = 0;
-    other.y_info_.size = 0;
-    other.z_info_.size = 0;
+    other.unstaggered_grid_.size = 0;
+    other.u_staggered_grid_.size = 0;
+    other.v_staggered_grid_.size = 0;
   }
   return *this;
 }
@@ -319,30 +339,13 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
 // Clone implementation
 template <typename ConfigBackend>
 WRFGeometry<ConfigBackend> WRFGeometry<ConfigBackend>::clone() const {
-  // Use the specialized constructor
-  WRFGeometry<ConfigBackend> clone(wrfFilename_, periodicX_, periodicY_,
-                                   periodicZ_);
-
-  // Copy data members
-  clone.x_info_ = x_info_;
-  clone.y_info_ = y_info_;
-  clone.z_info_ = z_info_;
-  clone.x_stag_info_ = x_stag_info_;
-  clone.y_stag_info_ = y_stag_info_;
-  clone.z_stag_info_ = z_stag_info_;
-  clone.initialized_ = initialized_;
-
-  return clone;
+  return *this;
 }
 
 // ConfigBackend constructor implementation
 template <typename ConfigBackend>
 WRFGeometry<ConfigBackend>::WRFGeometry(const ConfigBackend& config)
-    : wrfFilename_(config.Get("file").asString()),
-      initialized_(false),
-      periodicX_(false),
-      periodicY_(false),
-      periodicZ_(false) {
+    : wrfFilename_(config.Get("file").asString()), initialized_(false) {
   if (wrfFilename_.empty()) {
     throw std::runtime_error(
         "WRF input file path not specified in configuration");
@@ -357,62 +360,97 @@ WRFGeometry<ConfigBackend>::WRFGeometry(const ConfigBackend& config)
 template <typename ConfigBackend>
 void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
   try {
-    // Open NetCDF file
     netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
-
-    // Check if file is open
     if (!wrf_file.isNull()) {
-      // Read grid dimensions
+      // Read dimension information
       auto dim_west_east = wrf_file.getDim("west_east");
       auto dim_south_north = wrf_file.getDim("south_north");
       auto dim_bottom_top = wrf_file.getDim("bottom_top");
+      auto dim_west_east_stag = wrf_file.getDim("west_east_stag");
+      auto dim_south_north_stag = wrf_file.getDim("south_north_stag");
+      auto dim_bottom_top_stag = wrf_file.getDim("bottom_top_stag");
 
-      if (dim_west_east.isNull() || dim_south_north.isNull() ||
-          dim_bottom_top.isNull()) {
-        throw std::runtime_error("Missing required dimensions in WRF file");
-      }
+      // Setup unstaggered grid
+      unstaggered_grid_.name = "unstaggered";
+      unstaggered_grid_.is_staggered = false;
+      unstaggered_grid_.size = dim_west_east.getSize() *
+                               dim_south_north.getSize() *
+                               dim_bottom_top.getSize();
+      unstaggered_grid_.resize_2d_coords(dim_west_east.getSize(),
+                                         dim_south_north.getSize());
 
-      x_info_.size = dim_west_east.getSize();
-      y_info_.size = dim_south_north.getSize();
-      z_info_.size = dim_bottom_top.getSize();
+      // Setup U-staggered grid (staggered in X direction)
+      u_staggered_grid_.name = "u_staggered";
+      u_staggered_grid_.is_staggered = true;
+      u_staggered_grid_.size = dim_west_east_stag.getSize() *
+                               dim_south_north.getSize() *
+                               dim_bottom_top.getSize();
+      u_staggered_grid_.resize_2d_coords(dim_west_east_stag.getSize(),
+                                         dim_south_north.getSize());
 
-      // Read geographic data variables
+      // Setup V-staggered grid (staggered in Y direction)
+      v_staggered_grid_.name = "v_staggered";
+      v_staggered_grid_.is_staggered = true;
+      v_staggered_grid_.size = dim_west_east.getSize() *
+                               dim_south_north_stag.getSize() *
+                               dim_bottom_top.getSize();
+      v_staggered_grid_.resize_2d_coords(dim_west_east.getSize(),
+                                         dim_south_north_stag.getSize());
+
+      // Read unstaggered coordinate arrays (XLONG, XLAT)
       auto var_longitude = wrf_file.getVar("XLONG");
       auto var_latitude = wrf_file.getVar("XLAT");
-      auto var_terrain = wrf_file.getVar("HGT");
+      if (var_longitude.isNull() || var_latitude.isNull()) {
+        throw std::runtime_error("Missing XLONG/XLAT in WRF file");
+      }
+      std::vector<size_t> start = {0, 0, 0};
+      std::vector<size_t> count = {1, unstaggered_grid_.ny,
+                                   unstaggered_grid_.nx};
+      var_longitude.getVar(start, count, unstaggered_grid_.longitude_2d.data());
+      var_latitude.getVar(start, count, unstaggered_grid_.latitude_2d.data());
 
-      if (var_longitude.isNull() || var_latitude.isNull() ||
-          var_terrain.isNull()) {
-        throw std::runtime_error(
-            "Missing required geographic variables in WRF file");
+      // Read U-staggered coordinate arrays (XLONG_U, XLAT_U)
+      auto var_longitude_u = wrf_file.getVar("XLONG_U");
+      auto var_latitude_u = wrf_file.getVar("XLAT_U");
+      if (!var_longitude_u.isNull() && !var_latitude_u.isNull()) {
+        std::vector<size_t> count_u = {1, u_staggered_grid_.ny,
+                                       u_staggered_grid_.nx};
+        var_longitude_u.getVar(start, count_u,
+                               u_staggered_grid_.longitude_2d.data());
+        var_latitude_u.getVar(start, count_u,
+                              u_staggered_grid_.latitude_2d.data());
       }
 
-      // Read time index for the requested timestamp if available
-      size_t time_idx = 0;  // Default to first time step
-      auto times_var = wrf_file.getVar("Times");
-      if (!times_var.isNull()) {
-        // Find matching timestamp (implementation dependent on WRF file
-        // format) This is a placeholder for actual timestamp matching logic
+      // Read V-staggered coordinate arrays (XLONG_V, XLAT_V)
+      auto var_longitude_v = wrf_file.getVar("XLONG_V");
+      auto var_latitude_v = wrf_file.getVar("XLAT_V");
+      if (!var_longitude_v.isNull() && !var_latitude_v.isNull()) {
+        std::vector<size_t> count_v = {1, v_staggered_grid_.ny,
+                                       v_staggered_grid_.nx};
+        var_longitude_v.getVar(start, count_v,
+                               v_staggered_grid_.longitude_2d.data());
+        var_latitude_v.getVar(start, count_v,
+                              v_staggered_grid_.latitude_2d.data());
       }
 
-      // Allocate arrays for geographic data
-      std::vector<size_t> start = {time_idx, 0, 0};
-      std::vector<size_t> count = {1, y_info_.size, x_info_.size};
+      // Populate 1D coordinate arrays for dimensional indexing
+      // Unstaggered grid coordinates
+      unstaggered_grid_.coordinates.resize(unstaggered_grid_.nx);
+      for (size_t i = 0; i < unstaggered_grid_.nx; ++i) {
+        unstaggered_grid_.coordinates[i] = static_cast<double>(i);
+      }
 
-      // Read longitude data
-      std::vector<double> longitude_data(x_info_.size * y_info_.size);
-      var_longitude.getVar(start, count, longitude_data.data());
-      x_info_.coordinates = longitude_data;
+      // U-staggered grid coordinates
+      u_staggered_grid_.coordinates.resize(u_staggered_grid_.nx);
+      for (size_t i = 0; i < u_staggered_grid_.nx; ++i) {
+        u_staggered_grid_.coordinates[i] = static_cast<double>(i) - 0.5;
+      }
 
-      // Read latitude data
-      std::vector<double> latitude_data(x_info_.size * y_info_.size);
-      var_latitude.getVar(start, count, latitude_data.data());
-      y_info_.coordinates = latitude_data;
-
-      // Read terrain/elevation data
-      std::vector<double> elevation_data(x_info_.size * y_info_.size);
-      var_terrain.getVar(start, count, elevation_data.data());
-      z_info_.coordinates = elevation_data;
+      // V-staggered grid coordinates
+      v_staggered_grid_.coordinates.resize(v_staggered_grid_.nx);
+      for (size_t i = 0; i < v_staggered_grid_.nx; ++i) {
+        v_staggered_grid_.coordinates[i] = static_cast<double>(i);
+      }
 
     } else {
       throw std::runtime_error("Failed to open WRF file: " + filename);
@@ -424,38 +462,6 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
     throw std::runtime_error("Error loading WRF geometry data: " +
                              std::string(e.what()));
   }
-}
-
-}  // namespace metada::backends::wrf
-
-// Include the iterator implementation first
-#include "WRFGeometryIterator.hpp"
-
-// Then define the iterator methods
-namespace metada::backends::wrf {
-
-template <typename ConfigBackend>
-inline typename WRFGeometry<ConfigBackend>::iterator
-WRFGeometry<ConfigBackend>::begin() {
-  return iterator(this, 0);
-}
-
-template <typename ConfigBackend>
-inline typename WRFGeometry<ConfigBackend>::iterator
-WRFGeometry<ConfigBackend>::end() {
-  return iterator(this, x_info_.size * y_info_.size * z_info_.size);
-}
-
-template <typename ConfigBackend>
-inline typename WRFGeometry<ConfigBackend>::const_iterator
-WRFGeometry<ConfigBackend>::begin() const {
-  return const_iterator(this, 0);
-}
-
-template <typename ConfigBackend>
-inline typename WRFGeometry<ConfigBackend>::const_iterator
-WRFGeometry<ConfigBackend>::end() const {
-  return const_iterator(this, x_info_.size * y_info_.size * z_info_.size);
 }
 
 }  // namespace metada::backends::wrf

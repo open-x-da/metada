@@ -15,38 +15,37 @@ ensemble:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
         variables:
           - "U"
+          - "V"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
         variables:
           - "U"
+          - "V"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
         variables:
           - "U"
+          - "V"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
         variables:
           - "U"
+          - "V"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
         variables:
           - "U"
+          - "V"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
         variables:
           - "U"
+          - "V"
     - state:
         file: "D:/linux/metada/applications/forecast/wrfinput_d01"
         variables:
           - "U"
-    - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-    - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
+          - "V"
 
 # Observation settings
 observations:
