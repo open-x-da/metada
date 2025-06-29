@@ -20,10 +20,12 @@
 #include "Geometry.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
-#include "SimpleBackendTraits.hpp"
+// #include "SimpleBackendTraits.hpp"
+#include "MACOMBackendTraits.hpp"
 
 namespace fwk = metada::framework;
-using BackendTag = metada::traits::SimpleBackendTag;
+// using BackendTag = metada::traits::SimpleBackendTag;
+using BackendTag = metada::traits::MACOMBackendTag;
 
 int main(int argc, char** argv) {
   // Initialize application context
@@ -52,11 +54,11 @@ int main(int argc, char** argv) {
     fwk::ObsOperator<BackendTag> obs_operator(
         config.GetSubsection("obs_operator"));
 
-    // Run ETKF analysis
-    fwk::ETKF<BackendTag> etkf(ensemble, observations, obs_operator,
-                               config.GetSubsection("analysis"));
-    etkf.Analyse();
-    etkf.saveEnsemble();
+    // // Run ETKF analysis
+    // fwk::ETKF<BackendTag> etkf(ensemble, observations, obs_operator,
+    //                            config.GetSubsection("analysis"));
+    // etkf.Analyse();
+    // etkf.saveEnsemble();
 
     logger.Info() << "ETKF application completed successfully";
     return 0;

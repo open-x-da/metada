@@ -6,8 +6,8 @@ logger:
 
 # Geometry for the ensemble
 geometry:
-  x_dim: 36
-  y_dim: 18
+  input_file: "D:/macom/glo_1_6/exp/nmefc_macom_csp_grid_d01.nc"
+
 
 # Ensemble variables to analyze
 ensemble:
@@ -61,7 +61,6 @@ obs_operator:
 
 # Analysis settings
 analysis:
-  algorithm: "letkf"
+  algorithm: "etkf"
   inflation: 1.0
-  localization_radius: 10.0
   output_base_file: "D:/pdaf-fork/tutorial/outputs/analysis"

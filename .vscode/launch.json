@@ -7,7 +7,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/etkf",
-            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/etkf.yaml"],
+            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/macometkf.yaml"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [

@@ -14,7 +14,8 @@ target_link_libraries(etkf
         metada::backends::common::utils
         metada::backends::common::observation
         metada::framework::algorithms
-        metada::backends::simple
+        # metada::backends::simple
+        metada::backends::macom
 )
 
 target_link_libraries(letkf
@@ -26,7 +27,8 @@ target_link_libraries(letkf
         metada::backends::common::utils
         metada::backends::common::observation
         metada::framework::algorithms
-        metada::backends::simple
+        # metada::backends::simple
+        metada::backends::macom
 )
 
 # Set output directory

@@ -12,15 +12,15 @@
   "ensemble": {
     "variables": "simple",
     "members": [
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_1.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_2.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_3.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_4.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_5.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_6.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_7.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_8.txt" } },
-      { "state": { "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_9.txt" } }
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_1.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_2.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_3.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_4.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_5.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_6.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_7.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_8.txt" } },
+      { "state": { "file": "D:/pdaf-fork/tutorial/inputs_offline/ens_9.txt" } }
     ]
   },
   "observations": {
@@ -28,7 +28,7 @@
       {
         "obs_A": {
           "if_use": true,
-          "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/obs.txt",
+          "file": "D:/pdaf-fork/tutorial/inputs_offline/obs.txt",
           "variables": [
             {
               "simple": {
@@ -43,7 +43,7 @@
       {
         "obs_B": {
           "if_use": false,
-          "file": "D:/linux/pdaf-fork/tutorial/inputs_offline/obs_B.txt",
+          "file": "D:/pdaf-fork/tutorial/inputs_offline/obs_B.txt",
           "variables": [
             {
               "simple": {
@@ -70,6 +70,6 @@
   "analysis": {
     "algorithm": "etkf",
     "inflation": 1.0,
-    "output_base_file": "D:/linux/pdaf-fork/tutorial/outputs/analysis"
+    "output_base_file": "D:/pdaf-fork/tutorial/outputs/analysis"
   }
 } 

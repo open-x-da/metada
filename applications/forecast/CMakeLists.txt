@@ -1,5 +1,5 @@
 # Add MPI support option
-option(USE_MPI "Enable MPI support for forecast application" ON)
+option(USE_MPI "Enable MPI support for forecast application" OFF)
 
 if(USE_MPI)
     find_package(MPI REQUIRED)

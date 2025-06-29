@@ -127,7 +127,7 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 # 所有 MITgcm-style 样例
 file(GLOB SRC_FORTRAN_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src/*.f90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-globe/*.f90"
 )
 
 # 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
