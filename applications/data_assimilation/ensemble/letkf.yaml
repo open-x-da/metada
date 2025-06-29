@@ -52,15 +52,10 @@ observations:
   types:
     - grid_obs:
         if_use: true
-        file: "D:/linux/metada/applications/forecast/obs_no_comma.txt"
+        file: "D:/linux/metada/applications/observation/wrf_obs.txt"
         variables:
           - U:
               if_use: true
-              dimensions:
-                - 1
-                - 27
-                - 60
-                - 74
               error: 0.1  # standard deviations
               missing_value: -999.0
 
