@@ -237,16 +237,6 @@ class WRFState {
    */
   bool isInitialized() const;
 
-  /**
-   * @brief Get data for a specific variable
-   *
-   * @param variableName Optional variable name (uses active variable if not
-   * specified)
-   * @return const xt::xarray<double>& Reference to the data array
-   * @throws std::runtime_error If variable doesn't exist
-   */
-  const xt::xarray<double>& getData(const std::string& variableName = "") const;
-
   double& at(const framework::Location& loc) {
     // Convert geographic coordinates to grid indices
     auto [lat, lon, level] = loc.getGeographicCoords();
@@ -944,20 +934,6 @@ void WRFState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
 template <typename ConfigBackend, typename GeometryBackend>
 bool WRFState<ConfigBackend, GeometryBackend>::isInitialized() const {
   return initialized_;
-}
-
-// Get data implementation
-template <typename ConfigBackend, typename GeometryBackend>
-const xt::xarray<double>& WRFState<ConfigBackend, GeometryBackend>::getData(
-    const std::string& variableName) const {
-  // Use active variable if none specified
-  std::string varName = variableName.empty() ? activeVariable_ : variableName;
-
-  if (varName.empty() || variables_.find(varName) == variables_.end()) {
-    throw std::runtime_error("Variable not found: " + varName);
-  }
-
-  return variables_.at(varName);
 }
 
 // Private helper to load state data
