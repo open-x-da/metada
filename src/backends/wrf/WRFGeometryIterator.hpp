@@ -62,10 +62,7 @@ class WRFGeometryIterator {
    *
    * @return Location object at the current position
    */
-  value_type operator*() const {
-    return framework::Location(static_cast<int>(i_), static_cast<int>(j_),
-                               static_cast<int>(k_));
-  }
+  value_type operator*() const { return geometry_->getLocation(index_); }
 
   /**
    * @brief Pre-increment operator

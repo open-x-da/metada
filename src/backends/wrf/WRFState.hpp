@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <netcdf>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -247,15 +248,131 @@ class WRFState {
   const xt::xarray<double>& getData(const std::string& variableName = "") const;
 
   double& at(const framework::Location& loc) {
-    auto [i, j] = loc.getGridCoords2D();
-    // Assume active variable is 2D (j, i) ordering
+    // Convert geographic coordinates to grid indices
+    auto [lat, lon, level] = loc.getGeographicCoords();
+
+    // Get the appropriate geometry grid for the active variable
+    const auto& geometry_grid = getVariableGeometryGrid(activeVariable_);
+
+    // Find the closest grid point to the geographic coordinates
+    // This is a simplified approach - in practice, you might want bilinear
+    // interpolation
+    size_t i, j, k;
+
+    // Find i, j indices from 2D coordinates
+    if (geometry_grid.has_2d_coords()) {
+      // Find closest grid point by searching through the coordinate arrays
+      double min_dist = std::numeric_limits<double>::max();
+      size_t min_idx = 0;
+
+      for (size_t idx = 0; idx < geometry_grid.longitude_2d.size(); ++idx) {
+        double grid_lon = geometry_grid.longitude_2d[idx];
+        double grid_lat = geometry_grid.latitude_2d[idx];
+
+        double dist = std::sqrt((lon - grid_lon) * (lon - grid_lon) +
+                                (lat - grid_lat) * (lat - grid_lat));
+
+        if (dist < min_dist) {
+          min_dist = dist;
+          min_idx = idx;
+        }
+      }
+
+      // Convert linear index to i, j
+      j = min_idx / geometry_grid.nx;
+      i = min_idx % geometry_grid.nx;
+    } else {
+      throw std::runtime_error(
+          "Geographic coordinates not available for WRF state access");
+    }
+
+    // Find k index from vertical level
+    if (geometry_grid.has_vertical_coords()) {
+      // Find closest vertical level
+      double min_dist = std::numeric_limits<double>::max();
+      k = 0;
+
+      for (size_t z = 0; z < geometry_grid.vertical_coords.size(); ++z) {
+        double dist = std::abs(level - geometry_grid.vertical_coords[z]);
+        if (dist < min_dist) {
+          min_dist = dist;
+          k = z;
+        }
+      }
+    } else {
+      k = 0;  // Default to first level if no vertical coordinates
+    }
+
+    // Access the array with proper indexing
     auto& arr = variables_.at(activeVariable_);
-    return arr(j, i);
+    if (arr.dimension() == 3) {
+      return arr(k, j, i);  // 3D: [Z, Y, X]
+    } else {
+      return arr(j, i);  // 2D: [Y, X]
+    }
   }
+
   const double& at(const framework::Location& loc) const {
-    auto [i, j] = loc.getGridCoords2D();
+    // Convert geographic coordinates to grid indices
+    auto [lat, lon, level] = loc.getGeographicCoords();
+
+    // Get the appropriate geometry grid for the active variable
+    const auto& geometry_grid = getVariableGeometryGrid(activeVariable_);
+
+    // Find the closest grid point to the geographic coordinates
+    size_t i, j, k;
+
+    // Find i, j indices from 2D coordinates
+    if (geometry_grid.has_2d_coords()) {
+      // Find closest grid point by searching through the coordinate arrays
+      double min_dist = std::numeric_limits<double>::max();
+      size_t min_idx = 0;
+
+      for (size_t idx = 0; idx < geometry_grid.longitude_2d.size(); ++idx) {
+        double grid_lon = geometry_grid.longitude_2d[idx];
+        double grid_lat = geometry_grid.latitude_2d[idx];
+
+        double dist = std::sqrt((lon - grid_lon) * (lon - grid_lon) +
+                                (lat - grid_lat) * (lat - grid_lat));
+
+        if (dist < min_dist) {
+          min_dist = dist;
+          min_idx = idx;
+        }
+      }
+
+      // Convert linear index to i, j
+      j = min_idx / geometry_grid.nx;
+      i = min_idx % geometry_grid.nx;
+    } else {
+      throw std::runtime_error(
+          "Geographic coordinates not available for WRF state access");
+    }
+
+    // Find k index from vertical level
+    if (geometry_grid.has_vertical_coords()) {
+      // Find closest vertical level
+      double min_dist = std::numeric_limits<double>::max();
+      k = 0;
+
+      for (size_t z = 0; z < geometry_grid.vertical_coords.size(); ++z) {
+        double dist = std::abs(level - geometry_grid.vertical_coords[z]);
+        if (dist < min_dist) {
+          min_dist = dist;
+          k = z;
+        }
+      }
+    } else {
+      k = 0;  // Default to first level if no vertical coordinates
+    }
+
+    // Access the array with proper indexing
     const auto& arr = variables_.at(activeVariable_);
-    return arr(j, i);
+    if (arr.dimension() == 3) {
+      return arr(k, j, i);  // 3D: [Z, Y, X]
+    } else {
+      return arr(j, i);  // 2D: [Y, X]
+    }
   }
 
   // --- Begin: Additions for StateBackendType/Impl concept compliance ---
@@ -296,7 +413,49 @@ class WRFState {
 
   // --- Begin: Add saveToFile for StateBackendImpl concept compliance ---
   void saveToFile(const std::string& filename) const {
-    throw std::runtime_error("saveToFile not implemented for WRFState");
+    try {
+      // Create NetCDF file
+      netCDF::NcFile nc_file(filename, netCDF::NcFile::replace);
+
+      if (nc_file.isNull()) {
+        throw std::runtime_error("Failed to create NetCDF file: " + filename);
+      }
+
+      // Save each variable to the NetCDF file
+      for (const auto& varName : variableNames_) {
+        const auto& var_data = variables_.at(varName);
+        const auto& var_dims = dimensions_.at(varName);
+
+        // Create dimensions
+        std::vector<netCDF::NcDim> nc_dims;
+        for (size_t i = 0; i < var_dims.size(); ++i) {
+          std::string dim_name = "dim_" + std::to_string(i) + "_" + varName;
+          nc_dims.push_back(nc_file.addDim(dim_name, var_dims[i]));
+        }
+
+        // Create variable
+        netCDF::NcVar nc_var =
+            nc_file.addVar(varName, netCDF::ncDouble, nc_dims);
+
+        // Write data
+        nc_var.putVar(var_data.data());
+      }
+
+      // Add global attributes
+      nc_file.putAtt("title", "WRF State Data");
+      nc_file.putAtt("source", "Metada Framework");
+      nc_file.putAtt("active_variable", activeVariable_);
+      nc_file.putAtt("total_size", netCDF::ncInt, size());
+
+      nc_file.close();
+
+    } catch (const netCDF::exceptions::NcException& e) {
+      throw std::runtime_error("NetCDF error while saving WRF state: " +
+                               std::string(e.what()));
+    } catch (const std::exception& e) {
+      throw std::runtime_error("Error saving WRF state: " +
+                               std::string(e.what()));
+    }
   }
   // --- End: Add saveToFile for StateBackendImpl concept compliance ---
 
@@ -421,54 +580,53 @@ class WRFState {
   }
 
   /**
-   * @brief Print summary of variable-to-grid associations
+   * @brief Stream operator for WRFState
+   * @param os Output stream
+   * @param state WRFState to output
+   * @return Reference to the output stream
    */
-  void printGridAssociationSummary() const {
-    std::cout << "\n=== WRF Variable-to-Grid Association Summary ==="
-              << std::endl;
+  friend std::ostream& operator<<(std::ostream& os, const WRFState& state) {
+    os << "WRFState{";
+    os << "initialized: " << (state.initialized_ ? "true" : "false");
+    os << ", filename: \"" << state.wrfFilename_ << "\"";
+    os << ", active_variable: \"" << state.activeVariable_ << "\"";
+    os << ", variables: [";
 
-    for (const auto& gridType : {VariableGridInfo::GridType::UNSTAGGERED,
-                                 VariableGridInfo::GridType::U_STAGGERED,
-                                 VariableGridInfo::GridType::V_STAGGERED,
-                                 VariableGridInfo::GridType::W_STAGGERED}) {
-      auto vars = getVariablesByGridType(gridType);
-      if (!vars.empty()) {
-        std::string gridName;
-        switch (gridType) {
-          case VariableGridInfo::GridType::UNSTAGGERED:
-            gridName = "Unstaggered";
-            break;
-          case VariableGridInfo::GridType::U_STAGGERED:
-            gridName = "U-Staggered";
-            break;
-          case VariableGridInfo::GridType::V_STAGGERED:
-            gridName = "V-Staggered";
-            break;
-          case VariableGridInfo::GridType::W_STAGGERED:
-            gridName = "W-Staggered";
-            break;
-        }
-
-        std::cout << "\n" << gridName << " Grid Variables:" << std::endl;
-        for (const auto& var : vars) {
-          const auto& dims = dimensions_.at(var);
-          std::cout << "  - " << var << " (dimensions: ";
-          for (size_t i = 0; i < dims.size(); ++i) {
-            if (i > 0) std::cout << " x ";
-            std::cout << dims[i];
-          }
-          std::cout << ") ["
-                    << (validateVariableGeometry(var) ? "VALID" : "INVALID")
-                    << "]" << std::endl;
-        }
-      }
+    for (size_t i = 0; i < state.variableNames_.size(); ++i) {
+      if (i > 0) os << ", ";
+      os << "\"" << state.variableNames_[i] << "\"";
     }
-    std::cout << "================================================\n"
-              << std::endl;
+    os << "]";
+
+    os << ", total_size: " << state.size();
+    os << "}";
+    return os;
   }
+
   // --- End variable-to-grid mapping ---
 
  private:
+  /**
+   * @brief Private constructor for cloning (skips file loading)
+   *
+   * @param config Configuration backend
+   * @param geometry Geometry backend
+   * @param skip_loading Flag to skip file loading (for cloning)
+   */
+  WRFState(const ConfigBackend& config, const GeometryBackend& geometry,
+           bool skip_loading);
+
+  /**
+   * @brief Static factory method for creating a clone
+   * @param config Configuration backend
+   * @param geometry Geometry backend
+   * @return Unique pointer to a new WRFState ready for cloning
+   */
+  static std::unique_ptr<WRFState> createForCloning(
+      const ConfigBackend& config, const GeometryBackend& geometry) {
+    return std::unique_ptr<WRFState>(new WRFState(config, geometry, true));
+  }
+
   /**
    * @brief Load state data from the WRF NetCDF file
    *
@@ -534,6 +692,18 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
   initialized_ = true;
 }
 
+// Private constructor for cloning (skips file loading)
+template <typename ConfigBackend, typename GeometryBackend>
+WRFState<ConfigBackend, GeometryBackend>::WRFState(
+    const ConfigBackend& config, const GeometryBackend& geometry,
+    [[maybe_unused]] bool skip_loading)
+    : config_(config),
+      geometry_(geometry),
+      wrfFilename_(""),  // Will be set by clone
+      initialized_(false) {
+  // Skip file loading - data will be copied by clone method
+}
+
 // Move constructor implementation
 template <typename ConfigBackend, typename GeometryBackend>
 WRFState<ConfigBackend, GeometryBackend>::WRFState(
@@ -578,15 +748,19 @@ WRFState<ConfigBackend, GeometryBackend>::operator=(
 template <typename ConfigBackend, typename GeometryBackend>
 std::unique_ptr<WRFState<ConfigBackend, GeometryBackend>>
 WRFState<ConfigBackend, GeometryBackend>::clone() const {
-  auto cloned = std::make_unique<WRFState<ConfigBackend, GeometryBackend>>(
-      config_, geometry_);
-  // Copy all the state data to the cloned object
+  // Create a new WRFState with the same config and geometry, skipping file
+  // loading
+  auto cloned = createForCloning(config_, geometry_);
+
+  // Copy all the state data directly without reloading from file
   cloned->wrfFilename_ = this->wrfFilename_;
   cloned->initialized_ = this->initialized_;
   cloned->variables_ = this->variables_;
   cloned->dimensions_ = this->dimensions_;
   cloned->variableNames_ = this->variableNames_;
   cloned->activeVariable_ = this->activeVariable_;
+  cloned->variable_grid_info_ = this->variable_grid_info_;
+
   return cloned;
 }
 
@@ -968,7 +1142,7 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
 
       // Print summary of variable-to-grid associations
       if (!variableNames_.empty()) {
-        printGridAssociationSummary();
+        std::cout << *this;
       }
     } else {
       throw std::runtime_error("Failed to open WRF file: " + filename);

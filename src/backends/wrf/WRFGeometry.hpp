@@ -19,6 +19,7 @@
 #include <xtensor/xarray.hpp>
 #endif
 
+#include "Location.hpp"
 #include "WRFGeometryIterator.hpp"
 
 // --- Begin: GridDimensionInfo struct ---
@@ -67,6 +68,8 @@ class WRFGeometryIterator;
 }  // namespace metada::backends::wrf
 
 namespace metada::backends::wrf {
+
+using framework::CoordinateSystem;
 
 /**
  * @brief WRF geometry backend implementation
@@ -222,13 +225,73 @@ class WRFGeometry {
   }
 
   /**
+   * @brief Get geographic coordinates for a grid point
+   * @param i X coordinate (west-east)
+   * @param j Y coordinate (south-north)
+   * @param k Z coordinate (bottom-top)
+   * @return Tuple of (latitude, longitude, level) in degrees
+   */
+  std::tuple<double, double, double> getGeographicCoords(size_t i, size_t j,
+                                                         size_t k = 0) const {
+    if (i >= x_dim() || j >= y_dim() || k >= z_dim()) {
+      throw std::out_of_range("Grid coordinates out of range");
+    }
+
+    // Get geographic coordinates from the unstaggered grid
+    if (unstaggered_grid_.has_2d_coords()) {
+      size_t idx = j * x_dim() + i;
+      if (idx < unstaggered_grid_.longitude_2d.size() &&
+          idx < unstaggered_grid_.latitude_2d.size()) {
+        double lon = unstaggered_grid_.longitude_2d[idx];
+        double lat = unstaggered_grid_.latitude_2d[idx];
+        double level = 0.0;
+
+        // Get vertical level if available
+        if (unstaggered_grid_.has_vertical_coords() &&
+            k < unstaggered_grid_.vertical_coords.size()) {
+          level = unstaggered_grid_.vertical_coords[k];
+        }
+
+        return std::make_tuple(lat, lon, level);
+      }
+    }
+
+    // Return default values if geographic coordinates are not available
+    return std::make_tuple(0.0, 0.0, 0.0);
+  }
+
+  /**
    * @brief Get grid point as Location object
    * @param i X coordinate (west-east)
    * @param j Y coordinate (south-north)
    * @param k Z coordinate (bottom-top)
-   * @return Location object with grid coordinates
+   * @return Location object with geographic coordinates
    */
   Location getLocation(size_t i, size_t j, size_t k = 0) const {
+    if (i >= x_dim() || j >= y_dim() || k >= z_dim()) {
+      throw std::out_of_range("Grid coordinates out of range");
+    }
+
+    // Get geographic coordinates from the unstaggered grid
+    if (unstaggered_grid_.has_2d_coords()) {
+      size_t idx = j * x_dim() + i;
+      if (idx < unstaggered_grid_.longitude_2d.size() &&
+          idx < unstaggered_grid_.latitude_2d.size()) {
+        double lon = unstaggered_grid_.longitude_2d[idx];
+        double lat = unstaggered_grid_.latitude_2d[idx];
+        double level = 0.0;
+
+        // Get vertical level if available
+        if (unstaggered_grid_.has_vertical_coords() &&
+            k < unstaggered_grid_.vertical_coords.size()) {
+          level = unstaggered_grid_.vertical_coords[k];
+        }
+
+        return Location(lat, lon, level, CoordinateSystem::GEOGRAPHIC);
+      }
+    }
+
+    // Fallback to grid coordinates if geographic coordinates are not available
     return Location(static_cast<int>(i), static_cast<int>(j),
                     static_cast<int>(k));
   }
@@ -236,7 +299,7 @@ class WRFGeometry {
   /**
    * @brief Get grid point as Location object from linear index
    * @param index Linear index into the grid
-   * @return Location object with grid coordinates
+   * @return Location object with geographic coordinates
    */
   Location getLocation(size_t index) const {
     if (index >= totalGridSize()) {
