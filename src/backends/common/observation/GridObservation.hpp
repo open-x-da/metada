@@ -123,23 +123,8 @@ class GridObservation {
           double error = var_backend.Get("error").asFloat();
           double missing_value = var_backend.Get("missing_value").asFloat();
 
-          // Get dimensions from variable config
-          std::vector<size_t> dimensions;
-          try {
-            const auto dim_values = var_backend.Get("dimensions").asVectorInt();
-            dimensions.reserve(dim_values.size());
-            for (const auto& dim : dim_values) {
-              dimensions.push_back(static_cast<size_t>(dim));
-            }
-          } catch (const std::exception&) {
-            throw std::runtime_error(
-                "Missing 'dimensions' field in variable '" + var_name +
-                "' of observation type '" + type_name +
-                "'. Please specify data dimensions as [nx, ny, nz, nt, ...]");
-          }
-
-          // Use new API with dimensions
-          loadFromFile(filename, error, missing_value, dimensions);
+          // Load WRF observation file
+          loadFromFile(filename, error, missing_value);
         }
       }
     }
@@ -383,126 +368,90 @@ class GridObservation {
   }
 
   /**
-   * @brief Load observation data from file with specified dimensions
+   * @brief Load observation data from file
    * @param filename Path to observation file
    * @param error The observation error to assign to all valid points
    * @param missing_value The value that indicates a missing observation
-   * @param dimensions Vector specifying data dimensions [nx, ny, nz, nt, ...]
    */
   void loadFromFile(const std::string& filename, double error,
-                    double missing_value,
-                    const std::vector<size_t>& dimensions) {
+                    double missing_value) {
     std::ifstream file(filename);
     if (!file.is_open()) {
       throw std::runtime_error("Could not open observation file: " + filename);
     }
 
-    // Read all values from file (space or comma separated)
-    std::vector<double> values;
-    std::string content((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
+    // Check if this is a WRF observation file format
+    std::string first_line;
+    std::getline(file, first_line);
+    file.seekg(0);  // Reset to beginning
 
-    // Replace commas with spaces for uniform parsing
-    std::replace(content.begin(), content.end(), ',', ' ');
-
-    std::istringstream iss(content);
-    double value;
-    while (iss >> value) {
-      values.push_back(value);
+    if (first_line.find("Time") != std::string::npos &&
+        first_line.find("XLONG_U") != std::string::npos) {
+      // This is a WRF observation format file
+      loadFromWRFObsFile(filename, error, missing_value);
+      return;
     }
 
-    if (values.empty()) {
-      throw std::runtime_error("No valid data found in file: " + filename);
-    }
-
-    // Dimensions must be provided
-    if (dimensions.empty()) {
-      throw std::runtime_error(
-          "Dimensions must be specified. Cannot infer dimensions from data "
-          "alone.");
-    }
-
-    // Use provided dimensions
-    loadWithDimensions(values, dimensions, error, missing_value);
+    // For non-WRF formats, throw an error since we only support WRF observation
+    // files now
+    throw std::runtime_error(
+        "Only WRF observation format files are supported. "
+        "Expected file with 'Time' and 'XLONG_U' headers.");
   }
 
  private:
   /**
-   * @brief Load data with specified dimensions
+   * @brief Load observation data from WRF observation format file
+   * @param filename Path to WRF observation file
+   * @param error The observation error to assign to all valid points
+   * @param missing_value The value that indicates a missing observation
    */
-  void loadWithDimensions(const std::vector<double>& values,
-                          const std::vector<size_t>& dimensions, double error,
+  void loadFromWRFObsFile(const std::string& filename, double error,
                           double missing_value) {
-    // Calculate total expected size
-    size_t expected_size = 1;
-    for (size_t dim : dimensions) {
-      expected_size *= dim;
-    }
-
-    if (values.size() != expected_size) {
-      throw std::runtime_error(
-          "Data size (" + std::to_string(values.size()) +
-          ") does not match expected size from dimensions (" +
-          std::to_string(expected_size) + ")");
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("Could not open WRF observation file: " +
+                               filename);
     }
 
     // Clear existing observations
     observations_.clear();
 
-    // Process each value with its multi-dimensional index
-    for (size_t linear_idx = 0; linear_idx < values.size(); ++linear_idx) {
-      double value = values[linear_idx];
+    std::string line;
+    bool header_found = false;
 
-      if (value != missing_value) {
-        // Convert linear index to multi-dimensional indices
-        std::vector<int> indices = linearToMultiDim(linear_idx, dimensions);
+    while (std::getline(file, line)) {
+      // Skip header lines
+      if (line.find("Time") != std::string::npos ||
+          line.find("---") != std::string::npos) {
+        header_found = true;
+        continue;
+      }
 
-        // Create location based on dimensions
-        Location location = [&]() {
-          if (dimensions.size() == 1) {
-            // 1D: (x, 0, 0)
-            return Location(indices[0], 0, 0);
-          } else if (dimensions.size() == 2) {
-            // 2D: (x, y, 0)
-            return Location(indices[1], indices[0],
-                            0);  // Note: y, x order for row-major
-          } else if (dimensions.size() == 3) {
-            // 3D: (x, y, z)
-            return Location(indices[2], indices[1], indices[0]);
-          } else if (dimensions.size() == 4) {
-            // 4D: assume [t, z, y, x] - use spatial indices, ignore time for
-            // now
-            return Location(indices[3], indices[2], indices[1]);
-          } else {
-            // Higher dimensions: use last 3 as spatial coordinates
-            size_t n = dimensions.size();
-            return Location(indices[n - 1], indices[n - 2], indices[n - 3]);
-          }
-        }();
+      if (!header_found || line.empty()) {
+        continue;
+      }
 
-        observations_.emplace_back(location, value, error);
+      // Parse data line: Time Z Y X ZNU XLONG_U XLAT_U U
+      std::istringstream iss(line);
+      int time, z, y, x;
+      double znu, xlong_u, xlat_u, u_value;
+
+      if (iss >> time >> z >> y >> x >> znu >> xlong_u >> xlat_u >> u_value) {
+        // Skip missing values
+        if (u_value != missing_value) {
+          // Create geographic location using XLAT_U (latitude), XLONG_U
+          // (longitude), ZNU (level)
+          Location location(xlat_u, xlong_u, znu, CoordinateSystem::GEOGRAPHIC);
+          observations_.emplace_back(location, u_value, error);
+        }
       }
     }
-  }
 
-  /**
-   * @brief Convert linear index to multi-dimensional indices
-   * @param linear_idx Linear index into flattened array
-   * @param dimensions Dimension sizes
-   * @return Vector of indices for each dimension
-   */
-  std::vector<int> linearToMultiDim(size_t linear_idx,
-                                    const std::vector<size_t>& dimensions) {
-    std::vector<int> indices(dimensions.size());
-    size_t remaining = linear_idx;
-
-    // Convert using row-major order (C-style)
-    for (int i = dimensions.size() - 1; i >= 0; --i) {
-      indices[i] = remaining % dimensions[i];
-      remaining /= dimensions[i];
+    if (observations_.empty()) {
+      throw std::runtime_error("No valid observations loaded from WRF file: " +
+                               filename);
     }
-
-    return indices;
   }
 
   /**
