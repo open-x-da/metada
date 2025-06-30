@@ -159,11 +159,4 @@ class WRFGeometryIterator {
   size_t index_;                                // Linear index into the grid
 };
 
-template <typename ConfigBackend>
-class WRFGeometryConstIterator : public WRFGeometryIterator<ConfigBackend> {
- public:
-  // Inherit constructors from base class
-  using WRFGeometryIterator<ConfigBackend>::WRFGeometryIterator;
-};
-
 }  // namespace metada::backends::wrf

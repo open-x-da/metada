@@ -368,7 +368,6 @@ class WRFState {
   bool validateVariableGeometry(const std::string& variableName) const {
     try {
       const auto& grid_info = getVariableGridInfo(variableName);
-      const auto& geom_grid = getVariableGeometryGrid(variableName);
       const auto& var_dims = dimensions_.at(variableName);
 
       // Check if 2D/3D dimensions match

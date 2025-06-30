@@ -380,55 +380,37 @@ class GridObservation {
       throw std::runtime_error("Could not open observation file: " + filename);
     }
 
-    // Check if this is a WRF observation file format
-    std::string first_line;
-    std::getline(file, first_line);
-    file.seekg(0);  // Reset to beginning
-
-    if (first_line.find("Time") != std::string::npos &&
-        first_line.find("XLONG_U") != std::string::npos) {
-      // This is a WRF observation format file
-      loadFromWRFObsFile(filename, error, missing_value);
-      return;
-    }
-
-    // For non-WRF formats, throw an error since we only support WRF observation
-    // files now
-    throw std::runtime_error(
-        "Only WRF observation format files are supported. "
-        "Expected file with 'Time' and 'XLONG_U' headers.");
-  }
-
- private:
-  /**
-   * @brief Load observation data from WRF observation format file
-   * @param filename Path to WRF observation file
-   * @param error The observation error to assign to all valid points
-   * @param missing_value The value that indicates a missing observation
-   */
-  void loadFromWRFObsFile(const std::string& filename, double error,
-                          double missing_value) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-      throw std::runtime_error("Could not open WRF observation file: " +
-                               filename);
-    }
-
     // Clear existing observations
     observations_.clear();
 
     std::string line;
     bool header_found = false;
+    bool data_started = false;
 
     while (std::getline(file, line)) {
-      // Skip header lines
-      if (line.find("Time") != std::string::npos ||
-          line.find("---") != std::string::npos) {
+      // Skip empty lines
+      if (line.empty()) {
+        continue;
+      }
+
+      // Look for the header line that contains column names
+      if (line.find("Time") != std::string::npos &&
+          line.find("XLONG_U") != std::string::npos) {
         header_found = true;
         continue;
       }
 
-      if (!header_found || line.empty()) {
+      // Skip lines with only dashes (separators)
+      if (line.find("---") != std::string::npos &&
+          line.find_first_not_of("- \t") == std::string::npos) {
+        if (header_found) {
+          data_started = true;  // After header and separator, data begins
+        }
+        continue;
+      }
+
+      // Skip lines before data starts
+      if (!data_started) {
         continue;
       }
 
@@ -454,6 +436,7 @@ class GridObservation {
     }
   }
 
+ private:
   /**
    * @brief Save observation data to file
    * @param filename Path to save observation file

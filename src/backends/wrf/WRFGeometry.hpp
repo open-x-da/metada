@@ -64,8 +64,6 @@ struct GridDimensionInfo {
 namespace metada::backends::wrf {
 template <typename ConfigBackend>
 class WRFGeometryIterator;
-template <typename ConfigBackend>
-class WRFGeometryConstIterator;
 }  // namespace metada::backends::wrf
 
 namespace metada::backends::wrf {
@@ -86,7 +84,7 @@ class WRFGeometry {
  public:
   // Iterator type aliases
   using iterator = WRFGeometryIterator<ConfigBackend>;
-  using const_iterator = WRFGeometryConstIterator<ConfigBackend>;
+  using const_iterator = WRFGeometryIterator<ConfigBackend>;
   using Location = metada::framework::Location;
 
   // --- Begin: Additions for GeometryBackendImpl concept compliance ---
