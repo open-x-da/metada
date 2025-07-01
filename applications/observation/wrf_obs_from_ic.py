@@ -105,7 +105,7 @@ def print_slice(filename, t=0, z=0, y_range=None, x_range=None):
             x_range = (0, min(5, u_shape[3]))
             
         print(f"\nSlice at t={t}, z={z}, y={y_range[0]}:{y_range[1]}, x={x_range[0]}:{x_range[1]}")
-        print(f"{'Y\\X':<3}", end="")
+        print('Y\\X'.ljust(3), end="")
         for x in range(x_range[0], x_range[1]):
             print(f"{x:>10}", end="")
         print()

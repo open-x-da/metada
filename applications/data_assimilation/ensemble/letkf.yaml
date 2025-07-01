@@ -70,5 +70,5 @@ obs_operator:
 analysis:
   algorithm: "letkf"
   inflation: 1.0
-  localization_radius: 10.0
+  localization_radius: 100.0
   output_base_file: "D:/linux/metada/applications/forecast/analysis"
