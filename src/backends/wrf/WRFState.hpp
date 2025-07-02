@@ -85,6 +85,16 @@ struct VariableGridInfo {
 template <typename ConfigBackend, typename GeometryBackend>
 class WRFState {
  public:
+  // --- Begin: Type aliases for container-like interface ---
+  using value_type = double;
+  using reference = double&;
+  using const_reference = const double&;
+  using pointer = double*;
+  using const_pointer = const double*;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+  // --- End: Type aliases for container-like interface ---
+
   /**
    * @brief Default constructor is deleted
    */
@@ -364,16 +374,6 @@ class WRFState {
       return arr(j, i);  // 2D: [Y, X]
     }
   }
-
-  // --- Begin: Additions for StateBackendType/Impl concept compliance ---
-  using value_type = double;
-  using reference = double&;
-  using const_reference = const double&;
-  using pointer = double*;
-  using const_pointer = const double*;
-  using size_type = std::size_t;
-  using difference_type = std::ptrdiff_t;
-  // --- End: Additions for StateBackendType/Impl concept compliance ---
 
   // --- Begin: More additions for StateBackendType/Impl concept compliance ---
   bool empty() const { return size() == 0; }
