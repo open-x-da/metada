@@ -24,25 +24,52 @@
 
 namespace metada::backends::wrf {
 
-// --- Begin: VariableGridInfo struct ---
+/**
+ * @brief Structure containing grid information for WRF variables
+ *
+ * @details This structure stores dimension names and staggering information
+ * for WRF variables, allowing proper association with corresponding geometry
+ * grids. It supports both 2D and 3D variables with various staggering
+ * configurations used in the WRF model.
+ */
 struct VariableGridInfo {
-  std::string x_dim_name;
-  std::string y_dim_name;
-  std::string z_dim_name;
-  bool x_staggered = false;
-  bool y_staggered = false;
-  bool z_staggered = false;
+  ///@{ @name Dimension Information
+  std::string x_dim_name;  ///< Name of X dimension in NetCDF file
+  std::string y_dim_name;  ///< Name of Y dimension in NetCDF file
+  std::string z_dim_name;  ///< Name of Z dimension in NetCDF file
+  ///@}
 
-  // Grid type association with WRFGeometry
+  ///@{ @name Staggering Configuration
+  bool x_staggered = false;  ///< Whether variable is staggered in X direction
+  bool y_staggered = false;  ///< Whether variable is staggered in Y direction
+  bool z_staggered = false;  ///< Whether variable is staggered in Z direction
+  ///@}
+
+  /**
+   * @brief Grid type enumeration for WRF variable association
+   *
+   * @details Defines the type of staggered grid used by a variable,
+   * which determines which geometry grid should be used for coordinate
+   * transformations and interpolation operations.
+   */
   enum class GridType {
-    UNSTAGGERED,  // Uses unstaggered_grid() from WRFGeometry
-    U_STAGGERED,  // Uses u_staggered_grid() from WRFGeometry
-    V_STAGGERED,  // Uses v_staggered_grid() from WRFGeometry
-    W_STAGGERED   // Uses w_staggered_grid() from WRFGeometry
+    UNSTAGGERED,  ///< Mass points grid (unstaggered in all directions)
+    U_STAGGERED,  ///< U-wind grid (staggered in X direction)
+    V_STAGGERED,  ///< V-wind grid (staggered in Y direction)
+    W_STAGGERED   ///< W-wind grid (staggered in Z direction)
   };
-  GridType grid_type = GridType::UNSTAGGERED;
 
-  // Helper method to determine grid type
+  GridType grid_type = GridType::UNSTAGGERED;  ///< Associated grid type
+
+  /**
+   * @brief Automatically determine grid type from staggering configuration
+   *
+   * @details Analyzes the staggering flags to determine the appropriate
+   * grid type. Follows WRF conventions where only one dimension should
+   * be staggered per variable type.
+   *
+   * @return GridType The determined grid type based on staggering pattern
+   */
   GridType determineGridType() const {
     if (x_staggered && !y_staggered && !z_staggered) {
       return GridType::U_STAGGERED;  // Staggered in X (U wind component)
@@ -52,11 +79,17 @@ struct VariableGridInfo {
       return GridType::W_STAGGERED;  // Staggered in Z (W wind component)
     } else {
       return GridType::UNSTAGGERED;  // Not staggered or multiple staggering
-                                     // (rare)
     }
   }
 
-  // Get grid type as string for debugging
+  /**
+   * @brief Get grid type as string representation
+   *
+   * @details Converts the grid type enumeration to a human-readable
+   * string for debugging and logging purposes.
+   *
+   * @return std::string String representation of the grid type
+   */
   std::string getGridTypeString() const {
     switch (grid_type) {
       case GridType::UNSTAGGERED:
@@ -72,181 +105,462 @@ struct VariableGridInfo {
     }
   }
 };
-// --- End: VariableGridInfo struct ---
 
 /**
- * @brief WRF state backend implementation
+ * @brief WRF state backend implementation for meteorological data
  *
- * @details
- * This class implements a state backend for the WRF model. It manages
- * meteorological state variables stored in NetCDF files and provides
- * operations required by the State adapter.
+ * @details This class implements a state backend for the Weather Research and
+ * Forecasting (WRF) model. It provides comprehensive management of
+ * meteorological state variables stored in NetCDF files and implements all
+ * operations required by the State adapter interface.
+ *
+ * Key features:
+ * - Multi-variable state management with configurable active variable
+ * - Support for both 2D and 3D meteorological fields
+ * - Automatic grid association based on variable staggering patterns
+ * - NetCDF file I/O operations for state persistence
+ * - Vector arithmetic operations for data assimilation algorithms
+ * - Container-like interface for element access and iteration
+ * - Geographic coordinate to grid index transformations
+ *
+ * The class supports WRF's staggered grid system:
+ * - Mass points (unstaggered grid)
+ * - U-wind points (X-staggered grid)
+ * - V-wind points (Y-staggered grid)
+ * - W-wind points (Z-staggered grid)
+ *
+ * @tparam ConfigBackend Configuration backend type providing file paths and
+ * settings
+ * @tparam GeometryBackend Geometry backend type providing grid information
+ *
+ * @see VariableGridInfo
+ * @see framework::State
  */
 template <typename ConfigBackend, typename GeometryBackend>
 class WRFState {
  public:
-  // --- Begin: Type aliases for container-like interface ---
-  using value_type = double;
-  using reference = double&;
-  using const_reference = const double&;
-  using pointer = double*;
-  using const_pointer = const double*;
-  using size_type = std::size_t;
-  using difference_type = std::ptrdiff_t;
-  // --- End: Type aliases for container-like interface ---
+  ///@{ @name Type Definitions
+  /**
+   * @brief Standard container type aliases for STL compatibility
+   *
+   * These type definitions enable the WRFState to be used with STL algorithms
+   * and provide a consistent interface following standard container
+   * conventions.
+   */
+  using value_type = double;               ///< Type of elements stored
+  using reference = double&;               ///< Reference to element type
+  using const_reference = const double&;   ///< Const reference to element type
+  using pointer = double*;                 ///< Pointer to element type
+  using const_pointer = const double*;     ///< Const pointer to element type
+  using size_type = std::size_t;           ///< Type for sizes and indices
+  using difference_type = std::ptrdiff_t;  ///< Type for pointer differences
+  ///@}
 
+  ///@{ @name Construction and Destruction
   /**
    * @brief Default constructor is deleted
+   *
+   * @details WRFState requires configuration and geometry information
+   * for proper initialization, so default construction is not allowed.
    */
   WRFState() = delete;
 
   /**
    * @brief Copy constructor is deleted
+   *
+   * @details Copy construction is disabled to prevent expensive copying
+   * of large meteorological datasets. Use clone() for explicit copying.
    */
   WRFState(const WRFState&) = delete;
 
   /**
    * @brief Copy assignment operator is deleted
+   *
+   * @details Copy assignment is disabled to prevent expensive copying
+   * of large meteorological datasets. Use clone() for explicit copying.
    */
   WRFState& operator=(const WRFState&) = delete;
 
   /**
-   * @brief Constructor that takes a configuration backend and geometry backend
+   * @brief Primary constructor for WRF state initialization
    *
-   * @param config Configuration containing WRF file path and variables
-   * @param geometry Geometry backend providing grid information
+   * @details Constructs a WRF state by loading meteorological data from
+   * a NetCDF file specified in the configuration. The constructor automatically
+   * determines variable grid associations and validates dimensions against
+   * the provided geometry.
+   *
+   * @param[in] config Configuration backend containing:
+   *                   - "file": Path to WRF NetCDF file
+   *                   - "variables": List of variables to load (optional)
+   * @param[in] geometry Geometry backend providing WRF grid information
+   *
+   * @throws std::runtime_error If file path is missing or file cannot be opened
+   * @throws std::runtime_error If variable dimensions don't match geometry
+   * @throws netCDF::exceptions::NcException If NetCDF file reading fails
    */
   WRFState(const ConfigBackend& config, const GeometryBackend& geometry);
 
   /**
-   * @brief Move constructor
+   * @brief Move constructor for efficient resource transfer
    *
-   * @param other WRF state backend to move from
+   * @details Transfers ownership of all internal data structures without
+   * copying large arrays. The moved-from object is left in a valid but
+   * unspecified state.
+   *
+   * @param[in] other WRF state to move from
    */
   WRFState(WRFState&& other) noexcept;
 
   /**
-   * @brief Move assignment operator
+   * @brief Move assignment operator for efficient resource transfer
    *
-   * @param other WRF state backend to move from
+   * @details Transfers ownership of all internal data structures without
+   * copying large arrays. The moved-from object is reset to an uninitialized
+   * state.
+   *
+   * @param[in] other WRF state to move from
    * @return Reference to this state after assignment
    */
   WRFState& operator=(WRFState&& other) noexcept;
 
   /**
-   * @brief Destructor
+   * @brief Destructor with automatic resource cleanup
+   *
+   * @details Automatically releases all allocated memory and closes
+   * any open file handles. No explicit cleanup is required.
    */
   ~WRFState() = default;
+  ///@}
 
+  ///@{ @name State Cloning
   /**
-   * @brief Clone this state
+   * @brief Create an independent copy of this state
    *
-   * @return Unique pointer to a new identical WRF state backend
+   * @details Creates a deep copy of all state data including variables,
+   * dimensions, and configuration. The cloned state is fully independent
+   * and can be modified without affecting the original.
+   *
+   * @return std::unique_ptr<WRFState> Unique pointer to the cloned state
+   *
+   * @note This operation involves copying potentially large arrays,
+   *       so it may be expensive for states with many variables
    */
   std::unique_ptr<WRFState> clone() const;
+  ///@}
 
+  ///@{ @name Data Access
   /**
-   * @brief Get mutable access to the underlying data
+   * @brief Get mutable access to active variable data
    *
-   * @return Void pointer to the active data array
+   * @details Returns a void pointer to the raw data array of the currently
+   * active variable. The data is stored as contiguous double values.
+   *
+   * @return void* Pointer to active variable data, or nullptr if uninitialized
+   *
+   * @warning Use with caution - no bounds checking is performed
+   * @see setActiveVariable()
    */
   void* getData();
 
   /**
-   * @brief Get const access to the underlying data
+   * @brief Get const access to active variable data
    *
-   * @return Const void pointer to the active data array
+   * @details Returns a const void pointer to the raw data array of the
+   * currently active variable. The data is stored as contiguous double values.
+   *
+   * @return const void* Const pointer to active variable data, or nullptr if
+   * uninitialized
+   * @see setActiveVariable()
    */
   const void* getData() const;
+  ///@}
 
+  ///@{ @name Variable Management
   /**
-   * @brief Get the active variable name
+   * @brief Get the name of the currently active variable
    *
-   * @return Name of the currently active variable
+   * @details The active variable determines which dataset is accessed by
+   * data manipulation methods and container operations.
+   *
+   * @return const std::string& Reference to the active variable name
+   * @see setActiveVariable()
    */
   const std::string& getActiveVariable() const;
 
   /**
-   * @brief Set the active variable
+   * @brief Set the active variable for data operations
    *
-   * @param name Name of the variable to set as active
-   * @throws std::out_of_range If variable doesn't exist
+   * @details Changes which variable is accessed by subsequent data operations.
+   * All container-like methods (operator[], at(), etc.) will operate on
+   * the newly selected variable.
+   *
+   * @param[in] name Name of the variable to set as active
+   * @throws std::out_of_range If the specified variable doesn't exist
+   * @see getVariableNames()
    */
   void setActiveVariable(const std::string& name);
 
   /**
-   * @brief Get all variable names in this state
+   * @brief Get list of all available variable names
    *
-   * @return Vector of variable names
+   * @details Returns a vector containing the names of all variables
+   * loaded from the WRF NetCDF file.
+   *
+   * @return const std::vector<std::string>& Reference to vector of variable
+   * names
    */
   const std::vector<std::string>& getVariableNames() const;
+  ///@}
 
+  ///@{ @name Size and Capacity
   /**
-   * @brief Get the total size of the state vector
+   * @brief Get the total number of elements across all variables
    *
-   * @return Total number of elements in the state vector
+   * @details Calculates the sum of all elements in all loaded variables.
+   * This represents the total size of the complete state vector.
+   *
+   * @return size_t Total number of elements across all variables
    */
   size_t size() const;
 
   /**
-   * @brief Set all values to zero
+   * @brief Check if the state contains no data
+   *
+   * @details Returns true if no variables are loaded or if all variables are
+   * empty.
+   *
+   * @return bool True if state is empty, false otherwise
+   */
+  bool empty() const { return size() == 0; }
+
+  /**
+   * @brief Get the maximum possible size
+   *
+   * @details For WRFState, this is the same as the current size since
+   * the capacity is determined by the loaded NetCDF data.
+   *
+   * @return size_type Maximum size (same as current size)
+   */
+  size_type max_size() const { return size(); }
+  ///@}
+
+  ///@{ @name Element Access (Active Variable)
+  /**
+   * @brief Access element by linear index (unchecked)
+   *
+   * @details Provides direct access to elements in the active variable
+   * using linear indexing. No bounds checking is performed.
+   *
+   * @param[in] idx Linear index into the active variable's data
+   * @return reference Reference to the element at the specified index
+   *
+   * @warning No bounds checking - undefined behavior if idx >= size()
+   * @see at(size_type) for bounds-checked access
+   */
+  reference operator[](size_type idx) {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+
+  /**
+   * @brief Access element by linear index (unchecked, const)
+   *
+   * @details Provides direct const access to elements in the active variable
+   * using linear indexing. No bounds checking is performed.
+   *
+   * @param[in] idx Linear index into the active variable's data
+   * @return const_reference Const reference to the element at the specified
+   * index
+   *
+   * @warning No bounds checking - undefined behavior if idx >= size()
+   * @see at(size_type) for bounds-checked access
+   */
+  const_reference operator[](size_type idx) const {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+
+  /**
+   * @brief Access element by linear index (bounds-checked)
+   *
+   * @details Provides access to elements in the active variable with
+   * bounds checking. Throws an exception if the index is out of range.
+   *
+   * @param[in] idx Linear index into the active variable's data
+   * @return reference Reference to the element at the specified index
+   * @throws std::out_of_range If idx >= size()
+   */
+  reference at(size_type idx) {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+
+  /**
+   * @brief Access element by linear index (bounds-checked, const)
+   *
+   * @details Provides const access to elements in the active variable with
+   * bounds checking. Throws an exception if the index is out of range.
+   *
+   * @param[in] idx Linear index into the active variable's data
+   * @return const_reference Const reference to the element at the specified
+   * index
+   * @throws std::out_of_range If idx >= size()
+   */
+  const_reference at(size_type idx) const {
+    return variables_.at(activeVariable_).flat(idx);
+  }
+
+  /**
+   * @brief Get reference to first element of active variable
+   *
+   * @return reference Reference to the first element
+   * @warning Undefined behavior if the active variable is empty
+   */
+  reference front() { return variables_.at(activeVariable_).flat(0); }
+
+  /**
+   * @brief Get const reference to first element of active variable
+   *
+   * @return const_reference Const reference to the first element
+   * @warning Undefined behavior if the active variable is empty
+   */
+  const_reference front() const {
+    return variables_.at(activeVariable_).flat(0);
+  }
+
+  /**
+   * @brief Get reference to last element of active variable
+   *
+   * @return reference Reference to the last element
+   * @warning Undefined behavior if the active variable is empty
+   */
+  reference back() { return variables_.at(activeVariable_).flat(size() - 1); }
+
+  /**
+   * @brief Get const reference to last element of active variable
+   *
+   * @return const_reference Const reference to the last element
+   * @warning Undefined behavior if the active variable is empty
+   */
+  const_reference back() const {
+    return variables_.at(activeVariable_).flat(size() - 1);
+  }
+  ///@}
+
+  ///@{ @name State Initialization
+  /**
+   * @brief Set all variable values to zero
+   *
+   * @details Resets all elements in all loaded variables to zero.
+   * This is commonly used in data assimilation algorithms for
+   * initializing perturbations or increments.
    */
   void zero();
+  ///@}
 
+  ///@{ @name Vector Arithmetic Operations
   /**
    * @brief Calculate dot product with another state
    *
-   * @param other State to calculate dot product with
-   * @return Scalar dot product result
-   * @throws std::runtime_error If states are incompatible
+   * @details Computes the scalar dot product between this state and another
+   * state by summing element-wise products across all variables. Both states
+   * must have compatible variable sets and dimensions.
+   *
+   * @param[in] other State to calculate dot product with
+   * @return double Scalar dot product result
+   * @throws std::runtime_error If states have incompatible variables or
+   * dimensions
+   *
+   * @note Used in data assimilation algorithms for covariance calculations
    */
   double dot(const WRFState& other) const;
 
   /**
    * @brief Calculate L2 norm of this state
    *
-   * @return L2 norm value
+   * @details Computes the L2 (Euclidean) norm by taking the square root
+   * of the sum of squares of all elements across all variables.
+   *
+   * @return double L2 norm value (always non-negative)
+   *
+   * @note Used for convergence testing and error quantification
    */
   double norm() const;
 
   /**
-   * @brief Check if this state equals another
+   * @brief Add another state to this one (element-wise)
    *
-   * @param other State to compare with
-   * @return True if states are equal, false otherwise
-   */
-  bool equals(const WRFState& other) const;
-
-  /**
-   * @brief Add another state to this one
+   * @details Performs element-wise addition: this += other. Both states
+   * must have compatible variable sets and dimensions.
    *
-   * @param other State to add
-   * @throws std::runtime_error If states are incompatible
+   * @param[in] other State to add to this state
+   * @throws std::runtime_error If states have incompatible variables or
+   * dimensions
    */
   void add(const WRFState& other);
 
   /**
-   * @brief Subtract another state from this one
+   * @brief Subtract another state from this one (element-wise)
    *
-   * @param other State to subtract
-   * @throws std::runtime_error If states are incompatible
+   * @details Performs element-wise subtraction: this -= other. Both states
+   * must have compatible variable sets and dimensions.
+   *
+   * @param[in] other State to subtract from this state
+   * @throws std::runtime_error If states have incompatible variables or
+   * dimensions
    */
   void subtract(const WRFState& other);
 
   /**
-   * @brief Multiply this state by a scalar
+   * @brief Multiply all elements by a scalar value
    *
-   * @param scalar Value to multiply by
+   * @details Performs element-wise scalar multiplication: this *= scalar.
+   * All elements in all variables are multiplied by the given value.
+   *
+   * @param[in] scalar Value to multiply all elements by
    */
   void multiply(double scalar);
+  ///@}
 
+  ///@{ @name State Comparison
   /**
-   * @brief Check if state is properly initialized
+   * @brief Check if this state equals another within tolerance
    *
-   * @return True if initialized, false otherwise
+   * @details Compares all elements of all variables between two states
+   * using a small numerical tolerance (1e-10). States are considered
+   * equal if maximum absolute difference is below tolerance.
+   *
+   * @param[in] other State to compare with
+   * @return bool True if states are numerically equal, false otherwise
+   */
+  bool equals(const WRFState& other) const;
+  ///@}
+
+  ///@{ @name State Status
+  /**
+   * @brief Check if state has been properly initialized
+   *
+   * @details Returns true if the state has successfully loaded data from
+   * a NetCDF file and is ready for use.
+   *
+   * @return bool True if initialized and ready for use, false otherwise
    */
   bool isInitialized() const;
+  ///@}
 
+  ///@{ @name Geographic Coordinate Access
+  /**
+   * @brief Access element at geographic location (mutable)
+   *
+   * @details Converts geographic coordinates (latitude, longitude, level) to
+   * grid indices and returns a reference to the corresponding element in the
+   * active variable. Uses nearest-neighbor interpolation to find the closest
+   * grid point.
+   *
+   * @param[in] loc Location containing geographic coordinates
+   * @return reference Reference to element at the nearest grid point
+   * @throws std::runtime_error If geographic coordinates are unavailable
+   * @throws std::out_of_range If active variable is not set
+   *
+   * @note For production use, consider implementing bilinear interpolation
+   */
   double& at(const framework::Location& loc) {
     // Convert geographic coordinates to grid indices
     auto [lat, lon, level] = loc.getGeographicCoords();
@@ -312,6 +626,22 @@ class WRFState {
     }
   }
 
+  /**
+   * @brief Access element at geographic location (const)
+   *
+   * @details Converts geographic coordinates (latitude, longitude, level) to
+   * grid indices and returns a const reference to the corresponding element in
+   * the active variable. Uses nearest-neighbor interpolation to find the
+   * closest grid point.
+   *
+   * @param[in] loc Location containing geographic coordinates
+   * @return const_reference Const reference to element at the nearest grid
+   * point
+   * @throws std::runtime_error If geographic coordinates are unavailable
+   * @throws std::out_of_range If active variable is not set
+   *
+   * @note For production use, consider implementing bilinear interpolation
+   */
   const double& at(const framework::Location& loc) const {
     // Convert geographic coordinates to grid indices
     auto [lat, lon, level] = loc.getGeographicCoords();
@@ -374,34 +704,25 @@ class WRFState {
       return arr(j, i);  // 2D: [Y, X]
     }
   }
+  ///@}
 
-  // --- Begin: More additions for StateBackendType/Impl concept compliance ---
-  bool empty() const { return size() == 0; }
-  size_type max_size() const { return size(); }
-
-  reference operator[](size_type idx) {
-    return variables_.at(activeVariable_).flat(idx);
-  }
-  const_reference operator[](size_type idx) const {
-    return variables_.at(activeVariable_).flat(idx);
-  }
-  reference at(size_type idx) {
-    return variables_.at(activeVariable_).flat(idx);
-  }
-  const_reference at(size_type idx) const {
-    return variables_.at(activeVariable_).flat(idx);
-  }
-  reference front() { return variables_.at(activeVariable_).flat(0); }
-  const_reference front() const {
-    return variables_.at(activeVariable_).flat(0);
-  }
-  reference back() { return variables_.at(activeVariable_).flat(size() - 1); }
-  const_reference back() const {
-    return variables_.at(activeVariable_).flat(size() - 1);
-  }
-  // --- End: More additions for StateBackendType/Impl concept compliance ---
-
-  // --- Begin: Add saveToFile for StateBackendImpl concept compliance ---
+  ///@{ @name File I/O Operations
+  /**
+   * @brief Save state data to NetCDF file
+   *
+   * @details Writes all loaded variables to a new NetCDF file with proper
+   * dimension definitions and global attributes. The file format is compatible
+   * with WRF conventions and can be used for state persistence or analysis.
+   *
+   * @param[in] filename Path where the NetCDF file should be created
+   * @throws std::runtime_error If file creation fails
+   * @throws netCDF::exceptions::NcException If NetCDF operations fail
+   *
+   * @note The output file will contain:
+   *       - All variable data with original dimensions
+   *       - Global attributes including active variable and total size
+   *       - Dimension information for each variable
+   */
   void saveToFile(const std::string& filename) const {
     try {
       // Create NetCDF file
@@ -447,18 +768,31 @@ class WRFState {
                                std::string(e.what()));
     }
   }
-  // --- End: Add saveToFile for StateBackendImpl concept compliance ---
+  ///@}
 
+  ///@{ @name Geometry Access
+  /**
+   * @brief Get reference to the associated geometry backend
+   *
+   * @details Returns a const reference to the geometry backend that provides
+   * grid information and coordinate transformations for this state.
+   *
+   * @return const GeometryBackend& Reference to the geometry backend
+   */
   const GeometryBackend& geometry() const { return geometry_; }
+  ///@}
 
-  // --- Variable-to-grid mapping ---
-  std::unordered_map<std::string, VariableGridInfo> variable_grid_info_;
-
+  ///@{ @name Variable-to-Grid Mapping
   /**
    * @brief Get grid information for a specific variable
-   * @param variableName Name of the variable
-   * @return VariableGridInfo structure containing grid association
-   * @throws std::out_of_range If variable doesn't exist
+   *
+   * @details Returns the VariableGridInfo structure containing dimension names,
+   * staggering configuration, and grid type association for the specified
+   * variable.
+   *
+   * @param[in] variableName Name of the variable to query
+   * @return const VariableGridInfo& Reference to grid information structure
+   * @throws std::out_of_range If the specified variable doesn't exist
    */
   const VariableGridInfo& getVariableGridInfo(
       const std::string& variableName) const {
@@ -471,9 +805,17 @@ class WRFState {
 
   /**
    * @brief Get the appropriate geometry grid for a variable
-   * @param variableName Name of the variable
-   * @return Reference to the GridDimensionInfo from WRFGeometry
+   *
+   * @details Returns a reference to the geometry grid (unstaggered,
+   * U-staggered, V-staggered, or W-staggered) that corresponds to the specified
+   * variable's grid type. This enables proper coordinate transformations and
+   * interpolations.
+   *
+   * @param[in] variableName Name of the variable
+   * @return const auto& Reference to the appropriate GridDimensionInfo from
+   * WRFGeometry
    * @throws std::out_of_range If variable doesn't exist
+   * @throws std::runtime_error If grid type is unknown
    */
   const auto& getVariableGeometryGrid(const std::string& variableName) const {
     const auto& grid_info = getVariableGridInfo(variableName);
@@ -495,8 +837,14 @@ class WRFState {
 
   /**
    * @brief Get all variables associated with a specific grid type
-   * @param gridType The grid type to search for
-   * @return Vector of variable names using the specified grid type
+   *
+   * @details Searches through all loaded variables and returns a list of those
+   * that use the specified grid type (unstaggered, U-staggered, V-staggered, or
+   * W-staggered). Useful for performing grid-type-specific operations.
+   *
+   * @param[in] gridType The grid type to search for
+   * @return std::vector<std::string> Vector of variable names using the
+   * specified grid type
    */
   std::vector<std::string> getVariablesByGridType(
       VariableGridInfo::GridType gridType) const {
@@ -511,8 +859,13 @@ class WRFState {
 
   /**
    * @brief Validate that variable dimensions match geometry grid dimensions
-   * @param variableName Name of the variable to validate
-   * @return True if dimensions match, false otherwise
+   *
+   * @details Checks if the dimensions of a specific variable are consistent
+   * with the expected dimensions from the associated geometry grid. This
+   * validation ensures data integrity and proper grid associations.
+   *
+   * @param[in] variableName Name of the variable to validate
+   * @return bool True if dimensions match expected values, false otherwise
    */
   bool validateVariableGeometry(const std::string& variableName) const {
     try {
@@ -568,12 +921,23 @@ class WRFState {
       return false;
     }
   }
+  ///@}
 
+  ///@{ @name Stream Output
   /**
-   * @brief Stream operator for WRFState
-   * @param os Output stream
-   * @param state WRFState to output
-   * @return Reference to the output stream
+   * @brief Stream insertion operator for debugging and logging
+   *
+   * @details Outputs a human-readable representation of the WRF state including
+   * initialization status, source filename, active variable, loaded variables,
+   * and total data size. Useful for debugging and logging purposes.
+   *
+   * @param[in,out] os Output stream to write to
+   * @param[in] state WRFState instance to output
+   * @return std::ostream& Reference to the output stream for chaining
+   *
+   * @note Output format: WRFState{initialized: <bool>, filename: "<path>",
+   *                      active_variable: "<name>", variables: [...],
+   * total_size: <num>}
    */
   friend std::ostream& operator<<(std::ostream& os, const WRFState& state) {
     os << "WRFState{";
@@ -592,60 +956,94 @@ class WRFState {
     os << "}";
     return os;
   }
-
-  // --- End variable-to-grid mapping ---
+  ///@}
 
  private:
+  ///@{ @name Private Construction and Cloning
   /**
-   * @brief Private constructor for cloning (skips file loading)
+   * @brief Private constructor for cloning operations
    *
-   * @param config Configuration backend
-   * @param geometry Geometry backend
-   * @param skip_loading Flag to skip file loading (for cloning)
+   * @details Special constructor used internally for cloning that skips
+   * the expensive NetCDF file loading process. Data is copied directly
+   * from the source state instead.
+   *
+   * @param[in] config Configuration backend reference
+   * @param[in] geometry Geometry backend reference
+   * @param[in] skip_loading Flag to skip file loading (must be true)
    */
   WRFState(const ConfigBackend& config, const GeometryBackend& geometry,
            bool skip_loading);
 
   /**
-   * @brief Static factory method for creating a clone
-   * @param config Configuration backend
-   * @param geometry Geometry backend
-   * @return Unique pointer to a new WRFState ready for cloning
+   * @brief Factory method for creating cloneable state instances
+   *
+   * @details Creates a new WRFState instance ready for cloning operations.
+   * The instance is created with file loading disabled to avoid unnecessary
+   * I/O operations during the cloning process.
+   *
+   * @param[in] config Configuration backend reference
+   * @param[in] geometry Geometry backend reference
+   * @return std::unique_ptr<WRFState> Unique pointer to the new state instance
    */
   static std::unique_ptr<WRFState> createForCloning(
       const ConfigBackend& config, const GeometryBackend& geometry) {
     return std::unique_ptr<WRFState>(new WRFState(config, geometry, true));
   }
+  ///@}
 
+  ///@{ @name Private Utility Methods
   /**
-   * @brief Load state data from the WRF NetCDF file
+   * @brief Load meteorological data from WRF NetCDF file
    *
-   * @param filename Path to the WRF NetCDF file
-   * @param variables List of variables to load
+   * @details Reads variable data from the specified NetCDF file, determines
+   * grid associations based on dimension names, and validates dimensions
+   * against the geometry backend. Automatically detects variable staggering
+   * patterns and associates them with appropriate grid types.
+   *
+   * @param[in] filename Path to the WRF NetCDF file
+   * @param[in] variables List of variable names to load
+   * @throws std::runtime_error If file cannot be opened or read
+   * @throws netCDF::exceptions::NcException If NetCDF operations fail
    */
   void loadStateData(const std::string& filename,
                      const std::vector<std::string>& variables);
 
   /**
-   * @brief Verify that two states have compatible variables and dimensions
+   * @brief Check compatibility between two WRF states
    *
-   * @param other State to check compatibility with
-   * @return True if compatible, false otherwise
+   * @details Verifies that two states have the same variable names and
+   * dimensions, enabling safe arithmetic operations between them.
+   * Compatibility is required for add, subtract, dot product, and
+   * comparison operations.
+   *
+   * @param[in] other State to check compatibility with
+   * @return bool True if states are compatible, false otherwise
    */
   bool isCompatible(const WRFState& other) const;
+  ///@}
 
-  const ConfigBackend& config_;
-  const GeometryBackend& geometry_;
+  ///@{ @name Member Variables
+  const ConfigBackend& config_;      ///< Reference to configuration backend
+  const GeometryBackend& geometry_;  ///< Reference to geometry backend
 
-  // WRF NetCDF file information
-  std::string wrfFilename_;
-  bool initialized_ = false;
+  /// @name File Information
+  ///@{
+  std::string wrfFilename_;   ///< Path to source WRF NetCDF file
+  bool initialized_ = false;  ///< Initialization status flag
+  ///@}
 
-  // State data
-  std::unordered_map<std::string, xt::xarray<double>> variables_;
-  std::unordered_map<std::string, std::vector<size_t>> dimensions_;
-  std::vector<std::string> variableNames_;
-  std::string activeVariable_;  // Currently active variable for data access
+  /// @name State Data Storage
+  ///@{
+  std::unordered_map<std::string, xt::xarray<double>>
+      variables_;  ///< Variable data arrays
+  std::unordered_map<std::string, std::vector<size_t>>
+      dimensions_;                          ///< Variable dimensions
+  std::vector<std::string> variableNames_;  ///< List of loaded variables
+  std::string activeVariable_;              ///< Currently active variable
+  std::unordered_map<std::string, VariableGridInfo>
+      variable_grid_info_;  ///< Variable-to-grid mappings
+  ///@}
+  ///@}
 };
 
 // Constructor implementation with ConfigBackend and GeometryBackend
