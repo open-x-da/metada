@@ -188,16 +188,18 @@ class Location {
    *
    * Calculates distance based on the coordinate system:
    * - Grid coordinates: 2D Euclidean distance in (i,j) horizontal space
-   * - Geographic coordinates: Horizontal great circle distance using Haversine formula
+   * - Geographic coordinates: Horizontal great circle distance using Haversine
+   * formula
    * - Cartesian coordinates: Full 3D Euclidean distance in (x,y,z) space
    *
    * @param other The target location to measure distance to
    * @return Distance value (units depend on coordinate system)
    * @throws std::runtime_error If coordinate systems are incompatible
    *
-   * @note Grid distances are dimensionless horizontal distances. Geographic distances
-   *       are horizontal distances in kilometers (altitude/level differences ignored).
-   *       Only Cartesian distances include full 3D separation using input coordinate units.
+   * @note Grid distances are dimensionless horizontal distances. Geographic
+   * distances are horizontal distances in kilometers (altitude/level
+   * differences ignored). Only Cartesian distances include full 3D separation
+   * using input coordinate units.
    */
   double distance_to(const Location& other) const {
     if (system == CoordinateSystem::GRID &&

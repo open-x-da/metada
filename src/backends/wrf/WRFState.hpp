@@ -20,91 +20,9 @@
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xarray.hpp>
 #endif
-#include "Location.hpp"
+#include "WRFGridInfo.hpp"
 
 namespace metada::backends::wrf {
-
-/**
- * @brief Structure containing grid information for WRF variables
- *
- * @details This structure stores dimension names and staggering information
- * for WRF variables, allowing proper association with corresponding geometry
- * grids. It supports both 2D and 3D variables with various staggering
- * configurations used in the WRF model.
- */
-struct VariableGridInfo {
-  ///@{ @name Dimension Information
-  std::string x_dim_name;  ///< Name of X dimension in NetCDF file
-  std::string y_dim_name;  ///< Name of Y dimension in NetCDF file
-  std::string z_dim_name;  ///< Name of Z dimension in NetCDF file
-  ///@}
-
-  ///@{ @name Staggering Configuration
-  bool x_staggered = false;  ///< Whether variable is staggered in X direction
-  bool y_staggered = false;  ///< Whether variable is staggered in Y direction
-  bool z_staggered = false;  ///< Whether variable is staggered in Z direction
-  ///@}
-
-  /**
-   * @brief Grid type enumeration for WRF variable association
-   *
-   * @details Defines the type of staggered grid used by a variable,
-   * which determines which geometry grid should be used for coordinate
-   * transformations and interpolation operations.
-   */
-  enum class GridType {
-    UNSTAGGERED,  ///< Mass points grid (unstaggered in all directions)
-    U_STAGGERED,  ///< U-wind grid (staggered in X direction)
-    V_STAGGERED,  ///< V-wind grid (staggered in Y direction)
-    W_STAGGERED   ///< W-wind grid (staggered in Z direction)
-  };
-
-  GridType grid_type = GridType::UNSTAGGERED;  ///< Associated grid type
-
-  /**
-   * @brief Automatically determine grid type from staggering configuration
-   *
-   * @details Analyzes the staggering flags to determine the appropriate
-   * grid type. Follows WRF conventions where only one dimension should
-   * be staggered per variable type.
-   *
-   * @return GridType The determined grid type based on staggering pattern
-   */
-  GridType determineGridType() const {
-    if (x_staggered && !y_staggered && !z_staggered) {
-      return GridType::U_STAGGERED;  // Staggered in X (U wind component)
-    } else if (!x_staggered && y_staggered && !z_staggered) {
-      return GridType::V_STAGGERED;  // Staggered in Y (V wind component)
-    } else if (!x_staggered && !y_staggered && z_staggered) {
-      return GridType::W_STAGGERED;  // Staggered in Z (W wind component)
-    } else {
-      return GridType::UNSTAGGERED;  // Not staggered or multiple staggering
-    }
-  }
-
-  /**
-   * @brief Get grid type as string representation
-   *
-   * @details Converts the grid type enumeration to a human-readable
-   * string for debugging and logging purposes.
-   *
-   * @return std::string String representation of the grid type
-   */
-  std::string getGridTypeString() const {
-    switch (grid_type) {
-      case GridType::UNSTAGGERED:
-        return "unstaggered";
-      case GridType::U_STAGGERED:
-        return "u_staggered";
-      case GridType::V_STAGGERED:
-        return "v_staggered";
-      case GridType::W_STAGGERED:
-        return "w_staggered";
-      default:
-        return "unknown";
-    }
-  }
-};
 
 /**
  * @brief WRF state backend implementation for meteorological data
