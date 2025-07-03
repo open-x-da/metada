@@ -250,56 +250,92 @@ class WRFState {
 
   ///@{ @name Data Access
   /**
-   * @brief Get mutable access to active variable data
+   * @brief Get mutable access to first variable data (concept compliance)
    *
-   * @details Returns a void pointer to the raw data array of the currently
-   * active variable. The data is stored as contiguous double values.
+   * @details Returns a void pointer to the raw data array of the first
+   * loaded variable. This method is provided for StateBackendImpl concept
+   * compliance. For explicit variable access, use getData(variableName).
    *
-   * @return void* Pointer to active variable data, or nullptr if uninitialized
+   * @return void* Pointer to first variable data, or nullptr if no variables
+   * @throws std::runtime_error If no variables are loaded
    *
    * @warning Use with caution - no bounds checking is performed
-   * @see setActiveVariable()
+   * @see getData(const std::string&) for explicit variable access
    */
   void* getData();
 
   /**
-   * @brief Get const access to active variable data
+   * @brief Get const access to first variable data (concept compliance)
    *
-   * @details Returns a const void pointer to the raw data array of the
-   * currently active variable. The data is stored as contiguous double values.
+   * @details Returns a const void pointer to the raw data array of the first
+   * loaded variable. This method is provided for StateBackendImpl concept
+   * compliance. For explicit variable access, use getData(variableName).
    *
-   * @return const void* Const pointer to active variable data, or nullptr if
-   * uninitialized
-   * @see setActiveVariable()
+   * @return const void* Const pointer to first variable data, or nullptr if no
+   * variables
+   * @throws std::runtime_error If no variables are loaded
+   *
+   * @see getData(const std::string&) for explicit variable access
    */
   const void* getData() const;
+
+  /**
+   * @brief Get mutable access to specific variable data
+   *
+   * @details Returns a void pointer to the raw data array of the specified
+   * variable. The data is stored as contiguous double values.
+   *
+   * @param[in] variableName Name of the variable to access
+   * @return void* Pointer to variable data, or nullptr if variable doesn't
+   * exist
+   *
+   * @warning Use with caution - no bounds checking is performed
+   */
+  void* getData(const std::string& variableName);
+
+  /**
+   * @brief Get const access to specific variable data
+   *
+   * @details Returns a const void pointer to the raw data array of the
+   * specified variable. The data is stored as contiguous double values.
+   *
+   * @param[in] variableName Name of the variable to access
+   * @return const void* Const pointer to variable data, or nullptr if variable
+   * doesn't exist
+   */
+  const void* getData(const std::string& variableName) const;
+
+  /**
+   * @brief Get mutable reference to variable array
+   *
+   * @details Returns a direct reference to the xtensor array for the specified
+   * variable, allowing full array operations and element access.
+   *
+   * @param[in] variableName Name of the variable to access
+   * @return xt::xarray<double>& Reference to the variable's data array
+   * @throws std::out_of_range If variable doesn't exist
+   */
+  xt::xarray<double>& getVariable(const std::string& variableName) {
+    return variables_.at(variableName);
+  }
+
+  /**
+   * @brief Get const reference to variable array
+   *
+   * @details Returns a direct const reference to the xtensor array for the
+   * specified variable, allowing read-only array operations and element access.
+   *
+   * @param[in] variableName Name of the variable to access
+   * @return const xt::xarray<double>& Const reference to the variable's data
+   * array
+   * @throws std::out_of_range If variable doesn't exist
+   */
+  const xt::xarray<double>& getVariable(const std::string& variableName) const {
+    return variables_.at(variableName);
+  }
   ///@}
 
   ///@{ @name Variable Management
-  /**
-   * @brief Get the name of the currently active variable
-   *
-   * @details The active variable determines which dataset is accessed by
-   * data manipulation methods and container operations.
-   *
-   * @return const std::string& Reference to the active variable name
-   * @see setActiveVariable()
-   */
-  const std::string& getActiveVariable() const;
-
-  /**
-   * @brief Set the active variable for data operations
-   *
-   * @details Changes which variable is accessed by subsequent data operations.
-   * All container-like methods (operator[], at(), etc.) will operate on
-   * the newly selected variable.
-   *
-   * @param[in] name Name of the variable to set as active
-   * @throws std::out_of_range If the specified variable doesn't exist
-   * @see getVariableNames()
-   */
-  void setActiveVariable(const std::string& name);
-
   /**
    * @brief Get list of all available variable names
    *
@@ -310,6 +346,32 @@ class WRFState {
    * names
    */
   const std::vector<std::string>& getVariableNames() const;
+
+  /**
+   * @brief Check if a variable exists in the state
+   *
+   * @details Checks whether a variable with the given name has been loaded
+   * into this state instance.
+   *
+   * @param[in] variableName Name of the variable to check
+   * @return bool True if variable exists, false otherwise
+   */
+  bool hasVariable(const std::string& variableName) const {
+    return variables_.find(variableName) != variables_.end();
+  }
+
+  /**
+   * @brief Get size of a specific variable
+   *
+   * @details Returns the total number of elements in the specified variable.
+   *
+   * @param[in] variableName Name of the variable
+   * @return size_t Number of elements in the variable
+   * @throws std::out_of_range If variable doesn't exist
+   */
+  size_t getVariableSize(const std::string& variableName) const {
+    return variables_.at(variableName).size();
+  }
   ///@}
 
   ///@{ @name Size and Capacity
@@ -344,30 +406,41 @@ class WRFState {
   size_type max_size() const { return size(); }
   ///@}
 
-  ///@{ @name Element Access (Active Variable)
+  ///@{ @name Total State Vector Access
   /**
-   * @brief Access element by linear index (unchecked)
+   * @brief Access element in total state vector (unchecked)
    *
-   * @details Provides direct access to elements in the active variable
-   * using linear indexing. No bounds checking is performed.
+   * @details Provides access to elements across all variables as if they were
+   * concatenated into a single vector. Variables are accessed in the order
+   * they appear in variableNames_. No bounds checking is performed.
    *
-   * @param[in] idx Linear index into the active variable's data
+   * @param[in] idx Linear index into the total state vector
    * @return reference Reference to the element at the specified index
    *
    * @warning No bounds checking - undefined behavior if idx >= size()
    * @see at(size_type) for bounds-checked access
    */
   reference operator[](size_type idx) {
-    return variables_.at(activeVariable_).flat(idx);
+    size_t current_offset = 0;
+    for (const auto& varName : variableNames_) {
+      size_t var_size = variables_.at(varName).size();
+      if (idx < current_offset + var_size) {
+        return variables_.at(varName).flat(idx - current_offset);
+      }
+      current_offset += var_size;
+    }
+    // Should never reach here if idx < size()
+    return variables_.at(variableNames_[0]).flat(0);
   }
 
   /**
-   * @brief Access element by linear index (unchecked, const)
+   * @brief Access element in total state vector (unchecked, const)
    *
-   * @details Provides direct const access to elements in the active variable
-   * using linear indexing. No bounds checking is performed.
+   * @details Provides const access to elements across all variables as if they
+   * were concatenated into a single vector. Variables are accessed in the order
+   * they appear in variableNames_. No bounds checking is performed.
    *
-   * @param[in] idx Linear index into the active variable's data
+   * @param[in] idx Linear index into the total state vector
    * @return const_reference Const reference to the element at the specified
    * index
    *
@@ -375,72 +448,169 @@ class WRFState {
    * @see at(size_type) for bounds-checked access
    */
   const_reference operator[](size_type idx) const {
-    return variables_.at(activeVariable_).flat(idx);
+    size_t current_offset = 0;
+    for (const auto& varName : variableNames_) {
+      size_t var_size = variables_.at(varName).size();
+      if (idx < current_offset + var_size) {
+        return variables_.at(varName).flat(idx - current_offset);
+      }
+      current_offset += var_size;
+    }
+    // Should never reach here if idx < size()
+    return variables_.at(variableNames_[0]).flat(0);
   }
 
   /**
-   * @brief Access element by linear index (bounds-checked)
+   * @brief Access element in total state vector (bounds-checked)
    *
-   * @details Provides access to elements in the active variable with
-   * bounds checking. Throws an exception if the index is out of range.
+   * @details Provides access to elements across all variables as if they were
+   * concatenated into a single vector with bounds checking.
    *
-   * @param[in] idx Linear index into the active variable's data
+   * @param[in] idx Linear index into the total state vector
    * @return reference Reference to the element at the specified index
    * @throws std::out_of_range If idx >= size()
    */
   reference at(size_type idx) {
-    return variables_.at(activeVariable_).flat(idx);
+    if (idx >= size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return operator[](idx);
   }
 
   /**
-   * @brief Access element by linear index (bounds-checked, const)
+   * @brief Access element in total state vector (bounds-checked, const)
    *
-   * @details Provides const access to elements in the active variable with
-   * bounds checking. Throws an exception if the index is out of range.
+   * @details Provides const access to elements across all variables as if they
+   * were concatenated into a single vector with bounds checking.
    *
-   * @param[in] idx Linear index into the active variable's data
+   * @param[in] idx Linear index into the total state vector
    * @return const_reference Const reference to the element at the specified
    * index
    * @throws std::out_of_range If idx >= size()
    */
   const_reference at(size_type idx) const {
-    return variables_.at(activeVariable_).flat(idx);
+    if (idx >= size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return operator[](idx);
   }
 
   /**
-   * @brief Get reference to first element of active variable
+   * @brief Get reference to first element of total state vector
    *
    * @return reference Reference to the first element
-   * @warning Undefined behavior if the active variable is empty
+   * @warning Undefined behavior if state is empty
    */
-  reference front() { return variables_.at(activeVariable_).flat(0); }
+  reference front() { return variables_.at(variableNames_[0]).flat(0); }
 
   /**
-   * @brief Get const reference to first element of active variable
+   * @brief Get const reference to first element of total state vector
    *
    * @return const_reference Const reference to the first element
-   * @warning Undefined behavior if the active variable is empty
+   * @warning Undefined behavior if state is empty
    */
   const_reference front() const {
-    return variables_.at(activeVariable_).flat(0);
+    return variables_.at(variableNames_[0]).flat(0);
   }
 
   /**
-   * @brief Get reference to last element of active variable
+   * @brief Get reference to last element of total state vector
    *
    * @return reference Reference to the last element
-   * @warning Undefined behavior if the active variable is empty
+   * @warning Undefined behavior if state is empty
    */
-  reference back() { return variables_.at(activeVariable_).flat(size() - 1); }
+  reference back() { return operator[](size() - 1); }
 
   /**
-   * @brief Get const reference to last element of active variable
+   * @brief Get const reference to last element of total state vector
    *
    * @return const_reference Const reference to the last element
-   * @warning Undefined behavior if the active variable is empty
+   * @warning Undefined behavior if state is empty
    */
-  const_reference back() const {
-    return variables_.at(activeVariable_).flat(size() - 1);
+  const_reference back() const { return operator[](size() - 1); }
+
+  /**
+   * @brief Access element at geographic location using first variable's grid
+   *
+   * @details Converts geographic coordinates to grid indices using the first
+   * variable's grid type and returns a reference to the corresponding element.
+   * Uses nearest-neighbor interpolation to find the closest grid point.
+   *
+   * @param[in] loc Location containing geographic coordinates
+   * @return reference Reference to element at the nearest grid point in first
+   * variable
+   * @throws std::runtime_error If geographic coordinates are unavailable or no
+   * variables loaded
+   * @throws std::out_of_range If first variable doesn't exist
+   *
+   * @note Uses first variable's grid for coordinate conversion
+   * @note For explicit variable selection, use at(variableName, location)
+   */
+  double& at(const framework::Location& loc) {
+    if (variableNames_.empty()) {
+      throw std::runtime_error("No variables loaded for geographic access");
+    }
+    return at(variableNames_[0], loc);
+  }
+
+  /**
+   * @brief Access element at geographic location using first variable's grid
+   * (const)
+   *
+   * @details Converts geographic coordinates to grid indices using the first
+   * variable's grid type and returns a const reference to the corresponding
+   * element. Uses nearest-neighbor interpolation to find the closest grid
+   * point.
+   *
+   * @param[in] loc Location containing geographic coordinates
+   * @return const_reference Const reference to element at the nearest grid
+   * point in first variable
+   * @throws std::runtime_error If geographic coordinates are unavailable or no
+   * variables loaded
+   * @throws std::out_of_range If first variable doesn't exist
+   *
+   * @note Uses first variable's grid for coordinate conversion
+   * @note For explicit variable selection, use at(variableName, location)
+   */
+  const double& at(const framework::Location& loc) const {
+    if (variableNames_.empty()) {
+      throw std::runtime_error("No variables loaded for geographic access");
+    }
+    return at(variableNames_[0], loc);
+  }
+  ///@}
+
+  ///@{ @name Element Access by Variable Name
+  /**
+   * @brief Access element by variable name and linear index (bounds-checked)
+   *
+   * @details Provides access to elements in the specified variable with
+   * bounds checking. Throws an exception if the index is out of range.
+   *
+   * @param[in] variableName Name of the variable to access
+   * @param[in] idx Linear index into the variable's data
+   * @return reference Reference to the element at the specified index
+   * @throws std::out_of_range If variable doesn't exist or idx >= variable size
+   */
+  reference at(const std::string& variableName, size_type idx) {
+    return variables_.at(variableName).flat(idx);
+  }
+
+  /**
+   * @brief Access element by variable name and linear index (bounds-checked,
+   * const)
+   *
+   * @details Provides const access to elements in the specified variable with
+   * bounds checking. Throws an exception if the index is out of range.
+   *
+   * @param[in] variableName Name of the variable to access
+   * @param[in] idx Linear index into the variable's data
+   * @return const_reference Const reference to the element at the specified
+   * index
+   * @throws std::out_of_range If variable doesn't exist or idx >= variable size
+   */
+  const_reference at(const std::string& variableName, size_type idx) const {
+    return variables_.at(variableName).flat(idx);
   }
   ///@}
 
@@ -551,22 +721,23 @@ class WRFState {
    *
    * @details Converts geographic coordinates (latitude, longitude, level) to
    * grid indices and returns a reference to the corresponding element in the
-   * active variable. Uses nearest-neighbor interpolation to find the closest
+   * specified variable. Uses nearest-neighbor interpolation to find the closest
    * grid point.
    *
+   * @param[in] variableName Name of the variable to access
    * @param[in] loc Location containing geographic coordinates
    * @return reference Reference to element at the nearest grid point
    * @throws std::runtime_error If geographic coordinates are unavailable
-   * @throws std::out_of_range If active variable is not set
+   * @throws std::out_of_range If variable doesn't exist
    *
    * @note For production use, consider implementing bilinear interpolation
    */
-  double& at(const framework::Location& loc) {
+  double& at(const std::string& variableName, const framework::Location& loc) {
     // Convert geographic coordinates to grid indices
     auto [lat, lon, level] = loc.getGeographicCoords();
 
-    // Get the appropriate geometry grid for the active variable
-    const auto& geometry_grid = getVariableGeometryGrid(activeVariable_);
+    // Get the appropriate geometry grid for the specified variable
+    const auto& geometry_grid = getVariableGeometryGrid(variableName);
 
     // Find the closest grid point to the geographic coordinates
     // This is a simplified approach - in practice, you might want bilinear
@@ -618,7 +789,7 @@ class WRFState {
     }
 
     // Access the array with proper indexing
-    auto& arr = variables_.at(activeVariable_);
+    auto& arr = variables_.at(variableName);
     if (arr.dimension() == 3) {
       return arr(k, j, i);  // 3D: [Z, Y, X]
     } else {
@@ -631,23 +802,25 @@ class WRFState {
    *
    * @details Converts geographic coordinates (latitude, longitude, level) to
    * grid indices and returns a const reference to the corresponding element in
-   * the active variable. Uses nearest-neighbor interpolation to find the
+   * the specified variable. Uses nearest-neighbor interpolation to find the
    * closest grid point.
    *
+   * @param[in] variableName Name of the variable to access
    * @param[in] loc Location containing geographic coordinates
    * @return const_reference Const reference to element at the nearest grid
    * point
    * @throws std::runtime_error If geographic coordinates are unavailable
-   * @throws std::out_of_range If active variable is not set
+   * @throws std::out_of_range If variable doesn't exist
    *
    * @note For production use, consider implementing bilinear interpolation
    */
-  const double& at(const framework::Location& loc) const {
+  const double& at(const std::string& variableName,
+                   const framework::Location& loc) const {
     // Convert geographic coordinates to grid indices
     auto [lat, lon, level] = loc.getGeographicCoords();
 
-    // Get the appropriate geometry grid for the active variable
-    const auto& geometry_grid = getVariableGeometryGrid(activeVariable_);
+    // Get the appropriate geometry grid for the specified variable
+    const auto& geometry_grid = getVariableGeometryGrid(variableName);
 
     // Find the closest grid point to the geographic coordinates
     size_t i, j, k;
@@ -697,7 +870,7 @@ class WRFState {
     }
 
     // Access the array with proper indexing
-    const auto& arr = variables_.at(activeVariable_);
+    const auto& arr = variables_.at(variableName);
     if (arr.dimension() == 3) {
       return arr(k, j, i);  // 3D: [Z, Y, X]
     } else {
@@ -755,7 +928,6 @@ class WRFState {
       // Add global attributes
       nc_file.putAtt("title", "WRF State Data");
       nc_file.putAtt("source", "Metada Framework");
-      nc_file.putAtt("active_variable", activeVariable_);
       nc_file.putAtt("total_size", netCDF::ncInt, size());
 
       nc_file.close();
@@ -928,22 +1100,20 @@ class WRFState {
    * @brief Stream insertion operator for debugging and logging
    *
    * @details Outputs a human-readable representation of the WRF state including
-   * initialization status, source filename, active variable, loaded variables,
-   * and total data size. Useful for debugging and logging purposes.
+   * initialization status, source filename, loaded variables, and total data
+   * size. Useful for debugging and logging purposes.
    *
    * @param[in,out] os Output stream to write to
    * @param[in] state WRFState instance to output
    * @return std::ostream& Reference to the output stream for chaining
    *
    * @note Output format: WRFState{initialized: <bool>, filename: "<path>",
-   *                      active_variable: "<name>", variables: [...],
-   * total_size: <num>}
+   *                      variables: [...], total_size: <num>}
    */
   friend std::ostream& operator<<(std::ostream& os, const WRFState& state) {
     os << "WRFState{";
     os << "initialized: " << (state.initialized_ ? "true" : "false");
     os << ", filename: \"" << state.wrfFilename_ << "\"";
-    os << ", active_variable: \"" << state.activeVariable_ << "\"";
     os << ", variables: [";
 
     for (size_t i = 0; i < state.variableNames_.size(); ++i) {
@@ -1039,7 +1209,6 @@ class WRFState {
   std::unordered_map<std::string, std::vector<size_t>>
       dimensions_;                          ///< Variable dimensions
   std::vector<std::string> variableNames_;  ///< List of loaded variables
-  std::string activeVariable_;              ///< Currently active variable
   std::unordered_map<std::string, VariableGridInfo>
       variable_grid_info_;  ///< Variable-to-grid mappings
   ///@}
@@ -1070,11 +1239,6 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
               << std::endl;
   }
 
-  // Set the active variable to the first one if available
-  if (!variables.empty()) {
-    activeVariable_ = variables[0];
-  }
-
   // Load state data from WRF NetCDF file
   loadStateData(wrfFilename_, variables);
   initialized_ = true;
@@ -1103,11 +1267,10 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
       variables_(std::move(other.variables_)),
       dimensions_(std::move(other.dimensions_)),
       variableNames_(std::move(other.variableNames_)),
-      activeVariable_(std::move(other.activeVariable_)) {
+      variable_grid_info_(std::move(other.variable_grid_info_)) {
   // Reset the moved-from object
   other.initialized_ = false;
   other.variableNames_.clear();
-  other.activeVariable_.clear();
 }
 
 // Move assignment operator implementation
@@ -1122,12 +1285,11 @@ WRFState<ConfigBackend, GeometryBackend>::operator=(
     variables_ = std::move(other.variables_);
     dimensions_ = std::move(other.dimensions_);
     variableNames_ = std::move(other.variableNames_);
-    activeVariable_ = std::move(other.activeVariable_);
+    variable_grid_info_ = std::move(other.variable_grid_info_);
 
     // Reset the moved-from object
     other.initialized_ = false;
     other.variableNames_.clear();
-    other.activeVariable_.clear();
   }
   return *this;
 }
@@ -1146,55 +1308,57 @@ WRFState<ConfigBackend, GeometryBackend>::clone() const {
   cloned->variables_ = this->variables_;
   cloned->dimensions_ = this->dimensions_;
   cloned->variableNames_ = this->variableNames_;
-  cloned->activeVariable_ = this->activeVariable_;
   cloned->variable_grid_info_ = this->variable_grid_info_;
 
   return cloned;
 }
 
-// Data access implementation
+// Data access implementation (concept compliance)
 template <typename ConfigBackend, typename GeometryBackend>
 void* WRFState<ConfigBackend, GeometryBackend>::getData() {
-  if (!initialized_ || activeVariable_.empty()) {
+  if (!initialized_ || variableNames_.empty()) {
     return nullptr;
   }
-
-  try {
-    return variables_.at(activeVariable_).data();
-  } catch (const std::out_of_range&) {
-    return nullptr;
-  }
+  return variables_.at(variableNames_[0]).data();
 }
 
-// Const data access implementation
+// Const data access implementation (concept compliance)
 template <typename ConfigBackend, typename GeometryBackend>
 const void* WRFState<ConfigBackend, GeometryBackend>::getData() const {
-  if (!initialized_ || activeVariable_.empty()) {
+  if (!initialized_ || variableNames_.empty()) {
+    return nullptr;
+  }
+  return variables_.at(variableNames_[0]).data();
+}
+
+// Data access implementation (explicit variable)
+template <typename ConfigBackend, typename GeometryBackend>
+void* WRFState<ConfigBackend, GeometryBackend>::getData(
+    const std::string& variableName) {
+  if (!initialized_) {
     return nullptr;
   }
 
   try {
-    return variables_.at(activeVariable_).data();
+    return variables_.at(variableName).data();
   } catch (const std::out_of_range&) {
     return nullptr;
   }
 }
 
-// Get active variable implementation
+// Const data access implementation (explicit variable)
 template <typename ConfigBackend, typename GeometryBackend>
-const std::string& WRFState<ConfigBackend, GeometryBackend>::getActiveVariable()
-    const {
-  return activeVariable_;
-}
-
-// Set active variable implementation
-template <typename ConfigBackend, typename GeometryBackend>
-void WRFState<ConfigBackend, GeometryBackend>::setActiveVariable(
-    const std::string& name) {
-  if (variables_.find(name) == variables_.end()) {
-    throw std::out_of_range("Variable not found: " + name);
+const void* WRFState<ConfigBackend, GeometryBackend>::getData(
+    const std::string& variableName) const {
+  if (!initialized_) {
+    return nullptr;
   }
-  activeVariable_ = name;
+
+  try {
+    return variables_.at(variableName).data();
+  } catch (const std::out_of_range&) {
+    return nullptr;
+  }
 }
 
 // Get variable names implementation
