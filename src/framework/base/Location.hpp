@@ -11,6 +11,12 @@ namespace metada::framework {
 
 /**
  * @brief Enumeration for different coordinate systems
+ *
+ * Defines the supported coordinate systems for spatial locations:
+ * - GRID: Integer-based grid coordinates for discrete spatial indexing
+ * - GEOGRAPHIC: Latitude/longitude/level coordinates for Earth-based
+ * positioning
+ * - CARTESIAN: 3D Cartesian coordinates for mathematical calculations
  */
 enum class CoordinateSystem {
   GRID,        ///< Integer grid coordinates (i, j, k)
@@ -19,32 +25,78 @@ enum class CoordinateSystem {
 };
 
 /**
- * @brief Class representing a spatial location in various coordinate systems
+ * @brief Unified spatial location representation supporting multiple coordinate
+ * systems
  *
- * This class provides a unified way to represent locations across the
- * framework, supporting grid coordinates, geographic coordinates, and Cartesian
- * coordinates. It uses std::variant to store different coordinate types
- * efficiently.
+ * The Location class provides a type-safe, unified interface for representing
+ * spatial positions across different coordinate systems. It uses std::variant
+ * for efficient storage and compile-time type safety, supporting:
+ *
+ * - 2D/3D grid coordinates (integer-based)
+ * - Geographic coordinates (latitude, longitude, level)
+ * - Cartesian coordinates (x, y, z)
+ *
+ * @note All coordinate transformations must be handled externally. This class
+ *       only stores and provides access to coordinates in their native systems.
+ *
+ * @example
+ * @code
+ * // Create grid-based location
+ * Location gridLoc(10, 20, 5);
+ *
+ * // Create geographic location
+ * Location geoLoc(45.0, -122.0, 100.0, CoordinateSystem::GEOGRAPHIC);
+ *
+ * // Calculate distance between compatible locations
+ * double dist = gridLoc1.distance_to(gridLoc2);
+ * @endcode
  */
 class Location {
  public:
-  CoordinateSystem system;
-  std::variant<std::tuple<int, int, int>,  // Grid coordinates (i, j, k)
-               std::tuple<double, double, double>,  // Geographic/Cartesian
-               std::pair<int, int>  // 2D grid coordinates (i, j)
-               >
-      coordinates;
+  // ============================================================================
+  // CONSTRUCTORS
+  // ============================================================================
 
-  // Constructors
+  /**
+   * @brief Construct a 3D grid location
+   * @param i Grid index in the i-direction
+   * @param j Grid index in the j-direction
+   * @param k Grid index in the k-direction (vertical/depth)
+   */
   Location(int i, int j, int k)
       : system(CoordinateSystem::GRID), coordinates(std::make_tuple(i, j, k)) {}
+
+  /**
+   * @brief Construct a 2D grid location
+   * @param i Grid index in the i-direction
+   * @param j Grid index in the j-direction
+   */
   Location(int i, int j)
       : system(CoordinateSystem::GRID), coordinates(std::make_pair(i, j)) {}
+
+  /**
+   * @brief Construct a geographic or Cartesian location
+   * @param x First coordinate (latitude for geographic, x for Cartesian)
+   * @param y Second coordinate (longitude for geographic, y for Cartesian)
+   * @param z Third coordinate (level/altitude for geographic, z for Cartesian)
+   * @param coord_system Coordinate system type (defaults to GEOGRAPHIC)
+   */
   Location(double x, double y, double z,
            CoordinateSystem coord_system = CoordinateSystem::GEOGRAPHIC)
       : system(coord_system), coordinates(std::make_tuple(x, y, z)) {}
 
-  // Coordinate accessors
+  // ============================================================================
+  // COORDINATE ACCESSORS
+  // ============================================================================
+
+  /**
+   * @brief Get 3D grid coordinates
+   * @return Tuple containing (i, j, k) grid indices
+   * @throws std::runtime_error If location is not in grid coordinate system
+   * @throws std::runtime_error If coordinate storage is invalid for grid system
+   *
+   * @note For 2D grid locations, k coordinate is returned as 0
+   */
   std::tuple<int, int, int> getGridCoords() const {
     if (system != CoordinateSystem::GRID) {
       throw std::runtime_error("Location is not in grid coordinate system");
@@ -57,6 +109,15 @@ class Location {
     }
     throw std::runtime_error("Invalid coordinate storage for grid system");
   }
+
+  /**
+   * @brief Get 2D grid coordinates
+   * @return Pair containing (i, j) grid indices
+   * @throws std::runtime_error If location is not in grid coordinate system
+   * @throws std::runtime_error If coordinate storage is invalid for grid system
+   *
+   * @note For 3D grid locations, only i and j coordinates are returned
+   */
   std::pair<int, int> getGridCoords2D() const {
     if (system != CoordinateSystem::GRID) {
       throw std::runtime_error("Location is not in grid coordinate system");
@@ -69,6 +130,15 @@ class Location {
     }
     throw std::runtime_error("Invalid coordinate storage for grid system");
   }
+
+  /**
+   * @brief Get geographic coordinates
+   * @return Tuple containing (latitude, longitude, level) in degrees and meters
+   * @throws std::runtime_error If location is not in geographic coordinate
+   * system
+   * @throws std::runtime_error If coordinate storage is invalid for geographic
+   * system
+   */
   std::tuple<double, double, double> getGeographicCoords() const {
     if (system != CoordinateSystem::GEOGRAPHIC) {
       throw std::runtime_error(
@@ -81,6 +151,15 @@ class Location {
     }
     return std::get<std::tuple<double, double, double>>(coordinates);
   }
+
+  /**
+   * @brief Get Cartesian coordinates
+   * @return Tuple containing (x, y, z) coordinates
+   * @throws std::runtime_error If location is not in Cartesian coordinate
+   * system
+   * @throws std::runtime_error If coordinate storage is invalid for Cartesian
+   * system
+   */
   std::tuple<double, double, double> getCartesianCoords() const {
     if (system != CoordinateSystem::CARTESIAN) {
       throw std::runtime_error(
@@ -93,19 +172,32 @@ class Location {
     }
     return std::get<std::tuple<double, double, double>>(coordinates);
   }
+
+  /**
+   * @brief Get the active coordinate system
+   * @return The coordinate system type for this location
+   */
   CoordinateSystem getCoordinateSystem() const { return system; }
-  bool operator==(const Location& other) const {
-    return system == other.system && coordinates == other.coordinates;
-  }
-  bool operator!=(const Location& other) const { return !(*this == other); }
+
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
 
   /**
    * @brief Compute the distance to another Location
    *
-   * For grid coordinates, computes Euclidean distance in (i,j).
-   * For geographic coordinates, computes Euclidean distance in (lat,lon).
-   * (Extend to Haversine for more accuracy if needed.)
-   * Throws if coordinate systems are incompatible.
+   * Calculates distance based on the coordinate system:
+   * - Grid coordinates: Euclidean distance in (i,j) space
+   * - Geographic coordinates: Great circle distance using Haversine formula
+   * - Cartesian coordinates: 3D Euclidean distance
+   *
+   * @param other The target location to measure distance to
+   * @return Distance value (units depend on coordinate system)
+   * @throws std::runtime_error If coordinate systems are incompatible
+   *
+   * @note Grid distances are dimensionless. Geographic distances are in
+   * kilometers. Cartesian distances use the same units as the input
+   * coordinates.
    */
   double distance_to(const Location& other) const {
     if (system == CoordinateSystem::GRID &&
@@ -135,11 +227,41 @@ class Location {
     }
   }
 
+  // ============================================================================
+  // COMPARISON OPERATORS
+  // ============================================================================
+
   /**
-   * @brief Stream operator for Location class
+   * @brief Equality comparison operator
+   * @param other Location to compare with
+   * @return true if both coordinate system and coordinates are identical
+   */
+  bool operator==(const Location& other) const {
+    return system == other.system && coordinates == other.coordinates;
+  }
+
+  /**
+   * @brief Inequality comparison operator
+   * @param other Location to compare with
+   * @return true if coordinate system or coordinates differ
+   */
+  bool operator!=(const Location& other) const { return !(*this == other); }
+
+  // ============================================================================
+  // STREAM OUTPUT
+  // ============================================================================
+
+  /**
+   * @brief Stream output operator for Location class
+   *
+   * Provides human-readable string representation of the location:
+   * - Grid: "Grid(i,j,k)" or "Grid(i,j,0)" for 2D
+   * - Geographic: "Geo(lat,lon,level)"
+   * - Cartesian: "Cart(x,y,z)"
+   *
    * @param os Output stream
    * @param loc Location to output
-   * @return Reference to the output stream
+   * @return Reference to the output stream for chaining
    */
   friend std::ostream& operator<<(std::ostream& os, const Location& loc) {
     switch (loc.system) {
@@ -172,9 +294,56 @@ class Location {
   }
 
  private:
-  static constexpr double kEarthRadiusKm = 6371.0;
-  static constexpr double pi = 3.14159265358979323846;
+  // ============================================================================
+  // MEMBER VARIABLES
+  // ============================================================================
+
+  CoordinateSystem system;  ///< Active coordinate system for this location
+
+  /**
+   * @brief Storage for coordinate values using type-safe variant
+   *
+   * Supports three coordinate storage types:
+   * - std::tuple<int, int, int>: 3D grid coordinates (i, j, k)
+   * - std::tuple<double, double, double>: Geographic (lat, lon, level) or
+   * Cartesian (x, y, z)
+   * - std::pair<int, int>: 2D grid coordinates (i, j)
+   */
+  std::variant<std::tuple<int, int, int>,  // 3D grid coordinates (i, j, k)
+               std::tuple<double, double, double>,  // Geographic/Cartesian (x,
+                                                    // y, z)
+               std::pair<int, int>  // 2D grid coordinates (i, j)
+               >
+      coordinates;
+
+  // ============================================================================
+  // CONSTANTS AND HELPER METHODS
+  // ============================================================================
+
+  static constexpr double kEarthRadiusKm =
+      6371.0;  ///< Earth radius in kilometers
+  static constexpr double pi =
+      3.14159265358979323846;  ///< Mathematical constant π
+
+  /**
+   * @brief Convert degrees to radians
+   * @param deg Angle in degrees
+   * @return Angle in radians
+   */
   static double deg2rad(double deg) { return deg * pi / 180.0; }
+
+  /**
+   * @brief Calculate great circle distance using Haversine formula
+   *
+   * Computes the shortest distance between two points on the surface of a
+   * sphere (Earth) given their latitude and longitude coordinates.
+   *
+   * @param lat1 Latitude of first point in degrees
+   * @param lon1 Longitude of first point in degrees
+   * @param lat2 Latitude of second point in degrees
+   * @param lon2 Longitude of second point in degrees
+   * @return Distance in kilometers
+   */
   static double haversine(double lat1, double lon1, double lat2, double lon2) {
     double dlat = deg2rad(lat2 - lat1);
     double dlon = deg2rad(lon2 - lon1);
