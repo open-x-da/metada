@@ -179,8 +179,8 @@ class WRFGeometry {
   using iterator =
       WRFGeometryIterator<ConfigBackend>;  ///< Mutable iterator type
   using const_iterator =
-      WRFGeometryIterator<ConfigBackend>;        ///< Const iterator type
-  using Location = metada::framework::Location;  ///< Location object type
+      WRFGeometryIterator<ConfigBackend>;  ///< Const iterator type
+  using Location = framework::Location;    ///< Location object type
 
   /**
    * @brief Standard container type aliases for STL compatibility
@@ -543,7 +543,8 @@ class WRFGeometry {
 
   ///@{ @name Coordinate Access Methods
   /**
-   * @brief Get geographic coordinates for a 3D grid point
+   * @brief Get geographic coordinates for a 3D grid point in the unstaggered
+   * grid
    *
    * @details Converts 3D grid indices to geographic coordinates using the
    * unstaggered grid's coordinate arrays. Returns latitude, longitude in
@@ -557,6 +558,7 @@ class WRFGeometry {
    * @throws std::out_of_range If grid coordinates are out of bounds
    *
    * @note Returns (0.0, 0.0, 0.0) if geographic coordinates are unavailable
+   * @note This method specifically works with the unstaggered grid
    */
   std::tuple<double, double, double> getGeographicCoords(size_t i, size_t j,
                                                          size_t k = 0) const {
@@ -588,11 +590,12 @@ class WRFGeometry {
   }
 
   /**
-   * @brief Get Location object for a 3D grid point
+   * @brief Get Location object for a 3D grid point in the unstaggered grid
    *
    * @details Converts 3D grid indices to a Location object containing
-   * geographic coordinates. Prefers geographic coordinates when available,
-   * falls back to grid coordinates otherwise.
+   * geographic coordinates from the unstaggered (mass point) grid. Prefers
+   * geographic coordinates when available, falls back to grid coordinates
+   * otherwise.
    *
    * @param[in] i X coordinate index (west-east, 0-based)
    * @param[in] j Y coordinate index (south-north, 0-based)
@@ -601,6 +604,7 @@ class WRFGeometry {
    * @throws std::out_of_range If grid coordinates are out of bounds
    *
    * @note Uses GEOGRAPHIC coordinate system when possible, GRID otherwise
+   * @note This method specifically works with the unstaggered grid
    */
   Location getLocation(size_t i, size_t j, size_t k = 0) const {
     if (i >= x_dim() || j >= y_dim() || k >= z_dim()) {
@@ -632,48 +636,173 @@ class WRFGeometry {
   }
 
   /**
-   * @brief Get Location object from linear grid index
+   * @brief Get Location object from linear grid index across all grids
    *
-   * @details Converts a linear grid index to a Location object by first
-   * calculating 3D grid indices, then obtaining geographic coordinates.
-   * Uses row-major ordering for index calculation.
+   * @details Converts a linear grid index across all grids to a Location
+   * object. The method first determines which grid type the index belongs to,
+   * then calculates the appropriate 3D grid indices and obtains geographic
+   * coordinates. Grid order: unstaggered, U-staggered, V-staggered,
+   * W-staggered.
    *
-   * @param[in] index Linear index into the grid (0-based)
+   * @param[in] global_index Linear index across all grids (0-based)
    * @return Location Location object with coordinates
    * @throws std::out_of_range If linear index is out of bounds
-   *
-   * @note Linear index follows row-major order: index = k*nx*ny + j*nx + i
    */
-  Location getLocation(size_t index) const {
-    if (index >= totalGridSize()) {
-      throw std::out_of_range("Grid index out of range");
+  Location getLocation(size_t global_index) const {
+    auto [grid_type, local_index] = getGridTypeAndIndex(global_index);
+
+    // Select the appropriate grid based on grid type
+    const GridDimensionInfo* grid_info;
+    switch (grid_type) {
+      case 0:
+        grid_info = &unstaggered_grid_;
+        break;
+      case 1:
+        grid_info = &u_staggered_grid_;
+        break;
+      case 2:
+        grid_info = &v_staggered_grid_;
+        break;
+      case 3:
+        grid_info = &w_staggered_grid_;
+        break;
+      default:
+        throw std::runtime_error("Invalid grid type");
     }
 
-    // Calculate 3D indices from linear index
-    const size_t nx = x_dim();
-    const size_t ny = y_dim();
+    // Calculate 3D indices from local index
+    const size_t nx = grid_info->nx;
+    const size_t ny = grid_info->ny;
+    const size_t nz = grid_info->nz;
+
+    if (nx == 0 || ny == 0 || nz == 0) {
+      throw std::runtime_error("Grid dimensions not properly initialized");
+    }
 
     // Using row-major order: index = k*nx*ny + j*nx + i
-    size_t k = index / (nx * ny);
-    const size_t remainder = index % (nx * ny);
+    size_t k = local_index / (nx * ny);
+    const size_t remainder = local_index % (nx * ny);
     size_t j = remainder / nx;
     size_t i = remainder % nx;
 
-    return getLocation(i, j, k);
+    // Get geographic coordinates if available
+    if (grid_info->has_2d_coords()) {
+      size_t coord_idx = j * nx + i;
+      if (coord_idx < grid_info->longitude_2d.size() &&
+          coord_idx < grid_info->latitude_2d.size()) {
+        double lon = grid_info->longitude_2d[coord_idx];
+        double lat = grid_info->latitude_2d[coord_idx];
+        double level = 0.0;
+
+        // Get vertical level if available
+        if (grid_info->has_vertical_coords() &&
+            k < grid_info->vertical_coords.size()) {
+          level = grid_info->vertical_coords[k];
+        }
+
+        return Location(lat, lon, level, CoordinateSystem::GEOGRAPHIC);
+      }
+    }
+
+    // Fallback to grid coordinates with grid type information
+    return Location(static_cast<int>(i), static_cast<int>(j),
+                    static_cast<int>(k), CoordinateSystem::GRID);
   }
   ///@}
 
   ///@{ @name Grid Size Information
   /**
-   * @brief Get total number of grid points
+   * @brief Get total number of grid points across all grids
    *
-   * @details Calculates the total size of the unstaggered grid by multiplying
-   * the X, Y, and Z dimensions. This represents the total number of mass
-   * points in the WRF grid.
+   * @details Calculates the total size of all WRF grids by summing the
+   * unstaggered, U-staggered, V-staggered, and W-staggered grid sizes.
+   * This represents the total number of grid points across all grid types
+   * in the WRF grid system.
    *
-   * @return size_t Total number of grid points
+   * @return size_t Total number of grid points across all grids
    */
-  size_t totalGridSize() const { return x_dim() * y_dim() * z_dim(); }
+  size_t totalGridSize() const {
+    return unstaggered_grid_.size + u_staggered_grid_.size +
+           v_staggered_grid_.size + w_staggered_grid_.size;
+  }
+
+  /**
+   * @brief Get size of unstaggered grid only
+   *
+   * @details Returns the size of just the unstaggered (mass point) grid.
+   * This is useful when you need to know the size of a specific grid type.
+   *
+   * @return size_t Size of unstaggered grid
+   */
+  size_t unstaggeredGridSize() const { return unstaggered_grid_.size; }
+
+  /**
+   * @brief Get size of U-staggered grid only
+   *
+   * @details Returns the size of just the U-staggered grid.
+   *
+   * @return size_t Size of U-staggered grid
+   */
+  size_t uStaggeredGridSize() const { return u_staggered_grid_.size; }
+
+  /**
+   * @brief Get size of V-staggered grid only
+   *
+   * @details Returns the size of just the V-staggered grid.
+   *
+   * @return size_t Size of V-staggered grid
+   */
+  size_t vStaggeredGridSize() const { return v_staggered_grid_.size; }
+
+  /**
+   * @brief Get size of W-staggered grid only
+   *
+   * @details Returns the size of just the W-staggered grid.
+   *
+   * @return size_t Size of W-staggered grid
+   */
+  size_t wStaggeredGridSize() const { return w_staggered_grid_.size; }
+  ///@}
+
+  ///@{ @name Grid Type Identification
+  /**
+   * @brief Determine which grid type a linear index belongs to
+   *
+   * @details Given a linear index across all grids, determines which
+   * grid type it belongs to and returns the local index within that grid.
+   *
+   * @param[in] global_index Linear index across all grids
+   * @return std::pair<int, size_t> Pair of (grid_type, local_index)
+   *         where grid_type: 0=unstaggered, 1=U-staggered, 2=V-staggered,
+   * 3=W-staggered
+   * @throws std::out_of_range If global_index is out of bounds
+   */
+  std::pair<int, size_t> getGridTypeAndIndex(size_t global_index) const {
+    if (global_index >= totalGridSize()) {
+      throw std::out_of_range("Global grid index out of range");
+    }
+
+    // Check unstaggered grid
+    if (global_index < unstaggered_grid_.size) {
+      return {0, global_index};
+    }
+
+    // Check U-staggered grid
+    size_t offset = unstaggered_grid_.size;
+    if (global_index < offset + u_staggered_grid_.size) {
+      return {1, global_index - offset};
+    }
+
+    // Check V-staggered grid
+    offset += u_staggered_grid_.size;
+    if (global_index < offset + v_staggered_grid_.size) {
+      return {2, global_index - offset};
+    }
+
+    // Must be W-staggered grid
+    offset += v_staggered_grid_.size;
+    return {3, global_index - offset};
+  }
   ///@}
 
  private:
@@ -807,6 +936,7 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
                                dim_bottom_top.getSize();
       unstaggered_grid_.resize_2d_coords(dim_west_east.getSize(),
                                          dim_south_north.getSize());
+      unstaggered_grid_.nz = dim_bottom_top.getSize();
 
       // Setup U-staggered grid (staggered in X direction)
       u_staggered_grid_.name = "u_staggered";
@@ -816,6 +946,7 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
                                dim_bottom_top.getSize();
       u_staggered_grid_.resize_2d_coords(dim_west_east_stag.getSize(),
                                          dim_south_north.getSize());
+      u_staggered_grid_.nz = dim_bottom_top.getSize();
 
       // Setup V-staggered grid (staggered in Y direction)
       v_staggered_grid_.name = "v_staggered";
@@ -825,6 +956,7 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
                                dim_bottom_top.getSize();
       v_staggered_grid_.resize_2d_coords(dim_west_east.getSize(),
                                          dim_south_north_stag.getSize());
+      v_staggered_grid_.nz = dim_bottom_top.getSize();
 
       // Setup W-staggered grid (staggered in Z direction)
       w_staggered_grid_.name = "w_staggered";
@@ -834,6 +966,7 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
                                dim_bottom_top_stag.getSize();
       w_staggered_grid_.resize_2d_coords(dim_west_east.getSize(),
                                          dim_south_north.getSize());
+      w_staggered_grid_.nz = dim_bottom_top_stag.getSize();
 
       // Read unstaggered coordinate arrays (XLONG, XLAT)
       auto var_longitude = wrf_file.getVar("XLONG");

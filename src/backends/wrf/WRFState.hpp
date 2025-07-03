@@ -374,7 +374,7 @@ class WRFState {
   }
   ///@}
 
-  ///@{ @name Size and Capacity
+  ///@{ @name Size
   /**
    * @brief Get the total number of elements across all variables
    *
@@ -384,26 +384,6 @@ class WRFState {
    * @return size_t Total number of elements across all variables
    */
   size_t size() const;
-
-  /**
-   * @brief Check if the state contains no data
-   *
-   * @details Returns true if no variables are loaded or if all variables are
-   * empty.
-   *
-   * @return bool True if state is empty, false otherwise
-   */
-  bool empty() const { return size() == 0; }
-
-  /**
-   * @brief Get the maximum possible size
-   *
-   * @details For WRFState, this is the same as the current size since
-   * the capacity is determined by the loaded NetCDF data.
-   *
-   * @return size_type Maximum size (same as current size)
-   */
-  size_type max_size() const { return size(); }
   ///@}
 
   ///@{ @name Total State Vector Access

@@ -135,12 +135,6 @@ class Location {
     }
   }
 
-  // Add this method for 2D grid index calculation
-  int getGridIndex(int x_dim) const {
-    auto [x, y] = getGridCoords2D();
-    return y * x_dim + x;
-  }
-
   /**
    * @brief Stream operator for Location class
    * @param os Output stream
