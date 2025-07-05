@@ -39,6 +39,8 @@
 #include "Config.hpp"
 #include "Location.hpp"
 #include "MockBackendTraits.hpp"
+#include "MockObservation.hpp"
+#include "MockObservationIterator.hpp"
 #include "Observation.hpp"
 
 namespace metada::tests {

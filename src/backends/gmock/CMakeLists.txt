@@ -19,6 +19,7 @@ target_sources(gmock_backends
         MockModel.hpp
         MockState.hpp
         MockObservation.hpp
+        MockObservationIterator.hpp
         MockObsOperator.hpp)
 
 target_link_libraries(gmock_backends

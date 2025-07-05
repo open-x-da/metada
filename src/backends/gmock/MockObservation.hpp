@@ -31,79 +31,15 @@
 #include <vector>
 
 #include "Location.hpp"
+#include "MockObservationIterator.hpp"
 
 namespace metada::backends::gmock {
 
 using metada::framework::CoordinateSystem;
 using metada::framework::Location;
 
-/**
- * @brief Mock observation point for testing
- */
-struct MockObservationPoint {
-  Location location;
-  double value{0.0};
-  double error{1.0};
-  bool is_valid{true};
-
-  MockObservationPoint() = default;
-  MockObservationPoint(const Location& loc, double val, double err)
-      : location(loc), value(val), error(err), is_valid(true) {}
-
-  bool operator==(const MockObservationPoint& other) const {
-    return location == other.location && value == other.value &&
-           error == other.error && is_valid == other.is_valid;
-  }
-};
-
+// Use the MockObservationPoint from MockObservationIterator.hpp
 using ObservationPoint = MockObservationPoint;
-
-/**
- * @brief Iterator for mock observations
- */
-class MockObservationIterator {
- public:
-  using iterator_category = std::forward_iterator_tag;
-  using value_type = ObservationPoint;
-  using difference_type = std::ptrdiff_t;
-  using pointer = ObservationPoint*;
-  using reference = ObservationPoint&;
-
-  MockObservationIterator() = default;
-
-  MockObservationIterator(const std::vector<ObservationPoint>* data,
-                          size_t index)
-      : data_(data), index_(index) {}
-
-  // Dereference operators
-  reference operator*() { return const_cast<reference>((*data_)[index_]); }
-  pointer operator->() { return &const_cast<reference>((*data_)[index_]); }
-
-  // Increment operators
-  MockObservationIterator& operator++() {
-    ++index_;
-    return *this;
-  }
-
-  MockObservationIterator operator++(int) {
-    MockObservationIterator tmp = *this;
-    ++index_;
-    return tmp;
-  }
-
-  // Comparison operators
-  bool operator==(const MockObservationIterator& other) const {
-    return data_ == other.data_ && index_ == other.index_;
-  }
-
-  bool operator!=(const MockObservationIterator& other) const {
-    return !(*this == other);
-  }
-
- private:
-  const std::vector<ObservationPoint>* data_;
-  size_t index_;
-};
 
 /**
  * @brief Mock implementation of observation backend for testing
