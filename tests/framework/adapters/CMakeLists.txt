@@ -37,6 +37,10 @@ add_test_format_target(location_test ${CMAKE_CURRENT_SOURCE_DIR})
 setup_test_executable(observation_test ObservationTest.cpp)
 add_test_format_target(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
 
+# Observation iterator tests
+setup_test_executable(observation_iterator_test ObservationIteratorTest.cpp)
+add_test_format_target(observation_iterator_test ${CMAKE_CURRENT_SOURCE_DIR})
+
 # IObsOperator tests
 setup_test_executable(obsoperator_test ObsOperatorTest.cpp)
 add_test_format_target(obsoperator_test ${CMAKE_CURRENT_SOURCE_DIR})
