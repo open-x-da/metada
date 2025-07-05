@@ -30,8 +30,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../common/observation/PointObservation.hpp"
 #include "Location.hpp"
-#include "PointObservation.hpp"
 
 namespace metada::backends::gmock {
 

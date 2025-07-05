@@ -70,6 +70,9 @@ struct BackendTraits<L63BackendTag> {
   /** @brief L63 observation backend implementation */
   using ObservationBackend = backends::common::observation::GridObservation;
   
+  /** @brief L63 observation iterator backend implementation */
+  using ObservationIteratorBackend = metada::backends::common::observation::GridObservationIterator;
+  
   /** @brief Identity observation operator backend implementation */
   using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
   

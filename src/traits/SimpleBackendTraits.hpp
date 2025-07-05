@@ -84,6 +84,9 @@ struct BackendTraits<SimpleBackendTag> {
   /** @brief Simple observation backend implementation */
   using ObservationBackend = backends::common::observation::GridObservation;
   
+  /** @brief Simple observation iterator backend implementation */
+  using ObservationIteratorBackend = metada::backends::common::observation::GridObservationIterator;
+  
   /** @brief Identity observation operator backend implementation */
   using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
   

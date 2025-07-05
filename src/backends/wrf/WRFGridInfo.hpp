@@ -9,7 +9,7 @@
  * information, including dimension names, staggering configurations, and
  * grid type determinations. These structures support the Arakawa-C staggered
  * grid system used by the Weather Research and Forecasting (WRF) model.
- * 
+ *
  * The grid information is essential for proper coordinate transformations,
  * interpolation operations, and variable associations within the WRF backend
  * implementation of the metada framework.
@@ -27,13 +27,13 @@ namespace metada::backends::wrf {
  * for WRF variables, allowing proper association with corresponding geometry
  * grids. It supports both 2D and 3D variables with various staggering
  * configurations used in the WRF model's Arakawa-C grid system.
- * 
+ *
  * The WRF model uses staggered grids to improve numerical accuracy:
  * - Mass points (unstaggered): Temperature, pressure, humidity
  * - U-points (x-staggered): Zonal wind components
- * - V-points (y-staggered): Meridional wind components  
+ * - V-points (y-staggered): Meridional wind components
  * - W-points (z-staggered): Vertical wind components
- * 
+ *
  * @example
  * @code
  * // Configure grid info for temperature variable (mass points)
@@ -42,7 +42,7 @@ namespace metada::backends::wrf {
  * tempGrid.y_dim_name = "south_north";
  * tempGrid.z_dim_name = "bottom_top";
  * tempGrid.grid_type = VariableGridInfo::GridType::UNSTAGGERED;
- * 
+ *
  * // Configure grid info for U-wind component (x-staggered)
  * VariableGridInfo uWindGrid;
  * uWindGrid.x_dim_name = "west_east_stag";
@@ -58,9 +58,12 @@ struct VariableGridInfo {
   // ============================================================================
 
   ///@{ @name Dimension Information
-  std::string x_dim_name;  ///< Name of X dimension in NetCDF file (e.g., "west_east")
-  std::string y_dim_name;  ///< Name of Y dimension in NetCDF file (e.g., "south_north")
-  std::string z_dim_name;  ///< Name of Z dimension in NetCDF file (e.g., "bottom_top")
+  std::string
+      x_dim_name;  ///< Name of X dimension in NetCDF file (e.g., "west_east")
+  std::string
+      y_dim_name;  ///< Name of Y dimension in NetCDF file (e.g., "south_north")
+  std::string
+      z_dim_name;  ///< Name of Z dimension in NetCDF file (e.g., "bottom_top")
   ///@}
 
   // ============================================================================
@@ -68,9 +71,12 @@ struct VariableGridInfo {
   // ============================================================================
 
   ///@{ @name Staggering Configuration
-  bool x_staggered = false;  ///< Whether variable is staggered in X direction (U-grid)
-  bool y_staggered = false;  ///< Whether variable is staggered in Y direction (V-grid)
-  bool z_staggered = false;  ///< Whether variable is staggered in Z direction (W-grid)
+  bool x_staggered =
+      false;  ///< Whether variable is staggered in X direction (U-grid)
+  bool y_staggered =
+      false;  ///< Whether variable is staggered in Y direction (V-grid)
+  bool z_staggered =
+      false;  ///< Whether variable is staggered in Z direction (W-grid)
   ///@}
 
   // ============================================================================
@@ -86,10 +92,14 @@ struct VariableGridInfo {
    * grid staggering convention used in WRF.
    */
   enum class GridType {
-    UNSTAGGERED,  ///< Mass points grid (unstaggered in all directions) - T, P, RH
-    U_STAGGERED,  ///< U-wind grid (staggered in X direction) - Zonal wind components
-    V_STAGGERED,  ///< V-wind grid (staggered in Y direction) - Meridional wind components
-    W_STAGGERED   ///< W-wind grid (staggered in Z direction) - Vertical wind components
+    UNSTAGGERED,  ///< Mass points grid (unstaggered in all directions) - T, P,
+                  ///< RH
+    U_STAGGERED,  ///< U-wind grid (staggered in X direction) - Zonal wind
+                  ///< components
+    V_STAGGERED,  ///< V-wind grid (staggered in Y direction) - Meridional wind
+                  ///< components
+    W_STAGGERED   ///< W-wind grid (staggered in Z direction) - Vertical wind
+                  ///< components
   };
 
   GridType grid_type = GridType::UNSTAGGERED;  ///< Associated grid type
@@ -107,7 +117,7 @@ struct VariableGridInfo {
    * grid type detection based on the dimension staggering pattern.
    *
    * @return GridType The determined grid type based on staggering pattern
-   * 
+   *
    * @note If multiple dimensions are staggered or no staggering is detected,
    *       the method defaults to UNSTAGGERED grid type.
    */
@@ -148,4 +158,4 @@ struct VariableGridInfo {
   }
 };
 
-}  // namespace metada::backends::wrf 
+}  // namespace metada::backends::wrf

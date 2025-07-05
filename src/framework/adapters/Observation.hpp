@@ -10,6 +10,7 @@
 #include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObservationConcepts.hpp"
+#include "ObservationIterator.hpp"
 
 namespace metada::framework {
 

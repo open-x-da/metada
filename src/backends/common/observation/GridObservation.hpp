@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "GridObservationIterator.hpp"
 #include "PointObservation.hpp"
 
 namespace metada::backends::common::observation {
@@ -18,52 +19,6 @@ namespace metada::backends::common::observation {
 using framework::CoordinateSystem;
 using framework::Location;
 using framework::ObservationPoint;
-
-/**
- * @brief Iterator for observations
- */
-class ObservationIterator {
- public:
-  using iterator_category = std::forward_iterator_tag;
-  using value_type = ObservationPoint;
-  using difference_type = std::ptrdiff_t;
-  using pointer = ObservationPoint*;
-  using reference = ObservationPoint&;
-
-  ObservationIterator() = default;
-
-  ObservationIterator(const std::vector<ObservationPoint>* data, size_t index)
-      : data_(data), index_(index) {}
-
-  // Dereference operators
-  reference operator*() { return const_cast<reference>((*data_)[index_]); }
-  pointer operator->() { return &const_cast<reference>((*data_)[index_]); }
-
-  // Increment operators
-  ObservationIterator& operator++() {
-    ++index_;
-    return *this;
-  }
-
-  ObservationIterator operator++(int) {
-    ObservationIterator tmp = *this;
-    ++index_;
-    return tmp;
-  }
-
-  // Comparison operators
-  bool operator==(const ObservationIterator& other) const {
-    return data_ == other.data_ && index_ == other.index_;
-  }
-
-  bool operator!=(const ObservationIterator& other) const {
-    return !(*this == other);
-  }
-
- private:
-  const std::vector<ObservationPoint>* data_;
-  size_t index_;
-};
 
 /**
  * @brief Grid-based observation backend implementation
@@ -80,7 +35,7 @@ class ObservationIterator {
 class GridObservation {
  public:
   // Type aliases for concept compliance
-  using iterator_type = ObservationIterator;
+  using iterator_type = GridObservationIterator;
   using value_type = ObservationPoint;
 
   // Delete default constructor
@@ -157,16 +112,16 @@ class GridObservation {
    * @brief Get iterator to beginning of observations
    * @return Iterator to first observation
    */
-  ObservationIterator begin() const {
-    return ObservationIterator(&observations_, 0);
+  GridObservationIterator begin() const {
+    return GridObservationIterator(&observations_, 0);
   }
 
   /**
    * @brief Get iterator to end of observations
    * @return Iterator past last observation
    */
-  ObservationIterator end() const {
-    return ObservationIterator(&observations_, observations_.size());
+  GridObservationIterator end() const {
+    return GridObservationIterator(&observations_, observations_.size());
   }
 
   /**

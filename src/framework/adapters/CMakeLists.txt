@@ -22,6 +22,8 @@ target_sources(adapters
         ${CMAKE_CURRENT_SOURCE_DIR}/Increment.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Observation.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ObservationConcepts.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ObservationIterator.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ObservationIteratorConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ObsOperator.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ObsOperatorConcepts.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Ensemble.hpp
