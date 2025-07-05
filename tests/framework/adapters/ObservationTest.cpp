@@ -38,6 +38,7 @@
 
 #include "Config.hpp"
 #include "Location.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
 #include "MockObservation.hpp"
 #include "MockObservationIterator.hpp"
@@ -96,6 +97,10 @@ class ObservationTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     auto config_file = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file);
+
+    // Initialize the Logger singleton before creating any objects that use it
+    framework::Logger<traits::MockBackendTag>::Init(*config_);
+
     obs1_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
     obs2_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
 
@@ -118,6 +123,9 @@ class ObservationTest : public ::testing::Test {
     values_.clear();
     errors_.clear();
     config_.reset();
+
+    // Reset the Logger singleton after tests
+    framework::Logger<traits::MockBackendTag>::Reset();
   }
 
   /**
