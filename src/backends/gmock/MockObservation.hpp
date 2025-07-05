@@ -30,14 +30,33 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../common/observation/PointObservation.hpp"
 #include "Location.hpp"
 
 namespace metada::backends::gmock {
 
 using metada::framework::CoordinateSystem;
 using metada::framework::Location;
-using metada::framework::ObservationPoint;
+
+/**
+ * @brief Mock observation point for testing
+ */
+struct MockObservationPoint {
+  Location location;
+  double value{0.0};
+  double error{1.0};
+  bool is_valid{true};
+
+  MockObservationPoint() = default;
+  MockObservationPoint(const Location& loc, double val, double err)
+      : location(loc), value(val), error(err), is_valid(true) {}
+
+  bool operator==(const MockObservationPoint& other) const {
+    return location == other.location && value == other.value &&
+           error == other.error && is_valid == other.is_valid;
+  }
+};
+
+using ObservationPoint = MockObservationPoint;
 
 /**
  * @brief Iterator for mock observations

@@ -17,6 +17,7 @@
 #include "Geometry.hpp"
 #include "Metrics.hpp"
 #include "MockBackendTraits.hpp"
+#include "MockObservation.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 
@@ -124,7 +125,7 @@ class ETKFTest : public ::testing::Test {
     }
 
     // setup mock expectations for observation data
-    std::vector<framework::ObservationPoint> obs_points;
+    std::vector<metada::backends::gmock::MockObservationPoint> obs_points;
     for (size_t i = 0; i < obs_data_.size(); ++i) {
       // Create location with latitude based on index (simulating grid points)
       double lat = 45.0 + (i * 0.1);    // Start at 45°N, increment by 0.1°
