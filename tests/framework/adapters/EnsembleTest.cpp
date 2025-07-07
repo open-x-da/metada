@@ -189,7 +189,6 @@ TEST_F(EnsembleTest, EnsembleMethodsExist) {
   // This is done through template type checking and compilation
 
   using EnsembleType = Ensemble<traits::MockBackendTag>;
-  using StateType = State<traits::MockBackendTag>;
 
   // Test that methods have correct signatures (compile-time check)
   static_assert(

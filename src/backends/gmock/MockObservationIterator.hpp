@@ -39,7 +39,7 @@ struct MockObservationPoint {
   double error{1.0};
   bool is_valid{true};
 
-  MockObservationPoint() = default;
+  MockObservationPoint() : location(0, 0, 0) {}
   MockObservationPoint(const Location& loc, double val, double err)
       : location(loc), value(val), error(err), is_valid(true) {}
 

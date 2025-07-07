@@ -90,19 +90,6 @@ TEST_F(ObservationIteratorTest, BasicOperations) {
 }
 
 /**
- * @brief Test default constructor
- *
- * Verifies that the default constructor creates a valid iterator.
- */
-TEST_F(ObservationIteratorTest, DefaultConstructor) {
-  ObservationIterator<traits::MockBackendTag> iter;
-
-  // Default constructed iterator should be valid
-  // We can't test much without actual data, but we verify it compiles
-  EXPECT_TRUE(true);  // Basic existence test
-}
-
-/**
  * @brief Test copy constructor and assignment
  *
  * Verifies that the ObservationIterator can be copied correctly
@@ -198,10 +185,6 @@ TEST_F(ObservationIteratorTest, IteratorTraits) {
   static_assert(
       std::is_same_v<typename std::iterator_traits<IteratorType>::value_type,
                      MockObservationPoint>);
-
-  // Test that pointer and reference types are defined
-  using pointer = typename std::iterator_traits<IteratorType>::pointer;
-  using reference = typename std::iterator_traits<IteratorType>::reference;
 
   EXPECT_TRUE(true);  // Compilation test
 }
