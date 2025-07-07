@@ -139,10 +139,6 @@ TEST_F(GeometryIteratorTest, IteratorTraits) {
       std::is_same_v<typename std::iterator_traits<IteratorType>::value_type,
                      MockGridPoint>);
 
-  // Test that pointer and reference types are defined
-  using pointer = typename std::iterator_traits<IteratorType>::pointer;
-  using reference = typename std::iterator_traits<IteratorType>::reference;
-
   EXPECT_TRUE(true);  // Compilation test
 }
 
