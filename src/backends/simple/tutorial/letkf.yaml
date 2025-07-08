@@ -1,60 +1,63 @@
 logger:
-  app_name: "etkf"
+  app_name: "letkf"
   level: "debug"
   color: true
   console: true
 
 # Geometry for the ensemble
 geometry:
-  file: "D:/linux/metada/applications/forecast/wrfinput_d01"
+  x_dim: 36
+  y_dim: 18
 
 # Ensemble variables to analyze
 ensemble:
   members:
     - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-          - "V"
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_1.txt"
     - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-          - "V"
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_2.txt"
     - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-          - "V"
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_3.txt"
     - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-          - "V"
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_4.txt"
     - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-          - "V"
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_5.txt"
     - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-          - "V"
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_6.txt"
     - state:
-        file: "D:/linux/metada/applications/forecast/wrfinput_d01"
-        variables:
-          - "U"
-          - "V"
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_7.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_8.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_9.txt"
 
 # Observation settings
 observations:
   types:
-    - grid_obs:
+    - obs_A:
         if_use: true
-        file: "D:/linux/metada/applications/observation/wrf_obs.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/obs_format.txt"
+        coordinate: "grid"
         variables:
-          - U:
+          - simple:
+              if_use: true
+              error: 0.1  # standard deviations
+              missing_value: -999.0
+    - obs_B:
+        if_use: false
+        file: "D:/linux/metada/src/backends/simple/tutorial/obsB_format.txt"
+        coordinate: "grid"
+        variables:
+          - simple:
               if_use: true
               error: 0.1  # standard deviations
               missing_value: -999.0
@@ -70,5 +73,5 @@ obs_operator:
 analysis:
   algorithm: "letkf"
   inflation: 1.0
-  localization_radius: 100.0
-  output_base_file: "D:/linux/metada/applications/forecast/analysis"
+  localization_radius: 10.0
+  output_base_file: "D:/linux/metada/src/backends/simple/tutorial/analysis"

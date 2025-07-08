@@ -65,6 +65,15 @@ class GridObservation {
       }
       std::string filename = type_backend.Get("file").asString();
 
+      // Get coordinate system from config (default to "geographic" for backward
+      // compatibility)
+      std::string coordinate_system = "geographic";
+      try {
+        coordinate_system = type_backend.Get("coordinate").asString();
+      } catch (...) {
+        // Use default if not specified
+      }
+
       // Loop over variables for this type
       const auto& variables_configs =
           type_backend.Get("variables").asVectorMap();
@@ -78,8 +87,8 @@ class GridObservation {
           double error = var_backend.Get("error").asFloat();
           double missing_value = var_backend.Get("missing_value").asFloat();
 
-          // Load WRF observation file
-          loadFromFile(filename, error, missing_value);
+          // Load observation file with coordinate system
+          loadFromFile(filename, error, missing_value, coordinate_system);
         }
       }
     }
@@ -327,9 +336,11 @@ class GridObservation {
    * @param filename Path to observation file
    * @param error The observation error to assign to all valid points
    * @param missing_value The value that indicates a missing observation
+   * @param coordinate_system Coordinate system to use ("grid" or "geographic")
    */
   void loadFromFile(const std::string& filename, double error,
-                    double missing_value) {
+                    double missing_value,
+                    const std::string& coordinate_system = "geographic") {
     std::ifstream file(filename);
     if (!file.is_open()) {
       throw std::runtime_error("Could not open observation file: " + filename);
@@ -369,24 +380,37 @@ class GridObservation {
         continue;
       }
 
-      // Parse data line: Time Z Y X ZNU XLONG_U XLAT_U U
+      // Parse data line: Time Z Y X ZNU XLONG_U XLAT_U Value
       std::istringstream iss(line);
       int time, z, y, x;
-      double znu, xlong_u, xlat_u, u_value;
+      double znu, xlong_u, xlat_u, obs_value;
 
-      if (iss >> time >> z >> y >> x >> znu >> xlong_u >> xlat_u >> u_value) {
+      if (iss >> time >> z >> y >> x >> znu >> xlong_u >> xlat_u >> obs_value) {
         // Skip missing values
-        if (u_value != missing_value) {
-          // Create geographic location using XLAT_U (latitude), XLONG_U
-          // (longitude), ZNU (level)
-          Location location(xlat_u, xlong_u, znu, CoordinateSystem::GEOGRAPHIC);
-          observations_.emplace_back(location, u_value, error);
+        if (obs_value != missing_value) {
+          Location location(0, 0, 0);  // Default initialization
+
+          if (coordinate_system == "grid") {
+            // For grid coordinates: use Z, Y, X and ignore geographic
+            // coordinates
+            location = Location(x, y, z);
+          } else if (coordinate_system == "geographic") {
+            // For geographic coordinates: use ZNU (level), XLAT_U (latitude),
+            // XLONG_U (longitude)
+            location =
+                Location(xlat_u, xlong_u, znu, CoordinateSystem::GEOGRAPHIC);
+          } else {
+            throw std::runtime_error("Unsupported coordinate system: " +
+                                     coordinate_system);
+          }
+
+          observations_.emplace_back(location, obs_value, error);
         }
       }
     }
 
     if (observations_.empty()) {
-      throw std::runtime_error("No valid observations loaded from WRF file: " +
+      throw std::runtime_error("No valid observations loaded from file: " +
                                filename);
     }
   }

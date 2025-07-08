@@ -2,11 +2,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug ETKF",
+            "name": "Debug Simple ETKF",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/etkf",
-            "args": ["${workspaceFolder}/src/backends/wrf/tutorial/etkf.yaml"],
+            "args": ["${workspaceFolder}/src/backends/simple/tutorial/etkf.yaml"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}/build",
             "environment": [
@@ -44,11 +44,11 @@
             ]
         },
         {
-            "name": "Debug LETKF",
+            "name": "Debug Simple LETKF",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/letkf",
-            "args": ["${workspaceFolder}/src/backends/wrf/tutorial/letkf.yaml"],
+            "args": ["${workspaceFolder}/src/backends/simple/tutorial/letkf.yaml"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}/build",
             "environment": [
