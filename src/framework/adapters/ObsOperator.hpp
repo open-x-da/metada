@@ -74,7 +74,7 @@ class ObsOperator : public NonCopyable {
   template <typename ConfigBackend>
   explicit ObsOperator(const Config<ConfigBackend>& config)
       : backend_(config.backend()) {
-    logger_.Debug() << "ObsOperator constructed";
+    logger_.Info() << "ObsOperator constructed";
   }
 
   /**
@@ -134,7 +134,7 @@ class ObsOperator : public NonCopyable {
   template <typename StateBackend, typename ObsBackend>
   std::vector<double> apply(const State<StateBackend>& state,
                             const Observation<ObsBackend>& obs) const {
-    logger_.Debug() << "Applying observation operator";
+    logger_.Info() << "Applying observation operator";
 
     return backend_.apply(state.backend(), obs.backend());
   }

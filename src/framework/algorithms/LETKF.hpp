@@ -54,7 +54,7 @@ class LETKF {
         inflation_(config.Get("inflation").asFloat()),
         localization_radius_(config.Get("localization_radius").asFloat()),
         output_base_file_(config.Get("output_base_file").asString()) {
-    logger_.Debug() << "LETKF constructed with radius " << localization_radius_;
+    logger_.Info() << "LETKF constructed with radius " << localization_radius_;
   }
 
   /**
@@ -62,7 +62,7 @@ class LETKF {
    * point.
    */
   void Analyse() {
-    logger_.Debug() << "LETKF analysis started";
+    logger_.Info() << "LETKF analysis started";
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
@@ -91,7 +91,7 @@ class LETKF {
     // Compute analysis mean using Ensemble's Mean() method
     ensemble_.RecomputeMean();
 
-    logger_.Debug() << "LETKF analysis completed";
+    logger_.Info() << "LETKF analysis completed";
   }
 
   /**
@@ -99,13 +99,13 @@ class LETKF {
    * @param base_filename Base filename for saving (without extension)
    */
   void saveEnsemble() const {
-    logger_.Debug() << "LETKF saving ensemble";
+    logger_.Info() << "LETKF saving ensemble";
     const int ens_size = ensemble_.Size();
 
     // Save analysis mean using the ensemble's mean state
     const auto& mean_state = ensemble_.Mean();
     mean_state.saveToFile(output_base_file_ + "_mean.nc");
-    logger_.Debug() << "Analysis mean saved to: "
+    logger_.Info() << "Analysis mean saved to: "
                     << output_base_file_ + "_mean.nc";
 
     // Save individual ensemble members
@@ -114,7 +114,7 @@ class LETKF {
       member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
                         ".nc");
     }
-    logger_.Debug() << "LETKF ensemble saved";
+    logger_.Info() << "LETKF ensemble saved";
   }
 
  private:

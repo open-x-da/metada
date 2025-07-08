@@ -92,14 +92,14 @@ class ETKF {
         obs_op_(obs_op),
         inflation_(config.Get("inflation").asFloat()),
         output_base_file_(config.Get("output_base_file").asString()) {
-    logger_.Debug() << "ETKF constructed";
+    logger_.Info() << "ETKF constructed";
   }
 
   /**
    * @brief Perform the ETKF analysis step, updating the ensemble.
    */
   void Analyse() {
-    logger_.Debug() << "ETKF analysis started";
+    logger_.Info() << "ETKF analysis started";
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
@@ -176,7 +176,7 @@ class ETKF {
       Eigen::Map<VectorXd>(data, state_dim) = Xa.col(i);
     }
 
-    logger_.Debug() << "ETKF analysis completed";
+    logger_.Info() << "ETKF analysis completed";
   }
 
   /**
@@ -184,7 +184,7 @@ class ETKF {
    * @param base_filename Base filename for saving (without extension)
    */
   void saveEnsemble() const {
-    logger_.Debug() << "ETKF saving ensemble";
+    logger_.Info() << "ETKF saving ensemble";
     const int ens_size = ensemble_.Size();
 
     // Save analysis mean using the ensemble's mean state
@@ -197,7 +197,7 @@ class ETKF {
       member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
                         ".txt");
     }
-    logger_.Debug() << "ETKF ensemble saved";
+    logger_.Info() << "ETKF ensemble saved";
   }
 
  private:
