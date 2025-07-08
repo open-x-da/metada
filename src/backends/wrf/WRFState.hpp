@@ -1088,6 +1088,15 @@ class WRFState {
    * @return bool True if states are compatible, false otherwise
    */
   bool isCompatible(const WRFState& other) const;
+
+  /**
+   * @brief Update the flattened data vector for contiguous access
+   *
+   * @details Creates a contiguous memory block containing all variables
+   * concatenated in the order they appear in variableNames_. This enables
+   * proper access via getData() for the complete state vector.
+   */
+  void updateFlattenedData() const;
   ///@}
 
   ///@{ @name Member Variables
@@ -1109,6 +1118,10 @@ class WRFState {
   std::vector<std::string> variableNames_;  ///< List of loaded variables
   std::unordered_map<std::string, VariableGridInfo>
       variable_grid_info_;  ///< Variable-to-grid mappings
+  mutable std::vector<double>
+      flattened_data_;  ///< Flattened state vector for contiguous access
+  mutable bool flattened_data_valid_ =
+      false;  ///< Flag to track if flattened data is up to date
   ///@}
   ///@}
 };
@@ -1139,6 +1152,9 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
 
   // Load state data from WRF NetCDF file
   loadStateData(wrfFilename_, variables);
+
+  // Invalidate flattened data since variables have been loaded
+  flattened_data_valid_ = false;
   initialized_ = true;
 }
 
@@ -1203,10 +1219,16 @@ WRFState<ConfigBackend, GeometryBackend>::clone() const {
   // Copy all the state data directly without reloading from file
   cloned->wrfFilename_ = this->wrfFilename_;
   cloned->initialized_ = this->initialized_;
+
+  // Deep copy the variables to avoid sharing memory
   cloned->variables_ = this->variables_;
+
   cloned->dimensions_ = this->dimensions_;
   cloned->variableNames_ = this->variableNames_;
   cloned->variable_grid_info_ = this->variable_grid_info_;
+
+  // Ensure flattened data is invalidated for the clone
+  cloned->flattened_data_valid_ = false;
 
   return cloned;
 }
@@ -1217,7 +1239,8 @@ void* WRFState<ConfigBackend, GeometryBackend>::getData() {
   if (!initialized_ || variableNames_.empty()) {
     return nullptr;
   }
-  return variables_.at(variableNames_[0]).data();
+  updateFlattenedData();
+  return flattened_data_.data();
 }
 
 // Const data access implementation (concept compliance)
@@ -1226,7 +1249,8 @@ const void* WRFState<ConfigBackend, GeometryBackend>::getData() const {
   if (!initialized_ || variableNames_.empty()) {
     return nullptr;
   }
-  return variables_.at(variableNames_[0]).data();
+  updateFlattenedData();
+  return flattened_data_.data();
 }
 
 // Data access implementation (explicit variable)
@@ -1285,6 +1309,7 @@ void WRFState<ConfigBackend, GeometryBackend>::zero() {
   for (auto& [name, data] : variables_) {
     data.fill(0.0);
   }
+  flattened_data_valid_ = false;  // Invalidate flattened data
 }
 
 // Dot product implementation
@@ -1362,6 +1387,7 @@ void WRFState<ConfigBackend, GeometryBackend>::add(
 
     thisVar += otherVar;
   }
+  flattened_data_valid_ = false;  // Invalidate flattened data
 }
 
 // Subtract implementation
@@ -1379,6 +1405,7 @@ void WRFState<ConfigBackend, GeometryBackend>::subtract(
 
     thisVar -= otherVar;
   }
+  flattened_data_valid_ = false;  // Invalidate flattened data
 }
 
 // Multiply implementation
@@ -1388,6 +1415,7 @@ void WRFState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
   for (auto& [name, data] : variables_) {
     data *= scalar;
   }
+  flattened_data_valid_ = false;  // Invalidate flattened data
 }
 
 // Is initialized implementation
@@ -1619,6 +1647,32 @@ bool WRFState<ConfigBackend, GeometryBackend>::isCompatible(
   }
 
   return true;
+}
+
+// Update flattened data implementation
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::updateFlattenedData() const {
+  if (flattened_data_valid_) {
+    return;  // Already up to date
+  }
+
+  // Calculate total size and resize flattened data
+  size_t total_size = size();
+  flattened_data_.resize(total_size);
+
+  // Copy all variables into flattened array
+  size_t offset = 0;
+  for (const auto& varName : variableNames_) {
+    const auto& var_data = variables_.at(varName);
+    size_t var_size = var_data.size();
+
+    // Copy variable data to flattened array
+    std::copy(var_data.data(), var_data.data() + var_size,
+              flattened_data_.data() + offset);
+    offset += var_size;
+  }
+
+  flattened_data_valid_ = true;
 }
 
 }  // namespace metada::backends::wrf
