@@ -14,23 +14,23 @@ ensemble:
   variables: "simple"
   members:
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_1.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_1.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_2.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_2.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_3.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_3.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_4.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_4.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_5.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_5.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_6.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_6.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_7.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_7.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_8.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_8.txt"
     - state:
-        file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_9.txt"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_9.txt"
 
 # Observation settings
 observations:

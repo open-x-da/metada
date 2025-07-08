@@ -106,7 +106,7 @@ class LETKF {
     const auto& mean_state = ensemble_.Mean();
     mean_state.saveToFile(output_base_file_ + "_mean.nc");
     logger_.Info() << "Analysis mean saved to: "
-                    << output_base_file_ + "_mean.nc";
+                   << output_base_file_ + "_mean.nc";
 
     // Save individual ensemble members
     for (int i = 0; i < ens_size; ++i) {

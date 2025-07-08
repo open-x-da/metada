@@ -141,9 +141,12 @@ class IdentityObsOperator {
     result.reserve(obs.size());
 
     // Get state dimensions
-    size_t nx = state.geometry().x_dim();
-    size_t ny = state.geometry().y_dim();
-    size_t nz = state.geometry().z_dim();
+    size_t nx = static_cast<size_t>(state.geometry().x_dim());
+    size_t ny = static_cast<size_t>(state.geometry().y_dim());
+    size_t nz = 1; // Default to 1 for 2D geometries
+    if constexpr (requires { state.geometry().z_dim(); }) {
+      nz = state.geometry().z_dim();
+    }
 
     // Apply observation operator to each observation point
     for (const auto& obs_point : obs) {
@@ -262,12 +265,23 @@ class IdentityObsOperator {
     double min_dist = std::numeric_limits<double>::max();
     size_t best_i = 0, best_j = 0, best_k = 0;
     
-    for (size_t k = 0; k < geometry.z_dim(); ++k) {
-      for (size_t j = 0; j < geometry.y_dim(); ++j) {
-        for (size_t i = 0; i < geometry.x_dim(); ++i) {
+    size_t z_dim = 1; // Default to 1 for 2D geometries
+    if constexpr (requires { geometry.z_dim(); }) {
+      z_dim = geometry.z_dim();
+    }
+    
+    for (size_t k = 0; k < z_dim; ++k) {
+      for (size_t j = 0; j < static_cast<size_t>(geometry.y_dim()); ++j) {
+        for (size_t i = 0; i < static_cast<size_t>(geometry.x_dim()); ++i) {
           try {
             // Try to get geographic coordinates for this grid point
-            auto grid_location = geometry.getLocation(i, j, k);
+            auto grid_location = [&]() {
+              if constexpr (requires { geometry.getLocation(i, j, k); }) {
+                return geometry.getLocation(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k));
+              } else {
+                return geometry.getLocation(static_cast<int>(i), static_cast<int>(j));
+              }
+            }();
             if (grid_location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
               auto [grid_lat, grid_lon, grid_level] = grid_location.getGeographicCoords();
               
@@ -326,13 +340,25 @@ class IdentityObsOperator {
     if (j >= ny) j = ny - 1;
     if (k >= nz) k = nz - 1;
 
-    // Convert 3D grid coordinates to linear index using row-major order
-    // linear_index = k * (nx * ny) + j * nx + i
-    size_t linear_index = k * (nx * ny) + j * nx + i;
-
-    // Use linear indexing to avoid coordinate system mismatch
-    // This works with all backends that support operator[] or at(size_t)
-    return state[linear_index];
+    // For backends that support direct coordinate access, use it
+    if constexpr (requires { state.at(std::declval<typename StateBackend::geometry_type::Coord>()); }) {
+      // Convert grid coordinates to coordinate pair for SimpleState-like backends
+      typename StateBackend::geometry_type::Coord coord{static_cast<int>(i), static_cast<int>(j)};
+      return state.at(coord);
+    } else {
+      // Convert 3D grid coordinates to linear index using row-major order
+      // linear_index = k * (nx * ny) + j * nx + i
+      size_t linear_index = k * (nx * ny) + j * nx + i;
+      
+      // Use linear indexing for backends that support operator[] or at(size_t)
+      if constexpr (requires { state[linear_index]; }) {
+        return state[linear_index];
+      } else if constexpr (requires { state.at(linear_index); }) {
+        return state.at(linear_index);
+      } else {
+        throw std::runtime_error("State backend does not support required access methods");
+      }
+    }
   }
 
   bool initialized_ = false;                      ///< Initialization status

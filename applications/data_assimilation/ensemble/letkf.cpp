@@ -20,10 +20,10 @@
 #include "Geometry.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
-#include "WRFBackendTraits.hpp"
+#include "SimpleBackendTraits.hpp"
 
 namespace fwk = metada::framework;
-using BackendTag = metada::traits::WRFBackendTag;
+using BackendTag = metada::traits::SimpleBackendTag;
 
 int main(int argc, char** argv) {
   // Initialize application context
