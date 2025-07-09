@@ -1,5 +1,6 @@
 #pragma once
 #include <Eigen/Dense>
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <vector>
@@ -11,6 +12,7 @@
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "PointObservation.hpp"
+#include "ProgressBar.hpp"
 #include "State.hpp"
 
 namespace metada::framework {
@@ -53,7 +55,8 @@ class LETKF {
         obs_op_(obs_op),
         inflation_(config.Get("inflation").asFloat()),
         localization_radius_(config.Get("localization_radius").asFloat()),
-        output_base_file_(config.Get("output_base_file").asString()) {
+        output_base_file_(config.Get("output_base_file").asString()),
+        format_(config.Get("format").asString()) {
     logger_.Info() << "LETKF constructed with radius " << localization_radius_;
   }
 
@@ -84,8 +87,33 @@ class LETKF {
     }
 
     // Update each grid point locally using geometry iterator
+    auto geometry_iter = geometry->begin();
+    auto geometry_end = geometry->end();
+
+    // Calculate total number of grid points for progress tracking
+    size_t total_points = std::distance(geometry_iter, geometry_end);
+    size_t current_point = 0;
+    size_t progress_interval = ProgressBar::CalculateInterval(total_points);
+
+    // Configure progress bar for LETKF
+    ProgressBar::Config config;
+    config.prefix = "LETKF progress: ";
+
+    logger_.Info() << "Starting LETKF grid point updates for " << total_points
+                   << " points";
+
     for (const auto& grid_point : *geometry) {
       updateGridPoint(grid_point, yo, obs_locations, ens_size);
+
+      ++current_point;
+
+      // Log progress at intervals using ProgressBar
+      if (ProgressBar::ShouldLog(current_point, total_points,
+                                 progress_interval)) {
+        std::string progress_bar =
+            ProgressBar::Create(current_point, total_points, config);
+        logger_.Info() << progress_bar;
+      }
     }
 
     // Compute analysis mean using Ensemble's Mean() method
@@ -104,15 +132,15 @@ class LETKF {
 
     // Save analysis mean using the ensemble's mean state
     const auto& mean_state = ensemble_.Mean();
-    mean_state.saveToFile(output_base_file_ + "_mean.nc");
+    mean_state.saveToFile(output_base_file_ + "_mean." + format_);
     logger_.Info() << "Analysis mean saved to: "
-                   << output_base_file_ + "_mean.nc";
+                   << output_base_file_ + "_mean." + format_;
 
     // Save individual ensemble members
     for (int i = 0; i < ens_size; ++i) {
       const auto& member = ensemble_.GetMember(i);
       member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
-                        ".nc");
+                        "." + format_);
     }
     logger_.Info() << "LETKF ensemble saved";
   }
@@ -224,6 +252,7 @@ class LETKF {
   double inflation_;
   double localization_radius_;
   std::string output_base_file_ = "analysis";
+  std::string format_ = "nc";  // Default format
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 

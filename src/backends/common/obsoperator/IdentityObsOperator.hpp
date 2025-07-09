@@ -340,24 +340,39 @@ class IdentityObsOperator {
     if (j >= ny) j = ny - 1;
     if (k >= nz) k = nz - 1;
 
-    // For backends that support direct coordinate access, use it
-    if constexpr (requires { state.at(std::declval<typename StateBackend::geometry_type::Coord>()); }) {
-      // Convert grid coordinates to coordinate pair for SimpleState-like backends
-      typename StateBackend::geometry_type::Coord coord{static_cast<int>(i), static_cast<int>(j)};
+    // Try different access patterns depending on state backend interface
+    
+    // Pattern 1: Check for coordinate-based access (like SimpleState)
+    if constexpr (requires { state.at(std::pair<int, int>{0, 0}); }) {
+      // SimpleState-like backends that use std::pair<int, int> coordinates
+      std::pair<int, int> coord{static_cast<int>(i), static_cast<int>(j)};
       return state.at(coord);
-    } else {
+    }
+    // Pattern 2: Check for linear indexing with operator[]
+    else if constexpr (requires { state[std::declval<size_t>()]; }) {
       // Convert 3D grid coordinates to linear index using row-major order
-      // linear_index = k * (nx * ny) + j * nx + i
       size_t linear_index = k * (nx * ny) + j * nx + i;
-      
-      // Use linear indexing for backends that support operator[] or at(size_t)
-      if constexpr (requires { state[linear_index]; }) {
-        return state[linear_index];
-      } else if constexpr (requires { state.at(linear_index); }) {
-        return state.at(linear_index);
-      } else {
-        throw std::runtime_error("State backend does not support required access methods");
-      }
+      return state[linear_index];
+    }
+    // Pattern 3: Check for linear indexing with at(size_t)
+    else if constexpr (requires { state.at(std::declval<size_t>()); }) {
+      // Convert 3D grid coordinates to linear index using row-major order
+      size_t linear_index = k * (nx * ny) + j * nx + i;
+      return state.at(linear_index);
+    }
+    // Pattern 4: Check for 3D coordinate access
+    else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
+      return state.at(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k));
+    }
+    // Pattern 5: Check for 2D coordinate access
+    else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>()); }) {
+      return state.at(static_cast<int>(i), static_cast<int>(j));
+    }
+    else {
+      throw std::runtime_error("State backend does not support any recognized access methods. "
+                               "Backend must provide one of: "
+                               "at(std::pair<int,int>), operator[](size_t), at(size_t), "
+                               "at(int,int,int), or at(int,int)");
     }
   }
 

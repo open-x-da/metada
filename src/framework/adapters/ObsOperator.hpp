@@ -134,7 +134,7 @@ class ObsOperator : public NonCopyable {
   template <typename StateBackend, typename ObsBackend>
   std::vector<double> apply(const State<StateBackend>& state,
                             const Observation<ObsBackend>& obs) const {
-    logger_.Info() << "Applying observation operator";
+    logger_.Debug() << "Applying observation operator";
 
     return backend_.apply(state.backend(), obs.backend());
   }

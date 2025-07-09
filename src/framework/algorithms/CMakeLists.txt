@@ -14,6 +14,7 @@ target_sources(algorithms
         ${CMAKE_CURRENT_SOURCE_DIR}/ETKF.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/LETKF.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Metrics.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/ProgressBar.hpp
 )
 
 # Link dependencies

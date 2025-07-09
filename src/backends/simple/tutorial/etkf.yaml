@@ -73,4 +73,5 @@ obs_operator:
 analysis:
   algorithm: "etkf"
   inflation: 1.0
-  output_base_file: "D:/linux/pdaf-fork/tutorial/outputs/analysis"
+  format: "txt"
+  output_base_file: "./analysis"

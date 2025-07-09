@@ -74,4 +74,5 @@ analysis:
   algorithm: "letkf"
   inflation: 1.0
   localization_radius: 10.0
-  output_base_file: "D:/linux/metada/src/backends/simple/tutorial/analysis"
+  format: "txt"
+  output_base_file: "./analysis"

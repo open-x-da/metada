@@ -91,7 +91,8 @@ class ETKF {
         obs_(obs),
         obs_op_(obs_op),
         inflation_(config.Get("inflation").asFloat()),
-        output_base_file_(config.Get("output_base_file").asString()) {
+        output_base_file_(config.Get("output_base_file").asString()),
+        format_(config.Get("format").asString()) {
     logger_.Info() << "ETKF constructed";
   }
 
@@ -189,13 +190,13 @@ class ETKF {
 
     // Save analysis mean using the ensemble's mean state
     const auto& mean_state = ensemble_.Mean();
-    mean_state.saveToFile(output_base_file_ + "_mean.txt");
+    mean_state.saveToFile(output_base_file_ + "_mean." + format_);
 
     // Save individual ensemble members
     for (int i = 0; i < ens_size; ++i) {
       const auto& member = ensemble_.GetMember(i);
       member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
-                        ".txt");
+                        "." + format_);
     }
     logger_.Info() << "ETKF ensemble saved";
   }
@@ -206,6 +207,7 @@ class ETKF {
   const ObsOperator<BackendTag>& obs_op_;
   double inflation_;
   std::string output_base_file_;
+  std::string format_ = "txt";  // Default format
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 

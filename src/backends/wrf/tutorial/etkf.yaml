@@ -71,4 +71,5 @@ analysis:
   algorithm: "etkf"
   inflation: 1.0
   localization_radius: 100.0
+  format: "nc"
   output_base_file: "./analysis"
