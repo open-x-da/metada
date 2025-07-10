@@ -19,13 +19,13 @@ function(metada_project_initialize)
     # Backend selection options (these can be overridden via -D options)
     # Examples:
     #   cmake -DCONFIG_BACKEND=JSON -DLOGGER_BACKEND=CONSOLE ..
-    #   cmake -DCONFIG_BACKEND=YAML -DLOGGER_BACKEND=GLOG ..
+    #   cmake -DCONFIG_BACKEND=YAML -DLOGGER_BACKEND=NGLOG ..
     if(NOT DEFINED CONFIG_BACKEND)
         set(CONFIG_BACKEND "YAML" CACHE STRING "Configuration backend to use (YAML|JSON)")
     endif()
 
     if(NOT DEFINED LOGGER_BACKEND)
-        set(LOGGER_BACKEND "GLOG" CACHE STRING "Logging backend to use (GLOG|CONSOLE)")
+        set(LOGGER_BACKEND "NGLOG" CACHE STRING "Logging backend to use (NGLOG|CONSOLE)")
     endif()
     
     # Option to control precompiled headers usage

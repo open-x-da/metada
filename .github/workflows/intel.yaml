@@ -46,7 +46,6 @@ jobs:
           python3-numpy \
           libgtest-dev \
           libgmock-dev \
-          libgoogle-glog-dev \
           lcov \
           libyaml-cpp-dev \
           nlohmann-json3-dev \

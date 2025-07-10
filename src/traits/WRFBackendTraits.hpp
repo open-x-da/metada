@@ -10,10 +10,6 @@
 #include "../backends/common/utils/config/yaml/YamlConfig.hpp"
 #endif
 
-#ifdef LOGGER_BACKEND_GLOG
-#include "../backends/common/utils/logger/glog/GoogleLogger.hpp"
-#endif
-
 #ifdef LOGGER_BACKEND_CONSOLE
 #include "../backends/common/utils/logger/console/ConsoleLogger.hpp"
 #endif
@@ -62,8 +58,6 @@ struct BackendTraits<WRFBackendTag> {
   /** @brief Logger backend implementation */
   #ifdef LOGGER_BACKEND_NGLOG
   using LoggerBackend = backends::logger::NgLogger<ConfigBackend>;
-  #elif defined(LOGGER_BACKEND_GLOG)
-  using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>;
   #elif defined(LOGGER_BACKEND_CONSOLE)
   using LoggerBackend = backends::logger::ConsoleLogger<ConfigBackend>;
   #else

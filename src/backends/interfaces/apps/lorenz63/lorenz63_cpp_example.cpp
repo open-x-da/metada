@@ -4,7 +4,7 @@
 
 #include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
-#include "GoogleLogger.hpp"
+#include "NgLogger.hpp"
 #include "JsonConfig.hpp"
 #include "L63BackendTraits.hpp"
 #include "State.hpp"
@@ -21,7 +21,7 @@ using namespace metada::framework;
 using namespace metada::backends::logger;
 using namespace metada::backends::config;
 
-using Traits = AppTraits<GoogleLogger, JsonConfig, state_backend>;
+using Traits = AppTraits<NgLogger, JsonConfig, state_backend>;
 
 int main(int argc, char* argv[]) {
   // Check if the config file is provided

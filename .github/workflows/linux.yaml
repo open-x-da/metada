@@ -43,7 +43,6 @@ jobs:
           python3-numpy \
           libgtest-dev \
           libgmock-dev \
-          libgoogle-glog-dev \
           clang-format \
           lcov \
           libyaml-cpp-dev \

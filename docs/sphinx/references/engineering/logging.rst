@@ -1,14 +1,14 @@
 Logging
 =======
 
-1. **Google Logging Framework (glog)**
+1. **ng-log**
    
-   - `GLog Documentation <https://github.com/google/glog>`_
-   - Description: Logging library with multi-language support through bindings
+   - `ng-log Documentation <https://github.com/ng-log/ng-log>`_
+   - Description: Modern C++ logging library with high performance and flexibility
    - Key features:
    
-     - Severity levels (INFO, WARNING, ERROR, FATAL)
-     - Conditional logging
-     - Custom log sinks
+     - Severity levels (TRACE, DEBUG, INFO, WARNING, ERROR, FATAL)
+     - Header-only library
+     - Custom formatters and sinks
      - Thread-safe logging
-     - Language bindings (C++, Python, Go)
+     - Modern C++ design (C++17 and later)
