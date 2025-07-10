@@ -826,7 +826,7 @@ class WRFState {
       // Add global attributes
       nc_file.putAtt("title", "WRF State Data");
       nc_file.putAtt("source", "Metada Framework");
-      nc_file.putAtt("total_size", netCDF::ncInt, size());
+      nc_file.putAtt("total_size", netCDF::ncInt, static_cast<long>(size()));
 
       nc_file.close();
 
