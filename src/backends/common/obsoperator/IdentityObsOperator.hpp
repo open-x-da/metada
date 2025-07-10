@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "Location.hpp"
-#include "PointObservation.hpp"
 
 namespace metada::backends::common::obsoperator {
 
