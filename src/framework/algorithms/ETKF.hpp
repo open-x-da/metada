@@ -91,15 +91,16 @@ class ETKF {
         obs_(obs),
         obs_op_(obs_op),
         inflation_(config.Get("inflation").asFloat()),
-        output_base_file_(config.Get("output_base_file").asString()) {
-    logger_.Debug() << "ETKF constructed";
+        output_base_file_(config.Get("output_base_file").asString()),
+        format_(config.Get("format").asString()) {
+    logger_.Info() << "ETKF constructed";
   }
 
   /**
    * @brief Perform the ETKF analysis step, updating the ensemble.
    */
   void Analyse() {
-    logger_.Debug() << "ETKF analysis started";
+    logger_.Info() << "ETKF analysis started";
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
@@ -107,18 +108,22 @@ class ETKF {
     const int state_dim = ensemble_.GetMember(0).size();
     const int obs_dim = obs_.size();
 
-    // 1. Build forecast quantities
-    // Build Xb (state_dim x ens_size)
-    MatrixXd Xb(state_dim, ens_size);
-    for (int i = 0; i < ens_size; ++i) {
-      const auto member_data =
-          ensemble_.GetMember(i).template getDataPtr<double>();
-      Xb.col(i) = Eigen::Map<const VectorXd>(member_data, state_dim);
-    }
+    // 1. Build forecast quantities using Ensemble methods
+    // Compute mean and perturbations using Ensemble class
+    ensemble_.RecomputeMean();
+    ensemble_.RecomputePerturbations();
 
-    // Compute mean and anomalies
-    VectorXd xb_mean = Xb.rowwise().mean();
-    MatrixXd Xb_pert = Xb.colwise() - xb_mean;
+    const auto& mean_state = ensemble_.Mean();
+    const auto mean_data = mean_state.template getDataPtr<double>();
+    VectorXd xb_mean = Eigen::Map<const VectorXd>(mean_data, state_dim);
+
+    // Build Xb_pert (state_dim x ens_size) from perturbations
+    MatrixXd Xb_pert(state_dim, ens_size);
+    for (int i = 0; i < ens_size; ++i) {
+      const auto& pert_data =
+          ensemble_.GetPerturbation(i).template getDataPtr<double>();
+      Xb_pert.col(i) = Eigen::Map<const VectorXd>(pert_data, state_dim);
+    }
     Xb_pert *= inflation_;  // Apply inflation
 
     // Propagate to obs space
@@ -172,9 +177,7 @@ class ETKF {
       Eigen::Map<VectorXd>(data, state_dim) = Xa.col(i);
     }
 
-    // Store the analysis mean for later use
-    analysis_mean_ = xa_mean;
-    logger_.Debug() << "ETKF analysis completed";
+    logger_.Info() << "ETKF analysis completed";
   }
 
   /**
@@ -182,23 +185,20 @@ class ETKF {
    * @param base_filename Base filename for saving (without extension)
    */
   void saveEnsemble() const {
-    logger_.Debug() << "ETKF saving ensemble";
+    logger_.Info() << "ETKF saving ensemble";
     const int ens_size = ensemble_.Size();
 
-    // Save analysis mean (computed during analysis)
-    State<BackendTag> mean_state = ensemble_.GetMember(0).clone();
-    auto mean_data = mean_state.template getDataPtr<double>();
-    Eigen::Map<Eigen::VectorXd>(mean_data, analysis_mean_.size()) =
-        analysis_mean_;
-    mean_state.saveToFile(output_base_file_ + "_mean.txt");
+    // Save analysis mean using the ensemble's mean state
+    const auto& mean_state = ensemble_.Mean();
+    mean_state.saveToFile(output_base_file_ + "_mean." + format_);
 
     // Save individual ensemble members
     for (int i = 0; i < ens_size; ++i) {
       const auto& member = ensemble_.GetMember(i);
       member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
-                        ".txt");
+                        "." + format_);
     }
-    logger_.Debug() << "ETKF ensemble saved";
+    logger_.Info() << "ETKF ensemble saved";
   }
 
  private:
@@ -207,7 +207,7 @@ class ETKF {
   const ObsOperator<BackendTag>& obs_op_;
   double inflation_;
   std::string output_base_file_;
-  Eigen::VectorXd analysis_mean_;  ///< Analysis mean computed during ETKF
+  std::string format_ = "txt";  // Default format
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 

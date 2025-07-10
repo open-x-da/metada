@@ -46,13 +46,13 @@ jobs:
           python \
           numpy \
           googletest \
-          glog \
           llvm \
           lcov \
           yaml-cpp \
           nlohmann-json \
           netcdf \
-          netcdf-cxx
+          netcdf-cxx \
+          eigen
         
     - name: Install xtl and xtensor
       run: |

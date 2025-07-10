@@ -55,7 +55,7 @@ class Ensemble : public NonCopyable {
         members_(),
         size_(0),
         perturbations_() {
-    logger_.Debug() << "Ensemble starting construction";
+    logger_.Info() << "Ensemble starting construction";
 
     const auto member_configs = config.GetSubsectionsFromVector("members");
     size_ = member_configs.size();
@@ -64,7 +64,7 @@ class Ensemble : public NonCopyable {
       members_.emplace_back(member_config.GetSubsection("state"), geometry);
     }
 
-    logger_.Debug() << "Ensemble constructed with " << size_ << " members";
+    logger_.Info() << "Ensemble constructed with " << size_ << " members";
   }
 
   /**

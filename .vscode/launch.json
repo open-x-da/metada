@@ -2,13 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug ETKF",
+            "name": "Debug Simple ETKF",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/etkf",
-            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/etkf.yaml"],
+            "args": ["${workspaceFolder}/src/backends/simple/tutorial/etkf.yaml"],
             "stopAtEntry": true,
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/build",
             "environment": [
                 {
                     "name": "GLOG_logtostderr",
@@ -16,7 +16,7 @@
                 },
                 {
                     "name": "GLOG_v",
-                    "value": "2"
+                    "value": "0"
                 },
                 {
                     "name": "GLOG_colorlogtostderr",
@@ -44,13 +44,13 @@
             ]
         },
         {
-            "name": "Debug LETKF",
+            "name": "Debug Simple LETKF",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/letkf",
-            "args": ["${workspaceFolder}/applications/data_assimilation/ensemble/letkf.yaml"],
+            "args": ["${workspaceFolder}/src/backends/simple/tutorial/letkf.yaml"],
             "stopAtEntry": true,
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/build",
             "environment": [
                 {
                     "name": "GLOG_logtostderr",
@@ -58,7 +58,91 @@
                 },
                 {
                     "name": "GLOG_v",
-                    "value": "2"
+                    "value": "0"
+                },
+                {
+                    "name": "GLOG_colorlogtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_minloglevel",
+                    "value": "0"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set breakpoint pending on",
+                    "text": "-gdb-set breakpoint pending on",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Debug WRF ETKF",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/etkf",
+            "args": ["${workspaceFolder}/src/backends/wrf/tutorial/etkf.yaml"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [
+                {
+                    "name": "GLOG_logtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_v",
+                    "value": "0"
+                },
+                {
+                    "name": "GLOG_colorlogtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_minloglevel",
+                    "value": "0"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set breakpoint pending on",
+                    "text": "-gdb-set breakpoint pending on",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Debug WRF LETKF",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/letkf",
+            "args": ["${workspaceFolder}/src/backends/wrf/tutorial/letkf.yaml"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [
+                {
+                    "name": "GLOG_logtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_v",
+                    "value": "0"
                 },
                 {
                     "name": "GLOG_colorlogtostderr",

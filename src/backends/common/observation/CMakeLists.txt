@@ -7,10 +7,6 @@ target_include_directories(observation
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
-target_sources(observation
-    INTERFACE
-        GridObservation.hpp)
-
 # Link dependencies
 target_link_libraries(observation
     INTERFACE

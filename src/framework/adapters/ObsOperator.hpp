@@ -74,7 +74,7 @@ class ObsOperator : public NonCopyable {
   template <typename ConfigBackend>
   explicit ObsOperator(const Config<ConfigBackend>& config)
       : backend_(config.backend()) {
-    logger_.Debug() << "ObsOperator constructed";
+    logger_.Info() << "ObsOperator constructed";
   }
 
   /**

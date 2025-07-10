@@ -44,6 +44,21 @@ class SimpleState {
   template <typename ConfigBackend>
   SimpleState(const ConfigBackend& config, const SimpleGeometry& geometry)
       : geometry_(geometry) {
+    // Read variables from config
+    try {
+      auto variables_config = config.Get("variables");
+      if (variables_config.isString()) {
+        // Single variable as string
+        variable_names_ = {variables_config.asString()};
+      } else {
+        // Multiple variables as vector
+        variable_names_ = variables_config.asVectorString();
+      }
+    } catch (...) {
+      // Fallback to default if variables not specified
+      variable_names_ = {"state"};
+    }
+
     // Read data from file specified in config
     std::string filename = config.Get("file").asString();
     readFromFile(filename);
@@ -183,9 +198,6 @@ class SimpleState {
     if (!file) {
       throw std::runtime_error("Cannot open state file: " + filename);
     }
-
-    // Initialize variable names
-    variable_names_ = {"state"};
 
     // Read data line by line without assuming dimensions
     std::string line;

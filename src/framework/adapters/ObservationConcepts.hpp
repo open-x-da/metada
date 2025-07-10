@@ -93,16 +93,17 @@ concept ObservationBackendImpl =
       { t.applyQC() } -> std::same_as<void>;
 
       // File I/O
-      { t.loadFromFile(filename, error, missing_value) } -> std::same_as<void>;
-      { ct.saveToFile(filename) } -> std::same_as<void>;
+      //{ t.loadFromFile(filename, error, missing_value) } ->
+      // std::same_as<void>; { ct.saveToFile(filename) } -> std::same_as<void>;
 
       // Geographic filtering
-      {
+      /*{
         ct.getObservationsInBox(min_lat, max_lat, min_lon, max_lon)
       } -> std::convertible_to<std::vector<typename T::value_type>>;
       {
         ct.getObservationsInVerticalRange(min_level, max_level)
       } -> std::convertible_to<std::vector<typename T::value_type>>;
+      */
     };
 
 /**

@@ -115,7 +115,7 @@ class Geometry : private NonCopyable {
    */
   explicit Geometry(const Config<BackendTag>& config)
       : backend_(config.backend()) {
-    logger_.Debug() << "Geometry constructed";
+    logger_.Info() << "Geometry constructed";
   }
 
   /**

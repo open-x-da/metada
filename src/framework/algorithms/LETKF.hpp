@@ -1,5 +1,6 @@
 #pragma once
 #include <Eigen/Dense>
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <vector>
@@ -11,6 +12,7 @@
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "PointObservation.hpp"
+#include "ProgressBar.hpp"
 #include "State.hpp"
 
 namespace metada::framework {
@@ -53,8 +55,9 @@ class LETKF {
         obs_op_(obs_op),
         inflation_(config.Get("inflation").asFloat()),
         localization_radius_(config.Get("localization_radius").asFloat()),
-        output_base_file_(config.Get("output_base_file").asString()) {
-    logger_.Debug() << "LETKF constructed with radius " << localization_radius_;
+        output_base_file_(config.Get("output_base_file").asString()),
+        format_(config.Get("format").asString()) {
+    logger_.Info() << "LETKF constructed with radius " << localization_radius_;
   }
 
   /**
@@ -62,20 +65,11 @@ class LETKF {
    * point.
    */
   void Analyse() {
-    logger_.Debug() << "LETKF analysis started";
+    logger_.Info() << "LETKF analysis started";
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
     const int ens_size = ensemble_.Size();
-    const int state_dim = ensemble_.GetMember(0).size();
-
-    // Get ensemble data
-    std::vector<VectorXd> member_data(ens_size);
-    for (int i = 0; i < ens_size; ++i) {
-      const auto data_ptr =
-          ensemble_.GetMember(i).template getDataPtr<double>();
-      member_data[i] = Eigen::Map<const VectorXd>(data_ptr, state_dim);
-    }
 
     // Get observation data and locations
     const auto obs_data = obs_.template getData<std::vector<double>>();
@@ -93,27 +87,39 @@ class LETKF {
     }
 
     // Update each grid point locally using geometry iterator
+    auto geometry_iter = geometry->begin();
+    auto geometry_end = geometry->end();
+
+    // Calculate total number of grid points for progress tracking
+    size_t total_points = std::distance(geometry_iter, geometry_end);
+    size_t current_point = 0;
+    size_t progress_interval = ProgressBar::CalculateInterval(total_points);
+
+    // Configure progress bar for LETKF
+    ProgressBar::Config config;
+    config.prefix = "LETKF progress: ";
+
+    logger_.Info() << "Starting LETKF grid point updates for " << total_points
+                   << " points";
+
     for (const auto& grid_point : *geometry) {
       updateGridPoint(grid_point, yo, obs_locations, ens_size);
+
+      ++current_point;
+
+      // Log progress at intervals using ProgressBar
+      if (ProgressBar::ShouldLog(current_point, total_points,
+                                 progress_interval)) {
+        std::string progress_bar =
+            ProgressBar::Create(current_point, total_points, config);
+        logger_.Info() << progress_bar;
+      }
     }
 
-    // Update ensemble members
-    for (int i = 0; i < ens_size; ++i) {
-      auto& member = ensemble_.GetMember(i);
-      auto data_ptr = member.template getDataPtr<double>();
-      Eigen::Map<VectorXd>(data_ptr, state_dim) = member_data[i];
-    }
+    // Compute analysis mean using Ensemble's Mean() method
+    ensemble_.RecomputeMean();
 
-    // Compute analysis mean by averaging all ensemble members
-    analysis_mean_ = Eigen::VectorXd::Zero(state_dim);
-    for (int i = 0; i < ens_size; ++i) {
-      const auto data_ptr =
-          ensemble_.GetMember(i).template getDataPtr<double>();
-      analysis_mean_ += Eigen::Map<const VectorXd>(data_ptr, state_dim);
-    }
-    analysis_mean_ /= ens_size;
-
-    logger_.Debug() << "LETKF analysis completed";
+    logger_.Info() << "LETKF analysis completed";
   }
 
   /**
@@ -121,25 +127,22 @@ class LETKF {
    * @param base_filename Base filename for saving (without extension)
    */
   void saveEnsemble() const {
-    logger_.Debug() << "LETKF saving ensemble";
+    logger_.Info() << "LETKF saving ensemble";
     const int ens_size = ensemble_.Size();
 
-    // Save analysis mean (computed during analysis)
-    if (analysis_mean_.size() > 0) {
-      State<BackendTag> mean_state = ensemble_.GetMember(0).clone();
-      auto mean_data = mean_state.template getDataPtr<double>();
-      Eigen::Map<Eigen::VectorXd>(mean_data, analysis_mean_.size()) =
-          analysis_mean_;
-      mean_state.saveToFile(output_base_file_ + "_mean.txt");
-    }
+    // Save analysis mean using the ensemble's mean state
+    const auto& mean_state = ensemble_.Mean();
+    mean_state.saveToFile(output_base_file_ + "_mean." + format_);
+    logger_.Info() << "Analysis mean saved to: "
+                   << output_base_file_ + "_mean." + format_;
 
     // Save individual ensemble members
     for (int i = 0; i < ens_size; ++i) {
       const auto& member = ensemble_.GetMember(i);
       member.saveToFile(output_base_file_ + "_member_" + std::to_string(i) +
-                        ".txt");
+                        "." + format_);
     }
-    logger_.Debug() << "LETKF ensemble saved";
+    logger_.Info() << "LETKF ensemble saved";
   }
 
  private:
@@ -156,8 +159,6 @@ class LETKF {
     using Eigen::MatrixXd;
     using Eigen::VectorXd;
 
-    logger_.Debug() << "Updating grid point: " << grid_point;
-
     // Find local observations using Location::distance_to
     std::vector<int> local_obs_indices;
     for (size_t i = 0; i < obs_locations.size(); ++i) {
@@ -167,7 +168,30 @@ class LETKF {
       }
     }
 
-    if (local_obs_indices.empty()) return;
+    if (local_obs_indices.empty()) {
+      // No local observations found - apply inflation to maintain ensemble
+      // spread
+
+      // Get current ensemble values at this grid point
+      VectorXd xb_local(ens_size);
+      for (int i = 0; i < ens_size; ++i) {
+        xb_local(i) = ensemble_.GetMember(i).at(grid_point);
+      }
+
+      // Compute ensemble mean and perturbations
+      double xb_mean = xb_local.mean();
+      VectorXd xb_pert = xb_local.array() - xb_mean;
+
+      // Apply inflation to perturbations
+      xb_pert *= std::sqrt(inflation_);
+
+      // Update ensemble members with inflated values
+      for (int i = 0; i < ens_size; ++i) {
+        ensemble_.GetMember(i).at(grid_point) = xb_mean + xb_pert(i);
+      }
+
+      return;
+    }
 
     // Build local quantities
     int local_obs_dim = local_obs_indices.size();
@@ -220,8 +244,6 @@ class LETKF {
     for (int i = 0; i < ens_size; ++i) {
       ensemble_.GetMember(i).at(grid_point) = xa_local(i);
     }
-
-    logger_.Debug() << "Grid point updated: " << grid_point;
   }
 
   Ensemble<BackendTag>& ensemble_;
@@ -230,7 +252,7 @@ class LETKF {
   double inflation_;
   double localization_radius_;
   std::string output_base_file_ = "analysis";
-  Eigen::VectorXd analysis_mean_;  ///< Analysis mean computed during LETKF
+  std::string format_ = "nc";  // Default format
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 

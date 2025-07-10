@@ -13,15 +13,6 @@ target_include_directories(wrf_backends
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
-# Set headers as interface sources to show them in IDE
-target_sources(wrf_backends
-    INTERFACE
-        WRFModel.hpp
-        WRFGeometry.hpp
-        WRFGeometryIterator.hpp
-        WRFState.hpp
-)
-
 # Link dependencies
 target_link_libraries(wrf_backends 
     INTERFACE

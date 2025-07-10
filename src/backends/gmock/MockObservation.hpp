@@ -31,60 +31,15 @@
 #include <vector>
 
 #include "Location.hpp"
-#include "PointObservation.hpp"
+#include "MockObservationIterator.hpp"
 
 namespace metada::backends::gmock {
 
 using metada::framework::CoordinateSystem;
 using metada::framework::Location;
-using metada::framework::ObservationPoint;
 
-/**
- * @brief Iterator for mock observations
- */
-class MockObservationIterator {
- public:
-  using iterator_category = std::forward_iterator_tag;
-  using value_type = ObservationPoint;
-  using difference_type = std::ptrdiff_t;
-  using pointer = ObservationPoint*;
-  using reference = ObservationPoint&;
-
-  MockObservationIterator() = default;
-
-  MockObservationIterator(const std::vector<ObservationPoint>* data,
-                          size_t index)
-      : data_(data), index_(index) {}
-
-  // Dereference operators
-  reference operator*() { return const_cast<reference>((*data_)[index_]); }
-  pointer operator->() { return &const_cast<reference>((*data_)[index_]); }
-
-  // Increment operators
-  MockObservationIterator& operator++() {
-    ++index_;
-    return *this;
-  }
-
-  MockObservationIterator operator++(int) {
-    MockObservationIterator tmp = *this;
-    ++index_;
-    return tmp;
-  }
-
-  // Comparison operators
-  bool operator==(const MockObservationIterator& other) const {
-    return data_ == other.data_ && index_ == other.index_;
-  }
-
-  bool operator!=(const MockObservationIterator& other) const {
-    return !(*this == other);
-  }
-
- private:
-  const std::vector<ObservationPoint>* data_;
-  size_t index_;
-};
+// Use the MockObservationPoint from MockObservationIterator.hpp
+using ObservationPoint = MockObservationPoint;
 
 /**
  * @brief Mock implementation of observation backend for testing

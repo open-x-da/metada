@@ -72,6 +72,9 @@ struct BackendTraits<MockBackendTag> {
   /** @brief Mock observation backend implementation for testing */
   using ObservationBackend = backends::gmock::MockObservation<ConfigBackend>;
 
+  /** @brief Mock observation iterator backend implementation for testing */
+  using ObservationIteratorBackend = metada::backends::gmock::MockObservationIterator;
+
   /** @brief Mock observation operator backend implementation for testing */
   using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
 

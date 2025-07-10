@@ -1,0 +1,75 @@
+logger:
+  app_name: "etkf"
+  level: "debug"
+  color: true
+  console: true
+
+# Geometry for the ensemble
+geometry:
+  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+
+# Ensemble variables to analyze
+ensemble:
+  members:
+    - state:
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+        variables:
+          - "U"
+          - "V"
+    - state:
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+        variables:
+          - "U"
+          - "V"
+    - state:
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+        variables:
+          - "U"
+          - "V"
+    - state:
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+        variables:
+          - "U"
+          - "V"
+    - state:
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+        variables:
+          - "U"
+          - "V"
+    - state:
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+        variables:
+          - "U"
+          - "V"
+    - state:
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+        variables:
+          - "U"
+          - "V"
+
+# Observation settings
+observations:
+  types:
+    - grid_obs:
+        if_use: true
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrf_obs.txt"
+        variables:
+          - U:
+              if_use: true
+              error: 0.1  # standard deviations
+              missing_value: -999.0
+
+# Observation operator settings
+obs_operator:
+  variables:
+    - simple:
+        if_use: true
+        error: 0.1  # standard deviations
+
+# Analysis settings
+analysis:
+  algorithm: "etkf"
+  inflation: 1.0
+  localization_radius: 100.0
+  format: "nc"
+  output_base_file: "./analysis"

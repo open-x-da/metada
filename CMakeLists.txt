@@ -32,7 +32,7 @@ metada_find_package(Eigen3 CONFIG)
 metada_find_package(Lcov OPTIONAL QUIET)
 metada_find_package(yaml-cpp OPTIONAL CONFIG QUIET)
 metada_find_package(nlohmann_json OPTIONAL CONFIG QUIET)
-metada_find_package(Glog OPTIONAL CONFIG QUIET)
+
 metada_find_package(ng-log OPTIONAL CONFIG QUIET)
 
 # Configure CUDA support

@@ -107,7 +107,7 @@ class State : private NonCopyable {
       : backend_(config.backend(), geometry.backend()),
         geometry_(&geometry),
         initialized_(true) {
-    logger_.Debug() << "State constructed";
+    logger_.Info() << "State constructed";
   }
 
   /**

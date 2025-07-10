@@ -11,10 +11,6 @@
 #include "../backends/common/utils/config/yaml/YamlConfig.hpp"
 #endif
 
-#ifdef LOGGER_BACKEND_GLOG
-#include "../backends/common/utils/logger/glog/GoogleLogger.hpp"
-#endif
-
 #ifdef LOGGER_BACKEND_CONSOLE
 #include "../backends/common/utils/logger/console/ConsoleLogger.hpp"
 #endif
@@ -64,8 +60,6 @@ struct BackendTraits<SimpleBackendTag> {
   /** @brief Logger backend implementation */
   #ifdef LOGGER_BACKEND_NGLOG
   using LoggerBackend = backends::logger::NgLogger<ConfigBackend>;
-  #elif defined(LOGGER_BACKEND_GLOG)
-  using LoggerBackend = backends::logger::GoogleLogger<ConfigBackend>;
   #elif defined(LOGGER_BACKEND_CONSOLE)
   using LoggerBackend = backends::logger::ConsoleLogger<ConfigBackend>;
   #else
@@ -83,6 +77,9 @@ struct BackendTraits<SimpleBackendTag> {
   
   /** @brief Simple observation backend implementation */
   using ObservationBackend = backends::common::observation::GridObservation;
+  
+  /** @brief Simple observation iterator backend implementation */
+  using ObservationIteratorBackend = metada::backends::common::observation::GridObservationIterator;
   
   /** @brief Identity observation operator backend implementation */
   using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
