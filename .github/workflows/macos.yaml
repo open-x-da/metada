@@ -52,7 +52,8 @@ jobs:
           yaml-cpp \
           nlohmann-json \
           netcdf \
-          netcdf-cxx
+          netcdf-cxx \
+          eigen
         
     - name: Install xtl and xtensor
       run: |

@@ -63,6 +63,7 @@ jobs:
           mingw-w64-x86_64-nlohmann-json
           mingw-w64-x86_64-netcdf
           mingw-w64-x86_64-netcdf-cxx
+          mingw-w64-x86_64-eigen3
           
     - name: Install xtl and xtensor
       run: |
