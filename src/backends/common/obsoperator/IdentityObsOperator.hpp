@@ -198,6 +198,78 @@ class IdentityObsOperator {
     return required_obs_vars_;
   }
 
+  /**
+   * @brief Apply tangent linear observation operator: H dx
+   *
+   * @details For the identity operator, the tangent linear is the same as the
+   * forward operator since H is linear.
+   *
+   * @param state_increment State increment to transform
+   * @param reference_state Reference state (not used for linear operator)
+   * @param obs Reference observations for context
+   * @return Vector containing the transformed increment in observation space
+   */
+  std::vector<double> applyTangentLinear(const StateBackend& state_increment,
+                                         const StateBackend& reference_state,
+                                         const ObsBackend& obs) const {
+    // For identity operator, tangent linear is the same as forward operator
+    return apply(state_increment, obs);
+  }
+
+  /**
+   * @brief Apply adjoint observation operator: H^T delta_y
+   *
+   * @details Maps from observation space back to state space. For the identity
+   * operator, this spreads observation increments back to the corresponding
+   * grid points.
+   *
+   * @param obs_increment Observation space increment
+   * @param reference_state Reference state to get structure
+   * @param result_state State to store the adjoint result
+   */
+  void applyAdjoint(const std::vector<double>& obs_increment,
+                    const StateBackend& reference_state,
+                    StateBackend& result_state) const {
+    if (!isInitialized()) {
+      throw std::runtime_error("IdentityObsOperator not initialized");
+    }
+
+    if (obs_increment.size() != result_state.size()) {
+      throw std::invalid_argument(
+          "Observation increment size does not match state size");
+    }
+
+    // For the identity operator, the adjoint is also identity
+    // Just copy the observation increment to the result state
+    result_state = std::move(*(reference_state.clone()));
+    result_state.zero();
+
+    // Copy observation increments to corresponding state locations
+    for (size_t i = 0; i < obs_increment.size(); ++i) {
+      // For identity operator, direct mapping
+      if constexpr (requires { result_state[i]; }) {
+        result_state[i] = obs_increment[i];
+      } else if constexpr (requires { result_state.at(i); }) {
+        result_state.at(i) = obs_increment[i];
+      } else {
+        throw std::runtime_error(
+            "State backend does not support required access methods for adjoint");
+      }
+    }
+  }
+
+  /**
+   * @brief Check if tangent linear and adjoint operators are available
+   * @return True (identity operator always supports linearization)
+   */
+  bool supportsLinearization() const { return true; }
+
+  /**
+   * @brief Check if the observation operator is linear
+   * @return True (identity operator is linear)
+   */
+  bool isLinear() const { return true; }
+
  private:
   /**
    * @brief Convert geographic coordinates to grid coordinates

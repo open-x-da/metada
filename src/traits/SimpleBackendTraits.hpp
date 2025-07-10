@@ -25,6 +25,7 @@
 #include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/common/obsoperator/IdentityObsOperator.hpp"
 #include "../backends/simple/SimpleModel.hpp"
+#include "../backends/simple/SimpleBackgroundErrorCovariance.hpp"
 
 namespace metada::traits {
 
@@ -86,6 +87,9 @@ struct BackendTraits<SimpleBackendTag> {
   
   /** @brief Simple model backend implementation */
   using ModelBackend = backends::simple::SimpleModel;
+  
+  /** @brief Simple background error covariance backend implementation */
+  using BackgroundErrorCovarianceBackend = backends::simple::SimpleBackgroundErrorCovariance;
 };
 
 } // namespace metada::traits

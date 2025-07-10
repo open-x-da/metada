@@ -5,6 +5,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Increment.hpp"
 #include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObsOperatorConcepts.hpp"
@@ -156,6 +157,84 @@ class ObsOperator : public NonCopyable {
   const std::vector<std::string>& getRequiredObsVars() const {
     return backend_.getRequiredObsVars();
   }
+
+  /**
+   * @brief Apply tangent linear observation operator: H dx
+   *
+   * @details Applies the tangent linear of the observation operator to a state
+   * increment. This is used in variational data assimilation for computing the
+   * linearized observation operator around a reference trajectory.
+   *
+   * @tparam StateBackend The state backend type
+   * @tparam ObsBackend The observation backend type
+   * @param state_increment State increment to transform
+   * @param reference_state Reference state around which to linearize
+   * @param obs Reference observations for context
+   * @return Vector containing the transformed increment in observation space
+   * @throws std::runtime_error If the observation operator is not initialized
+   */
+  template <typename StateBackend, typename ObsBackend>
+  std::vector<double> applyTangentLinear(
+      const Increment<State<StateBackend>>& state_increment,
+      const State<StateBackend>& reference_state,
+      const Observation<ObsBackend>& obs) const {
+    logger_.Debug() << "Applying tangent linear observation operator";
+
+    return backend_.applyTangentLinear(state_increment.entity().backend(),
+                                       reference_state.backend(),
+                                       obs.backend());
+  }
+
+  /**
+   * @brief Apply adjoint observation operator: H^T delta_y
+   *
+   * @details Applies the adjoint of the observation operator to an observation
+   * increment. This maps from observation space back to state space and is
+   * essential for computing gradients in variational data assimilation.
+   *
+   * @tparam StateBackend The state backend type
+   * @param obs_increment Observation space increment
+   * @param reference_state Reference state around which the adjoint is computed
+   * @return State increment containing the adjoint transformation result
+   * @throws std::runtime_error If the observation operator is not initialized
+   */
+  template <typename StateBackend>
+  Increment<State<StateBackend>> applyAdjoint(
+      const std::vector<double>& obs_increment,
+      const State<StateBackend>& reference_state) const {
+    logger_.Debug() << "Applying adjoint observation operator";
+
+    // Create result increment
+    auto result =
+        Increment<State<StateBackend>>::createFromEntity(reference_state);
+    result.zero();  // Initialize to zero
+
+    // Apply adjoint through backend
+    backend_.applyAdjoint(obs_increment, reference_state.backend(),
+                          result.entity().backend());
+
+    return result;
+  }
+
+  /**
+   * @brief Check if tangent linear and adjoint operators are available
+   *
+   * @return True if tangent linear/adjoint operators are supported
+   */
+  bool supportsLinearization() const {
+    return backend_.supportsLinearization();
+  }
+
+  /**
+   * @brief Check if the observation operator is linear
+   *
+   * @details Linear observation operators have the property that H(x+dx) = H(x)
+   * + H(dx). For linear operators, the tangent linear and forward operators are
+   * identical.
+   *
+   * @return True if the observation operator is linear
+   */
+  bool isLinear() const { return backend_.isLinear(); }
 
  private:
   ObsOperatorBackend backend_; /**< Backend implementation */

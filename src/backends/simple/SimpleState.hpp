@@ -186,6 +186,20 @@ class SimpleState {
     return at(grid);
   }
 
+  // Index-based access - REQUIRED by BackgroundErrorCovariance
+  double& operator[](size_t index) {
+    if (index >= data_.size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return data_[index];
+  }
+  const double& operator[](size_t index) const {
+    if (index >= data_.size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return data_[index];
+  }
+
  private:
   // Private constructor for cloning
   SimpleState(const SimpleState& other, bool)

@@ -22,6 +22,7 @@
 #include "../backends/wrf/WRFGeometryIterator.hpp"
 #include "../backends/wrf/WRFState.hpp"
 #include "../backends/wrf/WRFModel.hpp"
+#include "../backends/wrf/WRFBackgroundErrorCovariance.hpp"
 #include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/common/obsoperator/IdentityObsOperator.hpp"
 
@@ -87,6 +88,9 @@ struct BackendTraits<WRFBackendTag> {
   
   /** @brief WRF-specific model backend implementation */
   using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend>;
+  
+  /** @brief WRF-specific background error covariance backend implementation */
+  using BackgroundErrorCovarianceBackend = backends::wrf::WRFBackgroundErrorCovariance<ConfigBackend>;
 };
 
 }  // namespace metada::traits
