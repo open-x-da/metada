@@ -8,19 +8,11 @@ target_include_directories(simple_backends
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
-# Set sources (for IDEs)
-target_sources(simple_backends
-    INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/SimpleGeometry.hpp>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/SimpleGeometryIterator.hpp>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/SimpleState.hpp>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/SimpleModel.hpp>
-)
-
+# Link dependencies
 target_link_libraries(simple_backends
     INTERFACE
         metada::base
 )
 
-# Add format target
+# Add format target for the header files
 AddFormatTarget(simple_backends ${CMAKE_CURRENT_SOURCE_DIR}) 
