@@ -7,10 +7,6 @@ target_include_directories(obsoperator
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
-target_sources(obsoperator
-    INTERFACE
-        IdentityObsOperator.hpp)
-
 # Link dependencies
 target_link_libraries(obsoperator
     INTERFACE

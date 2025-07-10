@@ -7,21 +7,6 @@ target_include_directories(gmock_backends
     INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
-# Set headers as interface sources to show them in IDE
-target_sources(gmock_backends
-    INTERFACE
-        MockConfig.hpp
-        MockEnsemble.hpp
-        MockGeometry.hpp
-        MockGridPoint.hpp
-        MockGeometryIterator.hpp
-        MockLogger.hpp
-        MockModel.hpp
-        MockState.hpp
-        MockObservation.hpp
-        MockObservationIterator.hpp
-        MockObsOperator.hpp)
-
 target_link_libraries(gmock_backends
     INTERFACE
         GTest::gtest_main
