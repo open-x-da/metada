@@ -24,15 +24,30 @@ class WRFBackgroundErrorCovariance {
    *
    * @param config Configuration object containing covariance parameters
    */
-  explicit WRFBackgroundErrorCovariance(
-      [[maybe_unused]] const ConfigBackend& config)
+  explicit WRFBackgroundErrorCovariance(const ConfigBackend& config)
       : initialized_(false) {
-    // TODO: Parse WRF-specific covariance configuration
-    // For now, use default values
-    size_ = 1000;     // Default size, should be read from config
-    variance_ = 1.0;  // Default variance, should be read from config
-    localization_radius_ = 0.0;
-    initialized_ = true;
+    // Parse WRF-specific covariance configuration with safe defaults
+    try {
+      // Read configuration values if they exist, otherwise use defaults
+      size_ = config.HasKey("size")
+                  ? static_cast<size_t>(config.Get("size").asInt())
+                  : 1000;
+
+      variance_ =
+          config.HasKey("variance") ? config.Get("variance").asFloat() : 1.0;
+
+      localization_radius_ = config.HasKey("localization_radius")
+                                 ? config.Get("localization_radius").asFloat()
+                                 : 0.0;
+
+      initialized_ = true;
+    } catch (const std::exception& e) {
+      // If configuration parsing fails, use safe defaults
+      size_ = 1000;
+      variance_ = 1.0;
+      localization_radius_ = 0.0;
+      initialized_ = true;
+    }
   }
 
   /**

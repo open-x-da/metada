@@ -10,7 +10,7 @@ logger:
   console: true 
   
 # Variational method: 3DVAR (single time analysis)
-variational_type: 3DVAR
+variational_type: "3DVAR"
 
 # Output configuration
 output_base_file: "analysis_3dvar"
@@ -27,11 +27,15 @@ tolerance: 1e-6
 gradient_tolerance: 1e-8
 line_search_enabled: true
 preconditioning_enabled: true
+lbfgs_memory: 10
 
 # Background error covariance configuration (simplified)
 background_covariance:
   size: 1000
   variance: 1.0
+  background_covariance_type: "diagonal"
+  localization_enabled: false
+  localization_radius: 0.0
 
 # Model configuration (WRF model settings)
 model:
