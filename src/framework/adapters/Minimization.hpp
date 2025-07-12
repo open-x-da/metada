@@ -132,8 +132,9 @@ class Minimization : public NonCopyable {
           max_iterations, tolerance, gradient_tolerance, line_search_enabled);
     } else {
       // Default to L-BFGS
-      logger_.Warning() << "Unknown minimization algorithm: " << algorithm_name
-                        << ". Defaulting to L-BFGS.";
+      Logger<BackendTag>::Instance().Warning()
+          << "Unknown minimization algorithm: " << algorithm_name
+          << ". Defaulting to L-BFGS.";
       size_t memory_size = 10;
       if (config.HasKey("lbfgs_memory")) {
         memory_size = config.Get("lbfgs_memory").asInt();
@@ -238,7 +239,7 @@ class Minimization : public NonCopyable {
 
  private:
   std::unique_ptr<base::optimization::OptimizerBase> optimizer_;
-  static Logger<BackendTag>& logger_;
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 
   /**
    * @brief Convert State to std::vector<double>
@@ -286,10 +287,5 @@ class Minimization : public NonCopyable {
     return stateToVector(increment.entity());
   }
 };
-
-// Static member definition
-template <typename BackendTag>
-Logger<BackendTag>& Minimization<BackendTag>::logger_ =
-    Logger<BackendTag>::Instance();
 
 }  // namespace metada::framework

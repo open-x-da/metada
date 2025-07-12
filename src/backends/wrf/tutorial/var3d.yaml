@@ -1,0 +1,99 @@
+# WRF 3DVAR Configuration
+# Three-dimensional variational data assimilation
+# Analyzes observations at a single time (analysis time) without time integration
+
+# Logger configuration
+logger:
+  app_name: "var3d"
+  level: "info"
+  color: true
+  console: true 
+  
+# Variational method: 3DVAR (single time analysis)
+variational_type: 3DVAR
+
+# Output configuration
+output_base_file: "analysis_3dvar"
+format: "nc"
+save_trajectory: false
+
+# Optional gradient test for debugging
+perform_gradient_test: false
+
+# Minimization configuration
+minimization_algorithm: "lbfgs"
+max_iterations: 100
+tolerance: 1e-6
+gradient_tolerance: 1e-8
+line_search_enabled: true
+preconditioning_enabled: true
+
+# Background error covariance configuration (simplified)
+background_covariance:
+  size: 1000
+  variance: 1.0
+
+# Model configuration (WRF model settings)
+model:
+  # Time control settings
+  time_control:
+    start_datetime: "2020-01-01T12:00:00Z"
+    forecast_length: 1s  # Minimal forecast for 3DVAR - just analysis
+    time_step: 30s
+    output_history: false
+    
+  # Physics options
+  physics:
+    microphysics: true
+    radiation: true
+    pbl: true
+    lsm: true
+    
+  # Dynamical core options
+  dynamics:
+    advection_scheme: "WENO"
+    diffusion: 0.01
+
+# Geometry configuration (WRF domain)
+# WRFGeometry automatically reads all grid information from the NetCDF file
+geometry:
+  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+
+# Background state configuration
+background:
+  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+  # Analysis variables for 3DVAR
+  variables:
+    - U      # U-component of wind
+    - V      # V-component of wind
+    - T      # Temperature
+    - QVAPOR # Water vapor mixing ratio
+    - P      # Pressure
+    - PH     # Geopotential
+  # Background error statistics
+  background_error_file: be_stats.nc
+  
+# Analysis time configuration removed for debugging
+
+# Observations configuration (simplified for debugging)
+observations:
+  types:
+    - test_obs:
+        if_use: true
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrf_obs.txt"
+        coordinate: "geographic"
+        variables:
+          - U:
+              if_use: true
+              error: 2.0
+              missing_value: -999.0
+
+# Observation operator configuration (simplified)
+obs_operator:
+  required_state_vars:
+    - U
+  required_obs_vars:
+    - U
+
+# Simplified configuration for debugging
+# Removed optional sections that may cause configuration parsing issues

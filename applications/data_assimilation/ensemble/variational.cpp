@@ -58,37 +58,20 @@ int main(int argc, char** argv) {
     fwk::Model<BackendTag> model(config.GetSubsection("model"));
 
     // Initialize observations
+    // For 3DVAR, we have a single observation time with multiple types
     std::vector<fwk::Observation<BackendTag>> observations;
-    auto obs_configs = config.GetSubsectionsFromVector("observations");
-    observations.reserve(obs_configs.size());
+    observations.emplace_back(config.GetSubsection("observations"));
 
-    for (const auto& obs_config : obs_configs) {
-      observations.emplace_back(obs_config);
-    }
-
-    if (observations.empty()) {
-      logger.Error() << "No observations specified in configuration";
-      return 1;
-    }
-
-    logger.Info() << "Loaded " << observations.size() << " observation time(s)";
+    logger.Info() << "Loaded observations for " << var_type << " analysis";
 
     // Initialize observation operators
+    // For 3DVAR, we need a single observation operator matching the observation
+    // structure
     std::vector<fwk::ObsOperator<BackendTag>> obs_operators;
-    auto obs_op_configs = config.GetSubsectionsFromVector("obs_operators");
-    obs_operators.reserve(obs_op_configs.size());
+    obs_operators.emplace_back(config.GetSubsection("obs_operator"));
 
-    for (const auto& obs_op_config : obs_op_configs) {
-      obs_operators.emplace_back(obs_op_config);
-    }
-
-    // Validate observation and operator counts match
-    if (observations.size() != obs_operators.size()) {
-      logger.Error() << "Number of observations (" << observations.size()
-                     << ") must match number of observation operators ("
-                     << obs_operators.size() << ")";
-      return 1;
-    }
+    logger.Info() << "Loaded observation operator for " << var_type
+                  << " analysis";
 
     // Initialize background error covariance
     fwk::BackgroundErrorCovariance<BackendTag> bg_error_cov(
