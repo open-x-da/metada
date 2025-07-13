@@ -174,9 +174,7 @@ class WRFBackgroundErrorCovariance {
       size_ = state_size;  // Update to actual state size
     }
 
-    const auto* data_vec =
-        static_cast<const std::vector<double>*>(increment.getData());
-    const double* data = data_vec->data();
+    const double* data = static_cast<const double*>(increment.getData());
 
     double result = 0.0;
     for (size_t i = 0; i < state_size; ++i) {
@@ -236,8 +234,7 @@ class WRFBackgroundErrorCovariance {
       size_ = state_size;  // Update to actual state size
     }
 
-    auto* data_vec = static_cast<std::vector<double>*>(result.getData());
-    double* result_data = data_vec->data();
+    double* result_data = static_cast<double*>(result.getData());
 
     // For diagonal covariance: B^-1 = diag(1/sigma_i^2)
     for (size_t i = 0; i < state_size; ++i) {
