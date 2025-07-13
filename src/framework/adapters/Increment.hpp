@@ -155,12 +155,28 @@ class Increment {
   }
 
   /**
+   * @brief Fills the increment with random values in [-0.5, 0.5]
+   */
+  void randomize() {
+    auto& data = getData<std::vector<double>>();
+    for (auto& v : data) {
+      v = (double(rand()) / RAND_MAX - 0.5);
+    }
+  }
+
+  /**
    * @brief Computes dot product with another increment
    * @param other Increment to compute dot product with
    * @return Dot product value
    */
   double dot(const Increment& other) const {
-    return entity_.dot(other.entity_);
+    const auto& data1 = getData<std::vector<double>>();
+    const auto& data2 = other.getData<std::vector<double>>();
+    double result = 0.0;
+    for (size_t i = 0; i < data1.size(); ++i) {
+      result += data1[i] * data2[i];
+    }
+    return result;
   }
 
   /**

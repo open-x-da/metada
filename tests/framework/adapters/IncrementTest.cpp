@@ -5,9 +5,12 @@
 #include <string>
 #include <vector>
 
-#include "AppTraits.hpp"
 #include "ApplicationContext.hpp"
+#include "Config.hpp"
+#include "Geometry.hpp"
 #include "Increment.hpp"
+#include "Logger.hpp"
+#include "MockBackendTraits.hpp"
 #include "MockConfig.hpp"
 #include "MockLogger.hpp"
 #include "MockState.hpp"
@@ -19,173 +22,73 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::ReturnRef;
 
-using framework::Config;
-using framework::Increment;
-using framework::Logger;
-using framework::State;
-using framework::runs::ApplicationContext;
-
-using Traits = AppTraits<MockLogger, MockConfig, MockState>;
+using Config = framework::Config<traits::MockBackendTag>;
+using Logger = framework::Logger<traits::MockBackendTag>;
+using State = framework::State<traits::MockBackendTag>;
+using Increment = framework::Increment<State>;
 
 class IncrementTest : public ::testing::Test {
  protected:
-  std::unique_ptr<ApplicationContext<Traits>> context_;
-  // Test data
   std::vector<size_t> dimensions_;
-
-  // Mock entity for testing
-  std::unique_ptr<State<Traits::StateType>> entity1_;
-  std::unique_ptr<State<Traits::StateType>> entity2_;
+  std::unique_ptr<metada::framework::Config<traits::MockBackendTag>> config_;
+  std::unique_ptr<metada::framework::Geometry<traits::MockBackendTag>>
+      geometry_;
+  std::unique_ptr<metada::framework::State<traits::MockBackendTag>> entity1_;
+  std::unique_ptr<metada::framework::State<traits::MockBackendTag>> entity2_;
 
   void SetUp() override {
-    context_ = std::make_unique<ApplicationContext<Traits>>("IncrementTest");
     dimensions_ = {10, 20};
-
-    entity1_ = std::make_unique<State<Traits::StateType>>(getConfig());
-    entity2_ = std::make_unique<State<Traits::StateType>>(getConfig());
+    auto test_dir = std::filesystem::path(__FILE__).parent_path();
+    auto config_file = (test_dir / "test_config.yaml").string();
+    config_ =
+        std::make_unique<metada::framework::Config<traits::MockBackendTag>>(
+            config_file);
+    metada::framework::Logger<traits::MockBackendTag>::Init(*config_);
+    geometry_ =
+        std::make_unique<metada::framework::Geometry<traits::MockBackendTag>>(
+            *config_);
+    entity1_ =
+        std::make_unique<metada::framework::State<traits::MockBackendTag>>(
+            *config_, *geometry_);
+    entity2_ =
+        std::make_unique<metada::framework::State<traits::MockBackendTag>>(
+            *config_, *geometry_);
   }
 
   void TearDown() override {
-    context_.reset();
     dimensions_.clear();
     entity1_.reset();
     entity2_.reset();
+    geometry_.reset();
+    config_.reset();
+    metada::framework::Logger<traits::MockBackendTag>::Reset();
   }
-
-  /**
-   * @brief Get reference to the logger from context
-   */
-  Logger<Traits::LoggerType>& getLogger() { return context_->getLogger(); }
-
-  /**
-   * @brief Get reference to the config from context
-   */
-  Config<Traits::ConfigType>& getConfig() { return context_->getConfig(); }
-
-  /**
-   * @brief Create a test increment from the difference between entity1_ and
-   * entity2_
-   */
-  /*Increment<State<Traits::StateType>> createTestIncrement() {
-    return Increment<State<Traits::StateType>>(*entity1_, *entity2_);
-  }*/
 };
 
-/**
- * @brief Test creating an increment from two entities
- *
- * @details
- * Verifies that an increment can be properly created as the difference
- * between two state entities.
- */
-/*TEST_F(IncrementTest, CreateFromTwoEntities) {
-  // Create increment from the difference of two entities
-  Increment<State<Traits::StateType>> increment(*entity2_, *entity1_);
+TEST_F(IncrementTest, RandomizeOperation) {
+  entity1_->backend().setData(std::vector<double>(5, 0.0));  // Set 5 elements
+  Increment increment = Increment::createFromEntity(*entity1_);
+  increment.randomize();
+  const auto& randomized = increment.getData<std::vector<double>>();
+  for (double v : randomized) {
+    EXPECT_GE(v, -0.5);
+    EXPECT_LE(v, 0.5);
+  }
+}
 
-  // Verify the increment was created successfully
-  EXPECT_TRUE(increment.isInitialized());
-}*/
-
-/**
- * @brief Test creating an increment using the factory method
- */
-/*TEST_F(IncrementTest, CreateFromDifference) {
-  // Create increment using the factory method
-  auto increment = Increment<State<Traits::StateType>>::createFromDifference(
-      *entity2_, *entity1_);
-
-  // Verify the increment was created successfully
-  EXPECT_TRUE(increment.isInitialized());
-}*/
-
-/**
- * @brief Test zero operation
- */
-/*TEST_F(IncrementTest, ZeroOperation) {
-  auto increment = createTestIncrement();
-
-  // Expect the zero operation to be called on the backend
-  EXPECT_CALL(increment.entity().backend(), zero()).Times(1);
-
-  increment.zero();
-}*/
-
-/**
- * @brief Test scale operation
- */
-/*TEST_F(IncrementTest, ScaleOperation) {
-  auto increment = createTestIncrement();
-
-  // Expect the scale operation to be called on the backend
-  EXPECT_CALL(increment.entity().backend(), multiply(2.5)).Times(1);
-
-  increment.scale(2.5);
-}*/
-
-/**
- * @brief Test axpy operation
- */
-/*TEST_F(IncrementTest, AxpyOperation) {
-  auto increment1 = createTestIncrement();
-  auto increment2 = createTestIncrement();
-  // Expect the axpy operation to be implemented correctly
-  EXPECT_CALL(increment1.entity().backend(), add(_)).Times(1);
-
-  increment1.axpy(3.0, increment2);
-}*/
-
-/**
- * @brief Test dot product operation
- */
-/*TEST_F(IncrementTest, DotProductOperation) {
-  auto increment1 = createTestIncrement();
-  auto increment2 = createTestIncrement();
-
-  // Expect the dot product to be calculated on the backend
-  EXPECT_CALL(increment1.entity().backend(), dot(_)).WillOnce(Return(42.0));
-
-  EXPECT_DOUBLE_EQ(increment1.dot(increment2), 42.0);
-}*/
-
-/**
- * @brief Test norm operation
- */
-/*TEST_F(IncrementTest, NormOperation) {
-  auto increment = createTestIncrement();
-
-  // Expect the norm to be calculated on the backend
-  EXPECT_CALL(increment.entity().backend(), norm()).WillOnce(Return(5.0));
-
-  EXPECT_DOUBLE_EQ(increment.norm(), 5.0);
-}*/
-
-/**
- * @brief Test applying an increment to an entity
- */
-/*TEST_F(IncrementTest, ApplyToOperation) {
-  auto increment = createTestIncrement();
-
-  // Expect the increment to be applied to entity2
-  EXPECT_CALL(entity2_->backend(), add(_)).Times(1);
-
-  increment.applyTo(*entity2_);
-}*/
-
-/**
- * @brief Test operator overloads
- */
-/*TEST_F(IncrementTest, OperatorOverloads) {
-  auto increment1 = createTestIncrement();
-  auto increment2 = createTestIncrement();
-
-  // Test addition operator
-  EXPECT_NO_THROW(auto result1 = increment1 + increment2);
-
-  // Test multiplication operator
-  EXPECT_NO_THROW(auto result2 = increment1 * 3.5);
-
-  // Test non-member multiplication operator
-  EXPECT_NO_THROW(auto result3 = 4.0 * increment1);
-}*/
+TEST_F(IncrementTest, DotProductImplementation) {
+  auto& state1 = *entity1_;
+  auto& state2 = *entity2_;
+  auto& data1 = state1.template getData<std::vector<double>>();
+  auto& data2 = state2.template getData<std::vector<double>>();
+  data1.resize(5);
+  data2.resize(5);
+  data1 = {1.0, 2.0, 3.0, 4.0, 5.0};
+  data2 = {5.0, 4.0, 3.0, 2.0, 1.0};
+  Increment inc1 = Increment::createFromEntity(state1);
+  Increment inc2 = Increment::createFromEntity(state2);
+  double expected = 1.0 * 5.0 + 2.0 * 4.0 + 3.0 * 3.0 + 4.0 * 2.0 + 5.0 * 1.0;
+  EXPECT_DOUBLE_EQ(inc1.dot(inc2), expected);
+}
 
 }  // namespace metada::tests

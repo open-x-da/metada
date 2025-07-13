@@ -27,7 +27,8 @@ setup_test_executable(ensemble_test EnsembleTest.cpp)
 add_test_format_target(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Increment tests
-#setup_test_executable(increment_test IncrementTest.cpp)
+setup_test_executable(increment_test IncrementTest.cpp)
+add_test_format_target(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Location tests
 setup_test_executable(location_test LocationTest.cpp)

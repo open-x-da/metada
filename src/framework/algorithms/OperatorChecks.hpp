@@ -13,26 +13,6 @@
 
 namespace metada::framework {
 
-// Utility to randomize an Increment (should be implemented for your Increment
-// class)
-template <typename IncrementT>
-void randomize_increment(IncrementT& inc) {
-  for (size_t i = 0; i < inc.size(); ++i) {
-    inc[i] = (double(rand()) / RAND_MAX - 0.5);
-  }
-}
-
-// Utility to compute dot product between two Increments or between Increment
-// and State (should be implemented for your Increment class)
-template <typename IncrementT>
-double dot_product(const IncrementT& a, const IncrementT& b) {
-  double result = 0.0;
-  for (size_t i = 0; i < a.size(); ++i) {
-    result += a[i] * b[i];
-  }
-  return result;
-}
-
 // TL/AD check for ObsOperator
 // Returns true if the check passes (relative error < tol)
 template <typename BackendTag>
@@ -42,7 +22,7 @@ bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
                           double epsilon = 1e-6, int verbose = 1) {
   // 1. Create random state increment dx and obs increment dy
   auto dx = Increment<State<BackendTag>>::createFromEntity(state);
-  randomize_increment(dx);
+  dx.randomize();
 
   std::vector<double> dy(obs.size());
   for (auto& v : dy) v = (double(rand()) / RAND_MAX - 0.5);
@@ -55,7 +35,7 @@ bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
 
   // 4. Compute inner products
   double a = std::inner_product(Hdx.begin(), Hdx.end(), dy.begin(), 0.0);
-  double b = dot_product(dx, HTdy);
+  double b = dx.dot(HTdy);
 
   double rel_error =
       std::abs(a - b) / (std::max(std::abs(a), std::abs(b)) + 1e-12);
@@ -79,7 +59,7 @@ bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
   cost_func.gradient(state, grad);
 
   auto dx = Increment<State<BackendTag>>::createFromEntity(state);
-  randomize_increment(dx);
+  dx.randomize();
 
   auto state_perturbed = state.clone();
   state_perturbed += dx * epsilon;
@@ -88,7 +68,7 @@ bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
   double J1 = cost_func.evaluate(state_perturbed);
 
   double fd = (J1 - J0) / epsilon;
-  double analytic = dot_product(grad, dx);
+  double analytic = grad.dot(dx);
 
   double rel_error = std::abs(fd - analytic) /
                      (std::max(std::abs(fd), std::abs(analytic)) + 1e-12);
