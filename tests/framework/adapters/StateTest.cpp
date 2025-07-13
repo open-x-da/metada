@@ -363,7 +363,7 @@ TEST_F(StateTest, IncrementOperations) {
   };
 
   // Test creating an increment
-  auto increment = state1_->createIncrementTo<MockIncrement>(*state2_);
+  auto increment = MockIncrement::createFromDifference(*state1_, *state2_);
 
   // Verify the increment was created with the correct states
   EXPECT_EQ(increment.state_a, state1_.get());
@@ -371,7 +371,7 @@ TEST_F(StateTest, IncrementOperations) {
 
   // Test applying the increment - should call zero() on state1_
   EXPECT_CALL(state1_->backend(), zero()).Times(1);
-  state1_->applyIncrement(increment);
+  increment.applyTo(*state1_);
 }
 
 }  // namespace metada::tests

@@ -222,16 +222,16 @@ class Model : private NonCopyable {
    */
   void runAdjoint(const State<BackendTag>& initial_state,
                   const State<BackendTag>& final_state,
-                  const Increment<State<BackendTag>>& adjoint_forcing,
-                  Increment<State<BackendTag>>& adjoint_result) const {
+                  const Increment<BackendTag>& adjoint_forcing,
+                  Increment<BackendTag>& adjoint_result) const {
     if (!backend_.isInitialized()) {
       throw std::runtime_error("Model not initialized");
     }
 
     try {
       backend_.runAdjoint(initial_state.backend(), final_state.backend(),
-                          adjoint_forcing.entity().backend(),
-                          adjoint_result.entity().backend());
+                          adjoint_forcing.state().backend(),
+                          adjoint_result.state().backend());
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model adjoint run failed: ") +
                                e.what());
@@ -252,11 +252,10 @@ class Model : private NonCopyable {
    * @param final_perturbation Output final perturbation
    * @throws std::runtime_error if the model is not initialized or TLM fails
    */
-  void runTangentLinear(
-      const State<BackendTag>& reference_initial,
-      const State<BackendTag>& reference_final,
-      const Increment<State<BackendTag>>& initial_perturbation,
-      Increment<State<BackendTag>>& final_perturbation) const {
+  void runTangentLinear(const State<BackendTag>& reference_initial,
+                        const State<BackendTag>& reference_final,
+                        const Increment<BackendTag>& initial_perturbation,
+                        Increment<BackendTag>& final_perturbation) const {
     if (!backend_.isInitialized()) {
       throw std::runtime_error("Model not initialized");
     }
@@ -264,8 +263,8 @@ class Model : private NonCopyable {
     try {
       backend_.runTangentLinear(reference_initial.backend(),
                                 reference_final.backend(),
-                                initial_perturbation.entity().backend(),
-                                final_perturbation.entity().backend());
+                                initial_perturbation.state().backend(),
+                                final_perturbation.state().backend());
     } catch (const std::exception& e) {
       throw std::runtime_error(
           std::string("Model tangent linear run failed: ") + e.what());

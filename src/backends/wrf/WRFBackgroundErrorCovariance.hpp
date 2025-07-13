@@ -174,7 +174,9 @@ class WRFBackgroundErrorCovariance {
       size_ = state_size;  // Update to actual state size
     }
 
-    const double* data = increment.template getDataPtr<double>();
+    const auto* data_vec =
+        static_cast<const std::vector<double>*>(increment.getData());
+    const double* data = data_vec->data();
 
     double result = 0.0;
     for (size_t i = 0; i < state_size; ++i) {
@@ -225,7 +227,7 @@ class WRFBackgroundErrorCovariance {
   void applyInverseDiagonal(const StateType& increment,
                             StateType& result) const {
     // Clone the increment to get the same structure
-    result = increment.clone();
+    result = std::move(*increment.clone());
 
     size_t state_size = increment.size();
 
@@ -234,7 +236,8 @@ class WRFBackgroundErrorCovariance {
       size_ = state_size;  // Update to actual state size
     }
 
-    double* result_data = result.template getDataPtr<double>();
+    auto* data_vec = static_cast<std::vector<double>*>(result.getData());
+    double* result_data = data_vec->data();
 
     // For diagonal covariance: B^-1 = diag(1/sigma_i^2)
     for (size_t i = 0; i < state_size; ++i) {

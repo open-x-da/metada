@@ -21,6 +21,10 @@ template <typename BackendTag>
   requires ConfigBackendType<BackendTag>
 class Config;
 
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+class Increment;
+
 /**
  * @brief Cost function adapter for variational data assimilation
  *
@@ -44,6 +48,7 @@ class Config;
  * @tparam BackendTag The backend tag type
  */
 template <typename BackendTag>
+  requires StateBackendType<BackendTag>
 class CostFunction : public NonCopyable {
  public:
   /** @brief Default constructor is deleted */
@@ -105,7 +110,7 @@ class CostFunction : public NonCopyable {
 
     // Background term: 1/2 * (x - xb)^T B^-1 (x - xb)
     auto background_increment =
-        Increment<State<BackendTag>>::createFromDifference(state, background_);
+        Increment<BackendTag>::createFromDifference(state, background_);
     double bg_cost = 0.5 * bg_error_cov_.quadraticForm(background_increment);
     total_cost += bg_cost;
 
@@ -135,7 +140,7 @@ class CostFunction : public NonCopyable {
    * @param gradient Output gradient vector
    */
   void gradient(const State<BackendTag>& state,
-                Increment<State<BackendTag>>& gradient) const {
+                Increment<BackendTag>& gradient) const {
     logger_.Debug() << "Computing cost function gradient";
 
     // Initialize gradient to zero
@@ -143,7 +148,7 @@ class CostFunction : public NonCopyable {
 
     // Background term gradient: B^-1 (x - xb)
     auto background_increment =
-        Increment<State<BackendTag>>::createFromDifference(state, background_);
+        Increment<BackendTag>::createFromDifference(state, background_);
     auto bg_gradient = bg_error_cov_.applyInverse(background_increment);
     gradient += bg_gradient;
 
@@ -263,9 +268,8 @@ class CostFunction : public NonCopyable {
   /**
    * @brief Compute observation gradient for 3DVAR
    */
-  void computeObservationGradient3DVAR(
-      const State<BackendTag>& state,
-      Increment<State<BackendTag>>& gradient) const {
+  void computeObservationGradient3DVAR(const State<BackendTag>& state,
+                                       Increment<BackendTag>& gradient) const {
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
@@ -281,9 +285,8 @@ class CostFunction : public NonCopyable {
   /**
    * @brief Compute observation gradient for FGAT
    */
-  void computeObservationGradientFGAT(
-      const State<BackendTag>& state,
-      Increment<State<BackendTag>>& gradient) const {
+  void computeObservationGradientFGAT(const State<BackendTag>& state,
+                                      Increment<BackendTag>& gradient) const {
     // For FGAT, we need to accumulate gradients but don't use full adjoint
     // model This is an approximation where we ignore model trajectory
     // sensitivity
@@ -313,9 +316,8 @@ class CostFunction : public NonCopyable {
   /**
    * @brief Compute observation gradient for 4DVAR
    */
-  void computeObservationGradient4DVAR(
-      const State<BackendTag>& state,
-      Increment<State<BackendTag>>& gradient) const {
+  void computeObservationGradient4DVAR(const State<BackendTag>& state,
+                                       Increment<BackendTag>& gradient) const {
     // 4DVAR requires full adjoint model integration
     // Forward pass
     std::vector<State<BackendTag>> trajectory;
@@ -332,8 +334,7 @@ class CostFunction : public NonCopyable {
     }
 
     // Backward pass with adjoint
-    auto adjoint_forcing =
-        Increment<State<BackendTag>>::createFromEntity(state);
+    auto adjoint_forcing = Increment<BackendTag>::createFromEntity(state);
     adjoint_forcing.zero();
 
     // Process observations in reverse order
@@ -353,7 +354,7 @@ class CostFunction : public NonCopyable {
       // Adjoint model integration (if not at initial time)
       if (i > 0) {
         auto next_adjoint_forcing =
-            Increment<State<BackendTag>>::createFromEntity(trajectory[i - 1]);
+            Increment<BackendTag>::createFromEntity(trajectory[i - 1]);
         model_.runAdjoint(trajectory[i - 1], trajectory[i], adjoint_forcing,
                           next_adjoint_forcing);
         adjoint_forcing = std::move(next_adjoint_forcing);

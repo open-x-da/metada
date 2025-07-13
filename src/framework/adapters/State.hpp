@@ -346,27 +346,6 @@ class State : private NonCopyable {
   }
 
   /**
-   * @brief Create an increment representing the difference between this state
-   * and another
-   *
-   * @tparam IncrementType The increment type to create
-   * @param other The state to subtract from this one
-   * @return An increment representing (this - other)
-   */
-  template <typename IncrementType>
-  IncrementType createIncrementTo(const State& other) const;
-
-  /**
-   * @brief Apply an increment to this state
-   *
-   * @tparam IncrementType The increment type to apply
-   * @param increment The increment to apply
-   * @return Reference to this state after applying the increment
-   */
-  template <typename IncrementType>
-  State& applyIncrement(const IncrementType& increment);
-
-  /**
    * @brief Get direct access to the backend instance
    * @return Reference to backend implementation
    */
@@ -407,33 +386,6 @@ template <typename BackendTag>
 inline std::ostream& operator<<(std::ostream& os,
                                 const State<BackendTag>& state) {
   return os << state.backend();
-}
-
-}  // namespace metada::framework
-
-// Include Increment.hpp after State class definition to resolve circular
-// dependency
-#include "Increment.hpp"
-
-namespace metada::framework {
-
-// Implementation of methods that depend on Increment
-template <typename BackendTag>
-  requires StateBackendType<BackendTag>
-template <typename IncrementType>
-IncrementType State<BackendTag>::createIncrementTo(const State& other) const {
-  // Use the factory method in Increment
-  return IncrementType::createFromDifference(*this, other);
-}
-
-template <typename BackendTag>
-  requires StateBackendType<BackendTag>
-template <typename IncrementType>
-State<BackendTag>& State<BackendTag>::applyIncrement(
-    const IncrementType& increment) {
-  // Use the applyTo method in Increment
-  increment.applyTo(*this);
-  return *this;
 }
 
 }  // namespace metada::framework

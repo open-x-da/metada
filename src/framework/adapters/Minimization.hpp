@@ -37,6 +37,7 @@ class Config;
  * @tparam BackendTag The backend tag type
  */
 template <typename BackendTag>
+  requires StateBackendType<BackendTag>
 class Minimization : public NonCopyable {
  public:
   /**
@@ -51,8 +52,8 @@ class Minimization : public NonCopyable {
    *
    * Function that takes a state and computes the gradient into an increment
    */
-  using GradientFunction = std::function<void(const State<BackendTag>&,
-                                              Increment<State<BackendTag>>&)>;
+  using GradientFunction =
+      std::function<void(const State<BackendTag>&, Increment<BackendTag>&)>;
 
   /**
    * @brief Convergence information structure
@@ -173,7 +174,7 @@ class Minimization : public NonCopyable {
     auto vector_gradient_func =
         [&](const std::vector<double>& vec) -> std::vector<double> {
       State<BackendTag> state = vectorToState(vec, initial_state);
-      auto increment = Increment<State<BackendTag>>::createFromEntity(state);
+      auto increment = Increment<BackendTag>::createFromEntity(state);
       gradient_func(state, increment);
       return incrementToVector(increment);
     };
@@ -282,9 +283,9 @@ class Minimization : public NonCopyable {
    * @brief Convert Increment to std::vector<double>
    */
   std::vector<double> incrementToVector(
-      const Increment<State<BackendTag>>& increment) const {
+      const Increment<BackendTag>& increment) const {
     // Access the underlying state entity and convert to vector
-    return stateToVector(increment.entity());
+    return stateToVector(increment.state());
   }
 };
 

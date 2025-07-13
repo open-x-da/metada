@@ -192,29 +192,14 @@ class ObsOperator : public NonCopyable {
    * increment. This maps from observation space back to state space and is
    * essential for computing gradients in variational data assimilation.
    *
-   * @tparam StateBackend The state backend type
    * @param obs_increment Observation space increment
    * @param reference_state Reference state around which the adjoint is computed
    * @return State increment containing the adjoint transformation result
    * @throws std::runtime_error If the observation operator is not initialized
    */
-  template <typename StateBackend>
-  Increment<State<StateBackend>> applyAdjoint(
+  Increment<BackendTag> applyAdjoint(
       const std::vector<double>& obs_increment,
-      const State<StateBackend>& reference_state) const {
-    logger_.Debug() << "Applying adjoint observation operator";
-
-    // Create result increment
-    auto result =
-        Increment<State<StateBackend>>::createFromEntity(reference_state);
-    result.zero();  // Initialize to zero
-
-    // Apply adjoint through backend
-    backend_.applyAdjoint(obs_increment, reference_state.backend(),
-                          result.entity().backend());
-
-    return result;
-  }
+      const State<BackendTag>& reference_state) const;
 
   /**
    * @brief Check if tangent linear and adjoint operators are available
@@ -240,5 +225,19 @@ class ObsOperator : public NonCopyable {
   ObsOperatorBackend backend_; /**< Backend implementation */
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
+
+// Implementation of applyAdjoint for ObsOperator
+template <typename BackendTag>
+  requires ObsOperatorBackendType<BackendTag>
+Increment<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
+    const std::vector<double>& obs_increment,
+    const State<BackendTag>& reference_state) const {
+  // Create an increment from the reference state
+  auto increment = Increment<BackendTag>::createFromEntity(reference_state);
+  increment.zero();
+  backend_.applyAdjoint(obs_increment, reference_state.backend(),
+                        increment.state().backend());
+  return increment;
+}
 
 }  // namespace metada::framework

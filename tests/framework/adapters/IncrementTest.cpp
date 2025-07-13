@@ -25,7 +25,7 @@ using ::testing::ReturnRef;
 using Config = framework::Config<traits::MockBackendTag>;
 using Logger = framework::Logger<traits::MockBackendTag>;
 using State = framework::State<traits::MockBackendTag>;
-using Increment = framework::Increment<State>;
+using Increment = metada::framework::Increment<traits::MockBackendTag>;
 
 class IncrementTest : public ::testing::Test {
  protected:
@@ -79,12 +79,8 @@ TEST_F(IncrementTest, RandomizeOperation) {
 TEST_F(IncrementTest, DotProductImplementation) {
   auto& state1 = *entity1_;
   auto& state2 = *entity2_;
-  auto& data1 = state1.template getData<std::vector<double>>();
-  auto& data2 = state2.template getData<std::vector<double>>();
-  data1.resize(5);
-  data2.resize(5);
-  data1 = {1.0, 2.0, 3.0, 4.0, 5.0};
-  data2 = {5.0, 4.0, 3.0, 2.0, 1.0};
+  state1.backend().setData({1.0, 2.0, 3.0, 4.0, 5.0});
+  state2.backend().setData({5.0, 4.0, 3.0, 2.0, 1.0});
   Increment inc1 = Increment::createFromEntity(state1);
   Increment inc2 = Increment::createFromEntity(state2);
   double expected = 1.0 * 5.0 + 2.0 * 4.0 + 3.0 * 3.0 + 4.0 * 2.0 + 5.0 * 1.0;

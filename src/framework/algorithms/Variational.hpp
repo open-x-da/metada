@@ -144,9 +144,8 @@ class Variational {
       return cost_function_.evaluate(state);
     };
 
-    auto gradient_func = [this](
-                             const State<BackendTag>& state,
-                             Increment<State<BackendTag>>& gradient) -> void {
+    auto gradient_func = [this](const State<BackendTag>& state,
+                                Increment<BackendTag>& gradient) -> void {
       cost_function_.gradient(state, gradient);
     };
 
@@ -204,9 +203,8 @@ class Variational {
                    << output_base_file_ + "_analysis." + format_;
 
     // Save analysis increment (analysis - background)
-    auto analysis_increment =
-        Increment<State<BackendTag>>::createFromDifference(
-            results.analysis_state, background_);
+    auto analysis_increment = Increment<BackendTag>::createFromDifference(
+        results.analysis_state, background_);
     // Note: Increment doesn't have saveToFile, so we'd need to add that or save
     // via state
 
@@ -286,12 +284,11 @@ class Variational {
 
     // Compute analytical gradient
     auto analytical_gradient =
-        Increment<State<BackendTag>>::createFromEntity(test_state);
+        Increment<BackendTag>::createFromEntity(test_state);
     cost_function_.gradient(test_state, analytical_gradient);
 
     // Create random perturbation
-    auto perturbation =
-        Increment<State<BackendTag>>::createFromEntity(test_state);
+    auto perturbation = Increment<BackendTag>::createFromEntity(test_state);
     // Note: We'd need to add a method to create random perturbations
     // For now, use a simple approach
 
@@ -317,9 +314,8 @@ class Variational {
    */
   void computeCostBreakdown([[maybe_unused]] AnalysisResults& results) const {
     // Evaluate background term
-    auto background_increment =
-        Increment<State<BackendTag>>::createFromDifference(
-            results.analysis_state, background_);
+    auto background_increment = Increment<BackendTag>::createFromDifference(
+        results.analysis_state, background_);
     results.background_cost =
         0.5 * bg_error_cov_.quadraticForm(background_increment);
 
