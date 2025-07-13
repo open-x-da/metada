@@ -253,29 +253,43 @@ class IdentityObsOperator {
       return; // No observations to process
     }
     
-    // Simple approach: distribute observation increments uniformly
-    // In a real implementation, this would use the observation locations
-    // and proper interpolation/mapping
-    double total_increment = 0.0;
-    for (double inc : obs_increment) {
-      total_increment += inc;
-    }
+    // Improved approach: map observation increments to specific state locations
+    // This provides meaningful gradients for optimization
     
-    // Average increment per observation
-    double avg_increment = total_increment / obs_increment.size();
+    size_t state_size = result_state.size();
+    size_t obs_size = obs_increment.size();
     
-    // Apply a scaled version to the state
-    // This is a simplified implementation - in practice, you'd use
-    // proper observation locations and interpolation
+    // Calculate stride to map observations across the state space
+    // This ensures each observation increment affects different parts of the state
+    size_t stride = (state_size > obs_size) ? state_size / obs_size : 1;
+    
     if constexpr (requires { result_state[0]; }) {
       // For states that support operator[]
-      for (size_t i = 0; i < result_state.size(); ++i) {
-        result_state[i] = avg_increment / result_state.size();
+      for (size_t obs_idx = 0; obs_idx < obs_size; ++obs_idx) {
+        // Map each observation to multiple state locations
+        size_t start_idx = obs_idx * stride;
+        size_t end_idx = std::min(start_idx + stride, state_size);
+        
+        // Distribute the observation increment across these state locations
+        double increment_per_location = obs_increment[obs_idx] / (end_idx - start_idx);
+        
+        for (size_t state_idx = start_idx; state_idx < end_idx; ++state_idx) {
+          result_state[state_idx] = increment_per_location;
+        }
       }
     } else if constexpr (requires { result_state.at(0); }) {
       // For states that support at(index)
-      for (size_t i = 0; i < result_state.size(); ++i) {
-        result_state.at(i) = avg_increment / result_state.size();
+      for (size_t obs_idx = 0; obs_idx < obs_size; ++obs_idx) {
+        // Map each observation to multiple state locations
+        size_t start_idx = obs_idx * stride;
+        size_t end_idx = std::min(start_idx + stride, state_size);
+        
+        // Distribute the observation increment across these state locations
+        double increment_per_location = obs_increment[obs_idx] / (end_idx - start_idx);
+        
+        for (size_t state_idx = start_idx; state_idx < end_idx; ++state_idx) {
+          result_state.at(state_idx) = increment_per_location;
+        }
       }
     } else {
       throw std::runtime_error(

@@ -167,6 +167,13 @@ class WRFBackgroundErrorCovariance {
     // For WRF, implement a basic diagonal quadratic form
     // This is a simplified implementation that treats WRF state as a vector
     size_t state_size = increment.size();
+
+    // Update size to match actual state if needed
+    if (size_ != state_size) {
+      // For debugging - log the size mismatch
+      size_ = state_size;  // Update to actual state size
+    }
+
     const double* data = increment.template getDataPtr<double>();
 
     double result = 0.0;
@@ -221,6 +228,12 @@ class WRFBackgroundErrorCovariance {
     result = increment.clone();
 
     size_t state_size = increment.size();
+
+    // Update size to match actual state if needed
+    if (size_ != state_size) {
+      size_ = state_size;  // Update to actual state size
+    }
+
     double* result_data = result.template getDataPtr<double>();
 
     // For diagonal covariance: B^-1 = diag(1/sigma_i^2)
@@ -264,8 +277,9 @@ class WRFBackgroundErrorCovariance {
   }
 
  private:
-  size_t size_;                 ///< Matrix size (state vector dimension)
-  double variance_;             ///< Diagonal variance value
+  mutable size_t size_;  ///< Matrix size (state vector dimension) - mutable for
+                         ///< auto-sizing
+  double variance_;      ///< Diagonal variance value
   double localization_radius_;  ///< Localization radius
   bool initialized_;            ///< Initialization status
 };

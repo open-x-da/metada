@@ -210,7 +210,17 @@ class CostFunction : public NonCopyable {
     const auto& obs_op = obs_operators_[0];
 
     auto simulated_obs = obs_op.apply(state, obs);
+    auto obs_data = obs.template getData<std::vector<double>>();
     auto innovation = computeInnovation(obs, simulated_obs);
+
+    // Debug print: show first 5 values of H(x), y, and innovation
+    size_t n_debug = std::min<size_t>(5, simulated_obs.size());
+    logger_.Info() << "Obs debug: idx | H(x) | y | y-H(x)";
+    for (size_t i = 0; i < n_debug; ++i) {
+      logger_.Info() << "Obs debug: " << i << " | " << simulated_obs[i] << " | "
+                     << obs_data[i] << " | "
+                     << (obs_data[i] - simulated_obs[i]);
+    }
 
     return 0.5 * obs.quadraticForm(innovation);
   }
