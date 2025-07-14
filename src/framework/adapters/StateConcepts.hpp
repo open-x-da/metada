@@ -51,8 +51,7 @@ concept StateBackendImpl =
              const std::string& filename) {
       // Data access
       { t.getData() } -> std::same_as<void*>;
-      // TODO: Add const data access
-      //{ ct.getData() } -> std::same_as<const void*>;
+      { ct.getData() } -> std::same_as<const void*>;
 
       // Variable information
       {

@@ -1,0 +1,68 @@
+# TL/AD Checks Configuration File
+# This file configures the tangent linear and adjoint checks application
+
+# Logger configuration  
+logger:
+  app_name: "tl_ad_checks"
+  level: "debug"
+  color: true
+  console: true
+
+# Global parameters
+tl_ad_tolerance: 1.0e-6
+gradient_tolerance: 1.0e-6
+finite_difference_epsilon: 1.0e-6
+verbose: true
+
+# Geometry configuration (WRF domain)
+# WRFGeometry automatically reads all grid information from the NetCDF file
+geometry:
+  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+
+# State configuration
+state:
+  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+  # Analysis variables for 3DVAR
+  variables:
+    - U      # U-component of wind
+    - V      # V-component of wind
+    - T      # Temperature
+    - QVAPOR # Water vapor mixing ratio
+    - P      # Pressure
+    - PH     # Geopotential
+
+# Model configuration
+model:
+  type: "wrf"
+  time_step: 300.0  # seconds
+  integration_steps: 1
+  physics_schemes:
+    - "convection"
+    - "microphysics"
+    - "radiation"
+    - "boundary_layer"
+  tl_enabled: true
+  ad_enabled: true
+
+# Observations configuration (simplified for debugging)
+observations:
+  types:
+    - test_obs:
+        if_use: true
+        file: "D:/linux/metada/src/backends/wrf/tutorial/wrf_obs.txt"
+        coordinate: "geographic"
+        variables:
+          - U:
+              if_use: true
+              error: 2.0
+              missing_value: -999.0
+
+# Observation operator configuration
+obs_operator:
+  type: "identity"
+  interpolation: "bilinear"
+  vertical_interpolation: "linear"
+  quality_control:
+    enabled: true
+    gross_error_threshold: 10.0
+    buddy_check: true 

@@ -13,15 +13,14 @@
 
 namespace metada::framework {
 
-// TL/AD check for ObsOperator
-// Returns true if the check passes (relative error < tol)
 template <typename BackendTag>
 bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
                           const State<BackendTag>& state,
                           const Observation<BackendTag>& obs, double tol = 1e-6,
-                          double epsilon = 1e-6, int verbose = 1) {
+                          [[maybe_unused]] double epsilon = 1e-6,
+                          [[maybe_unused]] int verbose = 1) {
   // 1. Create random state increment dx and obs increment dy
-  auto dx = Increment<State<BackendTag>>::createFromEntity(state);
+  auto dx = Increment<BackendTag>::createFromEntity(state);
   dx.randomize();
 
   std::vector<double> dy(obs.size());

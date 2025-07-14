@@ -175,12 +175,12 @@ class ObsOperator : public NonCopyable {
    */
   template <typename StateBackend, typename ObsBackend>
   std::vector<double> applyTangentLinear(
-      const Increment<State<StateBackend>>& state_increment,
+      const Increment<StateBackend>& state_increment,
       const State<StateBackend>& reference_state,
       const Observation<ObsBackend>& obs) const {
     logger_.Debug() << "Applying tangent linear observation operator";
 
-    return backend_.applyTangentLinear(state_increment.entity().backend(),
+    return backend_.applyTangentLinear(state_increment.state().backend(),
                                        reference_state.backend(),
                                        obs.backend());
   }

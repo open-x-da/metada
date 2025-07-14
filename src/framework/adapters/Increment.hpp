@@ -5,7 +5,9 @@
 #include <string>
 #include <vector>
 
+#include "BackendTraits.hpp"
 #include "State.hpp"
+#include "StateConcepts.hpp"
 
 namespace metada::framework {
 

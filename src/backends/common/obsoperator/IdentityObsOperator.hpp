@@ -209,7 +209,7 @@ class IdentityObsOperator {
    * @return Vector containing the transformed increment in observation space
    */
   std::vector<double> applyTangentLinear(const StateBackend& state_increment,
-                                         const StateBackend& reference_state,
+                                         [[maybe_unused]] const StateBackend& reference_state,
                                          const ObsBackend& obs) const {
     // For identity operator, tangent linear is the same as forward operator
     return apply(state_increment, obs);
