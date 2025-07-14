@@ -281,38 +281,9 @@ class IdentityObsOperator {
         z = static_cast<double>(k);
       }
 
-      // Find nearest grid point (same as in forward pass)
-      x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
-      y = std::max(0.0, std::min(static_cast<double>(ny - 1), y));
-      z = std::max(0.0, std::min(static_cast<double>(nz - 1), z));
-
-      size_t i = static_cast<size_t>(std::round(x));
-      size_t j = static_cast<size_t>(std::round(y));
-      size_t k = static_cast<size_t>(std::round(z));
-
-      // Ensure indices are within bounds
-      if (i >= nx) i = nx - 1;
-      if (j >= ny) j = ny - 1;
-      if (k >= nz) k = nz - 1;
-
       // Adjoint of nearest-neighbor interpolation: add the observation increment
       // to the corresponding grid point
-      if constexpr (requires { result_state[std::declval<size_t>()]; }) {
-        // Convert 3D grid coordinates to linear index using row-major order
-        size_t linear_index = k * (nx * ny) + j * nx + i;
-        result_state[linear_index] += obs_increment[obs_idx];
-      } else if constexpr (requires { result_state.at(std::declval<size_t>()); }) {
-        // Convert 3D grid coordinates to linear index using row-major order
-        size_t linear_index = k * (nx * ny) + j * nx + i;
-        result_state.at(linear_index) += obs_increment[obs_idx];
-      } else if constexpr (requires { result_state.at(std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
-        result_state.at(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k)) += obs_increment[obs_idx];
-      } else if constexpr (requires { result_state.at(std::declval<int>(), std::declval<int>()); }) {
-        result_state.at(static_cast<int>(i), static_cast<int>(j)) += obs_increment[obs_idx];
-      } else {
-        throw std::runtime_error(
-            "State backend does not support required access methods for adjoint");
-      }
+      adjointNearestNeighborInterpolation(result_state, x, y, z, nx, ny, nz, obs_increment[obs_idx]);
     }
   }
 
@@ -503,6 +474,53 @@ class IdentityObsOperator {
                                "Backend must provide one of: "
                                "at(std::pair<int,int>), operator[](size_t), at(size_t), "
                                "at(int,int,int), or at(int,int)");
+    }
+  }
+
+  /**
+   * @brief Perform adjoint of nearest-neighbor interpolation from point to grid
+   *
+   * @param state Model state to update
+   * @param x Grid x-coordinate (continuous)
+   * @param y Grid y-coordinate (continuous)
+   * @param z Grid z-coordinate (continuous)
+   * @param nx Number of grid points in x direction
+   * @param ny Number of grid points in y direction
+   * @param nz Number of grid points in z direction
+   * @param increment Value to add to the grid point
+   */
+  void adjointNearestNeighborInterpolation(StateBackend& state, double x, double y, double z,
+                                          size_t nx, size_t ny, size_t nz, double increment) const {
+    // Clamp coordinates to grid bounds (same as in forward pass)
+    x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
+    y = std::max(0.0, std::min(static_cast<double>(ny - 1), y));
+    z = std::max(0.0, std::min(static_cast<double>(nz - 1), z));
+
+    // Find nearest grid point (same as in forward pass)
+    size_t i = static_cast<size_t>(std::round(x));
+    size_t j = static_cast<size_t>(std::round(y));
+    size_t k = static_cast<size_t>(std::round(z));
+
+    // Ensure indices are within bounds
+    if (i >= nx) i = nx - 1;
+    if (j >= ny) j = ny - 1;
+    if (k >= nz) k = nz - 1;
+
+    if constexpr (requires { state[std::declval<size_t>()]; }) {
+      // Convert 3D grid coordinates to linear index using row-major order
+      size_t linear_index = k * (nx * ny) + j * nx + i;
+      state[linear_index] += increment;
+    } else if constexpr (requires { state.at(std::declval<size_t>()); }) {
+      // Convert 3D grid coordinates to linear index using row-major order
+      size_t linear_index = k * (nx * ny) + j * nx + i;
+      state.at(linear_index) += increment;
+    } else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
+      state.at(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k)) += increment;
+    } else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>()); }) {
+      state.at(static_cast<int>(i), static_cast<int>(j)) += increment;
+    } else {
+      throw std::runtime_error(
+          "State backend does not support required access methods for adjoint");
     }
   }
 

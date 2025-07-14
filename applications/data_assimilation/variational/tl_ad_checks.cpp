@@ -94,7 +94,6 @@ int main(int argc, char** argv) {
     // Get configuration parameters
     double tl_ad_tolerance = config.Get("tl_ad_tolerance").asFloat();
     double epsilon = config.Get("finite_difference_epsilon").asFloat();
-    bool verbose = config.Get("verbose").asBool();
 
     logger.Info() << "TL/AD tolerance: " << tl_ad_tolerance;
     logger.Info() << "Finite difference epsilon: " << epsilon;
@@ -123,7 +122,7 @@ int main(int argc, char** argv) {
     try {
       // Check: ObsOperator TL/AD consistency
       bool obs_op_tl_ad_passed = fwk::checkObsOperatorTLAD(
-          obs_operator, state, observations, tl_ad_tolerance, epsilon, verbose);
+          obs_operator, state, observations, tl_ad_tolerance);
 
       results.push_back(
           {"ObsOperator TL/AD Consistency", obs_op_tl_ad_passed,

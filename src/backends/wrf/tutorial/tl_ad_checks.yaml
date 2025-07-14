@@ -12,7 +12,6 @@ logger:
 tl_ad_tolerance: 1.0e-6
 gradient_tolerance: 1.0e-6
 finite_difference_epsilon: 1.0e-6
-verbose: true
 
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file

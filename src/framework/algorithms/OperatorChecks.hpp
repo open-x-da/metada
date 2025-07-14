@@ -1,12 +1,14 @@
 #pragma once
 
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <vector>
 
 #include "CostFunction.hpp"
 #include "Increment.hpp"
+#include "Logger.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "State.hpp"
@@ -16,9 +18,10 @@ namespace metada::framework {
 template <typename BackendTag>
 bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
                           const State<BackendTag>& state,
-                          const Observation<BackendTag>& obs, double tol = 1e-6,
-                          [[maybe_unused]] double epsilon = 1e-6,
-                          [[maybe_unused]] int verbose = 1) {
+                          const Observation<BackendTag>& obs,
+                          double tol = 1e-6) {
+  Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
+
   // 1. Create random state increment dx and obs increment dy
   auto dx = Increment<BackendTag>::createFromEntity(state);
   dx.randomize();
@@ -39,10 +42,9 @@ bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
   double rel_error =
       std::abs(a - b) / (std::max(std::abs(a), std::abs(b)) + 1e-12);
 
-  if (verbose) {
-    std::cout << "TL/AD check: <Hdx, dy> = " << a << ", <dx, H^T dy> = " << b
-              << ", rel error = " << rel_error << std::endl;
-  }
+  logger.Info() << "TL/AD check: <Hdx, dy> = " << std::setprecision(13)
+                << std::scientific << a << ", <dx, H^T dy> = " << b
+                << ", rel error = " << rel_error;
 
   return rel_error < tol;
 }
@@ -52,12 +54,13 @@ bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
 template <typename BackendTag>
 bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
                                const State<BackendTag>& state,
-                               double tol = 1e-6, double epsilon = 1e-6,
-                               int verbose = 1) {
-  auto grad = Increment<State<BackendTag>>::createFromEntity(state);
+                               double tol = 1e-6, double epsilon = 1e-6) {
+  Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
+
+  auto grad = Increment<BackendTag>::createFromEntity(state);
   cost_func.gradient(state, grad);
 
-  auto dx = Increment<State<BackendTag>>::createFromEntity(state);
+  auto dx = Increment<BackendTag>::createFromEntity(state);
   dx.randomize();
 
   auto state_perturbed = state.clone();
@@ -72,10 +75,9 @@ bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
   double rel_error = std::abs(fd - analytic) /
                      (std::max(std::abs(fd), std::abs(analytic)) + 1e-12);
 
-  if (verbose) {
-    std::cout << "Gradient check: FD = " << fd << ", analytic = " << analytic
-              << ", rel error = " << rel_error << std::endl;
-  }
+  logger.Info() << "Gradient check: FD = " << std::setprecision(13)
+                << std::scientific << fd << ", analytic = " << analytic
+                << ", rel error = " << rel_error;
 
   return rel_error < tol;
 }
