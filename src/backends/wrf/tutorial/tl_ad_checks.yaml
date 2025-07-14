@@ -30,19 +30,6 @@ state:
     - P      # Pressure
     - PH     # Geopotential
 
-# Model configuration
-model:
-  type: "wrf"
-  time_step: 300.0  # seconds
-  integration_steps: 1
-  physics_schemes:
-    - "convection"
-    - "microphysics"
-    - "radiation"
-    - "boundary_layer"
-  tl_enabled: true
-  ad_enabled: true
-
 # Observations configuration (simplified for debugging)
 observations:
   types:
