@@ -116,13 +116,13 @@ int main(int argc, char** argv) {
         config.GetSubsection("obs_operator"));
     logger.Info() << "Observation operator initialized";
 
-    // Perform ObsOperator TL/AD checks
-    logger.Info() << "\n=== Performing ObsOperator TL/AD Checks ===";
+    // Perform ObsOperator Tangent Linear checks
+    logger.Info() << "\n=== Performing ObsOperator Tangent Linear Checks ===";
 
     try {
       // Check: ObsOperator Tangent Linear correctness
       bool obs_op_tl_passed = fwk::checkObsOperatorTangentLinear(
-          obs_operator, state, observations, tl_ad_tolerance, epsilon);
+          obs_operator, state, observations, tl_ad_tolerance);
 
       results.push_back(
           {"ObsOperator Tangent Linear", obs_op_tl_passed,
@@ -143,6 +143,9 @@ int main(int argc, char** argv) {
           << "ObsOperator Tangent Linear check failed with exception: "
           << e.what();
     }
+
+    // Perform ObsOperator TL/AD checks
+    logger.Info() << "\n=== Performing ObsOperator TL/AD Checks ===";
 
     try {
       // Check: ObsOperator TL/AD consistency

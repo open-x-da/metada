@@ -49,13 +49,14 @@ bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
   return rel_error < tol;
 }
 
-// Tangent linear check for ObsOperator using finite differences
-// Returns true if the check passes (relative error < tol)
+// Tangent linear check for ObsOperator using Taylor expansion with multiple
+// perturbation sizes Returns true if the check passes (relative error < tol and
+// convergence order is correct)
 template <typename BackendTag>
 bool checkObsOperatorTangentLinear(const ObsOperator<BackendTag>& obs_op,
                                    const State<BackendTag>& state,
                                    const Observation<BackendTag>& obs,
-                                   double tol = 1e-6, double epsilon = 1e-6) {
+                                   double tol = 1e-6) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
   // 1. Create random state increment
@@ -65,43 +66,92 @@ bool checkObsOperatorTangentLinear(const ObsOperator<BackendTag>& obs_op,
   // 2. Apply tangent linear: H dx
   auto Hdx_tl = obs_op.applyTangentLinear(dx, state, obs);
 
-  // 3. Compute finite difference approximation
-  auto state_perturbed = state.clone();
-  state_perturbed += dx * epsilon;
+  // 3. Compute Taylor expansion with multiple perturbation sizes
+  std::vector<double> epsilons = {1e-3, 1e-4, 1e-5, 1e-6, 1e-7};
+  std::vector<double> errors;
+  std::vector<double> convergence_rates;
 
   auto y0 = obs_op.apply(state, obs);
-  auto y1 = obs_op.apply(state_perturbed, obs);
 
-  std::vector<double> Hdx_fd(y0.size());
-  for (size_t i = 0; i < y0.size(); ++i) {
-    Hdx_fd[i] = (y1[i] - y0[i]) / epsilon;
+  for (size_t i = 0; i < epsilons.size(); ++i) {
+    double epsilon = epsilons[i];
+
+    // Compute perturbed state: x + ε·dx
+    auto state_perturbed = state.clone();
+    state_perturbed += dx * epsilon;
+
+    // Compute finite difference: (H(x + ε·dx) - H(x)) / ε
+    auto y1 = obs_op.apply(state_perturbed, obs);
+
+    std::vector<double> Hdx_fd(y0.size());
+    for (size_t j = 0; j < y0.size(); ++j) {
+      Hdx_fd[j] = (y1[j] - y0[j]) / epsilon;
+    }
+
+    // Compute relative error for this epsilon
+    double tl_norm = 0.0, fd_norm = 0.0, diff_norm = 0.0;
+
+    for (size_t j = 0; j < Hdx_tl.size(); ++j) {
+      double tl_val = Hdx_tl[j];
+      double fd_val = Hdx_fd[j];
+      double diff = tl_val - fd_val;
+
+      tl_norm += tl_val * tl_val;
+      fd_norm += fd_val * fd_val;
+      diff_norm += diff * diff;
+    }
+
+    tl_norm = std::sqrt(tl_norm);
+    fd_norm = std::sqrt(fd_norm);
+    diff_norm = std::sqrt(diff_norm);
+
+    double rel_error = diff_norm / (std::max(tl_norm, fd_norm) + 1e-12);
+    errors.push_back(rel_error);
+
+    logger.Info() << "ε = " << std::scientific << std::setprecision(1)
+                  << epsilon << ", rel error = " << std::setprecision(13)
+                  << std::scientific << rel_error;
   }
 
-  // 4. Compare tangent linear with finite difference
-  double tl_norm = 0.0, fd_norm = 0.0, diff_norm = 0.0;
-
-  for (size_t i = 0; i < Hdx_tl.size(); ++i) {
-    double tl_val = Hdx_tl[i];
-    double fd_val = Hdx_fd[i];
-    double diff = tl_val - fd_val;
-
-    tl_norm += tl_val * tl_val;
-    fd_norm += fd_val * fd_val;
-    diff_norm += diff * diff;
+  // 4. Compute convergence rate (should be O(ε) for first-order accuracy)
+  for (size_t i = 1; i < errors.size(); ++i) {
+    double rate = std::log(errors[i - 1] / errors[i]) /
+                  std::log(epsilons[i - 1] / epsilons[i]);
+    convergence_rates.push_back(rate);
+    logger.Info() << "Convergence rate " << i << ": " << std::setprecision(3)
+                  << rate;
   }
 
-  tl_norm = std::sqrt(tl_norm);
-  fd_norm = std::sqrt(fd_norm);
-  diff_norm = std::sqrt(diff_norm);
+  // 5. Check if errors decrease and convergence rate is reasonable
+  bool errors_decrease = true;
+  bool convergence_good = true;
 
-  double rel_error = diff_norm / (std::max(tl_norm, fd_norm) + 1e-12);
+  for (size_t i = 1; i < errors.size(); ++i) {
+    if (errors[i] >= errors[i - 1]) {
+      errors_decrease = false;
+    }
+  }
 
-  logger.Info() << "Tangent Linear check: TL norm = " << std::setprecision(13)
-                << std::scientific << tl_norm << ", FD norm = " << fd_norm
-                << ", diff norm = " << diff_norm
-                << ", rel error = " << rel_error;
+  for (size_t i = 0; i < convergence_rates.size(); ++i) {
+    // Expect convergence rate around 1.0 (first-order accuracy)
+    // Allow some tolerance for numerical issues
+    if (convergence_rates[i] < 0.5 || convergence_rates[i] > 2.0) {
+      convergence_good = false;
+    }
+  }
 
-  return rel_error < tol;
+  // 6. Final check: use the smallest epsilon for the main tolerance check
+  double final_error = errors.back();
+  bool tol_check = final_error < tol;
+
+  logger.Info() << "Tangent Linear check: final error = "
+                << std::setprecision(13) << std::scientific << final_error
+                << ", errors decrease = "
+                << (errors_decrease ? "true" : "false")
+                << ", convergence good = "
+                << (convergence_good ? "true" : "false");
+
+  return tol_check && errors_decrease && convergence_good;
 }
 
 // Gradient check for CostFunction
