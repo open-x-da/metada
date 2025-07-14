@@ -120,6 +120,31 @@ int main(int argc, char** argv) {
     logger.Info() << "\n=== Performing ObsOperator TL/AD Checks ===";
 
     try {
+      // Check: ObsOperator Tangent Linear correctness
+      bool obs_op_tl_passed = fwk::checkObsOperatorTangentLinear(
+          obs_operator, state, observations, tl_ad_tolerance, epsilon);
+
+      results.push_back(
+          {"ObsOperator Tangent Linear", obs_op_tl_passed,
+           0.0,  // Will be updated if we have more detailed error info
+           tl_ad_tolerance,
+           obs_op_tl_passed
+               ? "Observation operator tangent linear is correct"
+               : "Observation operator tangent linear is incorrect"});
+
+      logger.Info() << "ObsOperator Tangent Linear check: "
+                    << (obs_op_tl_passed ? "PASSED" : "FAILED");
+
+    } catch (const std::exception& e) {
+      results.push_back({"ObsOperator Tangent Linear", false, 1.0,
+                         tl_ad_tolerance,
+                         std::string("Exception during check: ") + e.what()});
+      logger.Error()
+          << "ObsOperator Tangent Linear check failed with exception: "
+          << e.what();
+    }
+
+    try {
       // Check: ObsOperator TL/AD consistency
       bool obs_op_tl_ad_passed = fwk::checkObsOperatorTLAD(
           obs_operator, state, observations, tl_ad_tolerance);

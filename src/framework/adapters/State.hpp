@@ -51,6 +51,13 @@ template <typename BackendTag>
 class Config;
 
 /**
+ * @brief Forward declaration of Increment class
+ */
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+class Increment;
+
+/**
  * @brief Main state class template providing a generic interface to state
  * implementations
  *
@@ -289,6 +296,16 @@ class State : private NonCopyable {
    */
   State& operator+=(const State& other) {
     backend_.add(other.backend_);
+    return *this;
+  }
+
+  /**
+   * @brief Addition assignment operator for increment
+   * @param increment Increment to add
+   * @return Reference to this state
+   */
+  State& operator+=(const Increment<BackendTag>& increment) {
+    backend_.add(increment.state().backend());
     return *this;
   }
 

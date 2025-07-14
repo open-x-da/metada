@@ -77,8 +77,29 @@ class Increment {
     return *this;
   }
 
+  // Scalar multiplication operator
+  Increment& operator*=(double scalar) {
+    state_ *= scalar;
+    return *this;
+  }
+
  private:
   StateType state_;
 };
+
+// Non-member scalar multiplication operators
+template <typename BackendTag>
+Increment<BackendTag> operator*(const Increment<BackendTag>& inc,
+                                double scalar) {
+  Increment<BackendTag> result(inc.state());
+  result *= scalar;
+  return result;
+}
+
+template <typename BackendTag>
+Increment<BackendTag> operator*(double scalar,
+                                const Increment<BackendTag>& inc) {
+  return inc * scalar;
+}
 
 }  // namespace metada::framework
