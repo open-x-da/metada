@@ -83,6 +83,12 @@ class Increment {
     return *this;
   }
 
+  // Scalar division operator
+  Increment& operator/=(double scalar) {
+    state_ *= (1.0 / scalar);
+    return *this;
+  }
+
  private:
   StateType state_;
 };

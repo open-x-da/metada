@@ -93,10 +93,17 @@ int main(int argc, char** argv) {
 
     // Get configuration parameters
     double tl_ad_tolerance = config.Get("tl_ad_tolerance").asFloat();
-    double epsilon = config.Get("finite_difference_epsilon").asFloat();
+    std::vector<double> epsilons;
+    auto eps_floats = config.Get("finite_difference_epsilons").asVectorFloat();
+    for (auto f : eps_floats) {
+      epsilons.push_back(static_cast<double>(f));
+    }
 
     logger.Info() << "TL/AD tolerance: " << tl_ad_tolerance;
-    logger.Info() << "Finite difference epsilon: " << epsilon;
+    if (!epsilons.empty()) {
+      logger.Info() << "Finite difference epsilons: ";
+      for (auto e : epsilons) logger.Info() << e;
+    }
 
     // Initialize geometry
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
@@ -121,12 +128,16 @@ int main(int argc, char** argv) {
 
     try {
       // Check: ObsOperator Tangent Linear correctness
-      bool obs_op_tl_passed = fwk::checkObsOperatorTangentLinear(
-          obs_operator, state, observations, tl_ad_tolerance);
-
+      double final_rel_error = 0.0;
+      bool obs_op_tl_passed = false;
+      // Use the new signature with configurable epsilons
+      obs_op_tl_passed = fwk::checkObsOperatorTangentLinear(
+          obs_operator, state, observations, tl_ad_tolerance, epsilons);
+      // The function logs the final error, but if you want to extract it, you
+      // could modify the function to return it. For now, we set it to 0.0 as
+      // before, or you can parse from logs if needed.
       results.push_back(
-          {"ObsOperator Tangent Linear", obs_op_tl_passed,
-           0.0,  // Will be updated if we have more detailed error info
+          {"ObsOperator Tangent Linear", obs_op_tl_passed, final_rel_error,
            tl_ad_tolerance,
            obs_op_tl_passed
                ? "Observation operator tangent linear is correct"

@@ -9,9 +9,17 @@ logger:
   console: true
 
 # Global parameters
+# Tolerance for TL/AD consistency check
+# (relative error threshold)
 tl_ad_tolerance: 1.0e-6
 gradient_tolerance: 1.0e-6
-finite_difference_epsilon: 1.0e-6
+finite_difference_epsilons:
+   - 1.0e-3
+   - 1.0e-4
+   - 1.0e-5
+   - 1.0e-6
+   - 1.0e-7
+   - 1.0e-8
 
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file
