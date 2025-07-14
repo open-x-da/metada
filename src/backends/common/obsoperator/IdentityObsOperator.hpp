@@ -219,16 +219,18 @@ class IdentityObsOperator {
    * @brief Apply adjoint observation operator: H^T delta_y
    *
    * @details Maps from observation space back to state space. For the identity
-   * operator, this spreads observation increments back to the corresponding
-   * grid points.
+   * operator, this maps observation increments back to the corresponding grid
+   * points using the adjoint of nearest-neighbor interpolation.
    *
    * @param obs_increment Observation space increment
    * @param reference_state Reference state to get structure
    * @param result_state State to store the adjoint result
+   * @param obs Observations to determine grid coordinates for adjoint mapping
    */
   void applyAdjoint(const std::vector<double>& obs_increment,
                     const StateBackend& reference_state,
-                    StateBackend& result_state) const {
+                    StateBackend& result_state,
+                    const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("IdentityObsOperator not initialized");
     }
@@ -237,63 +239,80 @@ class IdentityObsOperator {
     result_state = std::move(*(reference_state.clone()));
     result_state.zero();
 
-    // The adjoint operator maps from observation space to state space
-    // obs_increment.size() should equal number of observations
-    // result_state.size() should equal state size
-    // These are typically different sizes in data assimilation!
-    
-    // For a simple identity-like operator, we need to map observation
-    // increments back to their corresponding state locations
-    // This is a simplified implementation that assumes sparse observations
-    
-    // Get observation locations and map increments back to state
-    // For now, we'll distribute the observation increments across
-    // the state space as a simple approximation
-    if (obs_increment.empty()) {
-      return; // No observations to process
+    // Get state dimensions
+    size_t nx = static_cast<size_t>(reference_state.geometry().x_dim());
+    size_t ny = static_cast<size_t>(reference_state.geometry().y_dim());
+    size_t nz = 1; // Default to 1 for 2D geometries
+    if constexpr (requires { reference_state.geometry().z_dim(); }) {
+      nz = reference_state.geometry().z_dim();
     }
+
+    // For the adjoint of nearest-neighbor interpolation:
+    // 1. For each observation, determine its grid coordinates (same as in forward pass)
+    // 2. Map each observation increment back to its corresponding grid point
     
-    // Improved approach: map observation increments to specific state locations
-    // This provides meaningful gradients for optimization
-    
-    size_t state_size = result_state.size();
     size_t obs_size = obs_increment.size();
-    
-    // Calculate stride to map observations across the state space
-    // This ensures each observation increment affects different parts of the state
-    size_t stride = (state_size > obs_size) ? state_size / obs_size : 1;
-    
-    if constexpr (requires { result_state[0]; }) {
-      // For states that support operator[]
-      for (size_t obs_idx = 0; obs_idx < obs_size; ++obs_idx) {
-        // Map each observation to multiple state locations
-        size_t start_idx = obs_idx * stride;
-        size_t end_idx = std::min(start_idx + stride, state_size);
-        
-        // Distribute the observation increment across these state locations
-        double increment_per_location = obs_increment[obs_idx] / (end_idx - start_idx);
-        
-        for (size_t state_idx = start_idx; state_idx < end_idx; ++state_idx) {
-          result_state[state_idx] = increment_per_location;
-        }
+    if (obs_size != obs.size()) {
+      throw std::runtime_error("Observation increment size does not match observation count");
+    }
+
+    // Process each observation
+    for (size_t obs_idx = 0; obs_idx < obs_size; ++obs_idx) {
+      const auto& obs_point = obs[obs_idx];
+      if (!obs_point.is_valid) {
+        continue; // Skip invalid observations
       }
-    } else if constexpr (requires { result_state.at(0); }) {
-      // For states that support at(index)
-      for (size_t obs_idx = 0; obs_idx < obs_size; ++obs_idx) {
-        // Map each observation to multiple state locations
-        size_t start_idx = obs_idx * stride;
-        size_t end_idx = std::min(start_idx + stride, state_size);
+
+      // Convert observation location to grid coordinates (same as in forward pass)
+      double x, y, z;
+      if (obs_point.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+        auto [lat, lon, level] = obs_point.location.getGeographicCoords();
         
-        // Distribute the observation increment across these state locations
-        double increment_per_location = obs_increment[obs_idx] / (end_idx - start_idx);
-        
-        for (size_t state_idx = start_idx; state_idx < end_idx; ++state_idx) {
-          result_state.at(state_idx) = increment_per_location;
-        }
+        // Convert geographic coordinates to grid coordinates
+        auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(lat, lon, level, reference_state.geometry());
+        x = static_cast<double>(grid_i);
+        y = static_cast<double>(grid_j);
+        z = static_cast<double>(grid_k);
+      } else {
+        // For non-geographic coordinates, use grid coordinates directly
+        auto [i, j, k] = obs_point.location.getGridCoords();
+        x = static_cast<double>(i);
+        y = static_cast<double>(j);
+        z = static_cast<double>(k);
       }
-    } else {
-      throw std::runtime_error(
-          "State backend does not support required access methods for adjoint");
+
+      // Find nearest grid point (same as in forward pass)
+      x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
+      y = std::max(0.0, std::min(static_cast<double>(ny - 1), y));
+      z = std::max(0.0, std::min(static_cast<double>(nz - 1), z));
+
+      size_t i = static_cast<size_t>(std::round(x));
+      size_t j = static_cast<size_t>(std::round(y));
+      size_t k = static_cast<size_t>(std::round(z));
+
+      // Ensure indices are within bounds
+      if (i >= nx) i = nx - 1;
+      if (j >= ny) j = ny - 1;
+      if (k >= nz) k = nz - 1;
+
+      // Adjoint of nearest-neighbor interpolation: add the observation increment
+      // to the corresponding grid point
+      if constexpr (requires { result_state[std::declval<size_t>()]; }) {
+        // Convert 3D grid coordinates to linear index using row-major order
+        size_t linear_index = k * (nx * ny) + j * nx + i;
+        result_state[linear_index] += obs_increment[obs_idx];
+      } else if constexpr (requires { result_state.at(std::declval<size_t>()); }) {
+        // Convert 3D grid coordinates to linear index using row-major order
+        size_t linear_index = k * (nx * ny) + j * nx + i;
+        result_state.at(linear_index) += obs_increment[obs_idx];
+      } else if constexpr (requires { result_state.at(std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
+        result_state.at(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k)) += obs_increment[obs_idx];
+      } else if constexpr (requires { result_state.at(std::declval<int>(), std::declval<int>()); }) {
+        result_state.at(static_cast<int>(i), static_cast<int>(j)) += obs_increment[obs_idx];
+      } else {
+        throw std::runtime_error(
+            "State backend does not support required access methods for adjoint");
+      }
     }
   }
 

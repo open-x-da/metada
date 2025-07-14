@@ -194,12 +194,13 @@ class ObsOperator : public NonCopyable {
    *
    * @param obs_increment Observation space increment
    * @param reference_state Reference state around which the adjoint is computed
+   * @param obs Observations to determine grid coordinates for adjoint mapping
    * @return State increment containing the adjoint transformation result
    * @throws std::runtime_error If the observation operator is not initialized
    */
-  Increment<BackendTag> applyAdjoint(
-      const std::vector<double>& obs_increment,
-      const State<BackendTag>& reference_state) const;
+  Increment<BackendTag> applyAdjoint(const std::vector<double>& obs_increment,
+                                     const State<BackendTag>& reference_state,
+                                     const Observation<BackendTag>& obs) const;
 
   /**
    * @brief Check if tangent linear and adjoint operators are available
@@ -231,12 +232,13 @@ template <typename BackendTag>
   requires ObsOperatorBackendType<BackendTag>
 Increment<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
     const std::vector<double>& obs_increment,
-    const State<BackendTag>& reference_state) const {
+    const State<BackendTag>& reference_state,
+    const Observation<BackendTag>& obs) const {
   // Create an increment from the reference state
   auto increment = Increment<BackendTag>::createFromEntity(reference_state);
   increment.zero();
   backend_.applyAdjoint(obs_increment, reference_state.backend(),
-                        increment.state().backend());
+                        increment.state().backend(), obs.backend());
   return increment;
 }
 

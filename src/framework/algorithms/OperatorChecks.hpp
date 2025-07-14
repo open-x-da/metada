@@ -30,7 +30,7 @@ bool checkObsOperatorTLAD(const ObsOperator<BackendTag>& obs_op,
   auto Hdx = obs_op.applyTangentLinear(dx, state, obs);
 
   // 3. Apply adjoint: H^T dy
-  auto HTdy = obs_op.applyAdjoint(dy, state);
+  auto HTdy = obs_op.applyAdjoint(dy, state, obs);
 
   // 4. Compute inner products
   double a = std::inner_product(Hdx.begin(), Hdx.end(), dy.begin(), 0.0);

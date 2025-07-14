@@ -278,7 +278,7 @@ class CostFunction : public NonCopyable {
     auto weighted_innovation = obs.applyInverseCovariance(innovation);
 
     // H^T R^-1 (H(x) - y)
-    auto obs_gradient = obs_op.applyAdjoint(weighted_innovation, state);
+    auto obs_gradient = obs_op.applyAdjoint(weighted_innovation, state, obs);
     gradient += obs_gradient;
   }
 
@@ -306,7 +306,7 @@ class CostFunction : public NonCopyable {
       auto innovation = computeInnovation(obs, simulated_obs);
       auto weighted_innovation = obs.applyInverseCovariance(innovation);
       auto obs_gradient =
-          obs_op.applyAdjoint(weighted_innovation, current_state);
+          obs_op.applyAdjoint(weighted_innovation, current_state, obs);
 
       // For FGAT, we approximate by not using model adjoint
       gradient += obs_gradient;
@@ -347,7 +347,7 @@ class CostFunction : public NonCopyable {
       auto innovation = computeInnovation(obs, simulated_obs);
       auto weighted_innovation = obs.applyInverseCovariance(innovation);
       auto obs_adjoint =
-          obs_op.applyAdjoint(weighted_innovation, state_at_time);
+          obs_op.applyAdjoint(weighted_innovation, state_at_time, obs);
 
       adjoint_forcing += obs_adjoint;
 
