@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <chrono>
+#include <filesystem>
 #include <memory>
 #include <netcdf>
 #include <optional>
@@ -820,59 +822,79 @@ class WRFState {
 
   ///@{ @name File I/O Operations
   /**
-   * @brief Save state data to NetCDF file
+   * @brief Save state data to NetCDF file by copying original and updating
+   * variables
    *
-   * @details Writes all loaded variables to a new NetCDF file with proper
-   * dimension definitions and global attributes. The file format is compatible
-   * with WRF conventions and can be used for state persistence or analysis.
+   * @details Copies the original WRF NetCDF file and updates only the variables
+   * that have been loaded and potentially modified. This preserves all original
+   * file structure, dimensions, attributes, and variables not explicitly
+   * loaded. The method is more efficient and maintains WRF file compatibility.
    *
    * @param[in] filename Path where the NetCDF file should be created
-   * @throws std::runtime_error If file creation fails
+   * @throws std::runtime_error If file creation or copying fails
    * @throws netCDF::exceptions::NcException If NetCDF operations fail
    *
    * @note The output file will contain:
-   *       - All variable data with original dimensions
-   *       - Global attributes including active variable and total size
-   *       - Dimension information for each variable
+   *       - All original variables and attributes from source file
+   *       - Updated data for loaded variables
+   *       - Preserved file structure and metadata
    */
   void saveToFile(const std::string& filename) const {
     try {
-      // Create NetCDF file
-      netCDF::NcFile nc_file(filename, netCDF::NcFile::replace);
+      // First, copy the original file to preserve all structure
+      std::filesystem::copy_file(
+          wrfFilename_, filename,
+          std::filesystem::copy_options::overwrite_existing);
+
+      // Open the copied file for modification
+      netCDF::NcFile nc_file(filename, netCDF::NcFile::write);
 
       if (nc_file.isNull()) {
-        throw std::runtime_error("Failed to create NetCDF file: " + filename);
+        throw std::runtime_error("Failed to open copied NetCDF file: " +
+                                 filename);
       }
 
-      // Save each variable to the NetCDF file
+      // Update only the variables that were loaded (and potentially modified)
       for (const auto& varName : variableNames_) {
-        const auto& var_dims = dimensions_.at(varName);
-        size_t offset = variable_offsets_.at(varName);
-        size_t var_size = 1;
-        for (size_t dim : var_dims) var_size *= dim;
+        auto nc_var = nc_file.getVar(varName);
 
-        // Create dimensions
-        std::vector<netCDF::NcDim> nc_dims;
-        for (size_t i = 0; i < var_dims.size(); ++i) {
-          std::string dim_name = "dim_" + std::to_string(i) + "_" + varName;
-          nc_dims.push_back(nc_file.addDim(dim_name, var_dims[i]));
+        if (!nc_var.isNull()) {
+          size_t offset = variable_offsets_.at(varName);
+
+          // Write updated data from flattened storage
+          nc_var.putVar(flattened_data_.data() + offset);
+        } else {
+          // Variable doesn't exist in original file, skip it
+          // This could happen if we loaded variables not in the original file
+          std::cerr << "Warning: Variable " << varName
+                    << " not found in original file, skipping update"
+                    << std::endl;
         }
-
-        // Create variable
-        netCDF::NcVar nc_var =
-            nc_file.addVar(varName, netCDF::ncDouble, nc_dims);
-
-        // Write data from flattened storage
-        nc_var.putVar(flattened_data_.data() + offset);
       }
 
-      // Add global attributes
-      nc_file.putAtt("title", "WRF State Data");
-      nc_file.putAtt("source", "Metada Framework");
-      nc_file.putAtt("total_size", netCDF::ncInt, static_cast<long>(size()));
+      // Add metadata about the update
+      nc_file.putAtt("metada_updated", "true");
+
+      // Convert timestamp to string for NetCDF compatibility
+      auto now = std::chrono::system_clock::now();
+      auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+                           now.time_since_epoch())
+                           .count();
+      nc_file.putAtt("metada_update_time", std::to_string(timestamp));
+
+      // Add list of updated variables as a single string
+      std::string updated_vars;
+      for (size_t i = 0; i < variableNames_.size(); ++i) {
+        if (i > 0) updated_vars += ", ";
+        updated_vars += variableNames_[i];
+      }
+      nc_file.putAtt("metada_updated_variables", updated_vars);
 
       nc_file.close();
 
+    } catch (const std::filesystem::filesystem_error& e) {
+      throw std::runtime_error("File system error while copying WRF file: " +
+                               std::string(e.what()));
     } catch (const netCDF::exceptions::NcException& e) {
       throw std::runtime_error("NetCDF error while saving WRF state: " +
                                std::string(e.what()));
