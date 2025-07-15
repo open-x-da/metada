@@ -207,23 +207,76 @@ int main(int argc, char** argv) {
     logger.Info() << "\n=== Performing Cost Function Gradient Checks ===";
 
     try {
-      // Check: Cost Function Gradient correctness
+      // Check: Cost Function Gradient correctness (single direction)
       bool cost_func_gradient_passed =
           fwk::checkCostFunctionGradient(cost_function, state, tl_ad_tolerance);
 
-      results.push_back({"Cost Function Gradient", cost_func_gradient_passed,
-                         0.0, tl_ad_tolerance,
+      results.push_back({"Cost Function Gradient (Single)",
+                         cost_func_gradient_passed, 0.0, tl_ad_tolerance,
                          cost_func_gradient_passed
                              ? "Cost function gradient is correct"
                              : "Cost function gradient is incorrect"});
 
-      logger.Info() << "Cost Function Gradient check: "
+      logger.Info() << "Cost Function Gradient check (single): "
                     << (cost_func_gradient_passed ? "PASSED" : "FAILED");
 
     } catch (const std::exception& e) {
-      results.push_back({"Cost Function Gradient", false, 1.0, tl_ad_tolerance,
+      results.push_back({"Cost Function Gradient (Single)", false, 1.0,
+                         tl_ad_tolerance,
                          std::string("Exception during check: ") + e.what()});
       logger.Error() << "Cost Function Gradient check failed with exception: "
+                     << e.what();
+    }
+
+    // Check: Cost Function Gradient with multiple random directions
+    try {
+      size_t num_directions = config.Get("gradient_check_directions").asInt();
+      bool cost_func_gradient_multi_passed =
+          fwk::checkCostFunctionGradientMultipleDirections(
+              cost_function, state, num_directions, tl_ad_tolerance);
+
+      results.push_back(
+          {"Cost Function Gradient (Multi)", cost_func_gradient_multi_passed,
+           0.0, tl_ad_tolerance,
+           cost_func_gradient_multi_passed
+               ? "Cost function gradient is correct across multiple directions"
+               : "Cost function gradient is incorrect across multiple "
+                 "directions"});
+
+      logger.Info() << "Cost Function Gradient check (multiple directions): "
+                    << (cost_func_gradient_multi_passed ? "PASSED" : "FAILED");
+
+    } catch (const std::exception& e) {
+      results.push_back({"Cost Function Gradient (Multi)", false, 1.0,
+                         tl_ad_tolerance,
+                         std::string("Exception during check: ") + e.what()});
+      logger.Error()
+          << "Cost Function Gradient check (multiple) failed with exception: "
+          << e.what();
+    }
+
+    // Check: Cost Function Gradient with unit vector directions
+    try {
+      bool cost_func_gradient_unit_passed =
+          fwk::checkCostFunctionGradientUnitDirections(cost_function, state,
+                                                       tl_ad_tolerance);
+
+      results.push_back(
+          {"Cost Function Gradient (Unit)", cost_func_gradient_unit_passed, 0.0,
+           tl_ad_tolerance,
+           cost_func_gradient_unit_passed
+               ? "Cost function gradient is correct along unit vectors"
+               : "Cost function gradient is incorrect along unit vectors"});
+
+      logger.Info() << "Cost Function Gradient check (unit vectors): "
+                    << (cost_func_gradient_unit_passed ? "PASSED" : "FAILED");
+
+    } catch (const std::exception& e) {
+      results.push_back({"Cost Function Gradient (Unit)", false, 1.0,
+                         tl_ad_tolerance,
+                         std::string("Exception during check: ") + e.what()});
+      logger.Error() << "Cost Function Gradient check (unit vectors) failed "
+                        "with exception: "
                      << e.what();
     }
 

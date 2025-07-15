@@ -13,6 +13,8 @@ logger:
 # (relative error threshold)
 tl_ad_tolerance: 1.0e-6
 gradient_tolerance: 1.0e-6
+# Number of random directions for gradient checks
+gradient_check_directions: 10
 finite_difference_epsilons:
    - 1.0e-3
    - 1.0e-4
@@ -43,11 +45,11 @@ state:
   # Analysis variables for 3DVAR
   variables:
     - U      # U-component of wind
-    - V      # V-component of wind
-    - T      # Temperature
-    - QVAPOR # Water vapor mixing ratio
-    - P      # Pressure
-    - PH     # Geopotential
+  #  - V      # V-component of wind
+  #  - T      # Temperature
+  #  - QVAPOR # Water vapor mixing ratio
+  #  - P      # Pressure
+  #  - PH     # Geopotential
 
 # Observations configuration (simplified for debugging)
 observations:

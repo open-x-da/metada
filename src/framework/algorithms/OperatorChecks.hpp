@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -308,6 +309,194 @@ bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
                 << ", rel error = " << rel_error;
 
   return rel_error < tol;
+}
+
+// Improved gradient check with variable-specific epsilon
+// Returns true if the check passes (relative error < tol)
+template <typename BackendTag>
+bool checkCostFunctionGradientImproved(
+    const CostFunction<BackendTag>& cost_func, const State<BackendTag>& state,
+    double tol = 1e-6) {
+  Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
+
+  auto grad = Increment<BackendTag>::createFromEntity(state);
+  cost_func.gradient(state, grad);
+
+  // Create perturbation with variable-specific scaling
+  auto dx = Increment<BackendTag>::createFromEntity(state);
+  dx.randomize();
+
+  // Scale perturbation by variable magnitudes for better numerical stability
+  // This ensures epsilon is appropriate for each variable's scale
+  double state_norm = state.norm();
+  if (state_norm > 0) {
+    dx *= (state_norm * 1e-6);  // Scale by 1e-6 of state magnitude
+  } else {
+    dx *= 1e-6;  // Fallback for zero state
+  }
+
+  auto state_perturbed = state.clone();
+  state_perturbed += dx;
+
+  double J0 = cost_func.evaluate(state);
+  double J1 = cost_func.evaluate(state_perturbed);
+
+  double dx_norm = dx.norm();
+  double fd = (J1 - J0) / dx_norm;
+  double analytic = grad.dot(dx) / dx_norm;
+
+  double rel_error = std::abs(fd - analytic) /
+                     (std::max(std::abs(fd), std::abs(analytic)) + 1e-12);
+
+  logger.Info() << "Improved gradient check: FD = " << std::setprecision(13)
+                << std::scientific << fd << ", analytic = " << analytic
+                << ", rel error = " << rel_error
+                << ", perturbation norm = " << dx_norm;
+
+  return rel_error < tol;
+}
+
+// Comprehensive gradient check with multiple random directions
+// Returns true if all checks pass (relative error < tol)
+template <typename BackendTag>
+bool checkCostFunctionGradientMultipleDirections(
+    const CostFunction<BackendTag>& cost_func, const State<BackendTag>& state,
+    size_t num_directions = 10, double tol = 1e-6) {
+  Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
+
+  logger.Info() << "Testing gradient with " << num_directions
+                << " random directions...";
+
+  std::vector<double> rel_errors;
+  std::vector<double> fd_values;
+  std::vector<double> analytic_values;
+
+  for (size_t i = 0; i < num_directions; ++i) {
+    auto grad = Increment<BackendTag>::createFromEntity(state);
+    cost_func.gradient(state, grad);
+
+    // Create perturbation with variable-specific scaling
+    auto dx = Increment<BackendTag>::createFromEntity(state);
+    dx.randomize();
+
+    // Scale perturbation by variable magnitudes for better numerical stability
+    double state_norm = state.norm();
+    if (state_norm > 0) {
+      dx *= (state_norm * 1e-6);  // Scale by 1e-6 of state magnitude
+    } else {
+      dx *= 1e-6;  // Fallback for zero state
+    }
+
+    auto state_perturbed = state.clone();
+    state_perturbed += dx;
+
+    double J0 = cost_func.evaluate(state);
+    double J1 = cost_func.evaluate(state_perturbed);
+
+    double dx_norm = dx.norm();
+    double fd = (J1 - J0) / dx_norm;
+    double analytic = grad.dot(dx) / dx_norm;
+
+    double rel_error = std::abs(fd - analytic) /
+                       (std::max(std::abs(fd), std::abs(analytic)) + 1e-12);
+
+    rel_errors.push_back(rel_error);
+    fd_values.push_back(fd);
+    analytic_values.push_back(analytic);
+
+    logger.Info() << "Direction " << (i + 1) << "/" << num_directions
+                  << ": FD = " << std::setprecision(13) << std::scientific << fd
+                  << ", analytic = " << analytic
+                  << ", rel error = " << rel_error;
+  }
+
+  // Statistical analysis
+  double max_error = *std::max_element(rel_errors.begin(), rel_errors.end());
+  double min_error = *std::min_element(rel_errors.begin(), rel_errors.end());
+  double mean_error =
+      std::accumulate(rel_errors.begin(), rel_errors.end(), 0.0) /
+      rel_errors.size();
+
+  // Calculate standard deviation
+  double variance = 0.0;
+  for (double error : rel_errors) {
+    variance += (error - mean_error) * (error - mean_error);
+  }
+  double std_dev = std::sqrt(variance / rel_errors.size());
+
+  logger.Info() << "Gradient check statistics:";
+  logger.Info() << "  Max relative error: " << std::setprecision(13)
+                << std::scientific << max_error;
+  logger.Info() << "  Min relative error: " << min_error;
+  logger.Info() << "  Mean relative error: " << mean_error;
+  logger.Info() << "  Std dev relative error: " << std_dev;
+  logger.Info() << "  Pass rate: "
+                << std::count_if(rel_errors.begin(), rel_errors.end(),
+                                 [tol](double e) { return e < tol; })
+                << "/" << num_directions;
+
+  return max_error < tol;
+}
+
+// Test specific directions (e.g., unit vectors along each variable)
+template <typename BackendTag>
+bool checkCostFunctionGradientUnitDirections(
+    const CostFunction<BackendTag>& cost_func, const State<BackendTag>& state,
+    double tol = 1e-6) {
+  Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
+
+  logger.Info() << "Testing gradient with unit vector directions...";
+
+  auto grad = Increment<BackendTag>::createFromEntity(state);
+  cost_func.gradient(state, grad);
+
+  std::vector<double> rel_errors;
+  size_t state_size = state.size();
+
+  // Create dx and data pointer once outside the loop
+  auto dx = Increment<BackendTag>::createFromEntity(state);
+  auto* data = dx.state().template getDataPtr<double>();
+
+  // Test unit vectors along each dimension
+  for (size_t i = 0; i < std::min(state_size, size_t(10));
+       ++i) {  // Limit to first 10 dimensions
+    dx.zero();
+    data[i] = 1.0;  // Unit vector in direction i
+
+    // Scale the unit vector
+    double state_norm = state.norm();
+    if (state_norm > 0) {
+      dx *= (state_norm * 1e-6);
+    } else {
+      dx *= 1e-6;
+    }
+
+    auto state_perturbed = state.clone();
+    state_perturbed += dx;
+
+    double J0 = cost_func.evaluate(state);
+    double J1 = cost_func.evaluate(state_perturbed);
+
+    double dx_norm = dx.norm();
+    double fd = (J1 - J0) / dx_norm;
+    double analytic = grad.dot(dx) / dx_norm;
+
+    double rel_error = std::abs(fd - analytic) /
+                       (std::max(std::abs(fd), std::abs(analytic)) + 1e-12);
+
+    rel_errors.push_back(rel_error);
+
+    logger.Info() << "Unit direction " << i
+                  << ": FD = " << std::setprecision(13) << std::scientific << fd
+                  << ", analytic = " << analytic
+                  << ", rel error = " << rel_error;
+  }
+
+  double max_error = *std::max_element(rel_errors.begin(), rel_errors.end());
+  logger.Info() << "Unit direction test - Max relative error: "
+                << std::setprecision(13) << std::scientific << max_error;
+
+  return max_error < tol;
 }
 
 }  // namespace metada::framework
