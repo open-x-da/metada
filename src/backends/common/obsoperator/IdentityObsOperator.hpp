@@ -125,6 +125,8 @@ class IdentityObsOperator {
    *
    * @details Maps state to observation space by interpolating from model grid
    * to observation locations using nearest-neighbor interpolation.
+   * For multi-variable states, interpolates from the appropriate variable
+   * based on observation type and required state variables.
    *
    * @param state Model state to transform
    * @param obs Output observation to store the result
@@ -139,14 +141,6 @@ class IdentityObsOperator {
     std::vector<double> result;
     result.reserve(obs.size());
 
-    // Get state dimensions
-    size_t nx = static_cast<size_t>(state.geometry().x_dim());
-    size_t ny = static_cast<size_t>(state.geometry().y_dim());
-    size_t nz = 1; // Default to 1 for 2D geometries
-    if constexpr (requires { state.geometry().z_dim(); }) {
-      nz = state.geometry().z_dim();
-    }
-
     // Apply observation operator to each observation point
     for (const auto& obs_point : obs) {
       if (!obs_point.is_valid) {
@@ -154,31 +148,117 @@ class IdentityObsOperator {
         continue;
       }
 
-      // Convert observation location to grid coordinates
-      double x, y, z;
-      if (obs_point.location.getCoordinateSystem() ==
-          CoordinateSystem::GEOGRAPHIC) {
-        auto [lat, lon, level] = obs_point.location.getGeographicCoords();
-        
-        // Convert geographic coordinates to grid coordinates
-        auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(lat, lon, level, state.geometry());
-        x = static_cast<double>(grid_i);
-        y = static_cast<double>(grid_j);
-        z = static_cast<double>(grid_k);
-      } else {
-        // For non-geographic coordinates, use grid coordinates directly
-        auto [i, j, k] = obs_point.location.getGridCoords();
-        x = static_cast<double>(i);
-        y = static_cast<double>(j);
-        z = static_cast<double>(k);
-      }
-
-      // Perform nearest-neighbor interpolation
-      double interpolated_value = nearestNeighborInterpolation(state, x, y, z, nx, ny, nz);
+      // Determine which state variable to interpolate from
+      std::string state_var_name = determineStateVariable(obs_point);
+      
+      // Perform variable-specific interpolation
+      double interpolated_value = interpolateFromVariable(state, obs_point, state_var_name);
       result.push_back(interpolated_value);
     }
 
     return result;
+  }
+
+  /**
+   * @brief Determine which state variable to interpolate from based on observation
+   *
+   * @param obs_point The observation point
+   * @return Name of the state variable to interpolate from
+   */
+  std::string determineStateVariable(const typename ObsBackend::value_type& obs_point) const {
+    // If we have required state variables specified, use the first one
+    if (!required_state_vars_.empty()) {
+      return required_state_vars_[0];
+    }
+    
+    // For WRFState-like backends, try to determine variable from observation type
+    if constexpr (requires { obs_point.variable_name; }) {
+      // If observation has a variable name, try to map it to state variable
+      std::string obs_var = obs_point.variable_name;
+      
+      // Simple mapping from observation variables to state variables
+      if (obs_var == "T" || obs_var == "T2" || obs_var == "temperature") {
+        return "T";  // Temperature
+      } else if (obs_var == "Q" || obs_var == "Q2" || obs_var == "humidity") {
+        return "QVAPOR";  // Water vapor mixing ratio
+      } else if (obs_var == "U" || obs_var == "U10" || obs_var == "wind_u") {
+        return "U";  // U-wind component
+      } else if (obs_var == "V" || obs_var == "V10" || obs_var == "wind_v") {
+        return "V";  // V-wind component
+      } else if (obs_var == "P" || obs_var == "PSFC" || obs_var == "pressure") {
+        return "P";  // Pressure
+      } else {
+        // Default to first available variable
+        return obs_var;
+      }
+    }
+    
+    // Default: use first available variable from state
+    // Note: We can't access state here, so we'll use a fallback
+    // The actual state variable selection will be handled in interpolateFromVariable
+    
+    // Fallback: assume single variable state
+    return "state";
+  }
+
+  /**
+   * @brief Interpolate from a specific state variable at observation location
+   *
+   * @param state Model state
+   * @param obs_point Observation point
+   * @param state_var_name Name of the state variable to interpolate from
+   * @return Interpolated value
+   */
+  double interpolateFromVariable(const StateBackend& state,
+                                const typename ObsBackend::value_type& obs_point,
+                                const std::string& state_var_name) const {
+    // Convert observation location to grid coordinates
+    double x, y, z;
+    if (obs_point.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+      auto [lat, lon, level] = obs_point.location.getGeographicCoords();
+      
+      // Convert geographic coordinates to grid coordinates
+      auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(lat, lon, level, state.geometry());
+      x = static_cast<double>(grid_i);
+      y = static_cast<double>(grid_j);
+      z = static_cast<double>(grid_k);
+    } else {
+      // For non-geographic coordinates, use grid coordinates directly
+      auto [i, j, k] = obs_point.location.getGridCoords();
+      x = static_cast<double>(i);
+      y = static_cast<double>(j);
+      z = static_cast<double>(k);
+    }
+
+    // For multi-variable states, access the specific variable
+    if constexpr (requires { state.at(state_var_name, std::declval<size_t>()); }) {
+      // WRFState-like backends with variable-specific access
+      return nearestNeighborInterpolationVariable(state, x, y, z, state_var_name);
+    } else if constexpr (requires { std::declval<StateBackend>().getVariable(state_var_name); }) {
+      // Backends with getVariable method
+      auto var_data = state.getVariable(state_var_name);
+      
+      // Get dimensions for the variable
+      size_t nx = static_cast<size_t>(state.geometry().x_dim());
+      size_t ny = static_cast<size_t>(state.geometry().y_dim());
+      size_t nz = 1; // Default to 1 for 2D geometries
+      if constexpr (requires { state.geometry().z_dim(); }) {
+        nz = state.geometry().z_dim();
+      }
+      
+      return nearestNeighborInterpolationArray(var_data, x, y, z, nx, ny, nz);
+    } else {
+      // Fallback to single variable state
+      // Get dimensions for the state
+      size_t nx = static_cast<size_t>(state.geometry().x_dim());
+      size_t ny = static_cast<size_t>(state.geometry().y_dim());
+      size_t nz = 1; // Default to 1 for 2D geometries
+      if constexpr (requires { state.geometry().z_dim(); }) {
+        nz = state.geometry().z_dim();
+      }
+      
+      return nearestNeighborInterpolation(state, x, y, z, nx, ny, nz);
+    }
   }
 
   /**
@@ -221,6 +301,8 @@ class IdentityObsOperator {
    * @details Maps from observation space back to state space. For the identity
    * operator, this maps observation increments back to the corresponding grid
    * points using the adjoint of nearest-neighbor interpolation.
+   * For multi-variable states, maps to the appropriate variable based on
+   * observation type and required state variables.
    *
    * @param obs_increment Observation space increment
    * @param reference_state Reference state to get structure
@@ -239,14 +321,6 @@ class IdentityObsOperator {
     result_state = std::move(*(reference_state.clone()));
     result_state.zero();
 
-    // Get state dimensions
-    size_t nx = static_cast<size_t>(reference_state.geometry().x_dim());
-    size_t ny = static_cast<size_t>(reference_state.geometry().y_dim());
-    size_t nz = 1; // Default to 1 for 2D geometries
-    if constexpr (requires { reference_state.geometry().z_dim(); }) {
-      nz = reference_state.geometry().z_dim();
-    }
-
     // For the adjoint of nearest-neighbor interpolation:
     // 1. For each observation, determine its grid coordinates (same as in forward pass)
     // 2. Map each observation increment back to its corresponding grid point
@@ -263,6 +337,9 @@ class IdentityObsOperator {
         continue; // Skip invalid observations
       }
 
+      // Determine which state variable to update
+      std::string state_var_name = determineStateVariable(obs_point);
+      
       // Convert observation location to grid coordinates (same as in forward pass)
       double x, y, z;
       if (obs_point.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
@@ -282,8 +359,8 @@ class IdentityObsOperator {
       }
 
       // Adjoint of nearest-neighbor interpolation: add the observation increment
-      // to the corresponding grid point
-      adjointNearestNeighborInterpolation(result_state, x, y, z, nx, ny, nz, obs_increment[obs_idx]);
+      // to the corresponding grid point in the appropriate variable
+      adjointNearestNeighborInterpolationVariable(result_state, x, y, z, state_var_name, obs_increment[obs_idx]);
     }
   }
 
@@ -443,37 +520,245 @@ class IdentityObsOperator {
 
     // Try different access patterns depending on state backend interface
     
-    // Pattern 1: Check for coordinate-based access (like SimpleState)
-    if constexpr (requires { state.at(std::pair<int, int>{0, 0}); }) {
-      // SimpleState-like backends that use std::pair<int, int> coordinates
-      std::pair<int, int> coord{static_cast<int>(i), static_cast<int>(j)};
-      return state.at(coord);
-    }
-    // Pattern 2: Check for linear indexing with operator[]
-    else if constexpr (requires { state[std::declval<size_t>()]; }) {
-      // Convert 3D grid coordinates to linear index using row-major order
-      size_t linear_index = k * (nx * ny) + j * nx + i;
+    // Pattern 1: Check for linear indexing with operator[]
+    if constexpr (requires { state[std::declval<size_t>()]; }) {
+      // Convert 3D grid coordinates to linear index using column-major order (like WRFState)
+      size_t linear_index = k * (ny * nx) + j * nx + i;
       return state[linear_index];
     }
-    // Pattern 3: Check for linear indexing with at(size_t)
+    // Pattern 2: Check for linear indexing with at(size_t)
     else if constexpr (requires { state.at(std::declval<size_t>()); }) {
-      // Convert 3D grid coordinates to linear index using row-major order
-      size_t linear_index = k * (nx * ny) + j * nx + i;
+      // Convert 3D grid coordinates to linear index using column-major order (like WRFState)
+      size_t linear_index = k * (ny * nx) + j * nx + i;
       return state.at(linear_index);
     }
-    // Pattern 4: Check for 3D coordinate access
+    // Pattern 3: Check for 3D coordinate access
     else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
       return state.at(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k));
     }
-    // Pattern 5: Check for 2D coordinate access
+    // Pattern 4: Check for 2D coordinate access
     else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>()); }) {
       return state.at(static_cast<int>(i), static_cast<int>(j));
     }
     else {
       throw std::runtime_error("State backend does not support any recognized access methods. "
                                "Backend must provide one of: "
-                               "at(std::pair<int,int>), operator[](size_t), at(size_t), "
+                               "operator[](size_t), at(size_t), "
                                "at(int,int,int), or at(int,int)");
+    }
+  }
+
+  /**
+   * @brief Perform nearest-neighbor interpolation from grid to point for a specific variable
+   *
+   * @param state Model state
+   * @param x Grid i-coordinate (already converted from geographic if needed)
+   * @param y Grid j-coordinate (already converted from geographic if needed)
+   * @param z Grid k-coordinate (already converted from geographic if needed)
+   * @param state_var_name Name of the state variable to interpolate from
+   * @return Value at the nearest grid point for the specific variable
+   */
+  double nearestNeighborInterpolationVariable(const StateBackend& state, double x, double y, double z,
+                                            const std::string& state_var_name) const {
+    // Get state dimensions
+    size_t nx = static_cast<size_t>(state.geometry().x_dim());
+    size_t ny = static_cast<size_t>(state.geometry().y_dim());
+    size_t nz = 1; // Default to 1 for 2D geometries
+    if constexpr (requires { state.geometry().z_dim(); }) {
+      nz = state.geometry().z_dim();
+    }
+
+    // Clamp coordinates to grid bounds
+    x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
+    y = std::max(0.0, std::min(static_cast<double>(ny - 1), y));
+    z = std::max(0.0, std::min(static_cast<double>(nz - 1), z));
+
+    // Find nearest grid point (round to nearest integer)
+    size_t i = static_cast<size_t>(std::round(x));
+    size_t j = static_cast<size_t>(std::round(y));
+    size_t k = static_cast<size_t>(std::round(z));
+
+    // Ensure indices are within bounds
+    if (i >= nx) i = nx - 1;
+    if (j >= ny) j = ny - 1;
+    if (k >= nz) k = nz - 1;
+
+    // Try different access patterns depending on state backend interface
+    
+    // Pattern 1: WRFState-like backends with variable-specific linear indexing
+    if constexpr (requires { state.at(state_var_name, std::declval<size_t>()); }) {
+      // WRFState uses column-major (Fortran-style) indexing: [Z, Y, X]
+      // The linear index should match WRFState's indexing scheme
+      // WRFState: k * dims[1] * dims[2] + j * dims[2] + i
+      // where dims[1] = Y dimension, dims[2] = X dimension
+      
+      // For multi-variable states, each variable can have different dimensions
+      // We need to access the variable's actual dimensions, not geometry dimensions
+      if constexpr (requires { std::declval<StateBackend>().getVariableDimensions(state_var_name); }) {
+        // Get variable-specific dimensions
+        const auto& var_dims = state.getVariableDimensions(state_var_name);
+        
+        // Calculate linear index using variable's actual dimensions
+        size_t linear_index;
+        if (var_dims.size() == 3) {
+          // 3D variable: [Z, Y, X] - use column-major indexing
+          linear_index = k * var_dims[1] * var_dims[2] + j * var_dims[2] + i;
+        } else if (var_dims.size() == 2) {
+          // 2D variable: [Y, X] - use column-major indexing
+          linear_index = j * var_dims[1] + i;
+        } else {
+          // Fallback to geometry dimensions
+          linear_index = k * (ny * nx) + j * nx + i;
+        }
+        return state.at(state_var_name, linear_index);
+      } else {
+        // Fallback to geometry dimensions for other state backends
+        size_t linear_index = k * (ny * nx) + j * nx + i;  // Column-major: [Z, Y, X]
+        return state.at(state_var_name, linear_index);
+      }
+    }
+    // Pattern 2: Check for 3D coordinate access
+    else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
+      return state.at(state_var_name, static_cast<int>(i), static_cast<int>(j), static_cast<int>(k));
+    }
+    // Pattern 4: Check for 2D coordinate access
+    else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>()); }) {
+      return state.at(state_var_name, static_cast<int>(i), static_cast<int>(j));
+    }
+    // Pattern 5: Fallback to single variable state with linear indexing
+    else if constexpr (requires { state[std::declval<size_t>()]; }) {
+      // Convert 3D grid coordinates to linear index using row-major order
+      size_t linear_index = k * (nx * ny) + j * nx + i;
+      return state[linear_index];
+    }
+    // Pattern 6: Fallback to single variable state with at(size_t)
+    else if constexpr (requires { state.at(std::declval<size_t>()); }) {
+      // Convert 3D grid coordinates to linear index using row-major order
+      size_t linear_index = k * (nx * ny) + j * nx + i;
+      return state.at(linear_index);
+    }
+    else {
+      throw std::runtime_error("State backend does not support any recognized access methods for variable interpolation. "
+                               "Backend must provide one of: "
+                               "at(variable_name, size_t), at(variable_name, int,int,int), "
+                               "at(variable_name, int,int), operator[](size_t), or at(size_t)");
+    }
+  }
+
+  /**
+   * @brief Perform nearest-neighbor interpolation from grid to point for a specific variable (array-based)
+   *
+   * @param var_data Data array for the specific variable
+   * @param x Grid i-coordinate (already converted from geographic if needed)
+   * @param y Grid j-coordinate (already converted from geographic if needed)
+   * @param z Grid k-coordinate (already converted from geographic if needed)
+   * @param nx Number of grid points in x direction
+   * @param ny Number of grid points in y direction
+   * @param nz Number of grid points in z direction
+   * @return Value at the nearest grid point for the specific variable
+   */
+  double nearestNeighborInterpolationArray(const std::vector<double>& var_data, double x, double y, double z,
+                                         size_t nx, size_t ny, size_t nz) const {
+    // Clamp coordinates to grid bounds
+    x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
+    y = std::max(0.0, std::min(static_cast<double>(ny - 1), y));
+    z = std::max(0.0, std::min(static_cast<double>(nz - 1), z));
+
+    // Find nearest grid point (round to nearest integer)
+    size_t i = static_cast<size_t>(std::round(x));
+    size_t j = static_cast<size_t>(std::round(y));
+    size_t k = static_cast<size_t>(std::round(z));
+
+    // Ensure indices are within bounds
+    if (i >= nx) i = nx - 1;
+    if (j >= ny) j = ny - 1;
+    if (k >= nz) k = nz - 1;
+
+    // Convert 3D grid coordinates to linear index using column-major order (like WRFState)
+    size_t linear_index = k * (ny * nx) + j * nx + i;
+    return var_data[linear_index];
+  }
+
+  /**
+   * @brief Perform adjoint of nearest-neighbor interpolation from point to grid for a specific variable
+   *
+   * @param state Model state to update
+   * @param x Grid x-coordinate (continuous)
+   * @param y Grid y-coordinate (continuous)
+   * @param z Grid z-coordinate (continuous)
+   * @param state_var_name Name of the state variable to update
+   * @param increment Value to add to the grid point
+   */
+  void adjointNearestNeighborInterpolationVariable(StateBackend& state, double x, double y, double z,
+                                                  const std::string& state_var_name, double increment) const {
+    // Get state dimensions
+    size_t nx = static_cast<size_t>(state.geometry().x_dim());
+    size_t ny = static_cast<size_t>(state.geometry().y_dim());
+    size_t nz = 1; // Default to 1 for 2D geometries
+    if constexpr (requires { state.geometry().z_dim(); }) {
+      nz = state.geometry().z_dim();
+    }
+
+    // Clamp coordinates to grid bounds (same as in forward pass)
+    x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
+    y = std::max(0.0, std::min(static_cast<double>(ny - 1), y));
+    z = std::max(0.0, std::min(static_cast<double>(nz - 1), z));
+
+    // Find nearest grid point (same as in forward pass)
+    size_t i = static_cast<size_t>(std::round(x));
+    size_t j = static_cast<size_t>(std::round(y));
+    size_t k = static_cast<size_t>(std::round(z));
+
+    // Ensure indices are within bounds
+    if (i >= nx) i = nx - 1;
+    if (j >= ny) j = ny - 1;
+    if (k >= nz) k = nz - 1;
+
+    // Try different access patterns for variable-specific updates
+    if constexpr (requires { state.at(state_var_name, std::declval<size_t>()); }) {
+      // WRFState-like backends with variable-specific linear indexing
+      // Use variable-specific dimensions for proper indexing
+      if constexpr (requires { std::declval<StateBackend>().getVariableDimensions(state_var_name); }) {
+        // Get variable-specific dimensions
+        const auto& var_dims = state.getVariableDimensions(state_var_name);
+        
+        // Calculate linear index using variable's actual dimensions
+        size_t linear_index;
+        if (var_dims.size() == 3) {
+          // 3D variable: [Z, Y, X] - use column-major indexing
+          linear_index = k * var_dims[1] * var_dims[2] + j * var_dims[2] + i;
+        } else if (var_dims.size() == 2) {
+          // 2D variable: [Y, X] - use column-major indexing
+          linear_index = j * var_dims[1] + i;
+        } else {
+          // Fallback to geometry dimensions
+          linear_index = k * (ny * nx) + j * nx + i;
+        }
+        state.at(state_var_name, linear_index) += increment;
+      } else {
+        // Fallback to geometry dimensions for other state backends
+        size_t linear_index = k * (ny * nx) + j * nx + i;
+        state.at(state_var_name, linear_index) += increment;
+      }
+    } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
+      // Variable-specific 3D coordinate access
+      state.at(state_var_name, static_cast<int>(i), static_cast<int>(j), static_cast<int>(k)) += increment;
+    } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>()); }) {
+      // Variable-specific 2D coordinate access
+      state.at(state_var_name, static_cast<int>(i), static_cast<int>(j)) += increment;
+    } else if constexpr (requires { state[std::declval<size_t>()]; }) {
+      // Fallback to single variable state
+      // Use column-major order (like WRFState): k * (ny * nx) + j * nx + i
+      size_t linear_index = k * (ny * nx) + j * nx + i;
+      state[linear_index] += increment;
+    } else if constexpr (requires { state.at(std::declval<size_t>()); }) {
+      // Fallback to single variable state
+      // Use column-major order (like WRFState): k * (ny * nx) + j * nx + i
+      size_t linear_index = k * (ny * nx) + j * nx + i;
+      state.at(linear_index) += increment;
+    } else {
+      throw std::runtime_error(
+          "State backend does not support required access methods for variable-specific adjoint");
     }
   }
 
@@ -507,12 +792,12 @@ class IdentityObsOperator {
     if (k >= nz) k = nz - 1;
 
     if constexpr (requires { state[std::declval<size_t>()]; }) {
-      // Convert 3D grid coordinates to linear index using row-major order
-      size_t linear_index = k * (nx * ny) + j * nx + i;
+      // Convert 3D grid coordinates to linear index using column-major order (like WRFState)
+      size_t linear_index = k * (ny * nx) + j * nx + i;
       state[linear_index] += increment;
     } else if constexpr (requires { state.at(std::declval<size_t>()); }) {
-      // Convert 3D grid coordinates to linear index using row-major order
-      size_t linear_index = k * (nx * ny) + j * nx + i;
+      // Convert 3D grid coordinates to linear index using column-major order (like WRFState)
+      size_t linear_index = k * (ny * nx) + j * nx + i;
       state.at(linear_index) += increment;
     } else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
       state.at(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k)) += increment;

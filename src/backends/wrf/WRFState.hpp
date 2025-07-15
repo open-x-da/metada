@@ -305,6 +305,22 @@ class WRFState {
     for (size_t dim : dims) size *= dim;
     return size;
   }
+
+  /**
+   * @brief Get dimensions of a specific variable
+   *
+   * @details Returns the dimensions of the specified variable as a vector.
+   * For 3D variables: [Z, Y, X] dimensions
+   * For 2D variables: [Y, X] dimensions
+   *
+   * @param[in] variableName Name of the variable
+   * @return const std::vector<size_t>& Reference to the variable's dimensions
+   * @throws std::out_of_range If variable doesn't exist
+   */
+  const std::vector<size_t>& getVariableDimensions(
+      const std::string& variableName) const {
+    return dimensions_.at(variableName);
+  }
   ///@}
 
   ///@{ @name Size

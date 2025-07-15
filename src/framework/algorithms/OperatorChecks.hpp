@@ -282,7 +282,7 @@ bool checkObsOperatorTangentLinear(
 template <typename BackendTag>
 bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
                                const State<BackendTag>& state,
-                               double tol = 1e-6, double epsilon = 1e-6) {
+                               double tol = 1e-6, double epsilon = 1e-2) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
   auto grad = Increment<BackendTag>::createFromEntity(state);

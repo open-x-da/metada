@@ -65,12 +65,20 @@ observations:
 # Observation operator configuration
 obs_operator:
   type: "identity"
-  interpolation: "bilinear"
-  vertical_interpolation: "linear"
+  # Required state variables for this observation operator
+  required_state_vars:
+    - "U"      # U-wind component
+  # Required observation variables (if any)
+  required_obs_vars: []
+  # Interpolation settings
+  interpolation:
+    method: "nearest_neighbor"  # Only nearest-neighbor supported by IdentityObsOperator
+    coordinate_system: "geographic"  # or "grid"
+  # Quality control settings (not implemented in IdentityObsOperator, but documented for future use)
   quality_control:
-    enabled: true
+    enabled: false  # Currently not implemented
     gross_error_threshold: 10.0
-    buddy_check: true
+    buddy_check: false
 
 # Model configuration (WRF model settings)
 model:
