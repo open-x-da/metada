@@ -18,8 +18,11 @@
 #include <vector>
 
 #include "ApplicationContext.hpp"
+#include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
+#include "CostFunction.hpp"
 #include "Geometry.hpp"
+#include "Model.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "OperatorChecks.hpp"
@@ -41,7 +44,7 @@ struct CheckResult {
 // Function to print check results in a formatted way
 void printCheckResults(const std::vector<CheckResult>& results) {
   std::cout << "\n" << std::string(80, '=') << "\n";
-  std::cout << "OBSOPERATOR TL/AD CHECKS SUMMARY\n";
+  std::cout << "TL/AD AND GRADIENT CHECKS SUMMARY\n";
   std::cout << std::string(80, '=') << "\n";
 
   std::cout << std::left << std::setw(40) << "Test Name" << std::setw(10)
@@ -114,14 +117,32 @@ int main(int argc, char** argv) {
     logger.Info() << "State initialized";
 
     // Initialize observations
-    fwk::Observation<BackendTag> observations(
+    fwk::Observation<BackendTag> observation(
         config.GetSubsection("observations"));
+    std::vector<fwk::Observation<BackendTag>> observations;
+    observations.emplace_back(std::move(observation));
     logger.Info() << "Observations initialized";
 
     // Initialize observation operator
     fwk::ObsOperator<BackendTag> obs_operator(
         config.GetSubsection("obs_operator"));
+    std::vector<fwk::ObsOperator<BackendTag>> obs_operators;
+    obs_operators.emplace_back(std::move(obs_operator));
     logger.Info() << "Observation operator initialized";
+
+    // Initialize background error covariance (needed for cost function)
+    fwk::BackgroundErrorCovariance<BackendTag> bg_error_cov(
+        config.GetSubsection("background_covariance"));
+    logger.Info() << "Background error covariance initialized";
+
+    // Initialize model (needed for cost function)
+    fwk::Model<BackendTag> model(config.GetSubsection("model"));
+    logger.Info() << "Model initialized";
+
+    // Initialize cost function
+    fwk::CostFunction<BackendTag> cost_function(
+        config, state, observations, obs_operators, model, bg_error_cov);
+    logger.Info() << "Cost function initialized";
 
     // Perform ObsOperator Tangent Linear checks
     logger.Info() << "\n=== Performing ObsOperator Tangent Linear Checks ===";
@@ -132,7 +153,7 @@ int main(int argc, char** argv) {
       bool obs_op_tl_passed = false;
       // Use the new signature with configurable epsilons
       obs_op_tl_passed = fwk::checkObsOperatorTangentLinear(
-          obs_operator, state, observations, tl_ad_tolerance, epsilons);
+          obs_operators, state, observations, tl_ad_tolerance, epsilons);
       // The function logs the final error, but if you want to extract it, you
       // could modify the function to return it. For now, we set it to 0.0 as
       // before, or you can parse from logs if needed.
@@ -161,7 +182,7 @@ int main(int argc, char** argv) {
     try {
       // Check: ObsOperator TL/AD consistency
       bool obs_op_tl_ad_passed = fwk::checkObsOperatorTLAD(
-          obs_operator, state, observations, tl_ad_tolerance);
+          obs_operators, state, observations, tl_ad_tolerance);
 
       results.push_back(
           {"ObsOperator TL/AD Consistency", obs_op_tl_ad_passed,
@@ -182,6 +203,30 @@ int main(int argc, char** argv) {
                      << e.what();
     }
 
+    // Perform Cost Function Gradient checks
+    logger.Info() << "\n=== Performing Cost Function Gradient Checks ===";
+
+    try {
+      // Check: Cost Function Gradient correctness
+      bool cost_func_gradient_passed =
+          fwk::checkCostFunctionGradient(cost_function, state, tl_ad_tolerance);
+
+      results.push_back({"Cost Function Gradient", cost_func_gradient_passed,
+                         0.0, tl_ad_tolerance,
+                         cost_func_gradient_passed
+                             ? "Cost function gradient is correct"
+                             : "Cost function gradient is incorrect"});
+
+      logger.Info() << "Cost Function Gradient check: "
+                    << (cost_func_gradient_passed ? "PASSED" : "FAILED");
+
+    } catch (const std::exception& e) {
+      results.push_back({"Cost Function Gradient", false, 1.0, tl_ad_tolerance,
+                         std::string("Exception during check: ") + e.what()});
+      logger.Error() << "Cost Function Gradient check failed with exception: "
+                     << e.what();
+    }
+
     // Print summary
     printCheckResults(results);
 
@@ -195,13 +240,12 @@ int main(int argc, char** argv) {
     }
 
     if (all_passed) {
-      logger.Info() << "\nAll ObsOperator TL/AD checks PASSED!";
+      logger.Info() << "\nAll TL/AD and gradient checks PASSED!";
       return 0;
     } else {
-      logger.Error() << "\nSome ObsOperator TL/AD checks FAILED!";
+      logger.Error() << "\nSome TL/AD and gradient checks FAILED!";
       return 1;
     }
-
   } catch (const std::exception& e) {
     logger.Error() << "ObsOperator TL/AD checks application failed: "
                    << e.what();

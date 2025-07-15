@@ -21,6 +21,17 @@ finite_difference_epsilons:
    - 1.0e-7
    - 1.0e-8
 
+# Variational method: 3DVAR (single time analysis)
+variational_type: "3DVAR"
+
+# Minimization configuration
+minimization_algorithm: lbfgs
+max_iterations: 50
+tolerance: 1e-6
+gradient_tolerance: 1e-6
+line_search_enabled: true
+preconditioning_enabled: false
+
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file
 geometry:
@@ -59,4 +70,33 @@ obs_operator:
   quality_control:
     enabled: true
     gross_error_threshold: 10.0
-    buddy_check: true 
+    buddy_check: true
+
+# Model configuration (WRF model settings)
+model:
+  # Time control settings
+  time_control:
+    start_datetime: "2020-01-01T12:00:00Z"
+    forecast_length: "1s"  # Minimal forecast for TL/AD checks
+    time_step: "30s"
+    output_history: false
+    
+  # Physics options
+  physics:
+    microphysics: true
+    radiation: true
+    pbl: true
+    lsm: true
+    
+  # Dynamical core options
+  dynamics:
+    advection_scheme: "WENO"
+    diffusion: 0.01
+
+# Background error covariance configuration (simplified)
+background_covariance:
+  size: 717531  # Match actual WRF state size
+  variance: 0.5  # Reasonable variance for meteorological variables
+  background_covariance_type: "diagonal"
+  localization_enabled: false
+  localization_radius: 0.0

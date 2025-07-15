@@ -135,10 +135,6 @@ class Variational {
     // Note: We'll move the final analysis state into results later
     std::string var_type = cost_function_.getVariationalTypeName();
 
-    // Set up progress monitoring
-    ProgressBar::Config progress_config;
-    progress_config.prefix = var_type + " minimization: ";
-
     // Create cost and gradient function wrappers for the minimizer
     auto cost_func = [this](const State<BackendTag>& state) -> double {
       return cost_function_.evaluate(state);
