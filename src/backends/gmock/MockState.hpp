@@ -27,6 +27,7 @@
 
 #include <gmock/gmock.h>
 
+#include <iostream>
 #include <unordered_map>
 
 namespace metada::backends::gmock {
@@ -169,5 +170,13 @@ class MockState {
   std::vector<std::string> variableNames_;
   std::vector<double> data_;
 };
+
+// Output operator for MockState
+template <typename ConfigBackend, typename GeometryBackend>
+inline std::ostream& operator<<(
+    std::ostream& os, const MockState<ConfigBackend, GeometryBackend>& state) {
+  os << "MockState(size=" << state.size() << ")";
+  return os;
+}
 
 }  // namespace metada::backends::gmock

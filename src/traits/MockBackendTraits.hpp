@@ -25,6 +25,7 @@
 #include "../backends/gmock/MockModel.hpp"
 #include "../backends/gmock/MockObservation.hpp"
 #include "../backends/gmock/MockObsOperator.hpp"
+#include "../backends/gmock/MockBackgroundErrorCovariance.hpp"
 
 namespace metada::traits {
 
@@ -80,6 +81,9 @@ struct BackendTraits<MockBackendTag> {
 
   /** @brief Mock ensemble backend implementation for testing */
   using EnsembleBackend = backends::gmock::MockEnsemble<ConfigBackend, GeometryBackend>;
+
+  /** @brief Mock background error covariance backend implementation for testing */
+  using BackgroundErrorCovarianceBackend = backends::gmock::MockBackgroundErrorCovariance;
 };
 
 } // namespace metada::traits

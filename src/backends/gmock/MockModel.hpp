@@ -114,6 +114,23 @@ class MockModel {
   MOCK_METHOD(void, run,
               (const StateBackend& initialState, StateBackend& finalState));
 
+  // Adjoint and tangent linear methods
+  MOCK_METHOD(void, runAdjoint,
+              (const StateBackend& initial_state,
+               const StateBackend& final_state,
+               const StateBackend& adjoint_forcing,
+               StateBackend& adjoint_result),
+              (const));
+  MOCK_METHOD(void, runTangentLinear,
+              (const StateBackend& reference_initial,
+               const StateBackend& reference_final,
+               const StateBackend& initial_perturbation,
+               StateBackend& final_perturbation),
+              (const));
+  MOCK_METHOD(bool, supportsAdjoint, (), (const));
+  MOCK_METHOD(bool, supportsTangentLinear, (), (const));
+  MOCK_METHOD(bool, isLinear, (), (const));
+
  private:
   const ConfigBackend& config_; /**< Reference to the configuration object */
 };
