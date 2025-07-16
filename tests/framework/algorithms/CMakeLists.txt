@@ -14,6 +14,7 @@ add_test_format_target(operator_checks_test ${CMAKE_CURRENT_SOURCE_DIR})
 setup_test_executable(concrete_operator_checks_test ConcreteOperatorChecksTest.cpp)
 target_link_libraries(concrete_operator_checks_test
     PRIVATE
+        metada::backends::common::utils
         metada::backends::lite
 )
 add_test_format_target(concrete_operator_checks_test ${CMAKE_CURRENT_SOURCE_DIR})

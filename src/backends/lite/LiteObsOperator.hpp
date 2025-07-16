@@ -87,6 +87,7 @@ class LiteObsOperator {
   }
 
   // Initialize
+  template <typename ConfigBackend>
   void initialize(const ConfigBackend& config) {
     // Stub implementation
   }
