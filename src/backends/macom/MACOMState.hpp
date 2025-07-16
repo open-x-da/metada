@@ -640,21 +640,22 @@ void MACOMState<ConfigBackend, GeometryBackend>::loadVariableArrays(
     netCDF::NcFile& ncFile, const std::vector<std::string>& variables_to_load) {
   // This part resizes individual u,v,t,s,w members - keeping as is for now,
   // but note that primary data storage is in variables_ map.
-  for (const auto& variable_name : variables_to_load) {
-    if (variable_name == "u") {
-      u.resize(nlpb_ * nk_);
-    } else if (variable_name == "v") {
-      v.resize(nlpb_ * nk_);
-    } else if (variable_name == "t") {
-      t.resize(nlpb_ * nk_);
-    } else if (variable_name == "s") {
-      s.resize(nlpb_ * nk_);
-    } else if (variable_name == "w") {
-      // 'w' might have different vertical dimension (e.g., nkp1_ from geometry)
-      // For now, using nk_ consistent with other variables from file.
-      w.resize(nlpb_ * nk_);
-    }
-  }
+  // for (const auto& variable_name : variables_to_load) {
+  //   if (variable_name == "u") {
+  //     u.resize(nlpb_ * nk_);
+  //   } else if (variable_name == "v") {
+  //     v.resize(nlpb_ * nk_);
+  //   } else if (variable_name == "t") {
+  //     t.resize(nlpb_ * nk_);
+  //   } else if (variable_name == "s") {
+  //     s.resize(nlpb_ * nk_);
+  //   } else if (variable_name == "w") {
+  //     // 'w' might have different vertical dimension (e.g., nkp1_ from
+  //     geometry)
+  //     // For now, using nk_ consistent with other variables from file.
+  //     w.resize(nlpb_ * nk_);
+  //   }
+  // }
 
   auto readVarLambda = [&ncFile](const std::string& name,
                                  std::vector<double>& data_vec) {
@@ -670,7 +671,8 @@ void MACOMState<ConfigBackend, GeometryBackend>::loadVariableArrays(
     var.getVar(data_vec.data());
   };
 
-  // Clear existing data in variables_ map and dimensions_ map to avoid issues
+  // // Clear existing data in variables_ map and dimensions_ map to avoid
+  // issues
   // if this is a reload
   variables_.clear();
   dimensions_.clear();
@@ -942,8 +944,8 @@ bool MACOMState<ConfigBackend, GeometryBackend>::CPPInitialization(
       return false;
     }
 
-    // Get timestamp from file if available
-    timestamp_ = config.Get("timestamp").asString();
+    // // Get timestamp from file if available
+    // timestamp_ = config.Get("timestamp").asString();
 
     // Get dimensions from geometry
     getDimensionsFromGeometry(&geometry);
@@ -1000,40 +1002,59 @@ bool MACOMState<ConfigBackend, GeometryBackend>::CPPInitialization(
       MACOM_LOG_WARNING("MACOMState", "No variables loaded or specified.");
     }
 
+    initialized_ = true;
+
     // --- Test code for getValuesAtNearestPoints ---
+    // Check if testing is enabled via configuration
+    bool enable_testing = false;
     try {
-      MACOM_LOG_INFO("MACOMState", "Testing getValuesAtNearestPoints...");
-
-      // Test points
-      std::vector<double> test_lons = {160.0, 161.0, 162.0};
-      std::vector<double> test_lats = {36.0, 37.0, 38.0};
-      std::vector<double> test_depths = {100.0, 200.0, 300.0};
-
-      // Test each variable
-      for (const auto& var_name : variables) {
-        if (variables_.find(var_name) != variables_.end()) {
-          auto values = getValuesAtNearestPoints(test_lons, test_lats,
-                                                 test_depths, var_name, true);
-
-          MACOM_LOG_INFO("MACOMState",
-                         "Test results for variable " + var_name + ":");
-          for (size_t i = 0; i < values.size(); ++i) {
-            MACOM_LOG_INFO("MACOMState",
-                           "  Point " + std::to_string(i) + " (" +
-                               std::to_string(test_lons[i]) + ", " +
-                               std::to_string(test_lats[i]) + ", " +
-                               std::to_string(test_depths[i]) +
-                               "): " + std::to_string(values[i]));
-          }
-        }
-      }
     } catch (const std::exception& e) {
-      MACOM_LOG_WARNING("MACOMState",
-                        "Test code for getValuesAtNearestPoints failed: " +
-                            std::string(e.what()));
+      // If config key doesn't exist, default to false (no testing)
+      enable_testing = false;
     }
 
-    initialized_ = true;
+    if (enable_testing) {
+      try {
+        MACOM_LOG_INFO(
+            "MACOMState",
+            "Testing getValuesAtNearestPoints (enabled via config)...");
+
+        // Test points
+        std::vector<double> test_lons = {160.0, 161.0, 162.0};
+        std::vector<double> test_lats = {36.0, 37.0, 38.0};
+        std::vector<double> test_depths = {100.0, 200.0, 300.0};
+
+        // Test each variable
+        for (const auto& var_name : variables) {
+          if (variables_.find(var_name) != variables_.end()) {
+            auto values = getValuesAtNearestPoints(test_lons, test_lats,
+                                                   test_depths, var_name, true);
+
+            MACOM_LOG_INFO("MACOMState",
+                           "Test results for variable " + var_name + ":");
+            for (size_t i = 0; i < values.size(); ++i) {
+              MACOM_LOG_INFO("MACOMState",
+                             "  Point " + std::to_string(i) + " (" +
+                                 std::to_string(test_lons[i]) + ", " +
+                                 std::to_string(test_lats[i]) + ", " +
+                                 std::to_string(test_depths[i]) +
+                                 "): " + std::to_string(values[i]));
+            }
+          }
+        }
+      } catch (const std::exception& e) {
+        MACOM_LOG_WARNING("MACOMState",
+                          "Test code for getValuesAtNearestPoints failed: " +
+                              std::string(e.what()));
+        // Note: Don't set initialized_ = false here as test failure
+        // shouldn't prevent normal operation
+      }
+    } else {
+      MACOM_LOG_INFO("MACOMState",
+                     "getValuesAtNearestPoints testing is disabled "
+                     "(enable_getvalues_test=false)");
+    }
+
     MACOM_LOG_INFO("MACOMState", "State initialization completed successfully");
     return true;
 

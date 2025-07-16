@@ -11,26 +11,17 @@ geometry:
 
 # Ensemble variables to analyze
 ensemble:
-  variables: "simple"
   members:
     - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_1.txt"
+        input_file: "D:/macom/glo_1_6/exp/nmefc_macom_csp_initinal_d01.nc"
+        timestamp: "2000-01-24_12:00:00Z"
+        variables:
+          - s
     - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_2.txt"
-    - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_3.txt"
-    - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_4.txt"
-    - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_5.txt"
-    - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_6.txt"
-    - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_7.txt"
-    - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_8.txt"
-    - state:
-        file: "D:/pdaf-fork/tutorial/inputs_offline/ens_9.txt"
+        input_file: "D:/macom/glo_1_6/exp/nmefc_macom_csp_initinal_d01.nc"
+        timestamp: "2000-01-24_12:00:00Z"
+        variables:
+          - s
 
 # Observation settings
 observations:
