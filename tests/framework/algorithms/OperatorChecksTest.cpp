@@ -64,11 +64,19 @@ class OperatorChecksTest : public ::testing::Test {
       ON_CALL(config_->backend(), LoadFromFile(::testing::_))
           .WillByDefault(Return(true));
 
+      // Set up BackgroundErrorCovariance config expectations
+      EXPECT_CALL(config_->backend(), Get("background_covariance_type"))
+          .WillRepeatedly(Return("diagonal"));
+      EXPECT_CALL(config_->backend(), Get("localization_enabled"))
+          .WillRepeatedly(Return(true));
+      EXPECT_CALL(config_->backend(), Get("localization_radius"))
+          .WillRepeatedly(Return(1000.0f));
+      EXPECT_CALL(config_->backend(), Get("variational_type"))
+          .WillRepeatedly(Return("3dvar"));
+
       // Initialize state with test data
-      auto state_data = state_->template getDataPtr<double>();
-      for (size_t i = 0; i < 3; ++i) {
-        state_data[i] = static_cast<double>(i + 1);  // [1, 2, 3]
-      }
+      std::vector<double> test_data = {1.0, 2.0, 3.0};
+      state_->backend().setData(test_data);
 
     } catch (const std::exception& e) {
       std::cerr << "Setup failed: " << e.what() << std::endl;
@@ -189,7 +197,13 @@ TEST_F(OperatorChecksTest, OperatorChecksInterface) {
   // Test that we can create vectors of the expected types
   std::vector<framework::ObsOperator<traits::MockBackendTag>> obs_operators;
   std::vector<framework::Observation<traits::MockBackendTag>> observations;
-  observations.push_back(std::move(*obs_));
+
+  // Create concrete observation and obs operator objects
+  auto obs1 = framework::Observation<traits::MockBackendTag>(*config_);
+  auto obs_op1 = framework::ObsOperator<traits::MockBackendTag>(*config_);
+
+  observations.push_back(std::move(obs1));
+  obs_operators.push_back(std::move(obs_op1));
 
   // Test that we can call the function (even if it fails due to empty
   // operators)
@@ -223,6 +237,20 @@ TEST_F(OperatorChecksTest, CostFunctionInterface) {
 
     std::vector<framework::Observation<traits::MockBackendTag>> observations;
     std::vector<framework::ObsOperator<traits::MockBackendTag>> obs_operators;
+
+    // Create concrete observation and obs operator objects
+    auto obs1 = framework::Observation<traits::MockBackendTag>(*config_);
+    auto obs_op1 = framework::ObsOperator<traits::MockBackendTag>(*config_);
+
+    observations.push_back(std::move(obs1));
+    obs_operators.push_back(std::move(obs_op1));
+
+    // Setup mock expectations for the obs operator
+    EXPECT_CALL(obs_operators.back().backend(), isInitialized())
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(obs_operators.back().backend(),
+                apply(::testing::_, ::testing::_))
+        .WillRepeatedly(Return(std::vector<double>{1.0, 2.0, 3.0}));
 
     auto cost_func = framework::CostFunction<traits::MockBackendTag>(
         *config_, background, observations, obs_operators, model, bg_error_cov);

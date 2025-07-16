@@ -27,6 +27,7 @@
 
 #include <gmock/gmock.h>
 
+#include <cmath>
 #include <iostream>
 #include <unordered_map>
 
@@ -116,7 +117,10 @@ class MockState {
 
   // Clone operation
   std::unique_ptr<MockState> clone() const {
-    return std::make_unique<MockState>(config_, geometry_);
+    auto cloned = std::make_unique<MockState>(config_, geometry_);
+    cloned->setData(data_);                // Copy the data
+    cloned->setVariables(variableNames_);  // Copy the variable names
+    return cloned;
   }
 
   // Core state operations
@@ -130,8 +134,25 @@ class MockState {
   MOCK_METHOD(void, add, (const MockState& other));
   MOCK_METHOD(void, subtract, (const MockState& other));
   MOCK_METHOD(void, multiply, (double scalar));
-  MOCK_METHOD(double, dot, (const MockState& other), (const));
-  MOCK_METHOD(double, norm, (), (const));
+
+  // Implement dot product calculation
+  double dot(const MockState& other) const {
+    if (data_.size() != other.data_.size()) return 0.0;
+    double result = 0.0;
+    for (size_t i = 0; i < data_.size(); ++i) {
+      result += data_[i] * other.data_[i];
+    }
+    return result;
+  }
+
+  // Implement norm calculation
+  double norm() const {
+    double result = 0.0;
+    for (size_t i = 0; i < data_.size(); ++i) {
+      result += data_[i] * data_[i];
+    }
+    return std::sqrt(result);
+  }
 
   // File I/O operations
   MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
