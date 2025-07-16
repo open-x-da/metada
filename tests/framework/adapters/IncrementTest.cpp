@@ -69,10 +69,10 @@ TEST_F(IncrementTest, RandomizeOperation) {
   entity1_->backend().setData(std::vector<double>(5, 0.0));  // Set 5 elements
   Increment increment = Increment::createFromEntity(*entity1_);
   increment.randomize();
-  const auto& randomized = increment.getData<std::vector<double>>();
-  for (double v : randomized) {
-    EXPECT_GE(v, -0.5);
-    EXPECT_LE(v, 0.5);
+  const auto* randomized = increment.state().template getDataPtr<double>();
+  for (size_t i = 0; i < increment.state().size(); ++i) {
+    EXPECT_GE(randomized[i], -0.5);
+    EXPECT_LE(randomized[i], 0.5);
   }
 }
 
