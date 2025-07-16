@@ -12,15 +12,24 @@ namespace metada::backends::lite {
  * @brief Lite observation operator backend for concrete testing
  *
  * Implements the same linear observation operator as LiteObs
+ *
+ * This class is designed to comply with the ObsOperatorBackendImpl concept.
  */
 class LiteObsOperator {
  public:
-  LiteObsOperator() = default;
+  // Deleted default constructor (concept compliance)
+  LiteObsOperator() = delete;
 
-  // Constructor with config
+  // Deleted copy constructor and copy assignment operator (concept compliance)
+  LiteObsOperator(const LiteObsOperator&) = delete;
+  LiteObsOperator& operator=(const LiteObsOperator&) = delete;
+
+  LiteObsOperator(LiteObsOperator&&) noexcept = default;
+  LiteObsOperator& operator=(LiteObsOperator&&) noexcept = default;
+
+  // Explicit templated config constructor (concept compliance)
   template <typename ConfigBackend>
-  LiteObsOperator(const ConfigBackend& config) {
-    // Initialize with required variables
+  explicit LiteObsOperator([[maybe_unused]] const ConfigBackend& config) {
     required_state_vars_ = {"temperature", "pressure", "humidity"};
     required_obs_vars_ = {"temperature", "pressure"};
   }
@@ -29,7 +38,8 @@ class LiteObsOperator {
   static constexpr double H[2][3] = {{1.0, 0.5, 0.0}, {0.0, 1.0, 0.5}};
 
   // Forward operator: y = H*x
-  std::vector<double> apply(const LiteState& state, const LiteObs& obs) const {
+  std::vector<double> apply(const LiteState& state,
+                            [[maybe_unused]] const LiteObs& obs) const {
     std::vector<double> result(2);
     const double* state_data = static_cast<const double*>(state.getData());
 
@@ -43,17 +53,19 @@ class LiteObsOperator {
   }
 
   // Tangent linear: dy = H*dx
-  std::vector<double> applyTangentLinear(const LiteState& state_increment,
-                                         const LiteState& reference_state,
-                                         const LiteObs& obs) const {
+  std::vector<double> applyTangentLinear(
+      const LiteState& state_increment,
+      [[maybe_unused]] const LiteState& reference_state,
+      const LiteObs& obs) const {
     // For linear operator, tangent linear is same as forward
     return apply(state_increment, obs);
   }
 
   // Adjoint: dx = H^T*dy
   void applyAdjoint(const std::vector<double>& obs_increment,
-                    const LiteState& reference_state,
-                    LiteState& state_increment, const LiteObs& obs) const {
+                    [[maybe_unused]] const LiteState& reference_state,
+                    LiteState& state_increment,
+                    [[maybe_unused]] const LiteObs& obs) const {
     double* state_data = static_cast<double*>(state_increment.getData());
 
     for (int i = 0; i < 3; ++i) {
@@ -88,7 +100,7 @@ class LiteObsOperator {
 
   // Initialize
   template <typename ConfigBackend>
-  void initialize(const ConfigBackend& config) {
+  void initialize([[maybe_unused]] const ConfigBackend& config) {
     // Stub implementation
   }
 

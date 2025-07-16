@@ -114,7 +114,7 @@ TEST_F(ConcreteOperatorChecksTest, TangentLinearAdjointConsistency) {
   auto tl_result = obs_op.applyTangentLinear(increment, *state_, *obs_);
   auto ad_result =
       framework::Increment<traits::LiteBackendTag>::createFromEntity(*state_);
-  obs_op.applyAdjoint(tl_result, *state_, ad_result);
+  ad_result = obs_op.applyAdjoint(tl_result, *state_, *obs_);
 
   // Compute inner products
   double tl_ad_product = 0.0;
@@ -217,7 +217,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
   double epsilon = 1e-6;
   for (size_t i = 0; i < 3; ++i) {
     // Create perturbed state
-    auto perturbed_state = test_state;
+    auto perturbed_state = test_state.clone();
     auto* data = perturbed_state.template getDataPtr<double>();
     data[i] += epsilon;
 

@@ -11,14 +11,24 @@ namespace metada::backends::lite {
  * @brief Lite model backend for concrete testing
  *
  * Implements a simple linear model: x(t+1) = M*x(t) where M is identity
+ *
+ * This class is designed to comply with the ModelBackendImpl concept.
+ * - Deleted default constructor
+ * - Deleted copy constructor and copy assignment operator
+ * - Config constructor (templated for flexibility)
  */
 class LiteModel {
  public:
-  LiteModel() = default;
+  // Deleted default constructor (concept compliance)
+  LiteModel() = delete;
 
-  // Constructor with config
+  // Deleted copy constructor and copy assignment operator (concept compliance)
+  LiteModel(const LiteModel&) = delete;
+  LiteModel& operator=(const LiteModel&) = delete;
+
+  // Templated config constructor (for concept compliance and flexibility)
   template <typename ConfigBackend>
-  LiteModel(const ConfigBackend& config) {
+  explicit LiteModel([[maybe_unused]] const ConfigBackend& config) {
     // Initialize as identity model
   }
 
@@ -35,8 +45,8 @@ class LiteModel {
   }
 
   // Tangent linear model: dx(t+1) = M*dx(t)
-  void runTangentLinear(const LiteState& reference_initial,
-                        const LiteState& reference_final,
+  void runTangentLinear([[maybe_unused]] const LiteState& reference_initial,
+                        [[maybe_unused]] const LiteState& reference_final,
                         const LiteState& initial_perturbation,
                         LiteState& final_perturbation) const {
     // For identity model, tangent linear is same as forward
@@ -44,7 +54,8 @@ class LiteModel {
   }
 
   // Adjoint model: dx(t) = M^T*dx(t+1)
-  void runAdjoint(const LiteState& initial_state, const LiteState& final_state,
+  void runAdjoint([[maybe_unused]] const LiteState& initial_state,
+                  [[maybe_unused]] const LiteState& final_state,
                   const LiteState& adjoint_forcing,
                   LiteState& adjoint_result) const {
     // For identity model, adjoint is same as forward
@@ -66,7 +77,7 @@ class LiteModel {
 
   // Initialize
   template <typename ConfigBackend>
-  void initialize(const ConfigBackend& config) {
+  void initialize([[maybe_unused]] const ConfigBackend& config) {
     // Stub implementation
   }
 

@@ -397,6 +397,15 @@ class State : private NonCopyable {
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
+// Non-member operator+ for State + Increment
+template <typename BackendTag>
+State<BackendTag> operator+(const State<BackendTag>& state,
+                            const Increment<BackendTag>& increment) {
+  State<BackendTag> result = state.clone();
+  result += increment;
+  return result;
+}
+
 // Output operator
 template <typename BackendTag>
   requires StateBackendType<BackendTag>

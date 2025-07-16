@@ -21,7 +21,7 @@ class LiteBEC {
 
   // Constructor with config
   template <typename ConfigBackend>
-  LiteBEC(const ConfigBackend& config) {
+  LiteBEC([[maybe_unused]] const ConfigBackend& config) {
     // Initialize with unit variances for testing
     variances_ = {1.0, 1.0, 1.0};
   }

@@ -212,20 +212,20 @@ class IdentityObsOperator {
   double interpolateFromVariable(const StateBackend& state,
                                 const typename ObsBackend::value_type& obs_point,
                                 const std::string& state_var_name) const {
-    // Convert observation location to grid coordinates
-    double x, y, z;
+      // Convert observation location to grid coordinates
+      double x, y, z;
     if (obs_point.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
-      auto [lat, lon, level] = obs_point.location.getGeographicCoords();
-      auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(lat, lon, level, state.geometry());
-      x = static_cast<double>(grid_i);
-      y = static_cast<double>(grid_j);
-      z = static_cast<double>(grid_k);
-    } else {
-      auto [i, j, k] = obs_point.location.getGridCoords();
-      x = static_cast<double>(i);
-      y = static_cast<double>(j);
-      z = static_cast<double>(k);
-    }
+        auto [lat, lon, level] = obs_point.location.getGeographicCoords();
+        auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(lat, lon, level, state.geometry());
+        x = static_cast<double>(grid_i);
+        y = static_cast<double>(grid_j);
+        z = static_cast<double>(grid_k);
+      } else {
+        auto [i, j, k] = obs_point.location.getGridCoords();
+        x = static_cast<double>(i);
+        y = static_cast<double>(j);
+        z = static_cast<double>(k);
+      }
     if constexpr (requires { state.at(state_var_name, std::declval<size_t>()); }) {
       return idw4InterpolationVariable(state, x, y, z, state_var_name);
     } else if constexpr (requires { std::declval<StateBackend>().getVariable(state_var_name); }) {
@@ -243,7 +243,7 @@ class IdentityObsOperator {
       size_t nz = 1;
       if constexpr (requires { state.geometry().z_dim(); }) {
         nz = state.geometry().z_dim();
-      }
+    }
       return idw4Interpolation(state, x, y, z, nx, ny, nz);
     }
   }
@@ -548,7 +548,7 @@ class IdentityObsOperator {
         weighted_sum += w * state.at(static_cast<int>(ii), static_cast<int>(jj));
       } else {
         throw std::runtime_error("State backend does not support any recognized access methods for IDW.");
-      }
+    }
       weight_sum += w;
     }
     return weighted_sum / weight_sum;
@@ -584,7 +584,7 @@ class IdentityObsOperator {
         } else {
           size_t linear_index = kk * (ny * nx) + jj * nx + ii;
           weighted_sum += w * state.at(state_var_name, linear_index);
-        }
+    }
       } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
         weighted_sum += w * state.at(state_var_name, static_cast<int>(ii), static_cast<int>(jj), static_cast<int>(kk));
       } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>()); }) {

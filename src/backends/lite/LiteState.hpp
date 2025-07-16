@@ -11,19 +11,25 @@ namespace metada::backends::lite {
  * @brief Lite state backend for concrete testing
  *
  * Implements a 3-dimensional state vector with basic operations
+ *
+ * This class is designed to comply with the StateBackendImpl concept.
  */
 class LiteState {
  public:
-  LiteState() = default;
+  // Deleted default constructor (concept compliance)
+  LiteState() = delete;
 
-  // State data storage
-  std::vector<double> state_data_;
-  std::vector<std::string> variable_names_;
+  // Deleted copy constructor and copy assignment operator (concept compliance)
+  LiteState(const LiteState&) = delete;
+  LiteState& operator=(const LiteState&) = delete;
 
-  // Constructor with config and geometry (for compatibility)
+  LiteState(LiteState&&) noexcept = default;
+  LiteState& operator=(LiteState&&) noexcept = default;
+
+  // Explicit templated config/geometry constructor (concept compliance)
   template <typename ConfigBackend, typename GeometryBackend>
-  LiteState(const ConfigBackend& config, const GeometryBackend& geometry) {
-    // Initialize with 3 variables for testing
+  explicit LiteState([[maybe_unused]] const ConfigBackend& config,
+                     [[maybe_unused]] const GeometryBackend& geometry) {
     variable_names_ = {"temperature", "pressure", "humidity"};
     state_data_.resize(3, 0.0);
   }
@@ -87,7 +93,7 @@ class LiteState {
 
   // Clone
   std::unique_ptr<LiteState> clone() const {
-    auto cloned = std::make_unique<LiteState>();
+    auto cloned = std::make_unique<LiteState>((void*)nullptr, (void*)nullptr);
     cloned->state_data_ = state_data_;
     cloned->variable_names_ = variable_names_;
     return cloned;
@@ -109,6 +115,10 @@ class LiteState {
   void initialize() {
     // Stub implementation for testing
   }
+
+ private:
+  std::vector<double> state_data_;
+  std::vector<std::string> variable_names_;
 };
 
 }  // namespace metada::backends::lite
