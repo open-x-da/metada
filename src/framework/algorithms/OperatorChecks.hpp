@@ -132,6 +132,9 @@ bool checkObsOperatorTLAD(
  * decreasing \f$ \epsilon \f$ and that the convergence rate is close to 1
  * (first-order accuracy).
  *
+ * If single_epsilon_mode is true, performs only a single-epsilon Taylor
+ * expansion check (matching the logic of TangentLinearTaylorExpansion).
+ *
  * @tparam BackendTag The backend type tag
  * @param obs_operators Vector of observation operators
  * @param state The state vector
@@ -139,6 +142,10 @@ bool checkObsOperatorTLAD(
  * @param tol The tolerance for the final relative error (default: 1e-6)
  * @param epsilons The set of perturbation sizes to use (default: {1e-3, 1e-4,
  * 1e-5, 1e-6, 1e-7})
+ * @param epsilon The single perturbation size to use for single-epsilon mode
+ * (default: 1e-6)
+ * @param single_epsilon_mode If true, use only the single-epsilon Taylor
+ * expansion check (default: false)
  * @return true if the check passes, false otherwise
  */
 template <typename BackendTag>
@@ -147,7 +154,8 @@ bool checkObsOperatorTangentLinear(
     const State<BackendTag>& state,
     const std::vector<Observation<BackendTag>>& observations, double tol = 1e-6,
     const std::vector<double>& epsilons = std::vector<double>{1e-3, 1e-4, 1e-5,
-                                                              1e-6, 1e-7}) {
+                                                              1e-6, 1e-7},
+    double epsilon = 1e-6, bool single_epsilon_mode = false) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
   if (obs_operators.size() != observations.size()) {
@@ -156,6 +164,37 @@ bool checkObsOperatorTangentLinear(
                    << ") must match number of observations ("
                    << observations.size() << ")";
     return false;
+  }
+
+  if (single_epsilon_mode) {
+    // Single-epsilon Taylor expansion check (like TangentLinearTaylorExpansion)
+    auto dx = Increment<BackendTag>::createFromEntity(state);
+    dx.randomize();
+    dx *= epsilon;  // Small perturbation
+
+    auto state_plus_dx = state + dx;
+
+    for (size_t i = 0; i < obs_operators.size(); ++i) {
+      auto obs_plus = obs_operators[i].apply(state_plus_dx, observations[i]);
+      auto obs_base = obs_operators[i].apply(state, observations[i]);
+      auto tl_result =
+          obs_operators[i].applyTangentLinear(dx, state, observations[i]);
+
+      for (size_t j = 0; j < obs_plus.size(); ++j) {
+        double expected = obs_base[j] + tl_result[j];
+        double actual = obs_plus[j];
+        double abs_err = std::abs(actual - expected);
+        if (abs_err > tol) {
+          logger.Error() << "Taylor expansion check failed at output " << j
+                         << ": |" << actual << " - " << expected
+                         << "| = " << abs_err << " > tol = " << tol;
+          return false;
+        }
+      }
+    }
+    logger.Info()
+        << "Single-epsilon Taylor expansion check passed for all outputs.";
+    return true;
   }
 
   // 1. Create random state increment

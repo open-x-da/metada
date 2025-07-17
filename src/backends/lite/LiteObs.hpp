@@ -111,37 +111,6 @@ class LiteObs {
     // Stub: could apply quality control
   }
 
-  // Observation operator (for test)
-  static constexpr double H[2][3] = {{1.0, 0.5, 0.0}, {0.0, 1.0, 0.5}};
-  std::vector<double> apply(const std::vector<double>& state) const {
-    std::vector<double> result(2);
-    for (int i = 0; i < 2; ++i) {
-      result[i] = 0.0;
-      for (int j = 0; j < 3; ++j) {
-        result[i] += H[i][j] * state[j];
-      }
-    }
-    return result;
-  }
-  std::vector<double> applyTangentLinear(
-      const std::vector<double>& state_increment,
-      const std::vector<double>& /*reference_state*/,
-      const std::vector<double>& /*reference_obs*/) const {
-    return apply(state_increment);
-  }
-  void applyAdjoint(const std::vector<double>& obs_increment,
-                    const std::vector<double>& /*reference_state*/,
-                    std::vector<double>& state_increment,
-                    const std::vector<double>& /*reference_obs*/) const {
-    state_increment.resize(3);
-    for (int i = 0; i < 3; ++i) {
-      state_increment[i] = 0.0;
-      for (int j = 0; j < 2; ++j) {
-        state_increment[i] += H[j][i] * obs_increment[j];
-      }
-    }
-  }
-
   // Quadratic form: dy^T * R^(-1) * dy
   double quadraticForm(const std::vector<double>& innovation) const {
     double result = 0.0;

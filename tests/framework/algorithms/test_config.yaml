@@ -1,4 +1,10 @@
-# Test configuration for LETKF
+# Logger configuration
+logger:
+  app_name: "test_config"
+  level: "info"
+  color: true
+  console: true 
+
 model:
   name: "test_model"
   dimensions: [3]  # 3D state space

@@ -54,7 +54,8 @@ class ConcreteOperatorChecksTest : public ::testing::Test {
           config_file_);
 
       // Initialize logger
-      framework::Logger<traits::LiteBackendTag>::Init(*config_);
+      framework::Logger<traits::LiteBackendTag>::Init(
+          config_->GetSubsection("logger"));
 
       // Create basic components
       geometry_ = std::make_unique<framework::Geometry<traits::LiteBackendTag>>(
@@ -126,40 +127,6 @@ TEST_F(ConcreteOperatorChecksTest, TangentLinearAdjointConsistency) {
 
   // For linear operators, these should be equal
   EXPECT_NEAR(tl_ad_product, increment_ad_product, 1e-10);
-}
-
-/**
- * @brief Test tangent linear implementation using Taylor expansion
- */
-TEST_F(ConcreteOperatorChecksTest, TangentLinearTaylorExpansion) {
-  if (!state_ || !obs_) {
-    GTEST_SKIP() << "Setup failed - skipping test";
-  }
-
-  // Create observation operator
-  auto obs_op = framework::ObsOperator<traits::LiteBackendTag>(*config_);
-
-  // Create small increment
-  auto increment =
-      framework::Increment<traits::LiteBackendTag>::createFromEntity(*state_);
-  increment.randomize();
-  increment *= 1e-6;  // Small perturbation
-
-  // Apply forward operator to state + increment
-  auto state_plus_increment = *state_ + increment;
-  auto obs_plus = obs_op.apply(state_plus_increment, *obs_);
-
-  // Apply forward operator to state
-  auto obs_base = obs_op.apply(*state_, *obs_);
-
-  // Apply tangent linear to increment
-  auto tl_result = obs_op.applyTangentLinear(increment, *state_, *obs_);
-
-  // Check Taylor expansion: H(x + dx) ≈ H(x) + H*dx
-  for (size_t i = 0; i < obs_plus.size(); ++i) {
-    double expected = obs_base[i] + tl_result[i];
-    EXPECT_NEAR(obs_plus[i], expected, 1e-10);
-  }
 }
 
 /**
@@ -364,6 +331,130 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorLinearity) {
   for (size_t i = 0; i < obs_sum.size(); ++i) {
     EXPECT_NEAR(obs_sum[i], obs1_plus_obs2[i], 1e-10);
   }
+}
+
+/**
+ * @brief Test cost function gradient using multiple random directions
+ */
+TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientMultipleDirections) {
+  if (!state_ || !obs_ || !config_) {
+    GTEST_SKIP() << "Setup failed - skipping test";
+  }
+
+  // Create background state
+  auto background =
+      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  background.backend().setData({0.0, 0.0, 0.0});
+
+  // Create background error covariance
+  auto bg_error_cov =
+      framework::BackgroundErrorCovariance<traits::LiteBackendTag>(*config_);
+
+  // Create model
+  auto model = framework::Model<traits::LiteBackendTag>(*config_);
+
+  // Create observations and obs operators
+  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
+  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
+
+  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
+  auto obs_op1 = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+
+  obs1.backend().setObservations({2.0, 3.5});
+  obs1.backend().setCovariance({1.0, 1.0});
+
+  observations.push_back(std::move(obs1));
+  obs_operators.push_back(std::move(obs_op1));
+
+  // Create cost function
+  auto cost_func = framework::CostFunction<traits::LiteBackendTag>(
+      *config_, background, observations, obs_operators, model, bg_error_cov);
+
+  // Test state
+  auto test_state =
+      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  test_state.backend().setData({1.0, 2.0, 3.0});
+
+  // Run the multiple directions gradient check
+  bool result = framework::checkCostFunctionGradientMultipleDirections<
+      traits::LiteBackendTag>(cost_func, test_state, 10, 1e-6);
+  EXPECT_TRUE(result);
+}
+
+/**
+ * @brief Test cost function gradient using unit vector directions
+ */
+TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientUnitDirections) {
+  if (!state_ || !obs_ || !config_) {
+    GTEST_SKIP() << "Setup failed - skipping test";
+  }
+
+  // Create background state
+  auto background =
+      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  background.backend().setData({0.0, 0.0, 0.0});
+
+  // Create background error covariance
+  auto bg_error_cov =
+      framework::BackgroundErrorCovariance<traits::LiteBackendTag>(*config_);
+
+  // Create model
+  auto model = framework::Model<traits::LiteBackendTag>(*config_);
+
+  // Create observations and obs operators
+  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
+  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
+
+  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
+  auto obs_op1 = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+
+  obs1.backend().setObservations({2.0, 3.5});
+  obs1.backend().setCovariance({1.0, 1.0});
+
+  observations.push_back(std::move(obs1));
+  obs_operators.push_back(std::move(obs_op1));
+
+  // Create cost function
+  auto cost_func = framework::CostFunction<traits::LiteBackendTag>(
+      *config_, background, observations, obs_operators, model, bg_error_cov);
+
+  // Test state
+  auto test_state =
+      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  test_state.backend().setData({1.0, 2.0, 3.0});
+
+  // Run the unit directions gradient check
+  bool result = framework::checkCostFunctionGradientUnitDirections<
+      traits::LiteBackendTag>(cost_func, test_state, 1e-6);
+  EXPECT_TRUE(result);
+}
+
+/**
+ * @brief Test observation operator tangent linear implementation using direct
+ * call to checkObsOperatorTangentLinear (single-epsilon mode)
+ */
+TEST_F(ConcreteOperatorChecksTest, ObsOperatorTangentLinearCheck) {
+  if (!state_ || !obs_) {
+    GTEST_SKIP() << "Setup failed - skipping test";
+  }
+
+  // Create observation operators
+  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
+  auto obs_op = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  obs_operators.push_back(std::move(obs_op));
+
+  // Create observations
+  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
+  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
+  obs1.backend().setObservations({2.0, 3.5});
+  obs1.backend().setCovariance({1.0, 1.0});
+  observations.push_back(std::move(obs1));
+
+  // Run the tangent linear check in single-epsilon mode (Taylor expansion)
+  bool result =
+      framework::checkObsOperatorTangentLinear<traits::LiteBackendTag>(
+          obs_operators, *state_, observations, 1e-10, {}, 1e-6, true);
+  EXPECT_TRUE(result);
 }
 
 }  // namespace metada::tests
