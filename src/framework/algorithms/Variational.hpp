@@ -272,7 +272,7 @@ class Variational {
    * @return True if gradient test passes within tolerance
    */
   bool performGradientTest(const State<BackendTag>& test_state,
-                           double perturbation_size = 1e-1) const {
+                           double perturbation_size = 1e-6) const {
     logger_.Info() << "Performing gradient test for variational implementation";
 
     const double tolerance = 1e-6;
@@ -286,15 +286,12 @@ class Variational {
     auto perturbation = Increment<BackendTag>::createFromEntity(test_state);
     perturbation.randomize();
 
-    // Scale perturbation by the specified size
-    perturbation *= perturbation_size;
-
     // Compute cost at test state
     double cost_at_x = cost_function_.evaluate(test_state);
 
     // Compute cost at perturbed state
     auto perturbed_state = test_state.clone();
-    perturbed_state += perturbation;
+    perturbed_state += perturbation * perturbation_size;
     double cost_at_x_plus_dx = cost_function_.evaluate(perturbed_state);
 
     // Compute finite difference approximation
@@ -302,8 +299,7 @@ class Variational {
         (cost_at_x_plus_dx - cost_at_x) / perturbation_size;
 
     // Compute analytical gradient in perturbation direction
-    double analytical_grad =
-        analytical_gradient.dot(perturbation) / perturbation_size;
+    double analytical_grad = analytical_gradient.dot(perturbation);
 
     // Compute relative error
     double gradient_error =

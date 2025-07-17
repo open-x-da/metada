@@ -32,7 +32,7 @@ lbfgs_memory: 10
 # Background error covariance configuration (simplified)
 background_covariance:
   size: 717531  # Match actual WRF state size
-  variance: 0.5  # Reasonable variance for meteorological variables
+  variance: 1.0  # Reasonable variance for meteorological variables
   background_covariance_type: "diagonal"
   localization_enabled: false
   localization_radius: 0.0
@@ -89,7 +89,7 @@ observations:
         variables:
           - U:
               if_use: true
-              error: 0.2
+              error: 1.0
               missing_value: -999.0
 
 # Observation operator configuration (simplified)
