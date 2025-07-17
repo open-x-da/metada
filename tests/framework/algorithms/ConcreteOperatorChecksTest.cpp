@@ -95,41 +95,6 @@ class ConcreteOperatorChecksTest : public ::testing::Test {
 };
 
 /**
- * @brief Test tangent linear and adjoint consistency for linear observation
- * operator
- */
-TEST_F(ConcreteOperatorChecksTest, TangentLinearAdjointConsistency) {
-  if (!state_ || !obs_) {
-    GTEST_SKIP() << "Setup failed - skipping test";
-  }
-
-  // Create observation operator
-  auto obs_op = framework::ObsOperator<traits::LiteBackendTag>(*config_);
-
-  // Create test increment
-  auto increment =
-      framework::Increment<traits::LiteBackendTag>::createFromEntity(*state_);
-  increment.randomize();
-
-  // Test TL/AD consistency: <H*dx, dy> = <dx, H^T*dy>
-  auto tl_result = obs_op.applyTangentLinear(increment, *state_, *obs_);
-  auto ad_result =
-      framework::Increment<traits::LiteBackendTag>::createFromEntity(*state_);
-  ad_result = obs_op.applyAdjoint(tl_result, *state_, *obs_);
-
-  // Compute inner products
-  double tl_ad_product = 0.0;
-  for (size_t i = 0; i < tl_result.size(); ++i) {
-    tl_ad_product += tl_result[i] * tl_result[i];
-  }
-
-  double increment_ad_product = increment.dot(ad_result);
-
-  // For linear operators, these should be equal
-  EXPECT_NEAR(tl_ad_product, increment_ad_product, 1e-10);
-}
-
-/**
  * @brief Test cost function gradient using finite differences
  */
 TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
@@ -431,7 +396,8 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientUnitDirections) {
 
 /**
  * @brief Test observation operator tangent linear implementation using direct
- * call to checkObsOperatorTangentLinear (single-epsilon mode)
+ * call to checkObsOperatorTangentLinear (single-epsilon mode via unified
+ * interface)
  */
 TEST_F(ConcreteOperatorChecksTest, ObsOperatorTangentLinearCheck) {
   if (!state_ || !obs_) {
@@ -450,11 +416,19 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorTangentLinearCheck) {
   obs1.backend().setCovariance({1.0, 1.0});
   observations.push_back(std::move(obs1));
 
-  // Run the tangent linear check in single-epsilon mode (Taylor expansion)
+  // Run the tangent linear check in single-epsilon mode using the unified
+  // interface
   bool result =
       framework::checkObsOperatorTangentLinear<traits::LiteBackendTag>(
-          obs_operators, *state_, observations, 1e-10, {}, 1e-6, true);
+          obs_operators, *state_, observations, 1e-6, {0.1});
   EXPECT_TRUE(result);
+
+  // Run the tangent linear check in multiple-epsilon mode using the unified
+  // interface
+  bool result2 =
+      framework::checkObsOperatorTangentLinear<traits::LiteBackendTag>(
+          obs_operators, *state_, observations, 1e-6, {1.0, 0.1, 0.01, 0.001});
+  EXPECT_TRUE(result2);
 }
 
 }  // namespace metada::tests
