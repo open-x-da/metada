@@ -11,6 +11,7 @@
 #include <iostream>
 #include <memory>
 #include <netcdf>
+#include <random>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -41,51 +42,50 @@ namespace metada::backends::macom {
 template <typename ConfigBackend, typename GeometryBackend>
 class MACOMState {
  public:
-  /**
-   * @brief Set the associated geometry object
-   *
-   * @param geometry Pointer to a MACOMGeometry object
-   */
-  void getDimensionsFromGeometry(const GeometryBackend* geometry);
+  // =============================================================================
+  // FRAMEWORK CONCEPTS REQUIRED INTERFACES
+  // Required by StateBackendImpl concept
+  // =============================================================================
+
+  // --- Resource management (required by framework) ---
 
   /**
-   * @brief Default constructor is deleted
+   * @brief Default constructor is deleted (required by framework)
    */
   MACOMState() = delete;
 
   /**
-   * @brief Copy constructor is deleted
+   * @brief Copy constructor is deleted (required by framework)
    */
   MACOMState(const MACOMState&) = delete;
 
   /**
-   * @brief Copy assignment operator is deleted
+   * @brief Copy assignment operator is deleted (required by framework)
    */
   MACOMState& operator=(const MACOMState&) = delete;
 
   /**
-   * @brief Constructor that takes a configuration backend
-   *
+   * @brief Constructor that takes a configuration backend (required by
+   * framework)
    * @param config Configuration containing MACOM file path and variables
+   * @param geometry Geometry object containing grid information
    */
   MACOMState(const ConfigBackend& config, const GeometryBackend& geometry);
 
   /**
-   * @brief CopySkipInitialization
+   * @brief CopySkipInitialization constructor
    */
   MACOMState(const ConfigBackend& config, const GeometryBackend& geometry,
              bool CopySkipInitialization);
 
   /**
-   * @brief Move constructor
-   *
+   * @brief Move constructor (required by framework)
    * @param other MACOM state backend to move from
    */
   MACOMState(MACOMState&& other) noexcept;
 
   /**
-   * @brief Move assignment operator
-   *
+   * @brief Move assignment operator (required by framework)
    * @param other MACOM state backend to move from
    * @return Reference to this state after assignment
    */
@@ -96,164 +96,326 @@ class MACOMState {
    */
   ~MACOMState() = default;
 
-  /**
-   * @brief Clone this state
-   *
-   * @return Unique pointer to a new identical MACOM state backend
-   */
-  std::unique_ptr<MACOMState> clone() const;
+  // --- Data access interface (required by framework) ---
 
   /**
-   * @brief Get mutable access to the underlying data
-   *
+   * @brief Get mutable access to the underlying data (required by framework)
    * @return Void pointer to the active data array
    */
   void* getData();
 
   /**
-   * @brief Get const access to the underlying data
-   *
+   * @brief Get const access to the underlying data (required by framework)
    * @return Const void pointer to the active data array
    */
   const void* getData() const;
 
-  /**
-   * @brief Get the active variable name
-   *
-   * @return Name of the currently active variable
-   */
-  const std::string& getActiveVariable() const;
+  // --- Variable management interface (required by framework) ---
 
   /**
-   * @brief Set the active variable
-   *
-   * @param name Name of the variable to set as active
-   * @throws std::out_of_range If variable doesn't exist
-   */
-  void setActiveVariable(const std::string& name);
-
-  /**
-   * @brief Get all variable names in this state
-   *
-   * @return Vector of variable names
+   * @brief Get variable names (required by framework)
+   * @return Const reference to vector of variable names
    */
   const std::vector<std::string>& getVariableNames() const;
 
   /**
-   * @brief Get the dimensions of a variable
-   *
-   * @param name Name of the variable
-   * @return Vector of dimension sizes
-   * @throws std::out_of_range If variable doesn't exist
+   * @brief Get total size of state vector (required by framework)
+   * @return Number of elements in the active variable
    */
-  const std::vector<size_t>& getDimensions(const std::string& name) const;
+  size_t size() const {
+    return variables_.empty() ? 0 : variables_.at(activeVariable_).size();
+  }
+
+  // --- Cloning interface (required by framework) ---
 
   /**
-   * @brief Set all values to zero
+   * @brief Clone this state (required by framework)
+   * @return Unique pointer to a new identical MACOM state backend
+   */
+  std::unique_ptr<MACOMState> clone() const;
+
+  // --- Vector arithmetic interface (required by framework) ---
+
+  /**
+   * @brief Zero all elements (required by framework)
    */
   void zero();
-  /**
-   * @brief Calculate dot product with another state
-   *
-   * @param other State to calculate dot product with
-   * @return Scalar dot product result
-   * @throws std::runtime_error If states are incompatible
-   */
-  double dot(const MACOMState& other) const;
 
   /**
-   * @brief Calculate norm of the state
-   *
-   * @return Norm of the state
-   */
-  double norm() const;
-
-  /**
-   * @brief Check if this state equals another
-   *
-   * @param other State to compare with
-   * @return True if states are equal, false otherwise
-   */
-  bool equals(const MACOMState& other) const;
-  /**
-   * @brief Add another state to this one
-   *
+   * @brief Add another state to this one (required by framework)
    * @param other State to add
-   * @throws std::runtime_error If states are incompatible
    */
   void add(const MACOMState& other);
 
   /**
-   * @brief Subtract another state from this one
-   *
+   * @brief Subtract another state from this one (required by framework)
    * @param other State to subtract
-   * @throws std::runtime_error If states are incompatible
    */
   void subtract(const MACOMState& other);
 
   /**
-   * @brief Multiply this state by a scalar
-   *
-   * @param scalar Value to multiply by
+   * @brief Multiply this state by a scalar (required by framework)
+   * @param scalar Scalar value to multiply by
    */
   void multiply(double scalar);
 
   /**
-   * @brief Check if state is properly initialized
-   *
-   * @return True if initialized, false otherwise
+   * @brief Add random perturbations to the state variables
+   * @param perturbation_magnitude Standard deviation of Gaussian perturbations
+   * @param seed Random seed (optional, uses current time if not provided)
    */
-  bool isInitialized() const { return initialized_; }
+  void addPerturbation(double perturbation_magnitude, unsigned int seed = 0);
 
   /**
-   * @brief Get the total size of all state variables
-   *
-   * @return Total number of elements across all variables
+   * @brief Directly modify state variables at a specific location by a fixed
+   * value
+   * @param lat Latitude of the modification location (degrees)
+   * @param lon Longitude of the modification location (degrees)
+   * @param delta_value Value to add to the state variables (negative to
+   * subtract)
    */
-  size_t size() const {
-    size_t total_size = 0;
-    for (const auto& [name, data] : variables_) {
-      total_size += data.size();
-    }
-    return total_size;
-  }
+  void modifyValueAtLocation(double lat, double lon, double delta_value);
 
   /**
-   * @brief Save state data to file
-   *
-   * @param filename Path to the output file
-   * @throws std::runtime_error If file cannot be written
+   * @brief Compute dot product with another state (required by framework)
+   * @param other State to compute dot product with
+   * @return Dot product value
+   */
+  double dot(const MACOMState& other) const;
+
+  /**
+   * @brief Compute norm of this state (required by framework)
+   * @return Norm value
+   */
+  double norm() const;
+
+  // --- Comparison interface (required by framework) ---
+
+  /**
+   * @brief Check equality with another state (required by framework)
+   * @param other State to compare with
+   * @return True if states are equal, false otherwise
+   */
+  bool equals(const MACOMState& other) const;
+
+  // --- File I/O interface (required by framework) ---
+
+  /**
+   * @brief Save state to file (required by framework)
+   * @param filename Output file path
    */
   void saveToFile(const std::string& filename) const {
-    // For now, implement a simple text-based save
-    // In a full implementation, this would save to NetCDF format
-    std::ofstream file(filename);
-    if (!file.is_open()) {
-      throw std::runtime_error("Cannot open file for writing: " + filename);
+    if (!initialized_) {
+      throw std::runtime_error("MACOMState not initialized");
     }
 
-    // Write variable data
-    for (const auto& [name, data] : variables_) {
-      file << "# Variable: " << name << "\n";
-      for (size_t i = 0; i < data.size(); ++i) {
-        file << data[i];
-        if (i < data.size() - 1) file << " ";
-      }
-      file << "\n";
+    // Determine output format based on filename extension
+    std::string ext = filename.substr(filename.find_last_of(".") + 1);
+
+    if (ext == "nc") {
+      saveToNetCDF(filename);
+    } else {
+      saveToText(filename);
     }
   }
 
   /**
-   * @brief Get the values of a variable at the nearest grid points for multiple
-   * locations (first vertical layer).
+   * @brief Set template file for NetCDF output
+   * @param template_file Path to template NetCDF file
+   */
+  void setTemplateFile(const std::string& template_file) {
+    template_file_ = template_file;
+    MACOM_LOG_INFO("MACOMState", "Template file set to: " + template_file);
+  }
+
+  // =============================================================================
+  // IDENTITY OBS OPERATOR COMPATIBILITY INTERFACES
+  // Required for compatibility with IdentityObsOperator
+  // =============================================================================
+
+  /**
+   * @brief Get access to the associated geometry (required by
+   * IdentityObsOperator)
+   * @return Const reference to the geometry backend
+   */
+  const GeometryBackend& geometry() const { return geometry_; }
+
+  /**
+   * @brief Access data at grid coordinates (required by IdentityObsOperator)
    *
-   * @param query_lons Vector of longitudes (degrees)
-   * @param query_lats Vector of latitudes (degrees)
-   * @param query_depths Vector of depths (meters)
-   * @param var_name Name of the variable
-   * @param use_horizontal_interp Boolean to use horizontal interpolation
-   * @return Vector of variable values at the nearest grid points (first layer)
-   * @throws std::runtime_error if not initialized or variable/points not found
+   * @param coord Grid coordinates as a pair (i, j)
+   * @return Reference to data at the specified coordinates
+   */
+  double& at(const std::pair<int, int>& coord) {
+    if (!initialized_ || activeVariable_.empty()) {
+      throw std::runtime_error(
+          "MACOMState not initialized or no active variable set");
+    }
+
+    try {
+      auto& var_data = variables_.at(activeVariable_);
+      size_t x_dim = geometry_.getNlpb();
+      size_t index = coord.second * x_dim + coord.first;
+
+      if (index >= var_data.size()) {
+        throw std::out_of_range("Coordinate access index out of bounds");
+      }
+
+      return var_data[index];
+    } catch (const std::out_of_range& e) {
+      throw std::runtime_error("Variable '" + activeVariable_ +
+                               "' not found in state");
+    }
+  }
+
+  /**
+   * @brief Access data at grid coordinates (const version)
+   *
+   * @param coord Grid coordinates as a pair (i, j)
+   * @return Const reference to data at the specified coordinates
+   */
+  const double& at(const std::pair<int, int>& coord) const {
+    if (!initialized_ || activeVariable_.empty()) {
+      throw std::runtime_error(
+          "MACOMState not initialized or no active variable set");
+    }
+
+    try {
+      const auto& var_data = variables_.at(activeVariable_);
+      size_t x_dim = geometry_.getNlpb();
+      size_t index = coord.second * x_dim + coord.first;
+
+      if (index >= var_data.size()) {
+        throw std::out_of_range("Coordinate access index out of bounds");
+      }
+
+      return var_data[index];
+    } catch (const std::out_of_range& e) {
+      throw std::runtime_error("Variable '" + activeVariable_ +
+                               "' not found in state");
+    }
+  }
+
+  /**
+   * @brief Access data at geographic location (required by framework)
+   *
+   * @param location Geographic location
+   * @return Reference to data at the nearest grid point
+   */
+  double& at(const framework::Location& location) {
+    if (!initialized_ || activeVariable_.empty()) {
+      throw std::runtime_error(
+          "MACOMState not initialized or no active variable set");
+    }
+
+    // Convert geographic location to grid coordinates
+    if (location.getCoordinateSystem() ==
+        framework::CoordinateSystem::GEOGRAPHIC) {
+      auto [lat, lon, level] = location.getGeographicCoords();
+
+      // Find nearest grid point
+      auto nearest_point = geometry_.findNearestGridPoint(lon, lat);
+
+      // Access data at the nearest grid point
+      try {
+        auto& var_data = variables_.at(activeVariable_);
+        if (nearest_point.index >= var_data.size()) {
+          throw std::out_of_range("Grid point index out of bounds");
+        }
+
+        return var_data[nearest_point.index];
+      } catch (const std::out_of_range& e) {
+        throw std::runtime_error("Variable '" + activeVariable_ +
+                                 "' not found in state");
+      }
+    } else {
+      throw std::runtime_error(
+          "MACOMState only supports geographic coordinate locations");
+    }
+  }
+
+  /**
+   * @brief Access data at geographic location (const version)
+   *
+   * @param location Geographic location
+   * @return Const reference to data at the nearest grid point
+   */
+  const double& at(const framework::Location& location) const {
+    if (!initialized_ || activeVariable_.empty()) {
+      throw std::runtime_error(
+          "MACOMState not initialized or no active variable set");
+    }
+
+    // Convert geographic location to grid coordinates
+    if (location.getCoordinateSystem() ==
+        framework::CoordinateSystem::GEOGRAPHIC) {
+      auto [lat, lon, level] = location.getGeographicCoords();
+
+      // Find nearest grid point
+      auto nearest_point = geometry_.findNearestGridPoint(lon, lat);
+
+      // Access data at the nearest grid point
+      try {
+        const auto& var_data = variables_.at(activeVariable_);
+        if (nearest_point.index >= var_data.size()) {
+          throw std::out_of_range("Grid point index out of bounds");
+        }
+
+        return var_data[nearest_point.index];
+      } catch (const std::out_of_range& e) {
+        throw std::runtime_error("Variable '" + activeVariable_ +
+                                 "' not found in state");
+      }
+    } else {
+      throw std::runtime_error(
+          "MACOMState only supports geographic coordinate locations");
+    }
+  }
+
+  // =============================================================================
+  // MACOM SPECIFIC FUNCTIONALITY
+  // These are MACOM-specific methods beyond framework requirements
+  // =============================================================================
+
+  // --- MACOM variable management ---
+
+  /**
+   * @brief Get active variable name
+   * @return Const reference to active variable name
+   */
+  const std::string& getActiveVariable() const;
+
+  /**
+   * @brief Set active variable
+   * @param name Variable name to set as active
+   */
+  void setActiveVariable(const std::string& name);
+
+  /**
+   * @brief Get dimensions for a specific variable
+   * @param name Variable name
+   * @return Const reference to vector of dimensions
+   */
+  const std::vector<size_t>& getDimensions(const std::string& name) const;
+
+  // --- MACOM grid interface ---
+
+  /**
+   * @brief Set the associated geometry object
+   * @param geometry Pointer to a MACOMGeometry object
+   */
+  void getDimensionsFromGeometry(const GeometryBackend* geometry);
+
+  // --- MACOM data retrieval ---
+
+  /**
+   * @brief Get values at nearest grid points for multiple query locations
+   * @param query_lons Vector of query longitudes
+   * @param query_lats Vector of query latitudes
+   * @param query_depths Vector of query depths
+   * @param var_name Variable name to query
+   * @param use_horizontal_interp Whether to use horizontal interpolation
+   * @return Vector of interpolated values
    */
   std::vector<double> getValuesAtNearestPoints(
       const std::vector<double>& query_lons,
@@ -261,13 +423,20 @@ class MACOMState {
       const std::vector<double>& query_depths, const std::string& var_name,
       bool use_horizontal_interp = false) const;
 
+  // --- MACOM mode checking ---
+
+  /**
+   * @brief Check if running in Fortran mode
+   * @return True if in Fortran mode, false if in C++ mode
+   */
   bool isFortranMode() const {
     return backends::macom::MACOMParallel::getInstance().isFortranMode();
   }
 
+  // --- MACOM initialization ---
+
   /**
    * @brief Initialize the state with configuration and geometry
-   *
    * @param config Configuration containing MACOM file path and variables
    * @param geometry Geometry object containing grid information
    * @return bool True if initialization successful, false otherwise
@@ -277,7 +446,6 @@ class MACOMState {
 
   /**
    * @brief Initialize the state in Fortran mode
-   *
    * @return bool True if initialization successful, false otherwise
    */
   bool FortranInitialization();
@@ -304,10 +472,19 @@ class MACOMState {
    * @param other The other MACOMState to compare with
    * @return True if compatible, false otherwise
    */
-  // void loadVariableData(const std::string& filename,  // Removed this method
-  //                       const std::vector<std::string>& variables);
-
   bool isCompatible(const MACOMState& other) const;
+
+  /**
+   * @brief Save state to NetCDF format based on template file
+   * @param filename Output NetCDF file path
+   */
+  void saveToNetCDF(const std::string& filename) const;
+
+  /**
+   * @brief Save state to text format (backup option)
+   * @param filename Output text file path
+   */
+  void saveToText(const std::string& filename) const;
 
   // Reference to configuration
   const ConfigBackend& config_;
@@ -328,8 +505,9 @@ class MACOMState {
   std::vector<double> w;  // w-velocity
 
   // State information
-  std::string inputFile_;  // Input data file path
-  std::string timestamp_;  // Timestamp of the data
+  std::string inputFile_;      // Input data file path
+  std::string timestamp_;      // Timestamp of the data
+  std::string template_file_;  // Template file for NetCDF output
   std::unique_ptr<MACOMFortranInterface> fortranInterface_;
   bool initialized_ = false;
   bool CopySkipInitialization = true;
@@ -417,20 +595,15 @@ MACOMState<ConfigBackend, GeometryBackend>::clone() const {
 
   cloned->initialized_ = this->initialized_;
   cloned->inputFile_ = this->inputFile_;
-  // cloned->variables_ = this->variables_;
+  cloned->variables_ = this->variables_;
   cloned->activeVariable_ = this->activeVariable_;
   cloned->variableNames_ = this->variableNames_;
   cloned->dimensions_ = this->dimensions_;
 
-  // cloned->nlpb_ = this->nlpb_;
-  // cloned->nk_ = this->nk_;
-  // cloned->nlpb_grid = this->nlpb_grid;
-  // cloned->nk_grid = this->nk_grid;
-  // cloned->u = this->u;
-  // cloned->v = this->v;
-  // cloned->t = this->t;
-  // cloned->s = this->s;
-  // cloned->w = this->w;
+  cloned->nlpb_ = this->nlpb_;
+  cloned->nk_ = this->nk_;
+  cloned->nlpb_grid = this->nlpb_grid;
+  cloned->nk_grid = this->nk_grid;
 
   return cloned;
 }
@@ -521,9 +694,9 @@ MACOMState<ConfigBackend, GeometryBackend>::getDimensions(
 // Zero implementation
 template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::zero() {
-  // for (auto& [name, data] : variables_) {
-  //   data.fill(0.0);
-  // }
+  for (auto& [name, data] : variables_) {
+    std::fill(data.begin(), data.end(), 0.0);
+  }
 }
 
 // Dot product implementation
@@ -582,15 +755,39 @@ bool MACOMState<ConfigBackend, GeometryBackend>::equals(
 }
 
 template <typename ConfigBackend, typename GeometryBackend>
-void MACOMState<ConfigBackend, GeometryBackend>::add(
-    [[maybe_unused]] const MACOMState& other) {}
+void MACOMState<ConfigBackend, GeometryBackend>::add(const MACOMState& other) {
+  if (!isCompatible(other)) {
+    throw std::runtime_error("States are incompatible for addition");
+  }
+
+  for (const auto& [name, data] : variables_) {
+    if (other.variables_.find(name) != other.variables_.end()) {
+      const auto& other_data = other.variables_.at(name);
+      if (data.size() == other_data.size()) {
+        for (size_t i = 0; i < data.size(); ++i) {
+          variables_[name][i] += other_data[i];
+        }
+      }
+    }
+  }
+}
 
 template <typename ConfigBackend, typename GeometryBackend>
 void MACOMState<ConfigBackend, GeometryBackend>::subtract(
     const MACOMState<ConfigBackend, GeometryBackend>& other) {
-  // Subtract each variable
   if (!isCompatible(other)) {
     throw std::runtime_error("States are incompatible for subtraction");
+  }
+
+  for (const auto& [name, data] : variables_) {
+    if (other.variables_.find(name) != other.variables_.end()) {
+      const auto& other_data = other.variables_.at(name);
+      if (data.size() == other_data.size()) {
+        for (size_t i = 0; i < data.size(); ++i) {
+          variables_[name][i] -= other_data[i];
+        }
+      }
+    }
   }
 }
 
@@ -604,6 +801,31 @@ void MACOMState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
       val *= scalar;
     }
   }
+}
+
+// Add perturbation implementation
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::addPerturbation(
+    double perturbation_magnitude, unsigned int seed) {
+  if (!initialized_) {
+    throw std::runtime_error("MACOMState not initialized");
+  }
+
+  // Initialize random number generator
+  std::random_device rd;
+  std::mt19937 gen(seed == 0 ? rd() : seed);
+  std::normal_distribution<double> dist(0.0, perturbation_magnitude);
+
+  // Add perturbations to all variables
+  for (auto& [name, data] : variables_) {
+    for (auto& value : data) {
+      value += dist(gen);
+    }
+  }
+
+  std::cout << "Added Gaussian perturbations (std=" << perturbation_magnitude
+            << ") to " << variables_.size() << " variables with seed=" << seed
+            << std::endl;
 }
 
 // Implementation of loadVariableDimensions
@@ -807,18 +1029,19 @@ MACOMState<ConfigBackend, GeometryBackend>::getValuesAtNearestPoints(
         geometry_.findNearestGridPointsBatch(query_lons, query_lats);
   }
 
-  // Print grid point information
-  MACOM_LOG_INFO("MACOMState",
-                 "Found nearest grid points for " + var_name + ":");
-  for (size_t i = 0; i < nearest_points.size(); ++i) {
-    MACOM_LOG_INFO(
-        "MACOMState",
-        "Point " + std::to_string(i) +
-            ": index=" + std::to_string(nearest_points[i].index) +
-            ", lon=" + std::to_string(nearest_points[i].lon) +
-            ", lat=" + std::to_string(nearest_points[i].lat) +
-            ", distance=" + std::to_string(nearest_points[i].distance) + " km");
-  }
+  // // Print grid point information
+  // MACOM_LOG_INFO("MACOMState",
+  //                "Found nearest grid points for " + var_name + ":");
+  // for (size_t i = 0; i < nearest_points.size(); ++i) {
+  //   MACOM_LOG_INFO(
+  //       "MACOMState",
+  //       "Point " + std::to_string(i) +
+  //           ": index=" + std::to_string(nearest_points[i].index) +
+  //           ", lon=" + std::to_string(nearest_points[i].lon) +
+  //           ", lat=" + std::to_string(nearest_points[i].lat) +
+  //           ", distance=" + std::to_string(nearest_points[i].distance) + "
+  //           km");
+  // }
 
   // Get nearest vertical points
   std::vector<metada::backends::macom::VerticalPoint> vertical_points =
@@ -1131,6 +1354,143 @@ bool MACOMState<ConfigBackend, GeometryBackend>::FortranInitialization() {
                                       std::string(e.what()));
     return false;
   }
+}
+
+// Implementation of saveToText method
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::saveToText(
+    const std::string& filename) const {
+  MACOM_LOG_INFO("MACOMState", "Saving state to text file: " + filename);
+
+  std::ofstream file(filename);
+  if (!file.is_open()) {
+    throw std::runtime_error("Cannot open file for writing: " + filename);
+  }
+
+  // Write header information
+  file << "# MACOM State File (Text Format)\n";
+  file << "# Input file: " << inputFile_ << "\n";
+  file << "# Active variable: " << activeVariable_ << "\n";
+  file << "# Grid dimensions: nlpb=" << nlpb_ << ", nk=" << nk_ << "\n";
+  file << "# Variables: ";
+  for (const auto& var : variableNames_) {
+    file << var << " ";
+  }
+  file << "\n\n";
+
+  // Write variable data
+  for (const auto& [name, data] : variables_) {
+    file << "# Variable: " << name << " (size=" << data.size() << ")\n";
+    for (size_t i = 0; i < data.size(); ++i) {
+      file << data[i];
+      if (i < data.size() - 1) file << " ";
+      // Add line breaks every 10 values for readability
+      if ((i + 1) % 10 == 0) file << "\n";
+    }
+    file << "\n\n";
+  }
+
+  file.close();
+  MACOM_LOG_INFO("MACOMState", "Successfully saved state to: " + filename);
+}
+
+// Implementation of saveToNetCDF method
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::saveToNetCDF(
+    const std::string& filename) const {
+  MACOM_LOG_INFO("MACOMState", "Saving state to NetCDF file: " + filename);
+
+  try {
+    // Use template file if available, otherwise use input file
+    std::string source_file =
+        template_file_.empty() ? inputFile_ : template_file_;
+
+    if (source_file.empty()) {
+      MACOM_LOG_ERROR("MACOMState",
+                      "No template or input file available for NetCDF output");
+      saveToText(filename + ".txt");  // Fallback to text
+      return;
+    }
+
+    MACOM_LOG_INFO("MACOMState", "Using template file: " + source_file);
+
+    // Copy template file structure
+    std::string temp_cmd = "cp \"" + source_file + "\" \"" + filename + "\"";
+    int result = std::system(temp_cmd.c_str());
+    if (result != 0) {
+      MACOM_LOG_WARNING("MACOMState",
+                        "Failed to copy template file, falling back to text");
+      saveToText(filename + ".txt");  // Fallback to text
+      return;
+    }
+
+    // Open the copied file for writing
+    netCDF::NcFile ncFile(filename, netCDF::NcFile::write);
+    if (ncFile.isNull()) {
+      MACOM_LOG_ERROR("MACOMState",
+                      "Failed to open NetCDF file for writing: " + filename);
+      saveToText(filename + ".txt");  // Fallback to text
+      return;
+    }
+
+    // Update variable data (only the analyzed variables)
+    for (const auto& [varName, varData] : variables_) {
+      auto ncVar = ncFile.getVar(varName);
+      if (!ncVar.isNull() && varData.size() > 0) {
+        ncVar.putVar(varData.data());
+        MACOM_LOG_INFO("MACOMState", "Updated variable: " + varName);
+      } else {
+        MACOM_LOG_WARNING("MACOMState",
+                          "Variable not found in NetCDF file: " + varName);
+      }
+    }
+
+    ncFile.close();
+    MACOM_LOG_INFO("MACOMState", "Successfully saved NetCDF state");
+
+  } catch (const netCDF::exceptions::NcException& e) {
+    MACOM_LOG_ERROR("MACOMState",
+                    "NetCDF error while saving: " + std::string(e.what()));
+    saveToText(filename + ".txt");  // Fallback to text
+  } catch (const std::exception& e) {
+    MACOM_LOG_ERROR("MACOMState",
+                    "Error while saving: " + std::string(e.what()));
+    saveToText(filename + ".txt");  // Fallback to text
+  }
+}
+
+// Simple value modification - now modifies ALL grid points for testing
+template <typename ConfigBackend, typename GeometryBackend>
+void MACOMState<ConfigBackend, GeometryBackend>::modifyValueAtLocation(
+    double lat, double lon, double delta_value) {
+  if (!initialized_) {
+    throw std::runtime_error("MACOMState not initialized");
+  }
+
+  // Modify values for the active variable only
+  if (activeVariable_.empty()) {
+    throw std::runtime_error("No active variable set");
+  }
+
+  auto it = variables_.find(activeVariable_);
+  if (it == variables_.end()) {
+    throw std::runtime_error("Active variable '" + activeVariable_ +
+                             "' not found");
+  }
+
+  auto& data = it->second;
+  size_t modified_count = 0;
+
+  // FOR TESTING: Modify ALL grid points by the delta value
+  for (size_t i = 0; i < data.size(); ++i) {
+    data[i] += delta_value;
+    modified_count++;
+  }
+
+  std::cout << "TESTING MODE: Modified ALL " << modified_count
+            << " grid points of variable '" << activeVariable_ << "' by "
+            << delta_value << " (originally requested for location " << lat
+            << ", " << lon << ")" << std::endl;
 }
 
 }  // namespace metada::backends::macom

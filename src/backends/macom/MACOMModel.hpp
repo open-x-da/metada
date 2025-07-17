@@ -38,86 +38,105 @@ class MACOMState;
 template <typename ConfigBackend, typename StateBackend>
 class MACOMModel {
  public:
+  // =============================================================================
+  // FRAMEWORK CONCEPTS REQUIRED INTERFACES
+  // Required by ModelBackendImpl concept
+  // =============================================================================
+
+  // --- Resource management (required by framework) ---
+
   /**
-   * @brief Default constructor is deleted
+   * @brief Default constructor is deleted (required by framework)
    */
   MACOMModel() = delete;
 
   /**
-   * @brief Copy constructor is deleted
+   * @brief Copy constructor is deleted (required by framework)
    */
   MACOMModel(const MACOMModel&) = delete;
 
   /**
-   * @brief Copy assignment operator is deleted
+   * @brief Copy assignment operator is deleted (required by framework)
    */
   MACOMModel& operator=(const MACOMModel&) = delete;
 
   /**
-   * @brief Constructor that takes a configuration backend.
-   * @param config Configuration containing MACOM model options.
-   * @param mpi_comm MPI communicator to be used by the model.
+   * @brief Constructor that takes a configuration backend (required by
+   * framework)
+   * @param config Configuration containing MACOM model options
    */
   explicit MACOMModel(const ConfigBackend& config);
 
   /**
-   * @brief Move constructor.
-   * @param other MACOM model backend to move from.
+   * @brief Move constructor (required by framework)
+   * @param other MACOM model backend to move from
    */
   MACOMModel(MACOMModel&& other) noexcept;
 
   /**
-   * @brief Move assignment operator.
-   * @param other MACOM model backend to move from.
-   * @return Reference to this model after assignment.
+   * @brief Move assignment operator (required by framework)
+   * @param other MACOM model backend to move from
+   * @return Reference to this model after assignment
    */
   MACOMModel& operator=(MACOMModel&& other) noexcept;
 
   /**
-   * @brief Destructor.
+   * @brief Destructor
    */
   ~MACOMModel();
 
+  // --- Lifecycle management interface (required by framework) ---
+
   /**
-   * @brief Initialize the model with its configuration.
-   *        This will initialize MPI (if not already done externally),
-   *        read the namelist, and initialize model components via
-   * FortranInterface.
+   * @brief Initialize the model with its configuration (required by framework)
+   * This will initialize MPI (if not already done externally),
+   * read the namelist, and initialize model components via FortranInterface.
    * @param config Configuration (already passed to constructor, can be used for
-   * re-init or verification).
+   * re-init or verification)
    */
   void initialize(const ConfigBackend& config);
 
   /**
-   * @brief Reset the model to its initial state (placeholder).
+   * @brief Reset the model to its initial state (required by framework)
    */
   void reset();
 
   /**
-   * @brief Finalize the model, releasing resources.
-   *        This will finalize model components and MPI (if initialized by this
-   * model) via FortranInterface.
+   * @brief Finalize the model, releasing resources (required by framework)
+   * This will finalize model components and MPI (if initialized by this model)
+   * via FortranInterface.
    */
   void finalize();
 
+  // --- Model execution interface (required by framework) ---
+
   /**
-   * @brief Run the model.
-   *        For now, this will call the Fortran model's main run loop or a
-   * series of steps.
-   * @param initialState Initial state of the model (currently unused
-   * placeholder).
-   * @param finalState Final state after model integration (output, currently
-   * unused placeholder).
-   * @throws std::runtime_error If model run fails.
+   * @brief Run the model (required by framework)
+   * For now, this will call the Fortran model's main run loop or a series of
+   * steps.
+   * @param initialState Initial state of the model
+   * @param finalState Final state after model integration (output)
+   * @throws std::runtime_error If model run fails
    */
   void run(const StateBackend& initialState, StateBackend& finalState);
 
+  // =============================================================================
+  // MACOM SPECIFIC FUNCTIONALITY
+  // These are MACOM-specific methods beyond framework requirements
+  // =============================================================================
+
+  // --- MACOM status checking ---
+
   /**
-   * @brief Check if the model is initialized.
-   * @return True if initialized, false otherwise.
+   * @brief Check if the model is initialized
+   * @return True if initialized, false otherwise
    */
   bool isInitialized() const { return initialized_; }
 
+  /**
+   * @brief Check if running in Fortran mode
+   * @return True if in Fortran mode, false if in C++ mode
+   */
   bool isFortranMode() const {
     return backends::macom::MACOMParallel::getInstance().isFortranMode();
   }

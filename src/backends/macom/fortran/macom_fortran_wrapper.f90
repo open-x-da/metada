@@ -11,13 +11,20 @@ module macom_fortran_wrapper
   USE mod_mpi_variables
   USE mod_mpi_csp_io
   USE mod_mpi_test
-  !YY
+  ! Conditionally include mitice modules based on compilation flags
+
+#ifdef MACOM_REGION_MODE
+  USE mod_macom_final
+#endif
+
+#ifdef SEAICE_ITD
   USE mitice
   USE mitice_parameters
   USE mitice_utility
   USE mitice_init
   USE mitice_ave
-  use mod_csp_basic
+#endif
+  ! use mod_csp_basic
   implicit none
 
   private ! Default to private, only expose BIND(C) interfaces
@@ -75,9 +82,24 @@ contains
   end subroutine c_macom_get_mpi_size
 
   subroutine c_macom_finalize_mpi() bind(C, name="c_macom_finalize_mpi")
-    
-    ! Clean up MPI resources
+    ! Use conditional compilation to handle different finalization methods
+#ifdef MACOM_GLOBAL_MODE
+    ! Global mode: use mpi_final_operations
     call mpi_final_operations()
+    if (mpi_rank == 0) then
+      call macom_log_info("FortranWrapper", "c_macom_finalize_mpi: used mpi_final_operations (global mode)")
+    endif
+#endif
+
+#ifdef MACOM_REGION_MODE
+    ! Region mode: use region-specific finalization
+    ! call macom_final_mpi
+    CALL mpi_netcdf_read_finalize
+    CALL MPI_FINALIZE(mpi_err)
+    if (mpi_rank == 0) then
+      call macom_log_info("FortranWrapper", "c_macom_finalize_mpi: used region mode finalization")
+    endif
+#endif
 
   end subroutine c_macom_finalize_mpi
 
@@ -98,6 +120,7 @@ contains
     logical(c_bool), intent(out) :: mitice, restart, assim
     integer(c_int), intent(out) :: init_iter, max_iter
 
+    ! Use actual mitice_on value from namelist
     mitice = mitice_on
     restart = restart_in
     assim = assim_in
@@ -110,8 +133,7 @@ contains
   end subroutine c_get_macom_config_flags
 
   subroutine c_macom_initialize_mitice() bind(C, name="c_macom_initialize_mitice")
-!YY: ifdef of seaice module TO DO LATER
-!#ifdef SEAICE
+#ifdef SEAICE_ITD
     if (mitice_on) then
       ! Open runtime file for screen output and model parameter summary
       call mitice_run_info_open()
@@ -121,7 +143,12 @@ contains
         call macom_log_info("FortranWrapper", "c_macom_initialize_mitice called")
       endif
     endif
-!#endif
+#else
+    ! For builds without sea ice support, this is a no-op
+    if (mpi_rank == 0)then
+      call macom_log_info("FortranWrapper", "c_macom_initialize_mitice called (no-op - sea ice not compiled)")
+    endif
+#endif
   end subroutine c_macom_initialize_mitice
 
   !-----------------------------------------------------------------------------  
@@ -152,12 +179,19 @@ contains
   ! Mitice full initialization (C++ interface)
   !-----------------------------------------------------------------------------  
   subroutine c_macom_mitice_init_all() bind(C, name="c_macom_mitice_init_all")
+#ifdef SEAICE_ITD
     if (mitice_on)then
         call mitice_init_allocate   !allocate host and device variables
         call mitice_init_fixed   !prepare a few parameters
         call gpu_seaice_parameters_update   !upload parameters to GPU device
         call mitice_init_vars      !initialized model variables and read initial fields
     endif
+#else
+    ! For builds without sea ice support, this is a no-op
+    if (mpi_rank == 0)then
+      call macom_log_info("FortranWrapper", "c_macom_mitice_init_all called (no-op - sea ice not compiled)")
+    endif
+#endif
   end subroutine c_macom_mitice_init_all
 
   !-----------------------------------------------------------------------------  
@@ -211,15 +245,22 @@ contains
   end subroutine c_macom_csp_io_main
 
   !-----------------------------------------------------------------------------  
-  ! Mitice finalize (C++ interface)
+  ! Mitice finalize (C++ interface) - Original function for global mode
   !-----------------------------------------------------------------------------  
   subroutine c_macom_finalize_mitice() bind(C, name="c_macom_finalize_mitice")
+#ifdef SEAICE_ITD
     if (mitice_on) then
       call mitice_run_info_close   !close seaice running message file
-      if (SEAICE_taveFreq .GT. 0.0_wp) then
+      if (SEAICE_taveFreq .GT. 0.0) then
         call mitice_ave_release
       endif
     endif
+#else
+    ! For builds without sea ice support, this is a no-op
+    if (mpi_rank == 0)then
+      call macom_log_info("FortranWrapper", "c_macom_finalize_mitice called (no-op - sea ice not compiled)")
+    endif
+#endif
   end subroutine c_macom_finalize_mitice
 
   !-----------------------------------------------------------------------------

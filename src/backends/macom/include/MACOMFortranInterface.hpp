@@ -80,6 +80,17 @@ class MACOMFortranInterface {
   int getFortranComm() const;
 
   /**
+   * @brief Checks if the environment was initialized by this interface.
+   * @return true if MPI was initialized by this instance, false otherwise
+   */
+  bool isMPIInitialized() const { return mpi_initialized_by_this_instance_; }
+
+  /**
+   * @brief Synchronize all processes using MPI_Barrier
+   */
+  void barrier();
+
+  /**
    * @brief Calls the Fortran routine to read the namelist.
    */
   void readNamelist();
@@ -96,7 +107,7 @@ class MACOMFortranInterface {
                       int& max_iter);
 
   /**
-   * @brief Initialize mitice components
+   * @brief Initialize mitice components (no-op for region mode)
    */
   void initializeMitice();
 
@@ -106,38 +117,27 @@ class MACOMFortranInterface {
   void finalizeMPI();
 
   /**
-   * @brief Synchronize all processes using Fortran MPI_Barrier
-   */
-  void barrier();
-
-  /**
-   * @brief Checks if the environment was initialized by this interface.
-   */
-  bool isMPIInitialized() const { return mpi_initialized_by_this_instance_; }
-
-  /**
-   * @brief Send information to IO processes (calls
-   * c_macom_mpi_send_info_comp_to_io)
+   * @brief Send information from compute processes to I/O processes
    */
   void sendInfoToIO();
 
   /**
-   * @brief Open misc run info (calls c_macom_misc_run_info_open)
+   * @brief Open misc run info
    */
   void openMiscRunInfo();
 
   /**
-   * @brief Initialize CSP components
+   * @brief Initialize CSP
    */
   void initCSP();
 
   /**
-   * @brief Initialize all mitice components
+   * @brief Initialize mitice components (no-op for region mode)
    */
   void miticeInitAll();
 
   /**
-   * @brief Initialize restart and assim components
+   * @brief Handle restart and assimilation
    */
   void restartAndAssim();
 
@@ -146,18 +146,25 @@ class MACOMFortranInterface {
    */
   void runCspStep();
 
+  /**
+   * @brief Run CSP I/O main
+   */
   void CspIoMain();
+
+  /**
+   * @brief Finalize mitice components (for global mode)
+   */
   void finalizeMitice();
 
  private:
-  MPI_Comm mpi_comm_;  // C++ MPI communicator
-  int f_comm_;         // Fortran format communicator
-  int rank_;           // Current process rank
-  int size_;           // Total number of processes
-  int io_procs_;       // Number of I/O processes
-  int comp_procs_;     // Number of compute processes
+  int mpi_comm_;    // C++ MPI communicator
+  int f_comm_;      // Fortran format communicator
+  int rank_;        // Current process rank
+  int size_;        // Total number of processes
+  int io_procs_;    // Number of I/O processes
+  int comp_procs_;  // Number of compute processes
   bool mpi_initialized_by_this_instance_;
   bool model_components_initialized_;
-};  // class MACOMFortranInterface
+};
 
 }  // namespace metada::backends::macom

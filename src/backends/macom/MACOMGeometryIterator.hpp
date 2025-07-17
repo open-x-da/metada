@@ -43,12 +43,89 @@ struct PointCloud;
 template <typename ConfigBackend>
 class MACOMGeometryIterator {
  public:
-  // Iterator traits
+  // =============================================================================
+  // FRAMEWORK CONCEPTS REQUIRED INTERFACES
+  // Required by GeometryIteratorBackendImpl concept
+  // =============================================================================
+
+  // --- Type aliases (required by framework) ---
+
   using iterator_category = std::forward_iterator_tag;
-  using value_type = std::tuple<size_t, size_t, size_t>;  // i, j, k indices
+  using value_type = metada::framework::Location;  // Return Location objects
   using difference_type = std::ptrdiff_t;
   using pointer = value_type*;
   using reference = value_type&;
+
+  // --- Constructor interface (required by framework) ---
+
+  /**
+   * @brief Default constructor (required by framework)
+   * Creates an invalid iterator (typically used for end iterator)
+   */
+  MACOMGeometryIterator()
+      : geometry_(nullptr), i_(0), j_(0), k_(0), index_(0) {}
+
+  /**
+   * @brief Constructor for creating a valid iterator
+   * @param geometry Pointer to the MACOM geometry backend
+   * @param index Linear index into the grid (0 for begin, grid size for end)
+   */
+  MACOMGeometryIterator(const MACOMGeometry<ConfigBackend>* geometry,
+                        size_t index);
+
+  // --- Dereference interface (required by framework) ---
+
+  /**
+   * @brief Dereference operator (required by framework)
+   * @return Tuple containing (i, j, k) indices of current position
+   */
+  value_type operator*() const;
+
+  /**
+   * @brief Arrow operator (required by framework)
+   * @return Pointer to current value
+   */
+  const value_type* operator->() const {
+    static value_type temp = operator*();
+    return &temp;
+  }
+
+  // --- Increment interface (required by framework) ---
+
+  /**
+   * @brief Pre-increment operator (required by framework)
+   * @return Reference to this iterator after incrementing
+   */
+  MACOMGeometryIterator& operator++();
+
+  /**
+   * @brief Post-increment operator (required by framework)
+   * @return Copy of iterator before incrementing
+   */
+  MACOMGeometryIterator operator++(int);
+
+  // --- Comparison interface (required by framework) ---
+
+  /**
+   * @brief Equality comparison (required by framework)
+   * @param other Iterator to compare with
+   * @return True if iterators point to the same position
+   */
+  bool operator==(const MACOMGeometryIterator& other) const;
+
+  /**
+   * @brief Inequality comparison (required by framework)
+   * @param other Iterator to compare with
+   * @return True if iterators point to different positions
+   */
+  bool operator!=(const MACOMGeometryIterator& other) const;
+
+  // =============================================================================
+  // MACOM SPECIFIC FUNCTIONALITY
+  // These are MACOM-specific methods beyond framework requirements
+  // =============================================================================
+
+  // --- MACOM constants ---
 
   // Earth radius constant used for spatial calculations
   static constexpr double EARTH_RADIUS_KM = 6371.0;
@@ -58,60 +135,10 @@ class MACOMGeometryIterator {
       nanoflann::L2_Simple_Adaptor<double, PointCloud<GeoPoint>>,
       PointCloud<GeoPoint>, 2>;
 
-  /**
-   * @brief Default constructor is deleted
-   */
-  MACOMGeometryIterator() = delete;
-
-  /**
-   * @brief Constructor for creating a valid iterator
-   *
-   * @param geometry Pointer to the MACOM geometry backend
-   * @param index Linear index into the grid (0 for begin, grid size for end)
-   */
-  MACOMGeometryIterator(const MACOMGeometry<ConfigBackend>* geometry,
-                        size_t index);
-
-  /**
-   * @brief Dereference operator
-   *
-   * @return Tuple containing (i, j, k) indices of current position
-   */
-  value_type operator*() const;
-
-  /**
-   * @brief Pre-increment operator
-   *
-   * @return Reference to this iterator after incrementing
-   */
-  MACOMGeometryIterator& operator++();
-
-  /**
-   * @brief Post-increment operator
-   *
-   * @return Copy of iterator before incrementing
-   */
-  MACOMGeometryIterator operator++(int);
-
-  /**
-   * @brief Equality comparison
-   *
-   * @param other Iterator to compare with
-   * @return True if iterators point to the same position
-   */
-  bool operator==(const MACOMGeometryIterator& other) const;
-
-  /**
-   * @brief Inequality comparison
-   *
-   * @param other Iterator to compare with
-   * @return True if iterators point to different positions
-   */
-  bool operator!=(const MACOMGeometryIterator& other) const;
+  // --- MACOM coordinate transformation ---
 
   /**
    * @brief Convert latitude and longitude to 2D Cartesian coordinates
-   *
    * @param lon Longitude (degrees)
    * @param lat Latitude (degrees)
    * @param x Output parameter, Cartesian coordinate x
@@ -121,7 +148,6 @@ class MACOMGeometryIterator {
 
   /**
    * @brief Calculate great-circle distance between two points
-   *
    * @param lon1 First point longitude
    * @param lat1 First point latitude
    * @param lon2 Second point longitude
@@ -131,9 +157,10 @@ class MACOMGeometryIterator {
   static double haversineDistance(double lon1, double lat1, double lon2,
                                   double lat2);
 
+  // --- MACOM spatial search and indexing ---
+
   /**
    * @brief Initialize KD-tree (static method, ensures one-time initialization)
-   *
    * @param lonC Longitude array
    * @param latC Latitude array
    * @param nlpb Number of grid points
@@ -144,7 +171,6 @@ class MACOMGeometryIterator {
 
   /**
    * @brief Find the nearest grid point (using KD-tree)
-   *
    * @param lonC Longitude array (for fallback method)
    * @param latC Latitude array (for fallback method)
    * @param nlpb Number of grid points (for fallback method)
@@ -162,7 +188,6 @@ class MACOMGeometryIterator {
 
   /**
    * @brief Find the nearest grid point (direct search, not using KD-tree)
-   *
    * @param lonC Longitude array
    * @param latC Latitude array
    * @param nlpb Number of grid points
@@ -178,7 +203,6 @@ class MACOMGeometryIterator {
 
   /**
    * @brief Find all grid points within specified radius
-   *
    * @param lonC Longitude array (for fallback method)
    * @param latC Latitude array (for fallback method)
    * @param nlpb Number of grid points (for fallback method)
@@ -195,7 +219,6 @@ class MACOMGeometryIterator {
   /**
    * @brief Find all grid points within specified radius (direct search, not
    * using KD-tree)
-   *
    * @param lonC Longitude array
    * @param latC Latitude array
    * @param nlpb Number of grid points
@@ -208,9 +231,10 @@ class MACOMGeometryIterator {
       const std::vector<double>& lonC, const std::vector<double>& latC,
       size_t nlpb, double lon, double lat, double radius);
 
+  // --- MACOM batch operations ---
+
   /**
    * @brief Find nearest grid points for multiple query locations
-   *
    * @param lonC Longitude array of grid
    * @param latC Latitude array of grid
    * @param nlpb Number of grid points
@@ -229,7 +253,6 @@ class MACOMGeometryIterator {
   /**
    * @brief Find nearest grid points for multiple query locations (direct
    * method, no KD-tree)
-   *
    * @param lonC Longitude array of grid
    * @param latC Latitude array of grid
    * @param nlpb Number of grid points
@@ -411,23 +434,77 @@ template <typename ConfigBackend>
 MACOMGeometryIterator<ConfigBackend>::MACOMGeometryIterator(
     const MACOMGeometry<ConfigBackend>* geometry, size_t index)
     : geometry_(geometry), index_(index) {
-  MACOM_LOG_DEBUG(
-      "MACOMGeometryIterator",
-      "Created iterator for geometry with index " + std::to_string(index));
+  if (geometry_ && index_ < geometry_->totalGridSize()) {
+    // Calculate i, j, k indices from linear index
+    size_t nlpb = geometry_->getNlpb();
+    k_ = index_ / nlpb;
+    size_t grid_idx = index_ % nlpb;
+
+    // For MACOM unstructured grid, these are simplified mappings
+    i_ = grid_idx % 100;  // Arbitrary mapping for compatibility
+    j_ = grid_idx / 100;
+  } else {
+    // End iterator or invalid
+    i_ = 0;
+    j_ = 0;
+    k_ = 0;
+  }
 }
 
 // Dereference operator implementation
 template <typename ConfigBackend>
 typename MACOMGeometryIterator<ConfigBackend>::value_type
 MACOMGeometryIterator<ConfigBackend>::operator*() const {
-  return std::make_tuple(i_, j_, k_);
+  if (!geometry_ || index_ >= geometry_->totalGridSize()) {
+    throw std::out_of_range("Iterator out of bounds");
+  }
+
+  // Convert linear index to grid coordinates
+  size_t nlpb = geometry_->getNlpb();
+  size_t k = index_ / nlpb;         // Vertical level index
+  size_t grid_idx = index_ % nlpb;  // Horizontal grid point index
+
+  // Get geographic coordinates from geometry
+  const auto& lonC = geometry_->getLonC();
+  const auto& latC = geometry_->getLatC();
+
+  if (grid_idx < lonC.size() && grid_idx < latC.size()) {
+    double lon = lonC[grid_idx];
+    double lat = latC[grid_idx];
+    double level = static_cast<double>(k);  // Use k as level
+
+    return metada::framework::Location(lat, lon, level);
+  } else {
+    // Fallback to grid coordinates if geographic data is not available
+    return metada::framework::Location(
+        static_cast<int>(i_), static_cast<int>(j_), static_cast<int>(k_));
+  }
 }
 
 // Pre-increment operator implementation
 template <typename ConfigBackend>
 MACOMGeometryIterator<ConfigBackend>&
 MACOMGeometryIterator<ConfigBackend>::operator++() {
-  // TODO: Implement
+  if (!geometry_ || index_ >= geometry_->totalGridSize()) {
+    // Already at end or invalid
+    return *this;
+  }
+
+  ++index_;
+
+  // Update i, j, k indices based on new linear index
+  if (index_ < geometry_->totalGridSize()) {
+    size_t nlpb = geometry_->getNlpb();
+    k_ = index_ / nlpb;
+    size_t grid_idx = index_ % nlpb;
+
+    // For MACOM, we use simplified i,j mapping since it's unstructured
+    // These are mainly for compatibility - the actual location is in
+    // operator*()
+    i_ = grid_idx % 100;  // Arbitrary mapping for compatibility
+    j_ = grid_idx / 100;
+  }
+
   return *this;
 }
 
@@ -453,6 +530,7 @@ bool MACOMGeometryIterator<ConfigBackend>::operator!=(
     const MACOMGeometryIterator& other) const {
   return !(*this == other);
 }
+
 // geoToCartesian implementation
 template <typename ConfigBackend>
 void MACOMGeometryIterator<ConfigBackend>::geoToCartesian(double lon,
@@ -623,13 +701,13 @@ GeoPoint MACOMGeometryIterator<ConfigBackend>::findNearestGridPoint(
 
   // Check if a point was found
   if (min_distance < std::numeric_limits<double>::max()) {
-    std::string logMsg =
-        "Best nearest point to (" + std::to_string(lon) + ", " +
-        std::to_string(lat) + "): index=" + std::to_string(result.index) +
-        ", coords=(" + std::to_string(result.lon) + ", " +
-        std::to_string(result.lat) + ")" +
-        ", distance=" + std::to_string(result.distance) + " km";
-    MACOM_LOG_INFO("MACOMGeometryIterator", logMsg);
+    // std::string logMsg =
+    //     "Best nearest point to (" + std::to_string(lon) + ", " +
+    //     std::to_string(lat) + "): index=" + std::to_string(result.index) +
+    //     ", coords=(" + std::to_string(result.lon) + ", " +
+    //     std::to_string(result.lat) + ")" +
+    //     ", distance=" + std::to_string(result.distance) + " km";
+    // MACOM_LOG_INFO("MACOMGeometryIterator", logMsg);
     return result;
   }
 
@@ -817,9 +895,10 @@ MACOMGeometryIterator<ConfigBackend>::findNearestGridPointsBatch(
   const size_t num_queries = query_lons.size();
   std::vector<GeoPoint> results(num_queries);
 
-  MACOM_LOG_INFO(
-      "MACOMGeometryIterator",
-      "Performing batch search for " + std::to_string(num_queries) + " points");
+  // MACOM_LOG_INFO(
+  //     "MACOMGeometryIterator",
+  //     "Performing batch search for " + std::to_string(num_queries) + "
+  //     points");
 
   // Process each query point
   for (size_t q = 0; q < num_queries; ++q) {
@@ -830,9 +909,9 @@ MACOMGeometryIterator<ConfigBackend>::findNearestGridPointsBatch(
     results[q] = findNearestGridPoint(lonC, latC, nlpb, lon, lat, false);
   }
 
-  MACOM_LOG_INFO("MACOMGeometryIterator",
-                 "Completed batch nearest point search for " +
-                     std::to_string(num_queries) + " points");
+  // MACOM_LOG_INFO("MACOMGeometryIterator",
+  //                "Completed batch nearest point search for " +
+  //                    std::to_string(num_queries) + " points");
 
   return results;
 }

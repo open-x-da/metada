@@ -30,7 +30,6 @@ metada_find_package(netCDF CONFIG)
 metada_find_package(xtl CONFIG)
 metada_find_package(nanoflann CONFIG)
 
-
 # Create the MACOM backend interface library
 add_library(macom_backends INTERFACE)
 add_library(metada::backends::macom ALIAS macom_backends)
@@ -65,6 +64,19 @@ set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 # Set compiler flags
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O3 -cpp -fno-tree-vectorize -fallow-argument-mismatch -Wno-missing-include-dirs")
 
+# MACOM mode selection - mutually exclusive options
+option(MACOM_REGION_MODE "Build MACOM in region mode" ON)
+option(MACOM_GLOBAL_MODE "Build MACOM in global mode" OFF)
+
+# Ensure only one mode is selected
+if(MACOM_REGION_MODE AND MACOM_GLOBAL_MODE)
+    message(FATAL_ERROR "MACOM_REGION_MODE and MACOM_GLOBAL_MODE are mutually exclusive. Please select only one.")
+endif()
+
+if(NOT MACOM_REGION_MODE AND NOT MACOM_GLOBAL_MODE)
+    message(FATAL_ERROR "Please select either MACOM_REGION_MODE or MACOM_GLOBAL_MODE.")
+endif()
+
 # Fortran compilation flags and macros
 option(SEAICE_VARIABLE_SALINITY "Variable salinity" ON)
 option(SEAICE_ITD "Sea Ice Thickness Distribution" ON)
@@ -77,8 +89,23 @@ option(OPENACC "Enable OpenACC" OFF)
 option(OPENACCGPU "Enable OpenACC GPU" OFF)
 option(SeaiceDebug "Enable Seaice Debug" OFF)
 
+# Auto-disable sea ice options in region mode
+if(MACOM_REGION_MODE)
+    set(SEAICE_VARIABLE_SALINITY OFF)
+    set(SEAICE_ITD OFF)
+    set(SEAICE_ALLOW_FREEDRIFT OFF)
+    set(SEAICE_ALLOW_DYNAMICS OFF)
+    set(SEAICE_ALLOW_MOM_ADVECTION OFF)
+    set(SEAICE_ALLOW_BOTTOMDRAG OFF)
+    set(SEAICE_CAP_SUBLIM OFF)
+    set(SeaiceDebug OFF)
+    message(STATUS "Auto-disabled sea ice options in region mode")
+endif()
+
 # 设置Fortran预处理器宏定义
 set(DEF_FLAGS "")
+
+# Sea ice options - available in both modes but can be disabled
 if(SEAICE_VARIABLE_SALINITY)
     list(APPEND DEF_FLAGS "-DSEAICE_VARIABLE_SALINITY")
     add_compile_definitions(SEAICE_VARIABLE_SALINITY)
@@ -120,70 +147,40 @@ if(SeaiceDebug)
     add_compile_definitions(SeaiceDebug)
 endif()
 
+# Mode-specific flags
+if(MACOM_REGION_MODE)
+    list(APPEND DEF_FLAGS "-DBARMOD")
+    add_compile_definitions(BARMOD)
+    message(STATUS "Building MACOM in REGION mode (sea ice auto-disabled)")
+else()
+    message(STATUS "Building MACOM in GLOBAL mode")
+endif()
+
 string(REPLACE ";" " " DEF_FLAGS_STR "${DEF_FLAGS}")
 
 # 确保在 CMakeLists.txt 中明确设置 Fortran 模块目录
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
-# 所有 MITgcm-style 样例
-file(GLOB SRC_FORTRAN_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-globe/*.f90"
-)
+# Select source files based on mode
+if(MACOM_REGION_MODE)
+    # Region mode: use src-region files
+    file(GLOB SRC_FORTRAN_FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-region/*.f90"
+    )
+    message(STATUS "Using region mode Fortran sources from src-region/")
+else()
+    # Global mode: use src-globe files
+    file(GLOB SRC_FORTRAN_FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-globe/*.f90"
+    )
+    message(STATUS "Using global mode Fortran sources from src-globe/")
+endif()
 
 # 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
 add_library(macom_fortran STATIC
     fortran/macom_logger.f90           
     fortran/macom_fortran_wrapper.f90
     ${SRC_FORTRAN_FILES}
-    # fortran/src/mod_mpi_variables.f90
-    # fortran/src/mod_mpi_test_variables.f90
-    # fortran/src/mod_mpi_test.f90
-    # fortran/src/mod_io_netcdf.f90
-    # fortran/src/mod_mpi_reallocate.f90
-    # fortran/src/mod_mpi_interfaces.f90
-    # fortran/src/mod_mpi_csp_io_sbc.f90
-    # fortran/src/mod_mpi_csp_io_restart.f90
-    # fortran/src/mod_mpi_csp_io_netcdf4.f90
-    # fortran/src/mod_mpi_csp_io_misc.f90
-    # fortran/src/mod_mpi_csp_io_bdy.f90
-    # fortran/src/mod_mpi_csp_io.f90
-    # fortran/src/mod_misc_basic.f90
-    # fortran/src/mod_misc.f90
-    # fortran/src/mod_csp_vdiff_coef_gls.f90
-    # fortran/src/mod_csp_vdiff.f90
-    # fortran/src/mod_csp_tide.f90
-    # fortran/src/mod_csp_thdyn_hdiff.f90
-    # fortran/src/mod_csp_thdyn_force.f90
-    # fortran/src/mod_csp_thdyn_adv.f90
-    # fortran/src/mod_csp_thdyn.f90
-    # fortran/src/mod_csp_misc.f90
-    # fortran/src/mod_csp_init.f90
-    # fortran/src/mod_csp_force.f90
-    # fortran/src/mod_csp_dyn_vort.f90
-    # fortran/src/mod_csp_dyn_ptide.f90
-    # fortran/src/mod_csp_dyn_phi.f90
-    # fortran/src/mod_csp_dyn_pbt_exp.f90
-    # fortran/src/mod_csp_dyn_mom_vecinv.f90
-    # fortran/src/mod_csp_dyn_hdiss.f90
-    # fortran/src/mod_csp_dyn_forward.f90
-    # fortran/src/mod_csp_dyn_force.f90
-    # fortran/src/mod_csp_dyn_drag.f90
-    # fortran/src/mod_csp_dyn_ab.f90
-    # fortran/src/mod_csp_bdy.f90
-    # fortran/src/mod_csp_basic.f90
-    # fortran/src/mod_csp.f90
-    # fortran/src/mitice_vars_module.f90
-    # fortran/src/mitice_utility_module.f90
-    # fortran/src/mitice_thermodyn_module.f90
-    # fortran/src/mitice_parameters_module.f90
-    # fortran/src/mitice_main_module.f90
-    # fortran/src/mitice_itd_module.f90
-    # fortran/src/mitice_io_module.f90
-    # fortran/src/mitice_init_module.f90
-    # fortran/src/mitice_dynamics_module.f90
-    # fortran/src/mitice_debug.f90
-    # fortran/src/mitice_ave.f90
-    # fortran/src/mitice_advdiff_module.f90
 )
 
 # 设置 Fortran 模块输出目录
@@ -235,13 +232,6 @@ target_link_libraries(macom_backends INTERFACE macom_impl)
 
 # Add format target
 AddFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
-
-# # set(MSYS2_PREFIX "/mingw64")
-# # set(ZLIB_LIB ${MSYS2_PREFIX}/lib/libz.dll.a)
-# # set(SZIP_LIB ${MSYS2_PREFIX}/lib/libsz.dll.a)
-# # set(MPI_LIB  ${MSYS2_PREFIX}/lib/libmsmpi.dll.a)
-
-# set(COMMON_INCLUDE ${MSYS2_PREFIX}/include)
 
 
 

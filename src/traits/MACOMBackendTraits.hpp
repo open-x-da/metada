@@ -28,7 +28,11 @@
 #include "../backends/macom/MACOMState.hpp"
 #include "../backends/macom/MACOMModel.hpp"
 
-// Now include the common observation-related headers
+// Now include the MACOM-specific observation-related headers
+#include "../backends/macom/MACOMObservation.hpp"
+#include "../backends/macom/MACOMObsOperator.hpp"
+
+// Keep common headers for fallback compatibility
 #include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/common/obsoperator/IdentityObsOperator.hpp"
 
@@ -81,10 +85,10 @@ struct BackendTraits<MACOMBackendTag> {
     using StateBackend = backends::macom::MACOMState<ConfigBackend, GeometryBackend>;
 
     /** @brief Observation backend implementation for MACOM */
-    using ObservationBackend = backends::common::observation::GridObservation;
+    using ObservationBackend = backends::macom::MACOMObservation;
     
     /** @brief Observation operator backend implementation for MACOM */
-    using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
+    using ObsOperatorBackend = backends::macom::MACOMObsOperator<StateBackend, ObservationBackend>;
 
     /** @brief MACOM model backend implementation */
     using ModelBackend = backends::macom::MACOMModel<ConfigBackend, StateBackend>;

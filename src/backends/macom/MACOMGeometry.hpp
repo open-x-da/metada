@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <fstream>
 #include <iostream>
 // #include <map>
 #include <algorithm>  // for std::sort
@@ -97,6 +98,11 @@ namespace metada::backends::macom {
 template <typename ConfigBackend>
 class MACOMGeometry {
  public:
+  // =============================================================================
+  // FRAMEWORK CONCEPTS REQUIRED INTERFACES
+  // Required by GeometryBackendImpl concept
+  // =============================================================================
+
   // Type aliases required by the framework
   using value_type = framework::Location;
   using reference = value_type;
@@ -110,30 +116,25 @@ class MACOMGeometry {
   using iterator = MACOMGeometryIterator<ConfigBackend>;
   using const_iterator = MACOMGeometryConstIterator<ConfigBackend>;
 
-  // --- Deleted constructors and assignment operators ---
+  // --- Resource management (required by framework) ---
   MACOMGeometry() = delete;
   MACOMGeometry(const MACOMGeometry&) = delete;
   MACOMGeometry& operator=(const MACOMGeometry&) = delete;
 
   /**
-   * @brief Constructor that takes a configuration backend
-   *
+   * @brief Constructor that takes a configuration backend (required by
+   * framework)
    * @param config Configuration containing geometry settings
    */
   explicit MACOMGeometry(const ConfigBackend& config);
 
   /**
-   * @brief Move constructor
-   *
-   * @param other MACOM geometry backend to move from
+   * @brief Move constructor (required by framework)
    */
   MACOMGeometry(MACOMGeometry&& other) noexcept;
 
   /**
-   * @brief Move assignment operator
-   *
-   * @param other MACOM geometry backend to move from
-   * @return Reference to this geometry after assignment
+   * @brief Move assignment operator (required by framework)
    */
   MACOMGeometry& operator=(MACOMGeometry&& other) noexcept;
 
@@ -143,78 +144,77 @@ class MACOMGeometry {
   ~MACOMGeometry() = default;
 
   /**
-   * @brief Clone this geometry
-   *
+   * @brief Clone this geometry (required by framework)
    * @return A new MACOMGeometry instance (by value)
    */
   MACOMGeometry clone() const;
 
+  // --- Iteration interface (required by framework) ---
+
   /**
    * @brief Get iterator to the beginning of the grid
-   *
    * @return Iterator pointing to the first grid point
    */
   iterator begin();
 
   /**
    * @brief Get iterator to the end of the grid
-   *
    * @return Iterator pointing past the last grid point
    */
   iterator end();
 
   /**
    * @brief Get const iterator to the beginning of the grid
-   *
    * @return Const iterator pointing to the first grid point
    */
   const_iterator begin() const;
 
   /**
    * @brief Get const iterator to the end of the grid
-   *
    * @return Const iterator pointing past the last grid point
    */
   const_iterator end() const;
 
   /**
    * @brief Get const iterator to the beginning of the grid (alias for begin())
-   *
    * @return Const iterator pointing to the first grid point
    */
   const_iterator cbegin() const { return begin(); }
 
   /**
    * @brief Get const iterator to the end of the grid (alias for end())
-   *
    * @return Const iterator pointing past the last grid point
    */
   const_iterator cend() const { return end(); }
 
+  // --- Size and element access interface (required by framework) ---
+
   /**
    * @brief Get the total number of grid points
-   *
    * @return Total number of grid points in the geometry
    */
   std::size_t totalGridSize() const;
 
   /**
    * @brief Get the total number of grid points (alias for totalGridSize)
-   *
    * @return Total number of grid points in the geometry
    */
   size_type size() const { return totalGridSize(); }
 
   /**
    * @brief Check if the geometry is empty
-   *
    * @return True if the geometry has no grid points, false otherwise
    */
   bool empty() const { return totalGridSize() == 0; }
 
   /**
+   * @brief Get the maximum possible size
+   * @return Maximum possible size
+   */
+  size_type max_size() const { return std::numeric_limits<size_type>::max(); }
+
+  /**
    * @brief Element access by index
-   *
    * @param idx Index of the grid point
    * @return Location object representing the grid point
    */
@@ -228,7 +228,6 @@ class MACOMGeometry {
 
   /**
    * @brief Element access by index (non-const version)
-   *
    * @param idx Index of the grid point
    * @return Location object representing the grid point
    */
@@ -242,7 +241,6 @@ class MACOMGeometry {
 
   /**
    * @brief Element access by index with bounds checking
-   *
    * @param idx Index of the grid point
    * @return Location object representing the grid point
    * @throws std::out_of_range if index is out of bounds
@@ -256,66 +254,59 @@ class MACOMGeometry {
 
   /**
    * @brief Access to the first element
-   *
    * @return Location object representing the first grid point
    */
   reference front() { return operator[](0); }
 
   /**
    * @brief Access to the first element (const version)
-   *
    * @return Location object representing the first grid point
    */
   const_reference front() const { return operator[](0); }
 
   /**
    * @brief Access to the last element
-   *
    * @return Location object representing the last grid point
    */
   reference back() { return operator[](totalGridSize() - 1); }
 
   /**
    * @brief Access to the last element (const version)
-   *
    * @return Location object representing the last grid point
    */
   const_reference back() const { return operator[](totalGridSize() - 1); }
 
+  // =============================================================================
+  // IDENTITY OBS OPERATOR COMPATIBILITY INTERFACES
+  // Required for compatibility with IdentityObsOperator
+  // =============================================================================
+
   /**
-   * @brief Get the maximum possible size
-   *
-   * @return Maximum possible size
+   * @brief Get X dimension (alias for getNlpb for compatibility with
+   * IdentityObsOperator)
+   * @return Number of horizontal grid points
    */
-  size_type max_size() const { return std::numeric_limits<size_type>::max(); }
+  std::size_t x_dim() const { return nlpb_; }
+
+  /**
+   * @brief Get Y dimension (alias for getNk for compatibility with
+   * IdentityObsOperator)
+   * @return Number of vertical levels
+   */
+  std::size_t y_dim() const { return nk_; }
+
+  // =============================================================================
+  // MACOM SPECIFIC FUNCTIONALITY
+  // These are MACOM-specific methods beyond framework requirements
+  // =============================================================================
 
   /**
    * @brief Check if geometry is properly initialized
-   *
    * @return True if initialized, false otherwise
    */
   bool isInitialized() const { return initialized_; }
 
-  /**
-   * @brief Check if the geometry is periodic in X dimension
-   *
-   * @return Always false in this implementation
-   */
-  bool isPeriodicX() const { return false; }
-
-  /**
-   * @brief Check if the geometry is periodic in Y dimension
-   *
-   * @return Always false in this implementation
-   */
-  bool isPeriodicY() const { return false; }
-
-  /**
-   * @brief Check if the geometry is periodic in Z dimension
-   *
-   * @return Always false in this implementation
-   */
-  bool isPeriodicZ() const { return false; }
+  // --- MACOM-specific grid dimension accessors ---
 
   /**
    * @brief Get the number of grid points (nlpb)
@@ -364,6 +355,8 @@ class MACOMGeometry {
    * @return ni_
    */
   std::size_t getNi() const { return ni_; }
+
+  // --- MACOM-specific coordinate data accessors ---
 
   // Add new accessor methods for grid coordinates
   const std::vector<double>& getLatC() const { return latC_; }
