@@ -271,9 +271,8 @@ class Variational {
    * @param perturbation_size Size of perturbation for finite difference
    * @return True if gradient test passes within tolerance
    */
-  bool performGradientTest(
-      const State<BackendTag>& test_state,
-      [[maybe_unused]] double perturbation_size = 1e-5) const {
+  bool performGradientTest(const State<BackendTag>& test_state,
+                           double perturbation_size = 1e-1) const {
     logger_.Info() << "Performing gradient test for variational implementation";
 
     const double tolerance = 1e-6;
@@ -285,20 +284,39 @@ class Variational {
 
     // Create random perturbation
     auto perturbation = Increment<BackendTag>::createFromEntity(test_state);
-    // Note: We'd need to add a method to create random perturbations
-    // For now, use a simple approach
+    perturbation.randomize();
 
-    // Compute finite difference gradient
-    // double cost_plus = cost_function_.evaluate(test_state);
-    // Apply perturbation and compute cost difference
+    // Scale perturbation by the specified size
+    perturbation *= perturbation_size;
 
-    // Compare analytical and finite difference gradients
-    double gradient_error = 0.0;  // Compute actual error
+    // Compute cost at test state
+    double cost_at_x = cost_function_.evaluate(test_state);
+
+    // Compute cost at perturbed state
+    auto perturbed_state = test_state.clone();
+    perturbed_state += perturbation;
+    double cost_at_x_plus_dx = cost_function_.evaluate(perturbed_state);
+
+    // Compute finite difference approximation
+    double finite_diff_grad =
+        (cost_at_x_plus_dx - cost_at_x) / perturbation_size;
+
+    // Compute analytical gradient in perturbation direction
+    double analytical_grad =
+        analytical_gradient.dot(perturbation) / perturbation_size;
+
+    // Compute relative error
+    double gradient_error =
+        std::abs(finite_diff_grad - analytical_grad) /
+        (std::max(std::abs(finite_diff_grad), std::abs(analytical_grad)) +
+         1e-12);
 
     bool test_passed = gradient_error < tolerance;
 
     logger_.Info() << "Gradient test " << (test_passed ? "PASSED" : "FAILED");
-    logger_.Info() << "Gradient error: " << gradient_error;
+    logger_.Info() << "Finite difference gradient: " << finite_diff_grad;
+    logger_.Info() << "Analytical gradient: " << analytical_grad;
+    logger_.Info() << "Relative error: " << gradient_error;
     logger_.Info() << "Tolerance: " << tolerance;
 
     return test_passed;

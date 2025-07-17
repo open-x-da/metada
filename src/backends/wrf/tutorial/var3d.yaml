@@ -18,7 +18,7 @@ format: "nc"
 save_trajectory: false
 
 # Optional gradient test for debugging
-perform_gradient_test: false
+perform_gradient_test: true
 
 # Minimization configuration
 minimization_algorithm: "lbfgs"
@@ -89,7 +89,7 @@ observations:
         variables:
           - U:
               if_use: true
-              error: 2.0
+              error: 0.2
               missing_value: -999.0
 
 # Observation operator configuration (simplified)
