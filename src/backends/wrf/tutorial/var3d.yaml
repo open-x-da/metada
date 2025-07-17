@@ -22,7 +22,7 @@ perform_gradient_test: true
 
 # Minimization configuration
 minimization_algorithm: "lbfgs"
-max_iterations: 100
+max_iterations: 10
 tolerance: 1e-6
 gradient_tolerance: 1e-8
 line_search_enabled: true

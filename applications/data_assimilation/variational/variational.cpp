@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
     if (config.Get("perform_gradient_test").asBool()) {
       logger.Info() << "Performing gradient test...";
       bool gradient_test_passed = variational.performGradientTest(background);
-      logger.Info() << "Gradient test: "
+      logger.Info() << "Gradient test "
                     << (gradient_test_passed ? "PASSED" : "FAILED");
     }
 
