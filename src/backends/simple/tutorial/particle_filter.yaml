@@ -1,0 +1,81 @@
+logger:
+  app_name: "particle_filter"
+  level: "debug"
+  color: true
+  console: true
+
+# Geometry for the ensemble
+geometry:
+  x_dim: 36
+  y_dim: 18
+
+# Ensemble variables to analyze
+ensemble:
+  members:
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_1.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_2.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_3.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_4.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_5.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_6.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_7.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_8.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_9.txt"
+
+# Observation settings
+observations:
+  types:
+    - obs_A:
+        if_use: true
+        file: "D:/linux/metada/src/backends/simple/tutorial/obs_format.txt"
+        coordinate: "grid"
+        variables:
+          - simple:
+              if_use: true
+              error: 0.1  # standard deviations
+              missing_value: -999.0
+    - obs_B:
+        if_use: false
+        file: "D:/linux/metada/src/backends/simple/tutorial/obsB_format.txt"
+        coordinate: "grid"
+        variables:
+          - simple:
+              if_use: true
+              error: 0.1  # standard deviations
+              missing_value: -999.0
+
+# Observation operator settings
+obs_operator:
+  variables:
+    - simple:
+        if_use: true
+        error: 0.1  # standard deviations
+
+# Analysis settings
+analysis:
+  algorithm: "particle_filter"
+  resampling_threshold: 50  # Effective sample size threshold for resampling
+  resampling_method: "systematic"  # Options: systematic, multinomial, stratified, residual
+  jittering_enabled: true  # Enable jittering to maintain particle diversity
+  jittering_std: 0.01  # Standard deviation for jittering perturbations
+  format: "txt"
+  output_base_file: "./analysis"
+  save_detailed_results: true 
