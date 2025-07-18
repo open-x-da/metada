@@ -247,6 +247,28 @@ class MockObservation {
     return errors;
   }
 
+  // Covariance operations
+  template <typename VectorType>
+  double quadraticForm([[maybe_unused]] const VectorType& innovation) const {
+    return 1.0;  // Mock return value
+  }
+
+  template <typename VectorType>
+  std::vector<double> applyInverseCovariance(
+      const VectorType& innovation) const {
+    return std::vector<double>(innovation.size(), 1.0);  // Mock return value
+  }
+
+  template <typename VectorType>
+  std::vector<double> applyCovariance(const VectorType& vector) const {
+    return std::vector<double>(vector.size(), 1.0);  // Mock return value
+  }
+
+  std::vector<double> getInverseCovarianceDiagonal() const {
+    return {1.0, 1.0, 1.0};  // Mock return value
+  }
+  MOCK_METHOD(bool, isDiagonalCovariance, (), (const));
+
   // Test helper methods
   void setObservations(const std::vector<ObservationPoint>& obs) {
     observations_ = obs;

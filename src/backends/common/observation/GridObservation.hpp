@@ -238,6 +238,52 @@ class GridObservation {
   }
 
   /**
+   * @brief Compute quadratic form x^T R^-1 x where R is observation covariance
+   * @param innovation Innovation vector (y - H(x))
+   * @return Quadratic form value
+   */
+  double quadraticForm(const std::vector<double>& innovation) const {
+    if (innovation.size() != observations_.size()) {
+      throw std::invalid_argument("Innovation vector size mismatch");
+    }
+
+    double result = 0.0;
+    for (size_t i = 0; i < observations_.size(); ++i) {
+      if (observations_[i].is_valid) {
+        // For diagonal covariance: x^T R^-1 x = sum(x_i^2 / sigma_i^2)
+        double variance = observations_[i].error * observations_[i].error;
+        result += (innovation[i] * innovation[i]) / variance;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @brief Apply inverse observation covariance matrix R^-1 to innovation
+   * vector
+   * @param innovation Innovation vector (y - H(x))
+   * @return Weighted innovation vector R^-1 * innovation
+   */
+  std::vector<double> applyInverseCovariance(
+      const std::vector<double>& innovation) const {
+    if (innovation.size() != observations_.size()) {
+      throw std::invalid_argument("Innovation vector size mismatch");
+    }
+
+    std::vector<double> result(innovation.size());
+    for (size_t i = 0; i < innovation.size(); ++i) {
+      if (observations_[i].is_valid) {
+        // For diagonal covariance: R^-1 = diag(1/sigma_i^2)
+        double variance = observations_[i].error * observations_[i].error;
+        result[i] = innovation[i] / variance;
+      } else {
+        result[i] = 0.0;  // Zero weight for invalid observations
+      }
+    }
+    return result;
+  }
+
+  /**
    * @brief Clone this observation
    * @return Unique pointer to cloned observation
    */

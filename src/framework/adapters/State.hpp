@@ -51,6 +51,13 @@ template <typename BackendTag>
 class Config;
 
 /**
+ * @brief Forward declaration of Increment class
+ */
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+class Increment;
+
+/**
  * @brief Main state class template providing a generic interface to state
  * implementations
  *
@@ -293,6 +300,16 @@ class State : private NonCopyable {
   }
 
   /**
+   * @brief Addition assignment operator for increment
+   * @param increment Increment to add
+   * @return Reference to this state
+   */
+  State& operator+=(const Increment<BackendTag>& increment) {
+    backend_.add(increment.state().backend());
+    return *this;
+  }
+
+  /**
    * @brief Subtraction operator
    * @param other State to subtract
    * @return New state containing the difference
@@ -346,27 +363,6 @@ class State : private NonCopyable {
   }
 
   /**
-   * @brief Create an increment representing the difference between this state
-   * and another
-   *
-   * @tparam IncrementType The increment type to create
-   * @param other The state to subtract from this one
-   * @return An increment representing (this - other)
-   */
-  template <typename IncrementType>
-  IncrementType createIncrementTo(const State& other) const;
-
-  /**
-   * @brief Apply an increment to this state
-   *
-   * @tparam IncrementType The increment type to apply
-   * @param increment The increment to apply
-   * @return Reference to this state after applying the increment
-   */
-  template <typename IncrementType>
-  State& applyIncrement(const IncrementType& increment);
-
-  /**
    * @brief Get direct access to the backend instance
    * @return Reference to backend implementation
    */
@@ -401,39 +397,21 @@ class State : private NonCopyable {
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
+// Non-member operator+ for State + Increment
+template <typename BackendTag>
+State<BackendTag> operator+(const State<BackendTag>& state,
+                            const Increment<BackendTag>& increment) {
+  State<BackendTag> result = state.clone();
+  result += increment;
+  return result;
+}
+
 // Output operator
 template <typename BackendTag>
   requires StateBackendType<BackendTag>
 inline std::ostream& operator<<(std::ostream& os,
                                 const State<BackendTag>& state) {
   return os << state.backend();
-}
-
-}  // namespace metada::framework
-
-// Include Increment.hpp after State class definition to resolve circular
-// dependency
-#include "Increment.hpp"
-
-namespace metada::framework {
-
-// Implementation of methods that depend on Increment
-template <typename BackendTag>
-  requires StateBackendType<BackendTag>
-template <typename IncrementType>
-IncrementType State<BackendTag>::createIncrementTo(const State& other) const {
-  // Use the factory method in Increment
-  return IncrementType::createFromDifference(*this, other);
-}
-
-template <typename BackendTag>
-  requires StateBackendType<BackendTag>
-template <typename IncrementType>
-State<BackendTag>& State<BackendTag>::applyIncrement(
-    const IncrementType& increment) {
-  // Use the applyTo method in Increment
-  increment.applyTo(*this);
-  return *this;
 }
 
 }  // namespace metada::framework

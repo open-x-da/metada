@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <chrono>
+#include <filesystem>
 #include <memory>
 #include <netcdf>
 #include <optional>
@@ -233,8 +235,14 @@ class WRFState {
    * @return xt::xarray<double>& Reference to the variable's data array
    * @throws std::out_of_range If variable doesn't exist
    */
-  xt::xarray<double>& getVariable(const std::string& variableName) {
-    return variables_.at(variableName);
+  xt::xarray<double> getVariable(const std::string& variableName) {
+    const auto& dims = dimensions_.at(variableName);
+    size_t offset = variable_offsets_.at(variableName);
+    size_t size = 1;
+    for (size_t dim : dims) size *= dim;
+
+    // Create a view into the flattened data
+    return xt::adapt(flattened_data_.data() + offset, dims);
   }
 
   /**
@@ -248,8 +256,14 @@ class WRFState {
    * array
    * @throws std::out_of_range If variable doesn't exist
    */
-  const xt::xarray<double>& getVariable(const std::string& variableName) const {
-    return variables_.at(variableName);
+  xt::xarray<double> getVariable(const std::string& variableName) const {
+    const auto& dims = dimensions_.at(variableName);
+    size_t offset = variable_offsets_.at(variableName);
+    size_t size = 1;
+    for (size_t dim : dims) size *= dim;
+
+    // Create a view into the flattened data
+    return xt::adapt(flattened_data_.data() + offset, dims);
   }
   ///@}
 
@@ -275,7 +289,7 @@ class WRFState {
    * @return bool True if variable exists, false otherwise
    */
   bool hasVariable(const std::string& variableName) const {
-    return variables_.find(variableName) != variables_.end();
+    return variable_offsets_.find(variableName) != variable_offsets_.end();
   }
 
   /**
@@ -288,7 +302,26 @@ class WRFState {
    * @throws std::out_of_range If variable doesn't exist
    */
   size_t getVariableSize(const std::string& variableName) const {
-    return variables_.at(variableName).size();
+    const auto& dims = dimensions_.at(variableName);
+    size_t size = 1;
+    for (size_t dim : dims) size *= dim;
+    return size;
+  }
+
+  /**
+   * @brief Get dimensions of a specific variable
+   *
+   * @details Returns the dimensions of the specified variable as a vector.
+   * For 3D variables: [Z, Y, X] dimensions
+   * For 2D variables: [Y, X] dimensions
+   *
+   * @param[in] variableName Name of the variable
+   * @return const std::vector<size_t>& Reference to the variable's dimensions
+   * @throws std::out_of_range If variable doesn't exist
+   */
+  const std::vector<size_t>& getVariableDimensions(
+      const std::string& variableName) const {
+    return dimensions_.at(variableName);
   }
   ///@}
 
@@ -318,18 +351,7 @@ class WRFState {
    * @warning No bounds checking - undefined behavior if idx >= size()
    * @see at(size_type) for bounds-checked access
    */
-  reference operator[](size_type idx) {
-    size_t current_offset = 0;
-    for (const auto& varName : variableNames_) {
-      size_t var_size = variables_.at(varName).size();
-      if (idx < current_offset + var_size) {
-        return variables_.at(varName).flat(idx - current_offset);
-      }
-      current_offset += var_size;
-    }
-    // Should never reach here if idx < size()
-    return variables_.at(variableNames_[0]).flat(0);
-  }
+  reference operator[](size_type idx) { return flattened_data_[idx]; }
 
   /**
    * @brief Access element in total state vector (unchecked, const)
@@ -346,16 +368,7 @@ class WRFState {
    * @see at(size_type) for bounds-checked access
    */
   const_reference operator[](size_type idx) const {
-    size_t current_offset = 0;
-    for (const auto& varName : variableNames_) {
-      size_t var_size = variables_.at(varName).size();
-      if (idx < current_offset + var_size) {
-        return variables_.at(varName).flat(idx - current_offset);
-      }
-      current_offset += var_size;
-    }
-    // Should never reach here if idx < size()
-    return variables_.at(variableNames_[0]).flat(0);
+    return flattened_data_[idx];
   }
 
   /**
@@ -399,7 +412,7 @@ class WRFState {
    * @return reference Reference to the first element
    * @warning Undefined behavior if state is empty
    */
-  reference front() { return variables_.at(variableNames_[0]).flat(0); }
+  reference front() { return flattened_data_.front(); }
 
   /**
    * @brief Get const reference to first element of total state vector
@@ -407,9 +420,7 @@ class WRFState {
    * @return const_reference Const reference to the first element
    * @warning Undefined behavior if state is empty
    */
-  const_reference front() const {
-    return variables_.at(variableNames_[0]).flat(0);
-  }
+  const_reference front() const { return flattened_data_.front(); }
 
   /**
    * @brief Get reference to last element of total state vector
@@ -417,7 +428,7 @@ class WRFState {
    * @return reference Reference to the last element
    * @warning Undefined behavior if state is empty
    */
-  reference back() { return operator[](size() - 1); }
+  reference back() { return flattened_data_.back(); }
 
   /**
    * @brief Get const reference to last element of total state vector
@@ -425,7 +436,7 @@ class WRFState {
    * @return const_reference Const reference to the last element
    * @warning Undefined behavior if state is empty
    */
-  const_reference back() const { return operator[](size() - 1); }
+  const_reference back() const { return flattened_data_.back(); }
 
   /**
    * @brief Access element at geographic location using first variable's grid
@@ -491,7 +502,17 @@ class WRFState {
    * @throws std::out_of_range If variable doesn't exist or idx >= variable size
    */
   reference at(const std::string& variableName, size_type idx) {
-    return variables_.at(variableName).flat(idx);
+    size_t offset = variable_offsets_.at(variableName);
+    const auto& dims = dimensions_.at(variableName);
+    size_t var_size = 1;
+    for (size_t dim : dims) var_size *= dim;
+
+    if (idx >= var_size) {
+      throw std::out_of_range("Index out of range for variable: " +
+                              variableName);
+    }
+
+    return flattened_data_[offset + idx];
   }
 
   /**
@@ -508,7 +529,17 @@ class WRFState {
    * @throws std::out_of_range If variable doesn't exist or idx >= variable size
    */
   const_reference at(const std::string& variableName, size_type idx) const {
-    return variables_.at(variableName).flat(idx);
+    size_t offset = variable_offsets_.at(variableName);
+    const auto& dims = dimensions_.at(variableName);
+    size_t var_size = 1;
+    for (size_t dim : dims) var_size *= dim;
+
+    if (idx >= var_size) {
+      throw std::out_of_range("Index out of range for variable: " +
+                              variableName);
+    }
+
+    return flattened_data_[offset + idx];
   }
   ///@}
 
@@ -687,12 +718,18 @@ class WRFState {
     }
 
     // Access the array with proper indexing
-    auto& arr = variables_.at(variableName);
-    if (arr.dimension() == 3) {
-      return arr(k, j, i);  // 3D: [Z, Y, X]
+    size_t offset = variable_offsets_.at(variableName);
+    const auto& dims = dimensions_.at(variableName);
+
+    // Calculate linear index from 3D coordinates
+    size_t linear_idx;
+    if (dims.size() == 3) {
+      linear_idx = k * dims[1] * dims[2] + j * dims[2] + i;  // 3D: [Z, Y, X]
     } else {
-      return arr(j, i);  // 2D: [Y, X]
+      linear_idx = j * dims[1] + i;  // 2D: [Y, X]
     }
+
+    return flattened_data_[offset + linear_idx];
   }
 
   /**
@@ -768,68 +805,96 @@ class WRFState {
     }
 
     // Access the array with proper indexing
-    const auto& arr = variables_.at(variableName);
-    if (arr.dimension() == 3) {
-      return arr(k, j, i);  // 3D: [Z, Y, X]
+    size_t offset = variable_offsets_.at(variableName);
+    const auto& dims = dimensions_.at(variableName);
+
+    // Calculate linear index from 3D coordinates
+    size_t linear_idx;
+    if (dims.size() == 3) {
+      linear_idx = k * dims[1] * dims[2] + j * dims[2] + i;  // 3D: [Z, Y, X]
     } else {
-      return arr(j, i);  // 2D: [Y, X]
+      linear_idx = j * dims[1] + i;  // 2D: [Y, X]
     }
+
+    return flattened_data_[offset + linear_idx];
   }
   ///@}
 
   ///@{ @name File I/O Operations
   /**
-   * @brief Save state data to NetCDF file
+   * @brief Save state data to NetCDF file by copying original and updating
+   * variables
    *
-   * @details Writes all loaded variables to a new NetCDF file with proper
-   * dimension definitions and global attributes. The file format is compatible
-   * with WRF conventions and can be used for state persistence or analysis.
+   * @details Copies the original WRF NetCDF file and updates only the variables
+   * that have been loaded and potentially modified. This preserves all original
+   * file structure, dimensions, attributes, and variables not explicitly
+   * loaded. The method is more efficient and maintains WRF file compatibility.
    *
    * @param[in] filename Path where the NetCDF file should be created
-   * @throws std::runtime_error If file creation fails
+   * @throws std::runtime_error If file creation or copying fails
    * @throws netCDF::exceptions::NcException If NetCDF operations fail
    *
    * @note The output file will contain:
-   *       - All variable data with original dimensions
-   *       - Global attributes including active variable and total size
-   *       - Dimension information for each variable
+   *       - All original variables and attributes from source file
+   *       - Updated data for loaded variables
+   *       - Preserved file structure and metadata
    */
   void saveToFile(const std::string& filename) const {
     try {
-      // Create NetCDF file
-      netCDF::NcFile nc_file(filename, netCDF::NcFile::replace);
+      // First, copy the original file to preserve all structure
+      std::filesystem::copy_file(
+          wrfFilename_, filename,
+          std::filesystem::copy_options::overwrite_existing);
+
+      // Open the copied file for modification
+      netCDF::NcFile nc_file(filename, netCDF::NcFile::write);
 
       if (nc_file.isNull()) {
-        throw std::runtime_error("Failed to create NetCDF file: " + filename);
+        throw std::runtime_error("Failed to open copied NetCDF file: " +
+                                 filename);
       }
 
-      // Save each variable to the NetCDF file
+      // Update only the variables that were loaded (and potentially modified)
       for (const auto& varName : variableNames_) {
-        const auto& var_data = variables_.at(varName);
-        const auto& var_dims = dimensions_.at(varName);
+        auto nc_var = nc_file.getVar(varName);
 
-        // Create dimensions
-        std::vector<netCDF::NcDim> nc_dims;
-        for (size_t i = 0; i < var_dims.size(); ++i) {
-          std::string dim_name = "dim_" + std::to_string(i) + "_" + varName;
-          nc_dims.push_back(nc_file.addDim(dim_name, var_dims[i]));
+        if (!nc_var.isNull()) {
+          size_t offset = variable_offsets_.at(varName);
+
+          // Write updated data from flattened storage
+          nc_var.putVar(flattened_data_.data() + offset);
+        } else {
+          // Variable doesn't exist in original file, skip it
+          // This could happen if we loaded variables not in the original file
+          std::cerr << "Warning: Variable " << varName
+                    << " not found in original file, skipping update"
+                    << std::endl;
         }
-
-        // Create variable
-        netCDF::NcVar nc_var =
-            nc_file.addVar(varName, netCDF::ncDouble, nc_dims);
-
-        // Write data
-        nc_var.putVar(var_data.data());
       }
 
-      // Add global attributes
-      nc_file.putAtt("title", "WRF State Data");
-      nc_file.putAtt("source", "Metada Framework");
-      nc_file.putAtt("total_size", netCDF::ncInt, static_cast<long>(size()));
+      // Add metadata about the update
+      nc_file.putAtt("metada_updated", "true");
+
+      // Convert timestamp to string for NetCDF compatibility
+      auto now = std::chrono::system_clock::now();
+      auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+                           now.time_since_epoch())
+                           .count();
+      nc_file.putAtt("metada_update_time", std::to_string(timestamp));
+
+      // Add list of updated variables as a single string
+      std::string updated_vars;
+      for (size_t i = 0; i < variableNames_.size(); ++i) {
+        if (i > 0) updated_vars += ", ";
+        updated_vars += variableNames_[i];
+      }
+      nc_file.putAtt("metada_updated_variables", updated_vars);
 
       nc_file.close();
 
+    } catch (const std::filesystem::filesystem_error& e) {
+      throw std::runtime_error("File system error while copying WRF file: " +
+                               std::string(e.what()));
     } catch (const netCDF::exceptions::NcException& e) {
       throw std::runtime_error("NetCDF error while saving WRF state: " +
                                std::string(e.what()));
@@ -1021,6 +1086,22 @@ class WRFState {
     os << "]";
 
     os << ", total_size: " << state.size();
+
+    // Add statistics if data is available
+    if (!state.flattened_data_.empty()) {
+      auto min_it = std::min_element(state.flattened_data_.begin(),
+                                     state.flattened_data_.end());
+      auto max_it = std::max_element(state.flattened_data_.begin(),
+                                     state.flattened_data_.end());
+      double sum = std::accumulate(state.flattened_data_.begin(),
+                                   state.flattened_data_.end(), 0.0);
+      double mean = sum / state.flattened_data_.size();
+
+      os << ", min: " << *min_it;
+      os << ", max: " << *max_it;
+      os << ", mean: " << mean;
+    }
+
     os << "}";
     return os;
   }
@@ -1089,14 +1170,6 @@ class WRFState {
    */
   bool isCompatible(const WRFState& other) const;
 
-  /**
-   * @brief Update the flattened data vector for contiguous access
-   *
-   * @details Creates a contiguous memory block containing all variables
-   * concatenated in the order they appear in variableNames_. This enables
-   * proper access via getData() for the complete state vector.
-   */
-  void updateFlattenedData() const;
   ///@}
 
   ///@{ @name Member Variables
@@ -1111,17 +1184,15 @@ class WRFState {
 
   /// @name State Data Storage
   ///@{
-  std::unordered_map<std::string, xt::xarray<double>>
-      variables_;  ///< Variable data arrays
+  std::vector<double> flattened_data_;  ///< Single flattened state vector
   std::unordered_map<std::string, std::vector<size_t>>
       dimensions_;                          ///< Variable dimensions
   std::vector<std::string> variableNames_;  ///< List of loaded variables
   std::unordered_map<std::string, VariableGridInfo>
       variable_grid_info_;  ///< Variable-to-grid mappings
-  mutable std::vector<double>
-      flattened_data_;  ///< Flattened state vector for contiguous access
-  mutable bool flattened_data_valid_ =
-      false;  ///< Flag to track if flattened data is up to date
+  std::unordered_map<std::string, size_t>
+      variable_offsets_;  ///< Starting offsets for each variable in flattened
+                          ///< data
   ///@}
   ///@}
 };
@@ -1153,8 +1224,6 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
   // Load state data from WRF NetCDF file
   loadStateData(wrfFilename_, variables);
 
-  // Invalidate flattened data since variables have been loaded
-  flattened_data_valid_ = false;
   initialized_ = true;
 }
 
@@ -1178,10 +1247,11 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
       geometry_(other.geometry_),
       wrfFilename_(std::move(other.wrfFilename_)),
       initialized_(other.initialized_),
-      variables_(std::move(other.variables_)),
+      flattened_data_(std::move(other.flattened_data_)),
       dimensions_(std::move(other.dimensions_)),
       variableNames_(std::move(other.variableNames_)),
-      variable_grid_info_(std::move(other.variable_grid_info_)) {
+      variable_grid_info_(std::move(other.variable_grid_info_)),
+      variable_offsets_(std::move(other.variable_offsets_)) {
   // Reset the moved-from object
   other.initialized_ = false;
   other.variableNames_.clear();
@@ -1196,10 +1266,11 @@ WRFState<ConfigBackend, GeometryBackend>::operator=(
     // config_ and geometry_ are references, so no assignment needed
     wrfFilename_ = std::move(other.wrfFilename_);
     initialized_ = other.initialized_;
-    variables_ = std::move(other.variables_);
+    flattened_data_ = std::move(other.flattened_data_);
     dimensions_ = std::move(other.dimensions_);
     variableNames_ = std::move(other.variableNames_);
     variable_grid_info_ = std::move(other.variable_grid_info_);
+    variable_offsets_ = std::move(other.variable_offsets_);
 
     // Reset the moved-from object
     other.initialized_ = false;
@@ -1221,14 +1292,11 @@ WRFState<ConfigBackend, GeometryBackend>::clone() const {
   cloned->initialized_ = this->initialized_;
 
   // Deep copy the variables to avoid sharing memory
-  cloned->variables_ = this->variables_;
-
+  cloned->flattened_data_ = this->flattened_data_;
   cloned->dimensions_ = this->dimensions_;
   cloned->variableNames_ = this->variableNames_;
   cloned->variable_grid_info_ = this->variable_grid_info_;
-
-  // Ensure flattened data is invalidated for the clone
-  cloned->flattened_data_valid_ = false;
+  cloned->variable_offsets_ = this->variable_offsets_;
 
   return cloned;
 }
@@ -1239,7 +1307,6 @@ void* WRFState<ConfigBackend, GeometryBackend>::getData() {
   if (!initialized_ || variableNames_.empty()) {
     return nullptr;
   }
-  updateFlattenedData();
   return flattened_data_.data();
 }
 
@@ -1249,7 +1316,6 @@ const void* WRFState<ConfigBackend, GeometryBackend>::getData() const {
   if (!initialized_ || variableNames_.empty()) {
     return nullptr;
   }
-  updateFlattenedData();
   return flattened_data_.data();
 }
 
@@ -1262,7 +1328,8 @@ void* WRFState<ConfigBackend, GeometryBackend>::getData(
   }
 
   try {
-    return variables_.at(variableName).data();
+    size_t offset = variable_offsets_.at(variableName);
+    return flattened_data_.data() + offset;
   } catch (const std::out_of_range&) {
     return nullptr;
   }
@@ -1277,7 +1344,8 @@ const void* WRFState<ConfigBackend, GeometryBackend>::getData(
   }
 
   try {
-    return variables_.at(variableName).data();
+    size_t offset = variable_offsets_.at(variableName);
+    return flattened_data_.data() + offset;
   } catch (const std::out_of_range&) {
     return nullptr;
   }
@@ -1293,23 +1361,13 @@ WRFState<ConfigBackend, GeometryBackend>::getVariableNames() const {
 // Size implementation
 template <typename ConfigBackend, typename GeometryBackend>
 size_t WRFState<ConfigBackend, GeometryBackend>::size() const {
-  size_t totalSize = 0;
-
-  // Sum the sizes of all variables
-  for (const auto& [name, data] : variables_) {
-    totalSize += data.size();
-  }
-
-  return totalSize;
+  return flattened_data_.size();
 }
 
 // Zero implementation
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::zero() {
-  for (auto& [name, data] : variables_) {
-    data.fill(0.0);
-  }
-  flattened_data_valid_ = false;  // Invalidate flattened data
+  std::fill(flattened_data_.begin(), flattened_data_.end(), 0.0);
 }
 
 // Dot product implementation
@@ -1322,13 +1380,9 @@ double WRFState<ConfigBackend, GeometryBackend>::dot(
 
   double result = 0.0;
 
-  // Sum dot products of all variables
-  for (const auto& varName : variableNames_) {
-    const auto& thisVar = variables_.at(varName);
-    const auto& otherVar = other.variables_.at(varName);
-
-    // Use xtensor to compute element-wise multiplication and sum
-    result += xt::sum(thisVar * otherVar)();
+  // Compute dot product directly on flattened data
+  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+    result += flattened_data_[i] * other.flattened_data_[i];
   }
 
   return result;
@@ -1339,9 +1393,9 @@ template <typename ConfigBackend, typename GeometryBackend>
 double WRFState<ConfigBackend, GeometryBackend>::norm() const {
   double sumSquares = 0.0;
 
-  // Sum squares of all variables
-  for (const auto& [name, data] : variables_) {
-    sumSquares += xt::sum(xt::square(data))();
+  // Compute norm directly on flattened data
+  for (double value : flattened_data_) {
+    sumSquares += value * value;
   }
 
   return std::sqrt(sumSquares);
@@ -1355,16 +1409,9 @@ bool WRFState<ConfigBackend, GeometryBackend>::equals(
     return false;
   }
 
-  // Check if all variables have the same values
-  for (const auto& varName : variableNames_) {
-    const auto& thisVar = variables_.at(varName);
-    const auto& otherVar = other.variables_.at(varName);
-
-    // Check if arrays are equal within a small tolerance
-    auto diff = xt::abs(thisVar - otherVar);
-    double maxDiff = xt::amax(diff)();
-
-    if (maxDiff > 1e-10) {
+  // Check if flattened data is equal within tolerance
+  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+    if (std::abs(flattened_data_[i] - other.flattened_data_[i]) > 1e-10) {
       return false;
     }
   }
@@ -1380,14 +1427,10 @@ void WRFState<ConfigBackend, GeometryBackend>::add(
     throw std::runtime_error("States are incompatible for addition");
   }
 
-  // Add each variable
-  for (const auto& varName : variableNames_) {
-    auto& thisVar = variables_.at(varName);
-    const auto& otherVar = other.variables_.at(varName);
-
-    thisVar += otherVar;
+  // Add directly on flattened data
+  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+    flattened_data_[i] += other.flattened_data_[i];
   }
-  flattened_data_valid_ = false;  // Invalidate flattened data
 }
 
 // Subtract implementation
@@ -1398,24 +1441,19 @@ void WRFState<ConfigBackend, GeometryBackend>::subtract(
     throw std::runtime_error("States are incompatible for subtraction");
   }
 
-  // Subtract each variable
-  for (const auto& varName : variableNames_) {
-    auto& thisVar = variables_.at(varName);
-    const auto& otherVar = other.variables_.at(varName);
-
-    thisVar -= otherVar;
+  // Subtract directly on flattened data
+  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+    flattened_data_[i] -= other.flattened_data_[i];
   }
-  flattened_data_valid_ = false;  // Invalidate flattened data
 }
 
 // Multiply implementation
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
-  // Multiply each variable by the scalar
-  for (auto& [name, data] : variables_) {
-    data *= scalar;
+  // Multiply flattened data by the scalar
+  for (double& value : flattened_data_) {
+    value *= scalar;
   }
-  flattened_data_valid_ = false;  // Invalidate flattened data
 }
 
 // Is initialized implementation
@@ -1434,10 +1472,11 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
 
     if (!wrf_file.isNull()) {
       // Clear any existing data
-      variables_.clear();
+      flattened_data_.clear();
       dimensions_.clear();
       variableNames_.clear();
       variable_grid_info_.clear();
+      variable_offsets_.clear();
 
       // Load each requested variable
       for (const auto& varName : variables) {
@@ -1592,11 +1631,16 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
           // Read data
           var.getVar(start, count, data.data());
 
-          // Create xtensor array with proper shape
-          xt::xarray<double> xdata = xt::adapt(data, dims);
+          // Calculate offset for this variable in flattened data
+          size_t offset = flattened_data_.size();
+          variable_offsets_[varName] = offset;
 
-          // Store the variable
-          variables_[varName] = std::move(xdata);
+          // Append to flattened data
+          flattened_data_.insert(flattened_data_.end(), data.begin(),
+                                 data.end());
+
+          // Store dimensions
+          dimensions_[varName] = dims;
           variableNames_.push_back(varName);
         } else {
           std::cerr << "Warning: Variable not found in WRF file: " << varName
@@ -1647,32 +1691,6 @@ bool WRFState<ConfigBackend, GeometryBackend>::isCompatible(
   }
 
   return true;
-}
-
-// Update flattened data implementation
-template <typename ConfigBackend, typename GeometryBackend>
-void WRFState<ConfigBackend, GeometryBackend>::updateFlattenedData() const {
-  if (flattened_data_valid_) {
-    return;  // Already up to date
-  }
-
-  // Calculate total size and resize flattened data
-  size_t total_size = size();
-  flattened_data_.resize(total_size);
-
-  // Copy all variables into flattened array
-  size_t offset = 0;
-  for (const auto& varName : variableNames_) {
-    const auto& var_data = variables_.at(varName);
-    size_t var_size = var_data.size();
-
-    // Copy variable data to flattened array
-    std::copy(var_data.data(), var_data.data() + var_size,
-              flattened_data_.data() + offset);
-    offset += var_size;
-  }
-
-  flattened_data_valid_ = true;
 }
 
 }  // namespace metada::backends::wrf

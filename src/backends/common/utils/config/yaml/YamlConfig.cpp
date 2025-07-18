@@ -237,40 +237,35 @@ ConfigValue YamlConfig::YamlToConfigValue(const YAML::Node& node) {
   if (node.IsNull()) {
     return ConfigValue();
   } else if (node.IsScalar()) {
-    std::string scalar = node.Scalar();
-    // Try bool
+    // Use YAML-cpp's built-in type detection to respect original YAML types
+    // This properly handles quoted strings vs unquoted values
+
+    // Try bool first
     try {
       auto b = node.as<bool>();
       return ConfigValue(b);
     } catch (const YAML::Exception&) {
     }
 
-    // Try int (only if no dot or exponent)
-    bool is_int = (scalar.find('.') == std::string::npos &&
-                   scalar.find('e') == std::string::npos &&
-                   scalar.find('E') == std::string::npos);
-    if (is_int) {
-      try {
-        int i = std::stoi(scalar);
-        return ConfigValue(i);
-      } catch (const std::exception&) {
-      }
+    // Try int - but only if the YAML library thinks it's actually an integer
+    try {
+      // This will only succeed if the node is genuinely an integer in YAML
+      // It won't convert "3DVAR" to 3 because YAML-cpp respects the quotes
+      auto i = node.as<int>();
+      return ConfigValue(i);
+    } catch (const YAML::Exception&) {
     }
 
-    // Try float (if dot or exponent, or if it looks like a float)
-    bool is_float = (scalar.find('.') != std::string::npos ||
-                     scalar.find('e') != std::string::npos ||
-                     scalar.find('E') != std::string::npos);
-    if (is_float) {
-      try {
-        float f = std::stof(scalar);
-        return ConfigValue(f);
-      } catch (const std::exception&) {
-      }
+    // Try float - but only if the YAML library thinks it's actually a float
+    try {
+      auto f = node.as<float>();
+      return ConfigValue(f);
+    } catch (const YAML::Exception&) {
     }
 
-    // Fallback to string
-    return ConfigValue(scalar);
+    // Fallback to string - this will handle quoted strings like "3DVAR"
+    // properly
+    return ConfigValue(node.as<std::string>());
   } else if (node.IsSequence()) {
     if (node.size() == 0) {
       return ConfigValue(std::vector<std::string>());
