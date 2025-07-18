@@ -18,12 +18,12 @@
 #include "Config.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
+#include "LiteBackendTraits.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
-#include "WRFBackendTraits.hpp"
 
 namespace fwk = metada::framework;
-using BackendTag = metada::traits::WRFBackendTag;
+using BackendTag = metada::traits::LiteBackendTag;
 
 int main(int argc, char** argv) {
   // Initialize application context

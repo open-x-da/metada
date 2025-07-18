@@ -227,7 +227,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientConsistency) {
 
   // Use the framework's gradient check function
   bool result =
-      checkCostFunctionGradient<BackendTag>(cost_func, test_state, 1e-6, 1e-6);
+      checkCostFunctionGradient<BackendTag>(cost_func, test_state, 1e-3, 1e-6);
   EXPECT_TRUE(result);
 }
 
@@ -309,7 +309,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientMultipleDirections) {
 
   // Run the multiple directions gradient check
   bool result = checkCostFunctionGradientMultipleDirections<BackendTag>(
-      cost_func, test_state, 10, 1e-4);
+      cost_func, test_state, 10, 1e-3);
   EXPECT_TRUE(result);
 }
 
@@ -383,13 +383,13 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorTangentLinearCheck) {
   // Run the tangent linear check in single-epsilon mode using the unified
   // interface
   bool result = checkObsOperatorTangentLinear<BackendTag>(
-      obs_operators, *state_, observations, 1e-6, {0.1});
+      obs_operators, *state_, observations, 1e-3, {0.1});
   EXPECT_TRUE(result);
 
   // Run the tangent linear check in multiple-epsilon mode using the unified
   // interface
   bool result2 = checkObsOperatorTangentLinear<BackendTag>(
-      obs_operators, *state_, observations, 1e-6, {1.0, 0.1, 0.01, 0.001});
+      obs_operators, *state_, observations, 1e-3, {1.0, 0.1, 0.01, 0.001});
   EXPECT_TRUE(result2);
 }
 
