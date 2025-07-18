@@ -1086,6 +1086,22 @@ class WRFState {
     os << "]";
 
     os << ", total_size: " << state.size();
+
+    // Add statistics if data is available
+    if (!state.flattened_data_.empty()) {
+      auto min_it = std::min_element(state.flattened_data_.begin(),
+                                     state.flattened_data_.end());
+      auto max_it = std::max_element(state.flattened_data_.begin(),
+                                     state.flattened_data_.end());
+      double sum = std::accumulate(state.flattened_data_.begin(),
+                                   state.flattened_data_.end(), 0.0);
+      double mean = sum / state.flattened_data_.size();
+
+      os << ", min: " << *min_it;
+      os << ", max: " << *max_it;
+      os << ", mean: " << mean;
+    }
+
     os << "}";
     return os;
   }

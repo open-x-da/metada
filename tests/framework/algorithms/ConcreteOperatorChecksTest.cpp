@@ -33,6 +33,9 @@
 // Include lite backend implementations
 #include "LiteBackendTraits.hpp"
 
+using namespace metada::framework;
+using BackendTag = metada::traits::LiteBackendTag;
+
 using ::testing::DoubleNear;
 using ::testing::Each;
 using ::testing::Ge;
@@ -50,20 +53,15 @@ class ConcreteOperatorChecksTest : public ::testing::Test {
       // Load configuration
       auto test_dir = std::filesystem::path(__FILE__).parent_path();
       config_file_ = (test_dir / "test_config.yaml").string();
-      config_ = std::make_unique<framework::Config<traits::LiteBackendTag>>(
-          config_file_);
+      config_ = std::make_unique<Config<BackendTag>>(config_file_);
 
       // Initialize logger
-      framework::Logger<traits::LiteBackendTag>::Init(
-          config_->GetSubsection("logger"));
+      Logger<BackendTag>::Init(config_->GetSubsection("logger"));
 
       // Create basic components
-      geometry_ = std::make_unique<framework::Geometry<traits::LiteBackendTag>>(
-          *config_);
-      state_ = std::make_unique<framework::State<traits::LiteBackendTag>>(
-          *config_, *geometry_);
-      obs_ = std::make_unique<framework::Observation<traits::LiteBackendTag>>(
-          *config_);
+      geometry_ = std::make_unique<Geometry<BackendTag>>(*config_);
+      state_ = std::make_unique<State<BackendTag>>(*config_, *geometry_);
+      obs_ = std::make_unique<Observation<BackendTag>>(*config_);
 
       // Set up test data
       std::vector<double> test_data = {1.0, 2.0, 3.0};
@@ -84,14 +82,14 @@ class ConcreteOperatorChecksTest : public ::testing::Test {
     obs_.reset();
     geometry_.reset();
     config_.reset();
-    framework::Logger<traits::LiteBackendTag>::Reset();
+    Logger<BackendTag>::Reset();
   }
 
   std::string config_file_;
-  std::unique_ptr<framework::Config<traits::LiteBackendTag>> config_;
-  std::unique_ptr<framework::Geometry<traits::LiteBackendTag>> geometry_;
-  std::unique_ptr<framework::State<traits::LiteBackendTag>> state_;
-  std::unique_ptr<framework::Observation<traits::LiteBackendTag>> obs_;
+  std::unique_ptr<Config<BackendTag>> config_;
+  std::unique_ptr<Geometry<BackendTag>> geometry_;
+  std::unique_ptr<State<BackendTag>> state_;
+  std::unique_ptr<Observation<BackendTag>> obs_;
 };
 
 /**
@@ -103,23 +101,21 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
   }
 
   // Create background state
-  auto background =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto background = State<BackendTag>(*config_, *geometry_);
   background.backend().setData({0.0, 0.0, 0.0});
 
   // Create background error covariance
-  auto bg_error_cov =
-      framework::BackgroundErrorCovariance<traits::LiteBackendTag>(*config_);
+  auto bg_error_cov = BackgroundErrorCovariance<BackendTag>(*config_);
 
   // Create model
-  auto model = framework::Model<traits::LiteBackendTag>(*config_);
+  auto model = Model<BackendTag>(*config_);
 
   // Create observations and obs operators
-  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
-  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
+  std::vector<Observation<BackendTag>> observations;
+  std::vector<ObsOperator<BackendTag>> obs_operators;
 
-  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
-  auto obs_op1 = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  auto obs1 = Observation<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -128,18 +124,15 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
   obs_operators.push_back(std::move(obs_op1));
 
   // Create cost function
-  auto cost_func = framework::CostFunction<traits::LiteBackendTag>(
-      *config_, background, observations, obs_operators, model, bg_error_cov);
+  auto cost_func = CostFunction<BackendTag>(*config_, background, observations,
+                                            obs_operators, model, bg_error_cov);
 
   // Test state
-  auto test_state =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto test_state = State<BackendTag>(*config_, *geometry_);
   test_state.backend().setData({1.0, 2.0, 3.0});
 
   // Compute gradient
-  auto gradient =
-      framework::Increment<traits::LiteBackendTag>::createFromEntity(
-          test_state);
+  auto gradient = Increment<BackendTag>::createFromEntity(test_state);
   cost_func.gradient(test_state, gradient);
 
   // Compute cost at test state
@@ -174,20 +167,20 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorTLADCheck) {
   }
 
   // Create observation operators
-  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
-  auto obs_op = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  std::vector<ObsOperator<BackendTag>> obs_operators;
+  auto obs_op = ObsOperator<BackendTag>(*config_);
   obs_operators.push_back(std::move(obs_op));
 
   // Create observations
-  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
-  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
+  std::vector<Observation<BackendTag>> observations;
+  auto obs1 = Observation<BackendTag>(*config_);
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
   observations.push_back(std::move(obs1));
 
   // Test TL/AD consistency check
-  bool result = framework::checkObsOperatorTLAD<traits::LiteBackendTag>(
-      obs_operators, *state_, observations, 1e-10);
+  bool result = checkObsOperatorTLAD<BackendTag>(obs_operators, *state_,
+                                                 observations, 1e-10);
 
   // Should pass for linear observation operator
   EXPECT_TRUE(result);
@@ -202,23 +195,21 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientConsistency) {
   }
 
   // Create background state
-  auto background =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto background = State<BackendTag>(*config_, *geometry_);
   background.backend().setData({0.0, 0.0, 0.0});
 
   // Create background error covariance
-  auto bg_error_cov =
-      framework::BackgroundErrorCovariance<traits::LiteBackendTag>(*config_);
+  auto bg_error_cov = BackgroundErrorCovariance<BackendTag>(*config_);
 
   // Create model
-  auto model = framework::Model<traits::LiteBackendTag>(*config_);
+  auto model = Model<BackendTag>(*config_);
 
   // Create observations and obs operators
-  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
-  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
+  std::vector<Observation<BackendTag>> observations;
+  std::vector<ObsOperator<BackendTag>> obs_operators;
 
-  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
-  auto obs_op1 = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  auto obs1 = Observation<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -227,17 +218,16 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientConsistency) {
   obs_operators.push_back(std::move(obs_op1));
 
   // Create cost function
-  auto cost_func = framework::CostFunction<traits::LiteBackendTag>(
-      *config_, background, observations, obs_operators, model, bg_error_cov);
+  auto cost_func = CostFunction<BackendTag>(*config_, background, observations,
+                                            obs_operators, model, bg_error_cov);
 
   // Test state
-  auto test_state =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto test_state = State<BackendTag>(*config_, *geometry_);
   test_state.backend().setData({1.0, 2.0, 3.0});
 
   // Use the framework's gradient check function
-  bool result = framework::checkCostFunctionGradient<traits::LiteBackendTag>(
-      cost_func, test_state, 1e-6, 1e-6);
+  bool result =
+      checkCostFunctionGradient<BackendTag>(cost_func, test_state, 1e-6, 1e-6);
   EXPECT_TRUE(result);
 }
 
@@ -250,11 +240,11 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorLinearity) {
   }
 
   // Create observation operator
-  auto obs_op = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  auto obs_op = ObsOperator<BackendTag>(*config_);
 
   // Create two states
-  auto state1 = framework::State<traits::LiteBackendTag>(*config_, *geometry_);
-  auto state2 = framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto state1 = State<BackendTag>(*config_, *geometry_);
+  auto state2 = State<BackendTag>(*config_, *geometry_);
 
   state1.backend().setData({1.0, 2.0, 3.0});
   state2.backend().setData({4.0, 5.0, 6.0});
@@ -287,23 +277,21 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientMultipleDirections) {
   }
 
   // Create background state
-  auto background =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto background = State<BackendTag>(*config_, *geometry_);
   background.backend().setData({0.0, 0.0, 0.0});
 
   // Create background error covariance
-  auto bg_error_cov =
-      framework::BackgroundErrorCovariance<traits::LiteBackendTag>(*config_);
+  auto bg_error_cov = BackgroundErrorCovariance<BackendTag>(*config_);
 
   // Create model
-  auto model = framework::Model<traits::LiteBackendTag>(*config_);
+  auto model = Model<BackendTag>(*config_);
 
   // Create observations and obs operators
-  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
-  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
+  std::vector<Observation<BackendTag>> observations;
+  std::vector<ObsOperator<BackendTag>> obs_operators;
 
-  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
-  auto obs_op1 = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  auto obs1 = Observation<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -312,17 +300,16 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientMultipleDirections) {
   obs_operators.push_back(std::move(obs_op1));
 
   // Create cost function
-  auto cost_func = framework::CostFunction<traits::LiteBackendTag>(
-      *config_, background, observations, obs_operators, model, bg_error_cov);
+  auto cost_func = CostFunction<BackendTag>(*config_, background, observations,
+                                            obs_operators, model, bg_error_cov);
 
   // Test state
-  auto test_state =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto test_state = State<BackendTag>(*config_, *geometry_);
   test_state.backend().setData({1.0, 2.0, 3.0});
 
   // Run the multiple directions gradient check
-  bool result = framework::checkCostFunctionGradientMultipleDirections<
-      traits::LiteBackendTag>(cost_func, test_state, 10, 1e-4);
+  bool result = checkCostFunctionGradientMultipleDirections<BackendTag>(
+      cost_func, test_state, 10, 1e-4);
   EXPECT_TRUE(result);
 }
 
@@ -335,23 +322,21 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientUnitDirections) {
   }
 
   // Create background state
-  auto background =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto background = State<BackendTag>(*config_, *geometry_);
   background.backend().setData({0.0, 0.0, 0.0});
 
   // Create background error covariance
-  auto bg_error_cov =
-      framework::BackgroundErrorCovariance<traits::LiteBackendTag>(*config_);
+  auto bg_error_cov = BackgroundErrorCovariance<BackendTag>(*config_);
 
   // Create model
-  auto model = framework::Model<traits::LiteBackendTag>(*config_);
+  auto model = Model<BackendTag>(*config_);
 
   // Create observations and obs operators
-  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
-  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
+  std::vector<Observation<BackendTag>> observations;
+  std::vector<ObsOperator<BackendTag>> obs_operators;
 
-  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
-  auto obs_op1 = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  auto obs1 = Observation<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -360,17 +345,16 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientUnitDirections) {
   obs_operators.push_back(std::move(obs_op1));
 
   // Create cost function
-  auto cost_func = framework::CostFunction<traits::LiteBackendTag>(
-      *config_, background, observations, obs_operators, model, bg_error_cov);
+  auto cost_func = CostFunction<BackendTag>(*config_, background, observations,
+                                            obs_operators, model, bg_error_cov);
 
   // Test state
-  auto test_state =
-      framework::State<traits::LiteBackendTag>(*config_, *geometry_);
+  auto test_state = State<BackendTag>(*config_, *geometry_);
   test_state.backend().setData({1.0, 2.0, 3.0});
 
   // Run the unit directions gradient check
-  bool result = framework::checkCostFunctionGradientUnitDirections<
-      traits::LiteBackendTag>(cost_func, test_state, 1e-4);
+  bool result = checkCostFunctionGradientUnitDirections<BackendTag>(
+      cost_func, test_state, 1e-4);
   EXPECT_TRUE(result);
 }
 
@@ -385,29 +369,27 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorTangentLinearCheck) {
   }
 
   // Create observation operators
-  std::vector<framework::ObsOperator<traits::LiteBackendTag>> obs_operators;
-  auto obs_op = framework::ObsOperator<traits::LiteBackendTag>(*config_);
+  std::vector<ObsOperator<BackendTag>> obs_operators;
+  auto obs_op = ObsOperator<BackendTag>(*config_);
   obs_operators.push_back(std::move(obs_op));
 
   // Create observations
-  std::vector<framework::Observation<traits::LiteBackendTag>> observations;
-  auto obs1 = framework::Observation<traits::LiteBackendTag>(*config_);
+  std::vector<Observation<BackendTag>> observations;
+  auto obs1 = Observation<BackendTag>(*config_);
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
   observations.push_back(std::move(obs1));
 
   // Run the tangent linear check in single-epsilon mode using the unified
   // interface
-  bool result =
-      framework::checkObsOperatorTangentLinear<traits::LiteBackendTag>(
-          obs_operators, *state_, observations, 1e-6, {0.1});
+  bool result = checkObsOperatorTangentLinear<BackendTag>(
+      obs_operators, *state_, observations, 1e-6, {0.1});
   EXPECT_TRUE(result);
 
   // Run the tangent linear check in multiple-epsilon mode using the unified
   // interface
-  bool result2 =
-      framework::checkObsOperatorTangentLinear<traits::LiteBackendTag>(
-          obs_operators, *state_, observations, 1e-6, {1.0, 0.1, 0.01, 0.001});
+  bool result2 = checkObsOperatorTangentLinear<BackendTag>(
+      obs_operators, *state_, observations, 1e-6, {1.0, 0.1, 0.01, 0.001});
   EXPECT_TRUE(result2);
 }
 

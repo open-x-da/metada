@@ -277,7 +277,7 @@ class Variational {
     logger_.Info() << "Performing gradient test for variational implementation";
 
     // Use the improved gradient check utility function
-    bool test_passed = checkCostFunctionGradientImproved<BackendTag>(
+    bool test_passed = checkCostFunctionGradient<BackendTag>(
         cost_function_, test_state, tolerance);
 
     return test_passed;

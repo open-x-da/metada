@@ -108,4 +108,12 @@ Increment<BackendTag> operator*(double scalar,
   return inc * scalar;
 }
 
+// Output operator
+template <typename BackendTag>
+  requires StateBackendType<BackendTag>
+inline std::ostream& operator<<(std::ostream& os,
+                                const Increment<BackendTag>& increment) {
+  return os << increment.state();
+}
+
 }  // namespace metada::framework

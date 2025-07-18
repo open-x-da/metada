@@ -19,14 +19,14 @@
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
 #include "Geometry.hpp"
+#include "LiteBackendTraits.hpp"
 #include "Model.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "State.hpp"
-#include "WRFBackendTraits.hpp"
 
 namespace fwk = metada::framework;
-using BackendTag = metada::traits::WRFBackendTag;
+using BackendTag = metada::traits::LiteBackendTag;
 
 int main(int argc, char** argv) {
   // Initialize application context
@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
     // Initialize background state
     fwk::State<BackendTag> background(config.GetSubsection("background"),
                                       geometry);
+    logger.Info() << "Background state: " << background;
 
     // Initialize model
     fwk::Model<BackendTag> model(config.GetSubsection("model"));
@@ -112,7 +113,6 @@ int main(int argc, char** argv) {
 
     // Optional: Perform gradient test if requested
     if (config.Get("perform_gradient_test").asBool()) {
-      logger.Info() << "Performing gradient test...";
       bool gradient_test_passed = variational.performGradientTest(background);
       logger.Info() << "Gradient test "
                     << (gradient_test_passed ? "PASSED" : "FAILED");

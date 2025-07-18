@@ -116,6 +116,17 @@ class LiteState {
     // Stub implementation for testing
   }
 
+  // Output operator
+  friend std::ostream& operator<<(std::ostream& os, const LiteState& state) {
+    os << "LiteState[";
+    for (size_t i = 0; i < state.state_data_.size(); ++i) {
+      if (i > 0) os << ", ";
+      os << state.variable_names_[i] << "=" << state.state_data_[i];
+    }
+    os << "]";
+    return os;
+  }
+
  private:
   std::vector<double> state_data_;
   std::vector<std::string> variable_names_;
