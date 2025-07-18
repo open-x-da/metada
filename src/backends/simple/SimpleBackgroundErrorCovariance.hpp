@@ -20,14 +20,13 @@ class SimpleBackgroundErrorCovariance {
   /**
    * @brief Constructor
    *
-   * @param size Size of the state vector (matrix dimension)
-   * @param variance Default variance value for diagonal elements
+   * @param config Configuration backend containing B matrix parameters
    */
-  explicit SimpleBackgroundErrorCovariance(size_t size = 100,
-                                           double variance = 1.0)
-      : size_(size),
-        variance_(variance),
-        localization_radius_(0.0),
+  template <typename ConfigBackend>
+  explicit SimpleBackgroundErrorCovariance(const ConfigBackend& config)
+      : size_(config.Get("size").asInt()),
+        variance_(config.Get("variance").asFloat()),
+        localization_radius_(config.Get("localization_radius").asFloat()),
         initialized_(true) {}
 
   // Initialization and state

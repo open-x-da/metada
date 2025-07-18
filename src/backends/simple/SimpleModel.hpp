@@ -108,6 +108,12 @@ class SimpleModel {
   bool isInitialized() const { return initialized_; }
 
   /**
+   * @brief Check if the model supports adjoint operations
+   * @return True if adjoint operations are supported
+   */
+  bool supportsAdjoint() const { return true; }
+
+  /**
    * @brief Reset the model to initial state
    */
   void reset() {
@@ -157,6 +163,43 @@ class SimpleModel {
       }
     } catch (const std::exception& e) {
       throw std::runtime_error("SimpleModel run failed: " +
+                               std::string(e.what()));
+    }
+  }
+
+  /**
+   * @brief Run the adjoint model (identity operation)
+   *
+   * @details
+   * For the identity model, the adjoint is also an identity operation.
+   * This is used in 4DVAR for computing gradients.
+   *
+   * @param initial_state Initial state for adjoint integration
+   * @param final_state Final state for adjoint integration
+   * @param adjoint_forcing Forcing term for adjoint integration
+   * @param adjoint_result Output adjoint state at initial time
+   */
+  void runAdjoint([[maybe_unused]] const SimpleState& initial_state,
+                  [[maybe_unused]] const SimpleState& final_state,
+                  const SimpleState& adjoint_forcing,
+                  SimpleState& adjoint_result) const {
+    if (!initialized_) {
+      throw std::runtime_error("SimpleModel not initialized");
+    }
+
+    try {
+      // For identity model, adjoint is also identity
+      // Copy adjoint forcing to result (identity operation)
+      const auto forcing_data =
+          static_cast<const double*>(adjoint_forcing.getData());
+      auto result_data = static_cast<double*>(adjoint_result.getData());
+      size_t state_size = adjoint_forcing.size();
+
+      for (size_t i = 0; i < state_size; ++i) {
+        result_data[i] = forcing_data[i];
+      }
+    } catch (const std::exception& e) {
+      throw std::runtime_error("SimpleModel adjoint run failed: " +
                                std::string(e.what()));
     }
   }

@@ -19,14 +19,14 @@
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
 #include "Geometry.hpp"
-#include "LiteBackendTraits.hpp"
 #include "Model.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
+#include "SimpleBackendTraits.hpp"
 #include "State.hpp"
 
 namespace fwk = metada::framework;
-using BackendTag = metada::traits::LiteBackendTag;
+using BackendTag = metada::traits::SimpleBackendTag;
 
 int main(int argc, char** argv) {
   // Initialize application context

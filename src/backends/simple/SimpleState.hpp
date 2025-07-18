@@ -200,6 +200,33 @@ class SimpleState {
     return data_[index];
   }
 
+  // Output operator
+  friend std::ostream& operator<<(std::ostream& os, const SimpleState& state) {
+    os << "SimpleState{";
+    os << "variables: [";
+    for (size_t i = 0; i < state.variable_names_.size(); ++i) {
+      if (i > 0) os << ", ";
+      os << "\"" << state.variable_names_[i] << "\"";
+    }
+    os << "]";
+    os << ", size: " << state.data_.size();
+
+    // Add statistics if data is available
+    if (!state.data_.empty()) {
+      auto min_it = std::min_element(state.data_.begin(), state.data_.end());
+      auto max_it = std::max_element(state.data_.begin(), state.data_.end());
+      double sum = std::accumulate(state.data_.begin(), state.data_.end(), 0.0);
+      double mean = sum / state.data_.size();
+
+      os << ", min: " << *min_it;
+      os << ", max: " << *max_it;
+      os << ", mean: " << mean;
+    }
+
+    os << "}";
+    return os;
+  }
+
  private:
   // Private constructor for cloning
   SimpleState(const SimpleState& other, bool)
