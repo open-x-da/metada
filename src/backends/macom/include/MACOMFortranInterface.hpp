@@ -157,12 +157,12 @@ class MACOMFortranInterface {
   void finalizeMitice();
 
  private:
-  int mpi_comm_;    // C++ MPI communicator
-  int f_comm_;      // Fortran format communicator
-  int rank_;        // Current process rank
-  int size_;        // Total number of processes
-  int io_procs_;    // Number of I/O processes
-  int comp_procs_;  // Number of compute processes
+  MPI_Comm mpi_comm_;  // C++ MPI communicator
+  int f_comm_;         // Fortran format communicator
+  int rank_;           // Current process rank
+  int size_;           // Total number of processes
+  int io_procs_;       // Number of I/O processes
+  int comp_procs_;     // Number of compute processes
   bool mpi_initialized_by_this_instance_;
   bool model_components_initialized_;
 };
