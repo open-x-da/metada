@@ -16,4 +16,5 @@ target_link_libraries(algorithms
     INTERFACE Eigen3::Eigen
 )
 
+# Add format target for all algorithm headers
 AddFormatTarget(algorithms ${CMAKE_CURRENT_SOURCE_DIR}) 
