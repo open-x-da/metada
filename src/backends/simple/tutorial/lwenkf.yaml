@@ -1,32 +1,74 @@
-# Local Weighted Ensemble Kalman Filter (LWEnKF) Configuration
-# This configuration file defines parameters for the LWEnKF data assimilation algorithm
+logger:
+  app_name: "lwenkf"
+  level: "debug"
+  color: true
+  console: true
 
-# Backend configuration
-backend:
-  type: "simple"
-  ensemble:
-    size: 8
-    member_files:
-      - "ens_1.txt"
-      - "ens_2.txt"
-      - "ens_3.txt"
-      - "ens_4.txt"
-      - "ens_5.txt"
-      - "ens_6.txt"
-      - "ens_7.txt"
-      - "ens_8.txt"
-  
-  observation:
-    file: "obsC.txt"
-    covariance_file: "obsB_format.txt"
-  
-  observation_operator:
-    type: "identity"
-    # For more complex observation operators, additional parameters can be added here
+# Geometry for the ensemble
+geometry:
+  x_dim: 36
+  y_dim: 18
 
-# Analysis configuration
+# Ensemble variables to analyze
+ensemble:
+  members:
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_1.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_2.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_3.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_4.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_5.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_6.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_7.txt"
+    - state:
+        variables: "simple"
+        file: "D:/linux/metada/src/backends/simple/tutorial/ens_8.txt"
+
+# Observation settings
+observations:
+  types:
+    - obs_A:
+        if_use: true
+        file: "D:/linux/metada/src/backends/simple/tutorial/obs_format.txt"
+        coordinate: "grid"
+        variables:
+          - simple:
+              if_use: true
+              error: 0.1  # standard deviations
+              missing_value: -999.0
+    - obs_B:
+        if_use: false
+        file: "D:/linux/metada/src/backends/simple/tutorial/obsB_format.txt"
+        coordinate: "grid"
+        variables:
+          - simple:
+              if_use: true
+              error: 0.1  # standard deviations
+              missing_value: -999.0
+
+# Observation operator settings
+obs_operator:
+  variables:
+    - simple:
+        if_use: true
+        error: 0.1  # standard deviations
+
+# Analysis settings
 analysis:
-  # Algorithm parameters
+  algorithm: "lwenkf"
   inflation: 1.1                    # Inflation factor for ensemble spread
   inflation_method: "multiplicative" # Inflation method: multiplicative, additive, relaxation
   
@@ -38,10 +80,5 @@ analysis:
   weighting_scheme: "adaptive"      # Weighting scheme: uniform, adaptive, inverse_var, likelihood
   
   # Output configuration
-  output_base_file: "analysis"
-  format: "txt"                     # Output format: txt, nc, etc.
-
-# Logging configuration
-logging:
-  level: "info"                     # Log level: debug, info, warning, error
-  output: "console"                 # Output destination: console, file, both 
+  output_base_file: "./analysis"
+  format: "txt"                     # Output format: txt, nc, etc. 

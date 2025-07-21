@@ -140,7 +140,6 @@ class ParticleFilter {
     using Eigen::VectorXd;
 
     const int ens_size = ensemble_.Size();
-    const int obs_dim = obs_.size();
 
     // Initialize weights (equal weights for first analysis)
     if (weights_.empty()) {
