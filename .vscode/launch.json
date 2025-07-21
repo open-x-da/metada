@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "Debug Simple ETKF",
             "type": "cppdbg",
@@ -344,6 +345,48 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/enkf",
             "args": ["${workspaceFolder}/src/backends/simple/tutorial/enkf.yaml"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [
+                {
+                    "name": "GLOG_logtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_v",
+                    "value": "0"
+                },
+                {
+                    "name": "GLOG_colorlogtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_minloglevel",
+                    "value": "0"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set breakpoint pending on",
+                    "text": "-gdb-set breakpoint pending on",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Debug Simple LWEnKF",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/lwenkf",
+            "args": ["${workspaceFolder}/src/backends/simple/tutorial/lwenkf.yaml"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}/build",
             "environment": [
