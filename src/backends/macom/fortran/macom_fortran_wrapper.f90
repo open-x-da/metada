@@ -15,6 +15,7 @@ module macom_fortran_wrapper
 
 #ifdef MACOM_REGION_MODE
   USE mod_macom_final
+  use mod_csp_basic
 #endif
 
 #ifdef SEAICE_ITD
@@ -24,7 +25,6 @@ module macom_fortran_wrapper
   USE mitice_init
   USE mitice_ave
 #endif
-  ! use mod_csp_basic
   implicit none
 
   private ! Default to private, only expose BIND(C) interfaces
@@ -59,7 +59,11 @@ contains
     ! wrapper_mpi_comm = comm_cpp
 
     ! Set MPI communicator
-    ! mpi_comp_comm = comm_cpp
+    mpi_comp_comm = comm_cpp
+
+    ! Initialize loop variables for region mode
+    macom_loop_i = 1
+    macom_loop_end = 1
 
     ! Call MACOM's MPI initialization
     ! call init_mpi()
@@ -121,7 +125,12 @@ contains
     integer(c_int), intent(out) :: init_iter, max_iter
 
     ! Use actual mitice_on value from namelist
+#ifdef SEAICE_ITD
     mitice = mitice_on
+#else
+    mitice = .false.
+#endif
+
     restart = restart_in
     assim = assim_in
     init_iter = nIter0

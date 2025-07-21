@@ -22,152 +22,146 @@ using BackendTag = metada::traits::MACOMBackendTag;
 using namespace metada;
 using namespace metada::framework;
 
-int main(int argc, char** argv) {
-  try {
-    // Initialize application context
-    ApplicationContext<BackendTag> context(argc, argv);
-
-    auto& logger = context.getLogger();
-    auto& config = context.getConfig();
-
-    logger.Info() << "Starting forecast application";
-    logger.Info() << "Using configuration file: " << argv[1];
-
-    // Initialize geometry
-    logger.Info() << "Initializing geometry";
-    Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
-
-    // Initialize initial state
-    logger.Info() << "Initializing model state";
-    State<BackendTag> initialState(config.GetSubsection("state"), geometry);
-    auto currentState = initialState.clone();
-
-    // Initialize model
-    logger.Info() << "Initializing forecast model";
-    Model<BackendTag> model(config.GetSubsection("model"));
-
-    // Create final state
-    State<BackendTag> finalState(config.GetSubsection("state"), geometry);
-
-    // Run the model
-    logger.Info() << "Running forecast model...";
-    model.run(currentState, finalState);
-
-    // Update current state
-    currentState = std::move(finalState);
-
-    logger.Info() << "Forecast application completed";
-    return 0;
-  } catch (const std::exception& e) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  } catch (...) {
-    std::cerr << "Unknown error occurred" << std::endl;
-    return 1;
-  }
-}
-
-// // Default backends, can be changed with template parameters
-// using BackendTag = metada::traits::MACOMBackendTraits;
-
-// // using namespace metada;
-// // using namespace metada::framework;
-
 // int main(int argc, char** argv) {
 //   try {
-// #ifdef USE_MPI
-//     // Initialize parallel environment
-//     auto& parallel = backends::macom::MACOMParallel::getInstance();
-//     parallel.setFortranMode(true);  // Explicitly use Fortran MPI
-//     if (!parallel.initialize(argc, argv)) {
-//       std::cerr << "Failed to initialize parallel environment" << std::endl;
-//       return 1;
-//     }
-// #endif
-
 //     // Initialize application context
 //     ApplicationContext<BackendTag> context(argc, argv);
+
 //     auto& logger = context.getLogger();
 //     auto& config = context.getConfig();
 
-// #ifdef USE_MPI
-//     // Log process information
-//     if (parallel.isParallel()) {
-//       logger.Info() << "Running as MPI process " << parallel.getRank();
-//     }
-// #else
-//     logger.Info() << "Running in serial mode";
-// #endif
+//     logger.Info() << "Starting forecast application";
+//     logger.Info() << "Using configuration file: " << argv[1];
 
 //     // Initialize geometry
-// #ifdef USE_MPI
-//     if (parallel.getRank() == 0) {
-//       logger.Info() << "Initializing geometry";
-//     }
-// #else
 //     logger.Info() << "Initializing geometry";
-// #endif
 //     Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
 //     // Initialize initial state
-// #ifdef USE_MPI
-//     if (parallel.getRank() == 0) {
-//       logger.Info() << "Initializing model state";
-//     }
-// #else
 //     logger.Info() << "Initializing model state";
-// #endif
 //     State<BackendTag> initialState(config.GetSubsection("state"), geometry);
-//     //     auto currentState = initialState.clone();
+//     auto currentState = initialState.clone();
 
-//     // #ifdef USE_MPI
-//     //     parallel.barrier();
+//     // Initialize model
+//     logger.Info() << "Initializing forecast model";
+//     Model<BackendTag> model(config.GetSubsection("model"));
 
-//     //     if (parallel.getRank() == 0) {
-//     //       logger.Info() << "Starting forecast application";
-//     //       logger.Info() << "Using configuration file: " << argv[1];
-//     //     } else {
-//     //       parallel.finalize();
-//     //       return 0;
-//     //     }
-//     // #endif
+//     // Create final state
+//     State<BackendTag> finalState(config.GetSubsection("state"), geometry);
 
-//     //     // Initialize model
-//     //     logger.Info() << "Initializing forecast model";
-//     //     Model<BackendTag> model(config.GetSubsection("model"));
+//     // Run the model
+//     logger.Info() << "Running forecast model...";
+//     model.run(currentState, finalState);
 
-//     //     // Create final state
-//     //     auto finalState = initialState.clone();
-//     //     // State<BackendTag> finalState(config.GetSubsection("state"),
-//     //     geometry);
+//     // Update current state
+//     currentState = std::move(finalState);
 
-//     //     // Run the model
-//     //     logger.Info() << "Running forecast model...";
-//     //     model.run(currentState, finalState);
-
-//     //     // Update current state
-//     //     currentState = std::move(finalState);
-
-//     //     logger.Info() << "Forecast application completed";
-
-// #ifdef USE_MPI
-//     // Finalize MPI if MPI support is enabled
-//     parallel.finalize();
-// #endif
+//     logger.Info() << "Forecast application completed";
 //     return 0;
 //   } catch (const std::exception& e) {
 //     std::cerr << "Error: " << e.what() << std::endl;
-//     // Ensure parallel environment is finalized even in case of error
-// #ifdef USE_MPI
-//     backends::macom::MACOMParallel::getInstance().finalize();
-// #endif
 //     return 1;
 //   } catch (...) {
 //     std::cerr << "Unknown error occurred" << std::endl;
-//     // Ensure parallel environment is finalized even in case of error
-// #ifdef USE_MPI
-//     backends::macom::MACOMParallel::getInstance().finalize();
-// #endif
 //     return 1;
 //   }
 // }
+
+int main(int argc, char** argv) {
+  try {
+#ifdef USE_MPI
+    // Initialize parallel environment
+    auto& parallel = backends::macom::MACOMParallel::getInstance();
+    parallel.setFortranMode(true);  // Explicitly use Fortran MPI
+    if (!parallel.initialize(argc, argv)) {
+      std::cerr << "Failed to initialize parallel environment" << std::endl;
+      return 1;
+    }
+#endif
+
+    // Initialize application context
+    ApplicationContext<BackendTag> context(argc, argv);
+    auto& logger = context.getLogger();
+    auto& config = context.getConfig();
+
+#ifdef USE_MPI
+    // Log process information
+    if (parallel.isParallel()) {
+      logger.Info() << "Running as MPI process " << parallel.getRank();
+    }
+#else
+    logger.Info() << "Running in serial mode";
+#endif
+
+    // Initialize geometry
+#ifdef USE_MPI
+    if (parallel.getRank() == 0) {
+      logger.Info() << "Initializing geometry";
+    }
+#else
+    logger.Info() << "Initializing geometry";
+#endif
+    Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
+
+    // Initialize initial state
+#ifdef USE_MPI
+    if (parallel.getRank() == 0) {
+      logger.Info() << "Initializing model state";
+    }
+#else
+    logger.Info() << "Initializing model state";
+#endif
+    State<BackendTag> initialState(config.GetSubsection("state"), geometry);
+    //     auto currentState = initialState.clone();
+
+    // #ifdef USE_MPI
+    //     parallel.barrier();
+
+    //     if (parallel.getRank() == 0) {
+    //       logger.Info() << "Starting forecast application";
+    //       logger.Info() << "Using configuration file: " << argv[1];
+    //     } else {
+    //       parallel.finalize();
+    //       return 0;
+    //     }
+    // #endif
+
+    //     // Initialize model
+    //     logger.Info() << "Initializing forecast model";
+    //     Model<BackendTag> model(config.GetSubsection("model"));
+
+    //     // Create final state
+    //     auto finalState = initialState.clone();
+    //     // State<BackendTag> finalState(config.GetSubsection("state"),
+    //     geometry);
+
+    //     // Run the model
+    //     logger.Info() << "Running forecast model...";
+    //     model.run(currentState, finalState);
+
+    //     // Update current state
+    //     currentState = std::move(finalState);
+
+    //     logger.Info() << "Forecast application completed";
+
+#ifdef USE_MPI
+    // Finalize MPI if MPI support is enabled
+    parallel.finalize();
+#endif
+    return 0;
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    // Ensure parallel environment is finalized even in case of error
+#ifdef USE_MPI
+    backends::macom::MACOMParallel::getInstance().finalize();
+#endif
+    return 1;
+  } catch (...) {
+    std::cerr << "Unknown error occurred" << std::endl;
+    // Ensure parallel environment is finalized even in case of error
+#ifdef USE_MPI
+    backends::macom::MACOMParallel::getInstance().finalize();
+#endif
+    return 1;
+  }
+}
