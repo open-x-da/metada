@@ -27,20 +27,20 @@ namespace fwk = metada::framework;
 using BackendTag = metada::traits::SimpleBackendTag;
 
 int main(int argc, char** argv) {
-  // Initialize application context
-  auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
-  auto& logger = context.getLogger();
-  auto& config = context.getConfig();
-
-  logger.Info()
-      << "Ensemble Kalman Filter data assimilation application starting...";
-
   try {
     // Validate command line arguments
     if (argc != 2) {
-      logger.Error() << "Usage: enkf <config_file>";
+      std::cerr << "Usage: enkf <config_file>" << std::endl;
       return 1;
     }
+
+    // Initialize application context
+    auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
+    auto& logger = context.getLogger();
+    auto& config = context.getConfig();
+
+    logger.Info()
+        << "Ensemble Kalman Filter data assimilation application starting...";
 
     // Get EnKF parameters from configuration
     auto analysis_config = config.GetSubsection("analysis");
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
     logger.Info() << "Max Kalman gain: " << results.max_kalman_gain;
     logger.Info() << "Min Kalman gain: " << results.min_kalman_gain;
     logger.Info() << "Gain range: " << gain_range;
-    logger.Info() << "Mean gain: " << gain_mean;
+    logger.Info() << "Gain mean: " << gain_mean;
 
     // Log numerical stability
     logger.Info() << "=== Numerical Stability ===";
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
     return 0;
 
   } catch (const std::exception& e) {
-    logger.Error() << "EnKF application failed: " << e.what();
+    std::cerr << "EnKF application failed: " << e.what() << std::endl;
     return 1;
   }
 }

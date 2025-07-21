@@ -26,19 +26,20 @@ namespace fwk = metada::framework;
 using BackendTag = metada::traits::SimpleBackendTag;
 
 int main(int argc, char** argv) {
-  // Initialize application context
-  auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
-  auto& logger = context.getLogger();
-  auto& config = context.getConfig();
-
-  logger.Info() << "Particle Filter data assimilation application starting...";
-
   try {
     // Validate command line arguments
     if (argc != 2) {
-      logger.Error() << "Usage: particle_filter <config_file>";
+      std::cerr << "Usage: particle_filter <config_file>" << std::endl;
       return 1;
     }
+
+    // Initialize application context
+    auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
+    auto& logger = context.getLogger();
+    auto& config = context.getConfig();
+
+    logger.Info()
+        << "Particle Filter data assimilation application starting...";
 
     // Get particle filter parameters from configuration
     auto analysis_config = config.GetSubsection("analysis");
@@ -142,7 +143,8 @@ int main(int argc, char** argv) {
     return 0;
 
   } catch (const std::exception& e) {
-    logger.Error() << "Particle Filter application failed: " << e.what();
+    std::cerr << "Particle Filter application failed: " << e.what()
+              << std::endl;
     return 1;
   }
 }

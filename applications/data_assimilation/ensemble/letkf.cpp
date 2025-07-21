@@ -26,19 +26,19 @@ namespace fwk = metada::framework;
 using BackendTag = metada::traits::SimpleBackendTag;
 
 int main(int argc, char** argv) {
-  // Initialize application context
-  auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
-  auto& logger = context.getLogger();
-  auto& config = context.getConfig();
-
-  logger.Info() << "LETKF application starting...";
-
   try {
     // Validate command line arguments
     if (argc != 2) {
-      logger.Error() << "Usage: letkf <config_file>";
+      std::cerr << "Usage: letkf <config_file>" << std::endl;
       return 1;
     }
+
+    // Initialize application context
+    auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
+    auto& logger = context.getLogger();
+    auto& config = context.getConfig();
+
+    logger.Info() << "LETKF application starting...";
 
     // Initialize components
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
     logger.Info() << "LETKF application completed successfully";
     return 0;
   } catch (const std::exception& e) {
-    logger.Error() << "LETKF application failed: " << e.what();
+    std::cerr << "LETKF application failed: " << e.what() << std::endl;
     return 1;
   }
 }

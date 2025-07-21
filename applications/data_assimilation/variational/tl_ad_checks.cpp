@@ -78,19 +78,19 @@ void printCheckResults(const std::vector<CheckResult>& results) {
 }
 
 int main(int argc, char** argv) {
-  // Initialize application context
-  auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
-  auto& logger = context.getLogger();
-  auto& config = context.getConfig();
-
-  logger.Info() << "ObsOperator TL/AD Checks application starting...";
-
   try {
     // Validate command line arguments
     if (argc != 2) {
-      logger.Error() << "Usage: tl_ad_checks <config_file>";
+      std::cerr << "Usage: tl_ad_checks <config_file>" << std::endl;
       return 1;
     }
+
+    // Initialize application context
+    auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
+    auto& logger = context.getLogger();
+    auto& config = context.getConfig();
+
+    logger.Info() << "ObsOperator TL/AD Checks application starting...";
 
     std::vector<CheckResult> results;
 
@@ -300,8 +300,8 @@ int main(int argc, char** argv) {
       return 1;
     }
   } catch (const std::exception& e) {
-    logger.Error() << "ObsOperator TL/AD checks application failed: "
-                   << e.what();
+    std::cerr << "ObsOperator TL/AD checks application failed: " << e.what()
+              << std::endl;
     return 1;
   }
 }

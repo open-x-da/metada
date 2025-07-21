@@ -29,19 +29,19 @@ namespace fwk = metada::framework;
 using BackendTag = metada::traits::SimpleBackendTag;
 
 int main(int argc, char** argv) {
-  // Initialize application context
-  auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
-  auto& logger = context.getLogger();
-  auto& config = context.getConfig();
-
-  logger.Info() << "Variational data assimilation application starting...";
-
   try {
     // Validate command line arguments
     if (argc != 2) {
-      logger.Error() << "Usage: variational <config_file>";
+      std::cerr << "Usage: variational <config_file>" << std::endl;
       return 1;
     }
+
+    // Initialize application context
+    auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
+    auto& logger = context.getLogger();
+    auto& config = context.getConfig();
+
+    logger.Info() << "Variational data assimilation application starting...";
 
     // Get variational type from configuration
     std::string var_type = config.Get("variational_type").asString();
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
     return 0;
 
   } catch (const std::exception& e) {
-    logger.Error() << "Variational application failed: " << e.what();
+    std::cerr << "Variational application failed: " << e.what() << std::endl;
     return 1;
   }
 }
