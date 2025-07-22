@@ -10,14 +10,19 @@
 #include "WRFBackendTraits.hpp"
 
 using BackendTag = metada::traits::WRFBackendTag;
-using namespace metada;
 using namespace metada::framework;
 using namespace metada::backends::io;
 
 int main(int argc, char* argv[]) {
   try {
+    // Validate command line arguments
+    if (argc != 2) {
+      std::cerr << "Usage: obs_processing <config_file>" << std::endl;
+      return 1;
+    }
+
     // Initialize application context
-    ApplicationContext<BackendTag> context(argc, argv);
+    auto context = ApplicationContext<BackendTag>(argc, argv);
 
     auto& logger = context.getLogger();
     auto& config = context.getConfig();
