@@ -15,9 +15,7 @@
 
 #include <concepts>
 #include <memory>
-#include <string>
 #include <type_traits>
-#include <vector>
 
 namespace metada::framework {
 
@@ -54,6 +52,9 @@ concept HasLoggerBackend =
  * defines a GeometryBackend type through the BackendTraits specialization.
  * The GeometryBackend is responsible for handling spatial domain
  * representations.
+ *
+ * Note: GeometryBackend does not need to be a template class; it can be a
+ * concrete type or a class with a templated constructor.
  *
  * @tparam T The backend tag type to check
  */
@@ -133,6 +134,21 @@ concept HasObservationBackend =
 template <typename T>
 concept HasObsOperatorBackend =
     requires { typename traits::BackendTraits<T>::ObsOperatorBackend; };
+
+/**
+ * @brief Checks if a type provides an ObservationIteratorBackend type through
+ * BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines an ObservationIteratorBackend type through the BackendTraits
+ * specialization. The ObservationIteratorBackend enables traversal of
+ * observation data points.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasObservationIteratorBackend =
+    requires { typename traits::BackendTraits<T>::ObservationIteratorBackend; };
 
 /**
  * @brief Checks if a type provides an ObsIOBackend type through BackendTraits

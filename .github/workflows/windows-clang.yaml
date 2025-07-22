@@ -56,7 +56,6 @@ jobs:
           mingw-w64-x86_64-python-pip
           mingw-w64-x86_64-python-numpy
           mingw-w64-x86_64-gtest
-          mingw-w64-x86_64-glog
           mingw-w64-x86_64-clang-tools-extra
           mingw-w64-x86_64-lcov
           mingw-w64-x86_64-yaml-cpp
@@ -65,6 +64,7 @@ jobs:
           mingw-w64-x86_64-netcdf-cxx
           mingw-w64-x86_64-compiler-rt
           mingw-w64-clang-x86_64-compiler-rt
+          mingw-w64-x86_64-eigen3
           
     - name: Install xtl and xtensor
       run: |
@@ -86,6 +86,16 @@ jobs:
           -DCMAKE_CXX_COMPILER=clang++ \
           -DCMAKE_Fortran_COMPILER=gfortran
         cmake --build .
+        ninja install
+
+    - name: Install ng-log
+      run: |
+        git clone --depth 1 --branch v0.8.0 https://github.com/ng-log/ng-log.git
+        cd ng-log
+        mkdir build
+        cd build
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw64
+        ninja
         ninja install
 
     - name: Configure CMake with Clang

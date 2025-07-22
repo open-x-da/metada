@@ -23,15 +23,24 @@ setup_test_executable(model_test ModelTest.cpp)
 add_test_format_target(model_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Ensemble tests
-#setup_test_executable(ensemble_test EnsembleTest.cpp)
+setup_test_executable(ensemble_test EnsembleTest.cpp)
+add_test_format_target(ensemble_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Increment tests
-#setup_test_executable(increment_test IncrementTest.cpp)
+setup_test_executable(increment_test IncrementTest.cpp)
+add_test_format_target(increment_test ${CMAKE_CURRENT_SOURCE_DIR})
 
+# Location tests
+setup_test_executable(location_test LocationTest.cpp)
+add_test_format_target(location_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # IObservations tests
 setup_test_executable(observation_test ObservationTest.cpp)
 add_test_format_target(observation_test ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Observation iterator tests
+setup_test_executable(observation_iterator_test ObservationIteratorTest.cpp)
+add_test_format_target(observation_iterator_test ${CMAKE_CURRENT_SOURCE_DIR})
 
 # IObsOperator tests
 setup_test_executable(obsoperator_test ObsOperatorTest.cpp)

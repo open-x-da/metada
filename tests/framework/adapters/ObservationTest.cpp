@@ -11,12 +11,14 @@
  * The tests cover:
  * - Construction and initialization
  * - Move semantics and cloning
- * - Data access and variable information
+ * - Data access and iteration capabilities
  * - Arithmetic operations (+, -, *, +=, -=, *=)
  * - Comparison operators (==, !=)
  * - Input/output operations (file loading and saving)
  * - Quality control application
  * - Backend access (const and non-const)
+ * - Geographic filtering operations
+ * - Point-based observations with location information
  *
  * The test suite uses Google Test/Mock framework for mocking backend
  * implementations and verifying adapter behavior through assertions.
@@ -35,7 +37,11 @@
 #include <vector>
 
 #include "Config.hpp"
+#include "Location.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
+#include "MockObservation.hpp"
+#include "MockObservationIterator.hpp"
 #include "Observation.hpp"
 
 namespace metada::tests {
@@ -46,6 +52,8 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 
 using framework::Config;
+using framework::CoordinateSystem;
+using framework::Location;
 using framework::Observation;
 
 /**
@@ -53,34 +61,22 @@ using framework::Observation;
  *
  * Provides common setup and test data for Observation tests including:
  * - Mock objects and application context
- * - Sample observation data and metadata
+ * - Sample observation data with location information
  * - Helper methods for observation creation and access
  */
 class ObservationTest : public ::testing::Test {
  protected:
-  /** @brief Variable names for test data */
-  std::vector<std::string> variableNames_;
+  /** @brief Sample observation locations */
+  std::vector<std::pair<double, double>> locations_;  // lat, lon pairs
 
-  /** @brief Variable dimensions */
-  std::vector<size_t> dimensions_;
+  /** @brief Sample vertical levels */
+  std::vector<double> levels_;
 
-  /** @brief Sample location coordinates */
-  std::vector<std::vector<double>> locations_;
+  /** @brief Sample observation values */
+  std::vector<double> values_;
 
-  /** @brief Sample timestamps */
-  std::vector<double> times_;
-
-  /** @brief Quality control flags */
-  std::vector<int> qualityFlags_;
-
-  /** @brief Confidence values */
-  std::vector<double> confidenceValues_;
-
-  /** @brief Sample temperature value */
-  double temperature_;
-
-  /** @brief Sample uncertainty value */
-  double uncertainty_;
+  /** @brief Sample observation errors */
+  std::vector<double> errors_;
 
   /** @brief First test observation */
   std::unique_ptr<Observation<traits::MockBackendTag>> obs1_;
@@ -101,6 +97,10 @@ class ObservationTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     auto config_file = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file);
+
+    // Initialize the Logger singleton before creating any objects that use it
+    framework::Logger<traits::MockBackendTag>::Init(*config_);
+
     obs1_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
     obs2_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
 
@@ -118,13 +118,14 @@ class ObservationTest : public ::testing::Test {
     resetObservations();
 
     // Then clean up other resources
-    variableNames_.clear();
-    dimensions_.clear();
     locations_.clear();
-    times_.clear();
-    qualityFlags_.clear();
-    confidenceValues_.clear();
+    levels_.clear();
+    values_.clear();
+    errors_.clear();
     config_.reset();
+
+    // Reset the Logger singleton after tests
+    framework::Logger<traits::MockBackendTag>::Reset();
   }
 
   /**
@@ -137,14 +138,17 @@ class ObservationTest : public ::testing::Test {
 
   // Helper function to initialize test data
   void initializeTestData() {
-    variableNames_ = {"temperature", "pressure"};
-    dimensions_ = {1, 1};
-    locations_ = {{45.0, -120.0, 100.0}, {46.0, -121.0, 200.0}};
-    times_ = {1609459200.0, 1609545600.0};  // Example timestamps (Unix time)
-    qualityFlags_ = {0, 1};                 // 0 = good, 1 = suspect
-    confidenceValues_ = {0.95, 0.85};
-    temperature_ = 25.5;
-    uncertainty_ = 0.5;
+    // Sample locations (lat, lon)
+    locations_ = {{45.0, -120.0}, {46.0, -121.0}, {47.0, -122.0}};
+
+    // Sample vertical levels (pressure in hPa)
+    levels_ = {1000.0, 850.0, 500.0};
+
+    // Sample observation values
+    values_ = {25.5, 15.2, -5.8};
+
+    // Sample observation errors
+    errors_ = {0.5, 0.3, 0.7};
   }
 
   // Helper function to create observations
@@ -161,12 +165,29 @@ class ObservationTest : public ::testing::Test {
 
   // Helper function to verify data access
   void verifyDataAccess() {
-    const double* data = &obs1_->getData<double>();
-    EXPECT_NE(data, nullptr);  // Verify we got a valid pointer
+    const auto data = obs1_->getData<std::vector<double>>();
+    EXPECT_FALSE(data.empty());  // Verify we got non-empty data
     // Verify actual data values
-    for (size_t i = 0; i < confidenceValues_.size(); ++i) {
-      EXPECT_DOUBLE_EQ(data[i], confidenceValues_[i]);
+    for (size_t i = 0; i < data.size() && i < values_.size(); ++i) {
+      EXPECT_DOUBLE_EQ(data[i], values_[i]);
     }
+  }
+
+  // Helper function to verify iteration
+  void verifyIteration() {
+    size_t count = 0;
+    for (const auto& obs : *obs1_) {
+      EXPECT_TRUE(obs.is_valid);
+      if (obs.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+        auto [lat, lon, level] = obs.location.getGeographicCoords();
+        EXPECT_GE(lat, -90.0);
+        EXPECT_LE(lat, 90.0);
+        EXPECT_GE(lon, -180.0);
+        EXPECT_LE(lon, 180.0);
+      }
+      count++;
+    }
+    EXPECT_EQ(count, obs1_->size());
   }
 };
 
@@ -213,12 +234,18 @@ TEST_F(ObservationTest, ConstructionAndMovement) {
  */
 TEST_F(ObservationTest, InputOutputOperations) {
   const std::string test_filename = "test_observation.dat";
+  const double error = 0.1;
+  const double missing_value = -999.0;
 
-  // Test loadFromFile - can't mock these directly, test the behavior
-  obs1_->loadFromFile(test_filename);
+  // Test loadFromFile
+  EXPECT_CALL(obs1_->backend(),
+              loadFromFile(test_filename, error, missing_value))
+      .Times(1);
+  obs1_->loadFromFile(test_filename, error, missing_value);
   EXPECT_TRUE(obs1_->isInitialized());
 
   // Test saveToFile
+  EXPECT_CALL(obs1_->backend(), saveToFile(test_filename)).Times(1);
   obs1_->saveToFile(test_filename);
 }
 
@@ -266,36 +293,6 @@ TEST_F(ObservationTest, ComparisonOperations) {
 
   EXPECT_FALSE(*obs1_ == uninit_obs);
   EXPECT_TRUE(*obs1_ != uninit_obs);
-}
-
-/**
- * @brief Test data access and variable information
- *
- * Verifies:
- * - getData (const and non-const)
- * - getVariableNames
- * - hasVariable (for existing and non-existing variables)
- * - getDimensions
- */
-TEST_F(ObservationTest, DataAccessAndInformation) {
-  obs1_->backend().setVariables(variableNames_);
-  obs1_->backend().setDimensions("temperature", dimensions_);
-  obs1_->backend().setData(confidenceValues_);
-
-  // Test variable names access
-  const auto& vars = obs1_->getVariableNames();
-  EXPECT_EQ(vars, variableNames_);
-
-  // Test dimensions access
-  const auto& dims = obs1_->getDimensions("temperature");
-  EXPECT_EQ(dims, dimensions_);
-
-  // Test data access
-  verifyDataAccess();
-
-  // Test hasVariable
-  EXPECT_TRUE(obs1_->hasVariable("temperature"));
-  EXPECT_FALSE(obs1_->hasVariable("nonexistent_variable"));
 }
 
 /**

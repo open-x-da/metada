@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "../utils.hpp"
-#include "common/utils/config/ConfigValue.hpp"
+#include "ConfigValue.hpp"
 
 namespace metada::backends::config {
 
@@ -97,6 +97,12 @@ class JsonConfig {
    * @throws std::runtime_error If loading fails
    */
   explicit JsonConfig(const std::string& filename) { LoadFromFile(filename); }
+
+  /**
+   * @brief Constructor that loads configuration from a ConfigMap
+   * @param map ConfigMap containing the configuration data
+   */
+  explicit JsonConfig(const framework::ConfigMap& map);
 
   /**
    * @brief Load configuration from a JSON file

@@ -9,7 +9,8 @@ target_link_libraries(forecast
         metada::framework::runs
         metada::traits
         metada::backends::common::utils
-        metada::backends::wrf
+        metada::backends::common::observation
+        metada::backends::simple
 )
 
 # Set output directory

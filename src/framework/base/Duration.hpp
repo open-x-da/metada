@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <compare>
-#include <regex>
 #include <stdexcept>
 #include <string>
 

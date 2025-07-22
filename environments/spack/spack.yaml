@@ -13,7 +13,6 @@ spack:
   - py-scipy
   - py-matplotlib
   - googletest@1.11.0: +gmock
-  - glog@0.6.0:
   - lcov@1.16:
   - clang@15.0.0:
   - yaml-cpp

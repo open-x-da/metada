@@ -27,13 +27,12 @@
  */
 
 #pragma once
-#include <stdexcept>  // for exceptions (if needed)
-#include <utility>    // for std::move
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
 #include "GeometryConcepts.hpp"
 #include "GeometryIterator.hpp"
+#include "Logger.hpp"
 #include "NonCopyable.hpp"
 
 namespace metada::framework {
@@ -67,10 +66,6 @@ class Config;  // Config adapter for backend
  * Config<BackendTag> config;
  * Geometry<BackendTag> geometry(config);
  *
- * // Check grid properties
- * size_t gridSize = geometry.totalGridSize();
- * bool isPeriodic = geometry.isPeriodicX();
- *
  * // Iterate through grid points
  * for (auto& point : geometry) {
  *     // Process each grid point
@@ -95,8 +90,15 @@ class Geometry : private NonCopyable {
  public:
   using GeometryBackend =
       typename traits::BackendTraits<BackendTag>::GeometryBackend;
-  using Iterator =
-      GeometryIterator<BackendTag>;  // defined in GeometryIterator.hpp
+  using value_type = typename GeometryBackend::value_type;
+  using reference = typename GeometryBackend::reference;
+  using const_reference = typename GeometryBackend::const_reference;
+  using pointer = typename GeometryBackend::pointer;
+  using const_pointer = typename GeometryBackend::const_pointer;
+  using size_type = typename GeometryBackend::size_type;
+  using difference_type = typename GeometryBackend::difference_type;
+  using iterator = typename GeometryBackend::iterator;
+  using const_iterator = typename GeometryBackend::const_iterator;
 
   // Disable default constructor – a Geometry must be created with a config or
   // backend.
@@ -112,14 +114,15 @@ class Geometry : private NonCopyable {
    * @throws std::runtime_error If backend initialization fails
    */
   explicit Geometry(const Config<BackendTag>& config)
-      : config_(config), backend_(config.backend()) {}
+      : backend_(config.backend()) {
+    logger_.Info() << "Geometry constructed";
+  }
 
   /**
    * @brief Move constructor
    * @param other Geometry instance to move from
    */
-  Geometry(Geometry&& other) noexcept
-      : config_(other.config_), backend_(std::move(other.backend_)) {}
+  Geometry(Geometry&& other) noexcept : backend_(std::move(other.backend_)) {}
 
   /**
    * @brief Move assignment operator
@@ -139,76 +142,61 @@ class Geometry : private NonCopyable {
    * @return A new Geometry instance with identical configuration and backend
    * state
    */
-  Geometry clone() const {
-    return Geometry(std::move(backend_.clone()), config_);
-  }
+  Geometry clone() const { return Geometry(std::move(backend_.clone())); }
 
   /**
    * @brief Get iterator to the beginning of the grid
    * @return Iterator pointing to the first grid point
    */
-  Iterator begin() { return Iterator(backend_.begin()); }
+  iterator begin() { return backend_.begin(); }
 
   /**
    * @brief Get iterator to the end of the grid
    * @return Iterator pointing past the last grid point
    */
-  Iterator end() { return Iterator(backend_.end()); }
+  iterator end() { return backend_.end(); }
 
   /**
    * @brief Get const iterator to the beginning of the grid
    * @return Const iterator pointing to the first grid point
    */
-  Iterator begin() const { return Iterator(backend_.begin()); }
+  const_iterator begin() const { return backend_.begin(); }
 
   /**
    * @brief Get const iterator to the end of the grid
    * @return Const iterator pointing past the last grid point
    */
-  Iterator end() const { return Iterator(backend_.end()); }
+  const_iterator end() const { return backend_.end(); }
+
+  /**
+   * @brief Get const iterator to the beginning of the grid
+   * @return Const iterator pointing to the first grid point
+   */
+  const_iterator cbegin() const { return backend_.cbegin(); }
+
+  /**
+   * @brief Get const iterator to the end of the grid
+   * @return Const iterator pointing past the last grid point
+   */
+  const_iterator cend() const { return backend_.cend(); }
 
   /**
    * @brief Get the total number of grid points
    * @return Total number of grid points in the geometry
    */
-  size_t totalGridSize() const {
-    return backend_.totalGridSize();  // assume backend_ provides total number
-                                      // of grid points
-  }
+  size_type size() const { return backend_.size(); }
 
   /**
-   * @brief Check if the geometry is periodic in X dimension
-   * @return True if periodic in X, false otherwise
+   * @brief Check if the geometry is empty
+   * @return True if empty, false otherwise
    */
-  bool isPeriodicX() const { return backend_.isPeriodicX(); }
+  bool empty() const { return backend_.empty(); }
 
   /**
-   * @brief Check if the geometry is periodic in Y dimension
-   * @return True if periodic in Y, false otherwise
+   * @brief Get the maximum number of grid points
+   * @return Maximum number of grid points in the geometry
    */
-  bool isPeriodicY() const { return backend_.isPeriodicY(); }
-
-  /**
-   * @brief Check if the geometry is periodic in Z dimension
-   * @return True if periodic in Z, false otherwise
-   */
-  bool isPeriodicZ() const { return backend_.isPeriodicZ(); }
-
-  /**
-   * @brief Perform halo exchange on a State using this geometry
-   * @param state The state on which to perform halo exchange
-   */
-  template <typename StateType>
-    requires requires(StateType state) { state.backend(); }
-  void haloExchange(StateType& state) const {
-    backend_.haloExchangeImpl(static_cast<void*>(&state.backend()));
-  }
-
-  /**
-   * @brief Check if geometry is properly initialized
-   * @return True if initialized, false otherwise
-   */
-  bool isInitialized() const { return backend_.isInitialized(); }
+  size_type max_size() const { return backend_.max_size(); }
 
   /**
    * @brief Access the underlying backend
@@ -222,25 +210,25 @@ class Geometry : private NonCopyable {
    */
   const GeometryBackend& backend() const { return backend_; }
 
-  /**
-   * @brief Access the stored configuration
-   * @return Const reference to the configuration
-   */
-  const Config<BackendTag>& config() const { return config_; }
+  // STL-compliant element access
+  reference operator[](size_type idx) { return backend_[idx]; }
+  const_reference operator[](size_type idx) const { return backend_[idx]; }
+  reference at(size_type idx) { return backend_.at(idx); }
+  const_reference at(size_type idx) const { return backend_.at(idx); }
+  reference front() { return backend_.front(); }
+  const_reference front() const { return backend_.front(); }
+  reference back() { return backend_.back(); }
+  const_reference back() const { return backend_.back(); }
 
  private:
   /**
    * @brief Private constructor used by clone(): create Geometry from an
    * existing backend instance
    * @param backend Backend instance to use
-   * @param config Configuration to associate with this geometry
    */
-  Geometry(GeometryBackend&& backend, const Config<BackendTag>& config)
-      : config_(config), backend_(std::move(backend)) {}
+  Geometry(GeometryBackend&& backend) : backend_(std::move(backend)) {}
 
-  const Config<BackendTag>&
-      config_;  // Holds reference to externally managed config
-  GeometryBackend
-      backend_;  // The actual geometry implementation (grid data/operations)
+  GeometryBackend backend_;
+  Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 }  // namespace metada::framework

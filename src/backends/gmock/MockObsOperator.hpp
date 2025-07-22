@@ -89,8 +89,8 @@ class MockObsOperator {
    * @param state Input state
    * @param obs Output observation
    */
-  MOCK_METHOD(void, apply, (const StateBackend& state, ObsBackend& obs),
-              (const));
+  MOCK_METHOD(std::vector<double>, apply,
+              (const StateBackend& state, const ObsBackend& obs), (const));
 
   /**
    * @brief Get the list of required state variables
@@ -104,6 +104,43 @@ class MockObsOperator {
    * @return Vector of observation variable names
    */
   MOCK_METHOD(const std::vector<std::string>&, getRequiredObsVars, (), (const));
+
+  /**
+   * @brief Apply tangent linear observation operator H(dx)
+   * @param state_increment Input state increment
+   * @param reference_state Reference state for linearization
+   * @param obs Reference observation
+   * @return Vector of observation space increments
+   */
+  MOCK_METHOD(std::vector<double>, applyTangentLinear,
+              (const StateBackend& state_increment,
+               const StateBackend& reference_state, const ObsBackend& obs),
+              (const));
+
+  /**
+   * @brief Apply adjoint observation operator H^T(dy)
+   * @param obs_increment Input observation increment
+   * @param reference_state Reference state for adjoint
+   * @param state_increment Output state increment
+   * @param obs Reference observation
+   */
+  MOCK_METHOD(void, applyAdjoint,
+              (const std::vector<double>& obs_increment,
+               const StateBackend& reference_state,
+               StateBackend& state_increment, const ObsBackend& obs),
+              (const));
+
+  /**
+   * @brief Check if tangent linear and adjoint operators are available
+   * @return True if linearization is supported
+   */
+  MOCK_METHOD(bool, supportsLinearization, (), (const));
+
+  /**
+   * @brief Check if the observation operator is linear
+   * @return True if the operator is linear
+   */
+  MOCK_METHOD(bool, isLinear, (), (const));
 
  private:
   /** @brief Reference to the configuration backend */

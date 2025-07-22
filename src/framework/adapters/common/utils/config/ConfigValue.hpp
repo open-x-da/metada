@@ -1,6 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <iomanip>
 #include <map>
+#include <ostream>
 #include <string>
 #include <variant>
 #include <vector>
@@ -67,6 +70,9 @@ class ConfigValue {
   // Constructor for maps
   ConfigValue(const ConfigMap& value) : value_(value) {}
 
+  // Constructor for vectors of ConfigValue
+  ConfigValue(const std::vector<ConfigValue>& value) : value_(value) {}
+
   // Type checking methods
   bool isNull() const { return std::holds_alternative<std::monostate>(value_); }
   bool isBool() const { return std::holds_alternative<bool>(value_); }
@@ -85,7 +91,16 @@ class ConfigValue {
   bool isVectorString() const {
     return std::holds_alternative<std::vector<std::string>>(value_);
   }
+  bool isVectorConfigValue() const {
+    return std::holds_alternative<std::vector<ConfigValue>>(value_);
+  }
   bool isMap() const { return std::holds_alternative<ConfigMap>(value_); }
+  bool isVectorMap() const {
+    if (!isVectorConfigValue()) return false;
+    const auto& vec = asVectorConfigValue();
+    return std::all_of(vec.begin(), vec.end(),
+                       [](const ConfigValue& v) { return v.isMap(); });
+  }
 
   // Value access methods
   bool asBool() const { return std::get<bool>(value_); }
@@ -104,7 +119,17 @@ class ConfigValue {
   const std::vector<std::string>& asVectorString() const {
     return std::get<std::vector<std::string>>(value_);
   }
+  const std::vector<ConfigValue>& asVectorConfigValue() const {
+    return std::get<std::vector<ConfigValue>>(value_);
+  }
   const ConfigMap& asMap() const { return std::get<ConfigMap>(value_); }
+  std::vector<ConfigMap> asVectorMap() const {
+    const auto& vec = asVectorConfigValue();
+    std::vector<ConfigMap> result;
+    result.reserve(vec.size());
+    for (const auto& v : vec) result.push_back(v.asMap());
+    return result;
+  }
 
   // Map access methods
   bool hasKey(const std::string& key) const {
@@ -142,10 +167,81 @@ class ConfigValue {
 
   bool operator!=(const ConfigValue& other) const { return !(*this == other); }
 
+  friend std::ostream& operator<<(std::ostream& os, const ConfigValue& value) {
+    if (value.isNull()) {
+      os << "null";
+    } else if (value.isBool()) {
+      os << (value.asBool() ? "true" : "false");
+    } else if (value.isInt()) {
+      os << value.asInt();
+    } else if (value.isFloat()) {
+      os << std::fixed << std::setprecision(1) << value.asFloat();
+    } else if (value.isString()) {
+      os << value.asString();
+    } else if (value.isVectorBool()) {
+      os << "[";
+      const auto& vec = value.asVectorBool();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << (vec[i] ? "true" : "false");
+      }
+      os << "]";
+    } else if (value.isVectorInt()) {
+      os << "[";
+      const auto& vec = value.asVectorInt();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << vec[i];
+      }
+      os << "]";
+    } else if (value.isVectorFloat()) {
+      os << "[";
+      const auto& vec = value.asVectorFloat();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << std::fixed << std::setprecision(1) << vec[i];
+      }
+      os << "]";
+    } else if (value.isVectorString()) {
+      os << "[";
+      const auto& vec = value.asVectorString();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << '"' << vec[i] << '"';
+      }
+      os << "]";
+    } else if (value.isMap()) {
+      os << "{";
+      const auto& map = value.asMap();
+      bool first = true;
+      for (const auto& [k, v] : map) {
+        if (!first) os << ", ";
+        os << '"' << k << ": " << v;
+        first = false;
+      }
+      os << "}";
+    } else if (value.isVectorConfigValue()) {
+      os << "[";
+      const auto& vec = value.asVectorConfigValue();
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) os << ", ";
+        os << vec[i];
+      }
+      os << "]";
+    }
+    return os;
+  }
+
+  // Public getter for the variant type index
+  size_t typeIndex() const { return value_.index(); }
+
+  // Public getter for the underlying variant (const)
+  const auto& constVariant() const { return value_; }
+
  private:
   std::variant<std::monostate, bool, int, float, std::string, std::vector<bool>,
                std::vector<int>, std::vector<float>, std::vector<std::string>,
-               ConfigMap>
+               std::vector<ConfigValue>, ConfigMap>
       value_;
 };
 

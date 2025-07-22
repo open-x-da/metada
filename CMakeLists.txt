@@ -26,13 +26,14 @@ metada_project_initialize()
 metada_find_package(GTest CONFIG)
 metada_find_package(Git)
 metada_find_package(ClangFormat)
-
+metada_find_package(Eigen3 CONFIG)
 
 # Find optional external dependencies
 metada_find_package(Lcov OPTIONAL QUIET)
 metada_find_package(yaml-cpp OPTIONAL CONFIG QUIET)
 metada_find_package(nlohmann_json OPTIONAL CONFIG QUIET)
-metada_find_package(Glog OPTIONAL CONFIG QUIET)
+
+metada_find_package(ng-log OPTIONAL CONFIG QUIET)
 
 # Configure CUDA support
 include(CUDA)

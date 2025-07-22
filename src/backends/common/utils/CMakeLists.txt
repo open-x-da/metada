@@ -28,4 +28,4 @@ target_link_libraries(common_utils
 # Add a message showing what backends are used with configuration details
 message(STATUS "Selected backend configurations:")
 message(STATUS "  - Config backend: ${CONFIG_BACKEND} (Configurable via -DCONFIG_BACKEND=<YAML|JSON>)")
-message(STATUS "  - Logger backend: ${LOGGER_BACKEND} (Configurable via -DLOGGER_BACKEND=<GLOG|CONSOLE>)")
+message(STATUS "  - Logger backend: ${LOGGER_BACKEND} (Configurable via -DLOGGER_BACKEND=<NGLOG|CONSOLE>)")

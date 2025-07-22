@@ -27,6 +27,8 @@
 
 #include <gmock/gmock.h>
 
+#include <cmath>
+#include <iostream>
 #include <unordered_map>
 
 namespace metada::backends::gmock {
@@ -61,8 +63,7 @@ namespace metada::backends::gmock {
  * @par State Information
  * - getVariableNames() - Get names of state variables
  * - hasVariable() - Check if state contains a specific variable
- * - getDimensions() - Get dimensions of state space for a variable
- * - setDimensions() - Set dimensions for a variable (helper method for testing)
+ * - size() - Get total size of the state vector
  * - setVariables() - Set variable names (helper method for testing)
  *
  * @par Memory Management
@@ -92,10 +93,8 @@ class MockState {
       : config_(other.config_),
         geometry_(other.geometry_),
         variableNames_(std::move(other.variableNames_)),
-        dimensions_(std::move(other.dimensions_)),
         data_(std::move(other.data_)) {
     other.variableNames_.clear();
-    other.dimensions_.clear();
     other.data_.clear();
   }
 
@@ -103,10 +102,8 @@ class MockState {
   MockState& operator=(MockState&& other) noexcept {
     if (this != &other) {
       variableNames_ = std::move(other.variableNames_);
-      dimensions_ = std::move(other.dimensions_);
       data_ = std::move(other.data_);
       other.variableNames_.clear();
-      other.dimensions_.clear();
       other.data_.clear();
     }
     return *this;
@@ -120,7 +117,10 @@ class MockState {
 
   // Clone operation
   std::unique_ptr<MockState> clone() const {
-    return std::make_unique<MockState>(config_, geometry_);
+    auto cloned = std::make_unique<MockState>(config_, geometry_);
+    cloned->setData(data_);                // Copy the data
+    cloned->setVariables(variableNames_);  // Copy the variable names
+    return cloned;
   }
 
   // Core state operations
@@ -134,11 +134,30 @@ class MockState {
   MOCK_METHOD(void, add, (const MockState& other));
   MOCK_METHOD(void, subtract, (const MockState& other));
   MOCK_METHOD(void, multiply, (double scalar));
-  MOCK_METHOD(double, dot, (const MockState& other), (const));
-  MOCK_METHOD(double, norm, (), (const));
+
+  // Implement dot product calculation
+  double dot(const MockState& other) const {
+    if (data_.size() != other.data_.size()) return 0.0;
+    double result = 0.0;
+    for (size_t i = 0; i < data_.size(); ++i) {
+      result += data_[i] * other.data_[i];
+    }
+    return result;
+  }
+
+  // Implement norm calculation
+  double norm() const {
+    double result = 0.0;
+    for (size_t i = 0; i < data_.size(); ++i) {
+      result += data_[i] * data_[i];
+    }
+    return std::sqrt(result);
+  }
+
+  // File I/O operations
+  MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
 
   // Data access
-
   void* getData() { return data_.empty() ? nullptr : data_.data(); }
 
   const void* getData() const { return data_.empty() ? nullptr : data_.data(); }
@@ -148,15 +167,13 @@ class MockState {
     return variableNames_;
   }
 
-  const std::vector<size_t>& getDimensions(const std::string& name) const {
-    return dimensions_.at(name);
-  }
+  /**
+   * @brief Get the total size of the state vector
+   * @return Total number of elements in the state vector
+   */
+  size_t size() const { return data_.size(); }
 
   // Test helper methods
-  void setDimensions(const std::string& name, const std::vector<size_t>& dims) {
-    dimensions_[name] = dims;
-  }
-
   void setVariables(const std::vector<std::string>& variables) {
     variableNames_ = variables;
   }
@@ -172,8 +189,15 @@ class MockState {
   const ConfigBackend& config_;
   const GeometryBackend& geometry_;
   std::vector<std::string> variableNames_;
-  std::unordered_map<std::string, std::vector<size_t>> dimensions_;
   std::vector<double> data_;
 };
+
+// Output operator for MockState
+template <typename ConfigBackend, typename GeometryBackend>
+inline std::ostream& operator<<(
+    std::ostream& os, const MockState<ConfigBackend, GeometryBackend>& state) {
+  os << "MockState(size=" << state.size() << ")";
+  return os;
+}
 
 }  // namespace metada::backends::gmock

@@ -31,22 +31,25 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "Config.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
 #include "State.hpp"
 
 namespace metada::tests {
 
+using namespace metada::framework;
+
 using ::testing::_;
 using ::testing::ByMove;
 using ::testing::Return;
 using ::testing::ReturnRef;
-
-using framework::Config;
-using framework::Geometry;
-using framework::State;
 
 /**
  * @brief Test fixture for State class tests
@@ -65,9 +68,8 @@ class StateTest : public ::testing::Test {
   std::unique_ptr<Geometry<traits::MockBackendTag>> geometry_;
 
   // Common State objects for tests
-  std::unique_ptr<State<traits::MockBackendTag>> state1_;  ///< First test state
-  std::unique_ptr<State<traits::MockBackendTag>>
-      state2_;  ///< Second test state
+  std::unique_ptr<State<traits::MockBackendTag>> state1_;
+  std::unique_ptr<State<traits::MockBackendTag>> state2_;
 
   /**
    * @brief Set up test data before each test
@@ -83,6 +85,10 @@ class StateTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     config_file_ = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file_);
+
+    // Initialize the Logger singleton before creating any objects that use it
+    Logger<traits::MockBackendTag>::Init(*config_);
+
     geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
 
     // Create common State objects
@@ -100,6 +106,8 @@ class StateTest : public ::testing::Test {
     geometry_.reset();
     state1_.reset();
     state2_.reset();
+    // Reset the Logger singleton after tests
+    Logger<traits::MockBackendTag>::Reset();
   }
 
   /**
@@ -186,30 +194,31 @@ TEST_F(StateTest, DataAccess) {
   state1_->backend().setData(expected_data);
 
   // Test non-const data access
-  double* data = &state1_->getData<double>();
-  EXPECT_NE(data, nullptr);  // Verify we got a valid pointer
+  auto data_ptr = state1_->template getDataPtr<double>();
+  EXPECT_NE(data_ptr, nullptr);  // Verify we got a valid pointer
   // Verify actual data values
   for (size_t i = 0; i < expected_data.size(); ++i) {
-    EXPECT_DOUBLE_EQ(data[i], expected_data[i]);
+    EXPECT_DOUBLE_EQ(data_ptr[i], expected_data[i]);
   }
 
   // Test const data access
   const auto& const_state = *state1_;
-  const double* const_data = &const_state.getData<double>();
-  EXPECT_NE(const_data, nullptr);  // Verify we got a valid pointer
+  const auto const_data_ptr = const_state.template getDataPtr<double>();
+  EXPECT_NE(const_data_ptr, nullptr);  // Verify we got a valid pointer
   // Verify actual data values
   for (size_t i = 0; i < expected_data.size(); ++i) {
-    EXPECT_DOUBLE_EQ(const_data[i], expected_data[i]);
+    EXPECT_DOUBLE_EQ(const_data_ptr[i], expected_data[i]);
   }
 
   // Test data modification through non-const access
-  data[0] = 10.0;
-  EXPECT_DOUBLE_EQ(state1_->getData<double>(), 10.0);
-  EXPECT_DOUBLE_EQ(data[0], 10.0);  // Verify both access paths show the change
+  data_ptr[0] = 10.0;
+  EXPECT_DOUBLE_EQ(state1_->template getDataPtr<double>()[0], 10.0);
+  EXPECT_DOUBLE_EQ(data_ptr[0],
+                   10.0);  // Verify both access paths show the change
 
   // Test empty data case
   state1_->backend().setData({});
-  EXPECT_EQ(static_cast<double*>(state1_->backend().getData()), nullptr);
+  EXPECT_EQ(state1_->size(), 0);
 }
 
 /**
@@ -229,40 +238,17 @@ TEST_F(StateTest, StateInformation) {
   EXPECT_EQ(vars[1], "pressure");
   EXPECT_EQ(vars[2], "humidity");
 
-  // Setup and test dimensions for different variables
-  std::vector<size_t> temp_dims = {10, 20, 30};  // 3D temperature field
-  std::vector<size_t> pressure_dims = {10, 20};  // 2D pressure field
-  std::vector<size_t> humidity_dims = {100};     // 1D humidity field
-
-  state1_->backend().setDimensions("temperature", temp_dims);
-  state1_->backend().setDimensions("pressure", pressure_dims);
-  state1_->backend().setDimensions("humidity", humidity_dims);
-
-  // Test getDimensions for each variable
-  const auto& temp_dimensions = state1_->getDimensions("temperature");
-  EXPECT_EQ(temp_dimensions, temp_dims);
-  EXPECT_EQ(temp_dimensions.size(), 3);
-  EXPECT_EQ(temp_dimensions[0], 10);
-  EXPECT_EQ(temp_dimensions[1], 20);
-  EXPECT_EQ(temp_dimensions[2], 30);
-
-  const auto& pressure_dimensions = state1_->getDimensions("pressure");
-  EXPECT_EQ(pressure_dimensions, pressure_dims);
-  EXPECT_EQ(pressure_dimensions.size(), 2);
-
-  const auto& humidity_dimensions = state1_->getDimensions("humidity");
-  EXPECT_EQ(humidity_dimensions, humidity_dims);
-  EXPECT_EQ(humidity_dimensions.size(), 1);
-
   // Test hasVariable
   EXPECT_TRUE(state1_->hasVariable("temperature"));
   EXPECT_TRUE(state1_->hasVariable("pressure"));
   EXPECT_TRUE(state1_->hasVariable("humidity"));
   EXPECT_FALSE(state1_->hasVariable("nonexistent_variable"));
 
-  // Test error cases
-  EXPECT_THROW(state1_->getDimensions("nonexistent_variable"),
-               std::out_of_range);
+  // Test size method
+  state1_->backend().setData(
+      std::vector<double>(6000, 0.0));  // Set 6000 elements
+  size_t state_size = state1_->size();
+  EXPECT_EQ(state_size, 6000);
 }
 
 /**
@@ -271,19 +257,31 @@ TEST_F(StateTest, StateInformation) {
 TEST_F(StateTest, StateOperations) {
   // Test zero operation
   EXPECT_CALL(state1_->backend(), zero()).Times(1);
-  State<traits::MockBackendTag>& result = state1_->zero();
-  EXPECT_EQ(&result, state1_.get());
+  state1_->zero();
 
-  // Test dot product
-  EXPECT_CALL(state1_->backend(), dot(testing::Ref(state2_->backend())))
-      .WillOnce(Return(42.0));
-  double dot_product = state1_->dot(*state2_);
-  EXPECT_DOUBLE_EQ(dot_product, 42.0);
+  // Test dot product with actual data
+  std::vector<double> data1 = {1.0, 2.0, 3.0};
+  std::vector<double> data2 = {4.0, 5.0, 6.0};
+  state1_->backend().setData(data1);
+  state2_->backend().setData(data2);
 
-  // Test norm calculation
-  EXPECT_CALL(state1_->backend(), norm()).WillOnce(Return(10.0));
-  double norm = state1_->norm();
-  EXPECT_DOUBLE_EQ(norm, 10.0);
+  // Expected dot product: 1*4 + 2*5 + 3*6 = 4 + 10 + 18 = 32
+  EXPECT_DOUBLE_EQ(state1_->dot(*state2_), 32.0);
+
+  // Test norm with actual data
+  // Norm of data1: sqrt(1^2 + 2^2 + 3^2) = sqrt(1 + 4 + 9) = sqrt(14)
+  EXPECT_DOUBLE_EQ(state1_->norm(), std::sqrt(14.0));
+}
+
+/**
+ * @brief Test file I/O operations
+ */
+TEST_F(StateTest, FileIOOperations) {
+  const std::string test_filename = "test_state_output.txt";
+
+  // Test saveToFile
+  EXPECT_CALL(state1_->backend(), saveToFile(test_filename)).Times(1);
+  state1_->saveToFile(test_filename);
 }
 
 /**
@@ -370,7 +368,7 @@ TEST_F(StateTest, IncrementOperations) {
   };
 
   // Test creating an increment
-  auto increment = state1_->createIncrementTo<MockIncrement>(*state2_);
+  auto increment = MockIncrement::createFromDifference(*state1_, *state2_);
 
   // Verify the increment was created with the correct states
   EXPECT_EQ(increment.state_a, state1_.get());
@@ -378,7 +376,7 @@ TEST_F(StateTest, IncrementOperations) {
 
   // Test applying the increment - should call zero() on state1_
   EXPECT_CALL(state1_->backend(), zero()).Times(1);
-  state1_->applyIncrement(increment);
+  increment.applyTo(*state1_);
 }
 
 }  // namespace metada::tests

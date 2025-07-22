@@ -38,13 +38,26 @@ Installing Required Packages
 
       # Testing and development tools
       pacman -S mingw-w64-x86_64-gtest
-      pacman -S mingw-w64-x86_64-glog
+   
       pacman -S mingw-w64-x86_64-clang-tools-extra
       pacman -S mingw-w64-x86_64-lcov
 
       # Configuration backends
       pacman -S mingw-w64-x86_64-yaml-cpp
       pacman -S mingw-w64-x86_64-nlohmann-json
+
+3. Install ng-log from source:
+
+   .. code-block:: bash
+
+      git clone --depth 1 https://github.com/ng-log/ng-log.git
+      cd ng-log
+      mkdir build
+      cd build
+      cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/mingw64
+      ninja
+      ninja install
+      cd ../..
 
 IDE Setup
 ~~~~~~~~~
@@ -68,6 +81,8 @@ Building METADA
       mkdir build
       cd build
       cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DCMAKE_CXX_STANDARD=17 \
         -DPython3_ROOT_DIR=/mingw64 \
         -DPython3_EXECUTABLE=/mingw64/bin/python3 \
         ..
@@ -97,4 +112,5 @@ Common issues and solutions:
 
 - **CMake not found**: Ensure MSYS2's MinGW64 bin directory (C:/msys64/mingw64/bin) is in your system PATH
 - **Build errors**: Run ``pacman -Syu`` to ensure all packages are up to date
-- **CUDA errors**: Install CUDA Toolkit from NVIDIA's website if GPU support is needed 
+- **CUDA errors**: Install CUDA Toolkit from NVIDIA's website if GPU support is needed
+- **ng-log issues**: Verify ng-log installation and ensure it's in the system PATH 

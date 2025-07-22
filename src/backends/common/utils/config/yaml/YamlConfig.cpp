@@ -1,8 +1,10 @@
 #include "YamlConfig.hpp"
 
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <variant>
 
 namespace metada::backends::config {
@@ -235,22 +237,47 @@ ConfigValue YamlConfig::YamlToConfigValue(const YAML::Node& node) {
   if (node.IsNull()) {
     return ConfigValue();
   } else if (node.IsScalar()) {
+    // Use YAML-cpp's built-in type detection to respect original YAML types
+    // This properly handles quoted strings vs unquoted values
+
+    // Try bool first
     try {
-      return ConfigValue(node.as<bool>());
+      auto b = node.as<bool>();
+      return ConfigValue(b);
     } catch (const YAML::Exception&) {
-      try {
-        return ConfigValue(node.as<int>());
-      } catch (const YAML::Exception&) {
-        try {
-          return ConfigValue(node.as<float>());
-        } catch (const YAML::Exception&) {
-          return ConfigValue(node.as<std::string>());
-        }
-      }
     }
+
+    // Try int - but only if the YAML library thinks it's actually an integer
+    try {
+      // This will only succeed if the node is genuinely an integer in YAML
+      // It won't convert "3DVAR" to 3 because YAML-cpp respects the quotes
+      auto i = node.as<int>();
+      return ConfigValue(i);
+    } catch (const YAML::Exception&) {
+    }
+
+    // Try float - but only if the YAML library thinks it's actually a float
+    try {
+      auto f = node.as<float>();
+      return ConfigValue(f);
+    } catch (const YAML::Exception&) {
+    }
+
+    // Fallback to string - this will handle quoted strings like "3DVAR"
+    // properly
+    return ConfigValue(node.as<std::string>());
   } else if (node.IsSequence()) {
     if (node.size() == 0) {
       return ConfigValue(std::vector<std::string>());
+    }
+
+    // Try to detect if this is a sequence of maps
+    if (node[0].IsMap()) {
+      std::vector<ConfigValue> vec;
+      for (const auto& item : node) {
+        vec.push_back(YamlToConfigValue(item));
+      }
+      return ConfigValue(vec);
     }
 
     // Determine sequence type based on first element
@@ -284,7 +311,7 @@ ConfigValue YamlConfig::YamlToConfigValue(const YAML::Node& node) {
       }
     }
   } else if (node.IsMap()) {
-    metada::framework::ConfigMap map;
+    framework::ConfigMap map;
     for (const auto& it : node) {
       map[it.first.as<std::string>()] = YamlToConfigValue(it.second);
     }
@@ -303,7 +330,12 @@ class ConfigValueToYamlVisitor {
 
   YAML::Node operator()(int v) const { return YAML::Node(v); }
 
-  YAML::Node operator()(float v) const { return YAML::Node(v); }
+  YAML::Node operator()(float v) const {
+    // Always emit as string with decimal to preserve float-ness
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << v;
+    return YAML::Node(oss.str());
+  }
 
   YAML::Node operator()(const std::string& v) const { return YAML::Node(v); }
 
@@ -339,7 +371,17 @@ class ConfigValueToYamlVisitor {
     return node;
   }
 
-  YAML::Node operator()(const metada::framework::ConfigMap& v) const {
+  YAML::Node operator()(
+      const std::vector<metada::framework::ConfigValue>& v) const {
+    YAML::Node node;
+    ConfigValueToYamlVisitor tempVisitor;
+    for (const auto& item : v) {
+      node.push_back(std::visit(tempVisitor, item.constVariant()));
+    }
+    return node;
+  }
+
+  YAML::Node operator()(const framework::ConfigMap& v) const {
     YAML::Node node;
     for (const auto& [key, val] : v) {
       // Create a temporary visitor and use it directly
@@ -362,6 +404,8 @@ class ConfigValueToYamlVisitor {
         node[key] = tempVisitor(val.asVectorFloat());
       else if (val.isVectorString())
         node[key] = tempVisitor(val.asVectorString());
+      else if (val.isVectorConfigValue())
+        node[key] = tempVisitor(val.asVectorConfigValue());
       else if (val.isMap())
         node[key] = tempVisitor(val.asMap());
       else
@@ -383,6 +427,7 @@ YAML::Node YamlConfig::ConfigValueToYaml(const ConfigValue& value) {
   if (value.isVectorInt()) return visitor(value.asVectorInt());
   if (value.isVectorFloat()) return visitor(value.asVectorFloat());
   if (value.isVectorString()) return visitor(value.asVectorString());
+  if (value.isVectorConfigValue()) return visitor(value.asVectorConfigValue());
   if (value.isMap()) return visitor(value.asMap());
 
   // Default case
@@ -445,6 +490,10 @@ const YAML::Node YamlConfig::GetYamlNodeConst(const YAML::Node& node,
 
   // Return the child node (last part of the path)
   return child;
+}
+
+YamlConfig::YamlConfig(const framework::ConfigMap& map) {
+  root_ = ConfigValueToYaml(ConfigValue(map));
 }
 
 }  // namespace metada::backends::config

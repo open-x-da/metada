@@ -1,6 +1,6 @@
 /**
  * @file MockBackendTraits.hpp
- * @brief Specialization of BackendTraits for mock implementations
+ * @brief Specialization of BackendTraits for mock implementations used in testing
  * @ingroup traits
  * @author Metada Framework Team
  *
@@ -8,13 +8,16 @@
  * This file provides a specialization of the BackendTraits template for mock
  * implementations used in testing. The MockBackendTag serves as a tag type
  * that can be used with framework adapters to inject mock implementations
- * for unit and integration testing.
+ * for unit and integration testing. These mock implementations are based on
+ * Google Mock and provide test-friendly interfaces for setting expectations
+ * and verifying interactions.
  */
 
 #pragma once
 
 #include "BackendTraits.hpp"
 #include "../backends/gmock/MockConfig.hpp"
+#include "../backends/gmock/MockEnsemble.hpp"
 #include "../backends/gmock/MockLogger.hpp"
 #include "../backends/gmock/MockGeometry.hpp"
 #include "../backends/gmock/MockGeometryIterator.hpp"
@@ -23,6 +26,7 @@
 #include "../backends/gmock/MockObservation.hpp"
 #include "../backends/gmock/MockObsOperator.hpp"
 #include "../backends/gmock/MockObsIO.hpp"
+#include "../backends/gmock/MockBackgroundErrorCovariance.hpp"
 
 namespace metada::traits {
 
@@ -31,8 +35,9 @@ namespace metada::traits {
  * 
  * @details This empty struct serves as a tag type that can be used with
  * framework adapters to select mock implementations for testing purposes.
- * It allows test code to use the same adapter interfaces with mock backends
- * that can be controlled using Google Mock expectations.
+ * It enables test code to use the same adapter interfaces with mock backends
+ * that can be controlled using Google Mock expectations, facilitating unit
+ * and integration testing of framework components.
  */
 struct MockBackendTag {};
 
@@ -43,35 +48,46 @@ struct MockBackendTag {};
  * implementation types for each backend component. These mock implementations
  * are based on Google Mock and provide test-friendly interfaces for setting
  * expectations and verifying interactions in unit and integration tests.
+ * Each mock component can be configured to return predefined values or
+ * simulate specific behaviors for testing scenarios.
  */
 template<>
 struct BackendTraits<MockBackendTag> {
-  /** @brief Mock implementation of configuration backend */
+  /** @brief Mock configuration backend implementation for testing */
   using ConfigBackend = backends::gmock::MockConfig;
   
-  /** @brief Mock implementation of logging backend */
+  /** @brief Mock logging backend implementation for testing */
   using LoggerBackend = backends::gmock::MockLogger<ConfigBackend>;
   
-  /** @brief Mock implementation of geometry backend */
-  using GeometryBackend = backends::gmock::MockGeometry<ConfigBackend>;
+  /** @brief Mock geometry backend implementation for testing */
+  using GeometryBackend = backends::gmock::MockGeometry;
   
-  /** @brief Mock implementation of geometry iterator backend */
+  /** @brief Mock geometry iterator backend implementation for testing */
   using GeometryIteratorBackend = backends::gmock::MockGeometryIterator;
   
-  /** @brief Mock implementation of state vector backend */
+  /** @brief Mock state vector backend implementation for testing */
   using StateBackend = backends::gmock::MockState<ConfigBackend, GeometryBackend>;
   
-  /** @brief Mock implementation of model backend */
+  /** @brief Mock model backend implementation for testing */
   using ModelBackend = backends::gmock::MockModel<ConfigBackend, StateBackend>;
   
-  /** @brief Mock implementation of observation backend */
+  /** @brief Mock observation backend implementation for testing */
   using ObservationBackend = backends::gmock::MockObservation<ConfigBackend>;
 
-  /** @brief Mock implementation of observation operator backend */
+  /** @brief Mock observation iterator backend implementation for testing */
+  using ObservationIteratorBackend = metada::backends::gmock::MockObservationIterator;
+
+  /** @brief Mock observation operator backend implementation for testing */
   using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
   
   /** @brief Mock implementation of observation I/O backend */
   using ObsIOBackend = backends::gmock::MockObsIO<ConfigBackend>;
+
+  /** @brief Mock ensemble backend implementation for testing */
+  using EnsembleBackend = backends::gmock::MockEnsemble<ConfigBackend, GeometryBackend>;
+
+  /** @brief Mock background error covariance backend implementation for testing */
+  using BackgroundErrorCovarianceBackend = backends::gmock::MockBackgroundErrorCovariance;
 };
 
 } // namespace metada::traits

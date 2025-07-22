@@ -1,9 +1,11 @@
 #include "Duration.hpp"
 
-#include <cmath>
+#include <chrono>
 #include <format>
 #include <regex>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 
 namespace metada {
 
