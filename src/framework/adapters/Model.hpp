@@ -17,6 +17,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "Increment.hpp"
 #include "ModelConcepts.hpp"
 #include "NonCopyable.hpp"
 #include "StateConcepts.hpp"
@@ -204,6 +205,97 @@ class Model : private NonCopyable {
    * @return Const reference to the backend instance
    */
   const ModelBackend& backend() const { return backend_; }
+
+  /**
+   * @brief Run adjoint model integration
+   *
+   * @details Integrates the adjoint model backward in time. This is essential
+   * for 4DVAR where gradients need to be propagated backward through the
+   * model trajectory to compute the sensitivity of the cost function to
+   * the initial conditions.
+   *
+   * @param initial_state Initial state of the forward trajectory
+   * @param final_state Final state of the forward trajectory
+   * @param adjoint_forcing Adjoint forcing at the end time
+   * @param adjoint_result Output adjoint state at initial time
+   * @throws std::runtime_error if the model is not initialized or adjoint fails
+   */
+  void runAdjoint(const State<BackendTag>& initial_state,
+                  const State<BackendTag>& final_state,
+                  const Increment<BackendTag>& adjoint_forcing,
+                  Increment<BackendTag>& adjoint_result) const {
+    if (!backend_.isInitialized()) {
+      throw std::runtime_error("Model not initialized");
+    }
+
+    try {
+      backend_.runAdjoint(initial_state.backend(), final_state.backend(),
+                          adjoint_forcing.state().backend(),
+                          adjoint_result.state().backend());
+    } catch (const std::exception& e) {
+      throw std::runtime_error(std::string("Model adjoint run failed: ") +
+                               e.what());
+    }
+  }
+
+  /**
+   * @brief Run tangent linear model
+   *
+   * @details Integrates the tangent linear model, which represents the
+   * linearization of the nonlinear model around a reference trajectory.
+   * This is used for computing how small perturbations in the initial
+   * conditions propagate through the model.
+   *
+   * @param reference_initial Reference initial state
+   * @param reference_final Reference final state
+   * @param initial_perturbation Initial perturbation to propagate
+   * @param final_perturbation Output final perturbation
+   * @throws std::runtime_error if the model is not initialized or TLM fails
+   */
+  void runTangentLinear(const State<BackendTag>& reference_initial,
+                        const State<BackendTag>& reference_final,
+                        const Increment<BackendTag>& initial_perturbation,
+                        Increment<BackendTag>& final_perturbation) const {
+    if (!backend_.isInitialized()) {
+      throw std::runtime_error("Model not initialized");
+    }
+
+    try {
+      backend_.runTangentLinear(reference_initial.backend(),
+                                reference_final.backend(),
+                                initial_perturbation.state().backend(),
+                                final_perturbation.state().backend());
+    } catch (const std::exception& e) {
+      throw std::runtime_error(
+          std::string("Model tangent linear run failed: ") + e.what());
+    }
+  }
+
+  /**
+   * @brief Check if adjoint model is available
+   *
+   * @return True if adjoint model capabilities are supported
+   */
+  bool supportsAdjoint() const { return backend_.supportsAdjoint(); }
+
+  /**
+   * @brief Check if tangent linear model is available
+   *
+   * @return True if tangent linear model capabilities are supported
+   */
+  bool supportsTangentLinear() const {
+    return backend_.supportsTangentLinear();
+  }
+
+  /**
+   * @brief Check if the model is linear
+   *
+   * @details Linear models have the property that M(x+dx) = M(x) + M(dx).
+   * For linear models, the tangent linear and nonlinear models are identical.
+   *
+   * @return True if the model is linear
+   */
+  bool isLinear() const { return backend_.isLinear(); }
 
  private:
   ModelBackend backend_;

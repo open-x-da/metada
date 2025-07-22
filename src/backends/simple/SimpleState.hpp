@@ -44,6 +44,21 @@ class SimpleState {
   template <typename ConfigBackend>
   SimpleState(const ConfigBackend& config, const SimpleGeometry& geometry)
       : geometry_(geometry) {
+    // Read variables from config
+    try {
+      auto variables_config = config.Get("variables");
+      if (variables_config.isString()) {
+        // Single variable as string
+        variable_names_ = {variables_config.asString()};
+      } else {
+        // Multiple variables as vector
+        variable_names_ = variables_config.asVectorString();
+      }
+    } catch (...) {
+      // Fallback to default if variables not specified
+      variable_names_ = {"state"};
+    }
+
     // Read data from file specified in config
     std::string filename = config.Get("file").asString();
     readFromFile(filename);
@@ -171,6 +186,47 @@ class SimpleState {
     return at(grid);
   }
 
+  // Index-based access - REQUIRED by BackgroundErrorCovariance
+  double& operator[](size_t index) {
+    if (index >= data_.size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return data_[index];
+  }
+  const double& operator[](size_t index) const {
+    if (index >= data_.size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return data_[index];
+  }
+
+  // Output operator
+  friend std::ostream& operator<<(std::ostream& os, const SimpleState& state) {
+    os << "SimpleState{";
+    os << "variables: [";
+    for (size_t i = 0; i < state.variable_names_.size(); ++i) {
+      if (i > 0) os << ", ";
+      os << "\"" << state.variable_names_[i] << "\"";
+    }
+    os << "]";
+    os << ", size: " << state.data_.size();
+
+    // Add statistics if data is available
+    if (!state.data_.empty()) {
+      auto min_it = std::min_element(state.data_.begin(), state.data_.end());
+      auto max_it = std::max_element(state.data_.begin(), state.data_.end());
+      double sum = std::accumulate(state.data_.begin(), state.data_.end(), 0.0);
+      double mean = sum / state.data_.size();
+
+      os << ", min: " << *min_it;
+      os << ", max: " << *max_it;
+      os << ", mean: " << mean;
+    }
+
+    os << "}";
+    return os;
+  }
+
  private:
   // Private constructor for cloning
   SimpleState(const SimpleState& other, bool)
@@ -183,9 +239,6 @@ class SimpleState {
     if (!file) {
       throw std::runtime_error("Cannot open state file: " + filename);
     }
-
-    // Initialize variable names
-    variable_names_ = {"state"};
 
     // Read data line by line without assuming dimensions
     std::string line;

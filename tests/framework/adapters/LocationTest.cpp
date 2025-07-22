@@ -18,11 +18,12 @@
 
 #include <gtest/gtest.h>
 
-#include "PointObservation.hpp"
+#include "Location.hpp"
 
 namespace metada::tests {
 
-using namespace metada::framework;
+using framework::CoordinateSystem;
+using framework::Location;
 
 class LocationTest : public ::testing::Test {
  protected:
@@ -114,24 +115,6 @@ TEST_F(LocationTest, ErrorHandling) {
   EXPECT_THROW(grid_loc.getGeographicCoords(), std::runtime_error);
   EXPECT_THROW(geo_loc.getGridCoords(), std::runtime_error);
   EXPECT_THROW(geo_loc.getCartesianCoords(), std::runtime_error);
-}
-
-TEST_F(LocationTest, ObservationPointCompatibility) {
-  // Test that ObservationPoint works with Location
-  Location loc(45.0, -120.0, 1000.0);
-
-  // Create ObservationPoint with Location
-  ObservationPoint point1(loc, 25.5, 0.5);
-  EXPECT_EQ(point1.location, loc);
-  EXPECT_DOUBLE_EQ(point1.value, 25.5);
-  EXPECT_DOUBLE_EQ(point1.error, 0.5);
-  EXPECT_TRUE(point1.is_valid);
-
-  // Test that location coordinates can be accessed
-  auto [lat, lon, level] = point1.location.getGeographicCoords();
-  EXPECT_DOUBLE_EQ(lat, 45.0);
-  EXPECT_DOUBLE_EQ(lon, -120.0);
-  EXPECT_DOUBLE_EQ(level, 1000.0);
 }
 
 TEST_F(LocationTest, MixedCoordinateSystems) {

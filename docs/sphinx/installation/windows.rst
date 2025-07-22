@@ -38,7 +38,7 @@ Installing Required Packages
 
       # Testing and development tools
       pacman -S mingw-w64-x86_64-gtest
-      pacman -S mingw-w64-x86_64-glog
+   
       pacman -S mingw-w64-x86_64-clang-tools-extra
       pacman -S mingw-w64-x86_64-lcov
 

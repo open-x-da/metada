@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -88,18 +89,6 @@ class MACOMObservationIterator {
  * - Organizes data by observation type and variable
  */
 class MACOMObservation {
- private:
-  std::vector<ObservationPoint>
-      observations_;  ///< Vector of observation points
-
-  // Mapping from type/variable to observation indices (for backward
-  // compatibility)
-  std::unordered_map<std::string,
-                     std::unordered_map<std::string, std::vector<size_t>>>
-      type_variable_map_;
-
-  std::vector<double> covariance_;  ///< Observation error covariance matrix
-
  public:
   // =============================================================================
   // FRAMEWORK CONCEPTS REQUIRED INTERFACES
@@ -553,6 +542,119 @@ class MACOMObservation {
     }
     return result;
   }
+
+  /**
+   * @brief Get the number of valid observations
+   * @return Number of valid observations
+   */
+  size_t getValidCount() const {
+    size_t count = 0;
+    for (const auto& obs : observations_) {
+      if (obs.is_valid) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * @brief Get observation statistics
+   * @return String with observation statistics
+   */
+  std::string getStatistics() const {
+    std::stringstream ss;
+    ss << "Observation Statistics:\n";
+    ss << "  Total observations: " << observations_.size() << "\n";
+    ss << "  Valid observations: " << getValidCount() << "\n";
+    ss << "  Invalid observations: " << (observations_.size() - getValidCount())
+       << "\n";
+
+    if (!observations_.empty()) {
+      double min_val = std::numeric_limits<double>::max();
+      double max_val = std::numeric_limits<double>::lowest();
+      double sum = 0.0;
+      size_t valid_count = 0;
+
+      for (const auto& obs : observations_) {
+        if (obs.is_valid) {
+          min_val = std::min(min_val, obs.value);
+          max_val = std::max(max_val, obs.value);
+          sum += obs.value;
+          valid_count++;
+        }
+      }
+
+      if (valid_count > 0) {
+        ss << "  Value range: [" << min_val << ", " << max_val << "]\n";
+        ss << "  Mean value: " << (sum / valid_count) << "\n";
+      }
+    }
+
+    return ss.str();
+  }
+
+  /**
+   * @brief Compute quadratic form with observation error covariance (required
+   * by framework)
+   * @param obs_increment Observation increment
+   * @return Quadratic form value
+   */
+  double quadraticForm(const std::vector<double>& obs_increment) const {
+    if (obs_increment.size() != observations_.size()) {
+      throw std::invalid_argument("Observation increment size mismatch");
+    }
+
+    // For diagonal covariance: x^T R^-1 x = sum(x_i^2 / sigma_i^2)
+    double result = 0.0;
+    for (size_t i = 0; i < observations_.size(); ++i) {
+      if (observations_[i].is_valid) {
+        double error = observations_[i].error;
+        if (error > 0.0) {
+          result += (obs_increment[i] * obs_increment[i]) / (error * error);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @brief Apply inverse observation error covariance (required by framework)
+   * @param obs_increment Input observation increment
+   * @return Result observation increment
+   */
+  std::vector<double> applyInverseCovariance(
+      const std::vector<double>& obs_increment) const {
+    if (obs_increment.size() != observations_.size()) {
+      throw std::invalid_argument("Observation increment size mismatch");
+    }
+
+    std::vector<double> result(obs_increment.size());
+    for (size_t i = 0; i < observations_.size(); ++i) {
+      if (observations_[i].is_valid) {
+        double error = observations_[i].error;
+        if (error > 0.0) {
+          result[i] = obs_increment[i] / (error * error);
+        } else {
+          result[i] = 0.0;
+        }
+      } else {
+        result[i] = 0.0;
+      }
+    }
+    return result;
+  }
+
+ private:
+  std::vector<ObservationPoint>
+      observations_;  ///< Vector of observation points
+
+  // Mapping from type/variable to observation indices (for backward
+  // compatibility)
+  std::unordered_map<std::string,
+                     std::unordered_map<std::string, std::vector<size_t>>>
+      type_variable_map_;
+
+  std::vector<double> covariance_;  ///< Observation error covariance matrix
 };
 
 }  // namespace metada::backends::macom

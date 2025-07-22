@@ -610,10 +610,22 @@ bool MACOMGeometry<ConfigBackend>::CPPInitialization(
     MACOM_LOG_INFO("MACOMGeometry",
                    "Initializing geometry with CPPInitialization...");
 
-    std::string input_filename = config.Get("input_file").asString();
+    // Get input file path from config (support both "file" and "input_file" for
+    // backward compatibility)
+    std::string input_filename;
+    if (config.HasKey("file")) {
+      input_filename = config.Get("file").asString();
+    } else if (config.HasKey("input_file")) {
+      input_filename = config.Get("input_file").asString();
+    } else {
+      throw std::runtime_error(
+          "MACOM input grid file path not specified in configuration (neither "
+          "'file' nor 'input_file' found)");
+    }
+
     if (input_filename.empty()) {
       throw std::runtime_error(
-          "MACOM input grid file path not specified in configuration");
+          "MACOM input grid file path is empty in configuration");
     }
 
     // Load geometry data from MACOM NetCDF file

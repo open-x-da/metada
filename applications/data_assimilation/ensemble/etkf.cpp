@@ -18,6 +18,7 @@
 #include "Config.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
+#include "LiteBackendTraits.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 // #include "SimpleBackendTraits.hpp"
@@ -28,19 +29,19 @@ namespace fwk = metada::framework;
 using BackendTag = metada::traits::MACOMBackendTag;
 
 int main(int argc, char** argv) {
-  // Initialize application context
-  auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
-  auto& logger = context.getLogger();
-  auto& config = context.getConfig();
-
-  logger.Info() << "ETKF application starting...";
-
   try {
     // Validate command line arguments
     if (argc != 2) {
-      logger.Error() << "Usage: etkf <config_file>";
+      std::cerr << "Usage: etkf <config_file>" << std::endl;
       return 1;
     }
+
+    // Initialize application context
+    auto context = fwk::ApplicationContext<BackendTag>(argc, argv);
+    auto& logger = context.getLogger();
+    auto& config = context.getConfig();
+
+    logger.Info() << "ETKF application starting...";
 
     // Initialize components
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
@@ -63,7 +64,7 @@ int main(int argc, char** argv) {
     logger.Info() << "ETKF application completed successfully";
     return 0;
   } catch (const std::exception& e) {
-    logger.Error() << "ETKF application failed: " << e.what();
+    std::cerr << "ETKF application failed: " << e.what() << std::endl;
     return 1;
   }
 }

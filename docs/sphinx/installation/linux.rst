@@ -63,7 +63,7 @@ Setting up METADA Environment
       # Configuration packages
       spack add yaml-cpp nlohmann-json
       # Testing and development tools
-      spack add googletest glog
+      spack add googletest
       spack add lcov
 
 3. Install ng-log from source (since it's not available in Spack):

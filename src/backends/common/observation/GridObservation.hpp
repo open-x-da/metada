@@ -1,56 +1,24 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_map>
+#include <vector>
+
+#include "GridObservationIterator.hpp"
+#include "PointObservation.hpp"
+
 namespace metada::backends::common::observation {
 
 using framework::CoordinateSystem;
 using framework::Location;
 using framework::ObservationPoint;
-
-/**
- * @brief Iterator for observations
- */
-class ObservationIterator {
- public:
-  using iterator_category = std::forward_iterator_tag;
-  using value_type = ObservationPoint;
-  using difference_type = std::ptrdiff_t;
-  using pointer = ObservationPoint*;
-  using reference = ObservationPoint&;
-
-  ObservationIterator() = default;
-
-  ObservationIterator(const std::vector<ObservationPoint>* data, size_t index)
-      : data_(data), index_(index) {}
-
-  // Dereference operators
-  reference operator*() { return const_cast<reference>((*data_)[index_]); }
-  pointer operator->() { return &const_cast<reference>((*data_)[index_]); }
-
-  // Increment operators
-  ObservationIterator& operator++() {
-    ++index_;
-    return *this;
-  }
-
-  ObservationIterator operator++(int) {
-    ObservationIterator tmp = *this;
-    ++index_;
-    return tmp;
-  }
-
-  // Comparison operators
-  bool operator==(const ObservationIterator& other) const {
-    return data_ == other.data_ && index_ == other.index_;
-  }
-
-  bool operator!=(const ObservationIterator& other) const {
-    return !(*this == other);
-  }
-
- private:
-  const std::vector<ObservationPoint>* data_;
-  size_t index_;
-};
 
 /**
  * @brief Grid-based observation backend implementation
@@ -67,7 +35,7 @@ class ObservationIterator {
 class GridObservation {
  public:
   // Type aliases for concept compliance
-  using iterator_type = ObservationIterator;
+  using iterator_type = GridObservationIterator;
   using value_type = ObservationPoint;
 
   // Delete default constructor
@@ -97,6 +65,15 @@ class GridObservation {
       }
       std::string filename = type_backend.Get("file").asString();
 
+      // Get coordinate system from config (default to "geographic" for backward
+      // compatibility)
+      std::string coordinate_system = "geographic";
+      try {
+        coordinate_system = type_backend.Get("coordinate").asString();
+      } catch (...) {
+        // Use default if not specified
+      }
+
       // Loop over variables for this type
       const auto& variables_configs =
           type_backend.Get("variables").asVectorMap();
@@ -109,7 +86,9 @@ class GridObservation {
           }
           double error = var_backend.Get("error").asFloat();
           double missing_value = var_backend.Get("missing_value").asFloat();
-          loadFromFile(filename, error, missing_value);
+
+          // Load observation file with coordinate system
+          loadFromFile(filename, error, missing_value, coordinate_system);
         }
       }
     }
@@ -142,16 +121,16 @@ class GridObservation {
    * @brief Get iterator to beginning of observations
    * @return Iterator to first observation
    */
-  ObservationIterator begin() const {
-    return ObservationIterator(&observations_, 0);
+  GridObservationIterator begin() const {
+    return GridObservationIterator(&observations_, 0);
   }
 
   /**
    * @brief Get iterator to end of observations
    * @return Iterator past last observation
    */
-  ObservationIterator end() const {
-    return ObservationIterator(&observations_, observations_.size());
+  GridObservationIterator end() const {
+    return GridObservationIterator(&observations_, observations_.size());
   }
 
   /**
@@ -259,6 +238,52 @@ class GridObservation {
   }
 
   /**
+   * @brief Compute quadratic form x^T R^-1 x where R is observation covariance
+   * @param innovation Innovation vector (y - H(x))
+   * @return Quadratic form value
+   */
+  double quadraticForm(const std::vector<double>& innovation) const {
+    if (innovation.size() != observations_.size()) {
+      throw std::invalid_argument("Innovation vector size mismatch");
+    }
+
+    double result = 0.0;
+    for (size_t i = 0; i < observations_.size(); ++i) {
+      if (observations_[i].is_valid) {
+        // For diagonal covariance: x^T R^-1 x = sum(x_i^2 / sigma_i^2)
+        double variance = observations_[i].error * observations_[i].error;
+        result += (innovation[i] * innovation[i]) / variance;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @brief Apply inverse observation covariance matrix R^-1 to innovation
+   * vector
+   * @param innovation Innovation vector (y - H(x))
+   * @return Weighted innovation vector R^-1 * innovation
+   */
+  std::vector<double> applyInverseCovariance(
+      const std::vector<double>& innovation) const {
+    if (innovation.size() != observations_.size()) {
+      throw std::invalid_argument("Innovation vector size mismatch");
+    }
+
+    std::vector<double> result(innovation.size());
+    for (size_t i = 0; i < innovation.size(); ++i) {
+      if (observations_[i].is_valid) {
+        // For diagonal covariance: R^-1 = diag(1/sigma_i^2)
+        double variance = observations_[i].error * observations_[i].error;
+        result[i] = innovation[i] / variance;
+      } else {
+        result[i] = 0.0;  // Zero weight for invalid observations
+      }
+    }
+    return result;
+  }
+
+  /**
    * @brief Clone this observation
    * @return Unique pointer to cloned observation
    */
@@ -355,35 +380,88 @@ class GridObservation {
   /**
    * @brief Load observation data from file
    * @param filename Path to observation file
-   * @param error The observation error to assign to all valid points.
-   * @param missing_value The value that indicates a missing observation.
+   * @param error The observation error to assign to all valid points
+   * @param missing_value The value that indicates a missing observation
+   * @param coordinate_system Coordinate system to use ("grid" or "geographic")
    */
   void loadFromFile(const std::string& filename, double error,
-                    double missing_value) {
+                    double missing_value,
+                    const std::string& coordinate_system = "geographic") {
     std::ifstream file(filename);
     if (!file.is_open()) {
       throw std::runtime_error("Could not open observation file: " + filename);
     }
 
+    // Clear existing observations
+    observations_.clear();
+
     std::string line;
-    int y = 0;  // row index (latitude)
+    bool header_found = false;
+    bool data_started = false;
+
     while (std::getline(file, line)) {
-      std::istringstream iss(line);
-      double value;
-      int x = 0;  // column index (longitude)
-      while (iss >> value) {
-        if (value != missing_value) {
-          // Location is derived from grid indices, level is 0
-          // Use same convention as state/geometry: (x, y) where x=col, y=row
-          Location location(x, y, 0);
-          observations_.emplace_back(location, value, error);
-        }
-        x++;
+      // Skip empty lines
+      if (line.empty()) {
+        continue;
       }
-      y++;
+
+      // Look for the header line that contains column names
+      if (line.find("Time") != std::string::npos &&
+          line.find("XLONG_U") != std::string::npos) {
+        header_found = true;
+        continue;
+      }
+
+      // Skip lines with only dashes (separators)
+      if (line.find("---") != std::string::npos &&
+          line.find_first_not_of("- \t") == std::string::npos) {
+        if (header_found) {
+          data_started = true;  // After header and separator, data begins
+        }
+        continue;
+      }
+
+      // Skip lines before data starts
+      if (!data_started) {
+        continue;
+      }
+
+      // Parse data line: Time Z Y X ZNU XLONG_U XLAT_U Value
+      std::istringstream iss(line);
+      int time, z, y, x;
+      double znu, xlong_u, xlat_u, obs_value;
+
+      if (iss >> time >> z >> y >> x >> znu >> xlong_u >> xlat_u >> obs_value) {
+        // Skip missing values
+        if (obs_value != missing_value) {
+          Location location(0, 0, 0);  // Default initialization
+
+          if (coordinate_system == "grid") {
+            // For grid coordinates: use Z, Y, X and ignore geographic
+            // coordinates
+            location = Location(x, y, z);
+          } else if (coordinate_system == "geographic") {
+            // For geographic coordinates: use ZNU (level), XLAT_U (latitude),
+            // XLONG_U (longitude)
+            location =
+                Location(xlat_u, xlong_u, znu, CoordinateSystem::GEOGRAPHIC);
+          } else {
+            throw std::runtime_error("Unsupported coordinate system: " +
+                                     coordinate_system);
+          }
+
+          observations_.emplace_back(location, obs_value, error);
+        }
+      }
+    }
+
+    if (observations_.empty()) {
+      throw std::runtime_error("No valid observations loaded from file: " +
+                               filename);
     }
   }
 
+ private:
   /**
    * @brief Save observation data to file
    * @param filename Path to save observation file

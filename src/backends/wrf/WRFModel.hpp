@@ -99,7 +99,7 @@ class WRFModel {
    * @param finalState Final state after model integration (output)
    * @throws std::runtime_error If model run fails
    */
-  void run(const StateBackend& initialState, StateBackend& finalState);
+  void run(const StateBackend& initialState, StateBackend& finalState) const;
 
   /**
    * @brief Check if the model is initialized
@@ -107,6 +107,49 @@ class WRFModel {
    * @return True if initialized, false otherwise
    */
   bool isInitialized() const { return initialized_; }
+
+  /**
+   * @brief Check if the model supports adjoint computations
+   *
+   * @return True if adjoint is supported, false otherwise
+   */
+  bool supportsAdjoint() const {
+    return false;
+  }  // TODO: Implement adjoint for WRF
+
+  /**
+   * @brief Run adjoint model integration
+   *
+   * @details This is a placeholder implementation for the adjoint model.
+   * In a full implementation, this would run the adjoint of the forward model
+   * to compute gradients for variational data assimilation.
+   *
+   * @param initial_state Initial state for adjoint integration
+   * @param final_state Final state for adjoint integration
+   * @param forcing_increment Forcing increment for adjoint
+   * @param result_increment Resulting increment from adjoint integration
+   */
+  void runAdjoint([[maybe_unused]] const StateBackend& initial_state,
+                  [[maybe_unused]] const StateBackend& final_state,
+                  [[maybe_unused]] const StateBackend& forcing_increment,
+                  [[maybe_unused]] StateBackend& result_increment) const {
+    // Placeholder implementation - in practice this would be a complex
+    // adjoint model integration
+
+    // For now, just copy the forcing increment to the result
+    // This is obviously not a correct adjoint implementation, but allows
+    // the code to compile and run for testing purposes
+    result_increment = std::move(*(forcing_increment.clone()));
+
+    // In a real implementation, this would:
+    // 1. Load the trajectory from the forward model run
+    // 2. Integrate the adjoint model backward in time
+    // 3. Apply the adjoint of each model component
+    // 4. Accumulate the gradient information
+
+    std::cout << "WRF adjoint model run (placeholder implementation)"
+              << std::endl;
+  }
 
  private:
   /**
@@ -117,7 +160,7 @@ class WRFModel {
    * @param dt Time step size
    */
   void timeStep(const StateBackend& inState, StateBackend& outState,
-                Duration dt);
+                Duration dt) const;
 
   /**
    * @brief Apply boundary conditions to the model state
@@ -131,9 +174,9 @@ class WRFModel {
 
   // Time control
   DateTime startTime_;
-  DateTime currentTime_;
+  mutable DateTime currentTime_;  // Allow modification in const methods
   DateTime endTime_;
-  Duration timeStep_;
+  mutable Duration timeStep_;  // Allow modification in const methods
   bool output_history_;
   std::string history_file_;
   Duration history_frequency_;
@@ -326,7 +369,7 @@ void WRFModel<ConfigBackend, StateBackend>::finalize() {
 // Run implementation
 template <typename ConfigBackend, typename StateBackend>
 void WRFModel<ConfigBackend, StateBackend>::run(
-    const StateBackend& initialState, StateBackend& finalState) {
+    const StateBackend& initialState, StateBackend& finalState) const {
   if (!initialized_) {
     throw std::runtime_error("Cannot run uninitialized WRF model");
   }
@@ -396,9 +439,9 @@ void WRFModel<ConfigBackend, StateBackend>::run(
 template <typename ConfigBackend, typename StateBackend>
 void WRFModel<ConfigBackend, StateBackend>::timeStep(
     const StateBackend& inState, StateBackend& outState,
-    [[maybe_unused]] Duration dt) {
+    [[maybe_unused]] Duration dt) const {
   // Clone input state to output state first
-  outState = std::move(*inState.clone());
+  outState = std::move(*(inState.clone()));
 
   try {
     // Get variable names from the state
@@ -411,20 +454,23 @@ void WRFModel<ConfigBackend, StateBackend>::timeStep(
     // 1. Apply advection
     if (advectionScheme_ == "WENO") {
       // WENO advection scheme (simplified)
-      for (const auto& varName : varNames) {
-        outState.setActiveVariable(varName);
+      for ([[maybe_unused]] const auto& varName : varNames) {
+        // TODO: Implement setActiveVariable or refactor to work without it
+        // outState.setActiveVariable(varName);
         // Perform advection calculations here
       }
     } else if (advectionScheme_ == "RK3") {
       // Runge-Kutta 3 advection scheme (simplified)
-      for (const auto& varName : varNames) {
-        outState.setActiveVariable(varName);
+      for ([[maybe_unused]] const auto& varName : varNames) {
+        // TODO: Implement setActiveVariable or refactor to work without it
+        // outState.setActiveVariable(varName);
         // Perform advection calculations here
       }
     } else {
       // Default FD4 advection scheme (simplified)
-      for (const auto& varName : varNames) {
-        outState.setActiveVariable(varName);
+      for ([[maybe_unused]] const auto& varName : varNames) {
+        // TODO: Implement setActiveVariable or refactor to work without it
+        // outState.setActiveVariable(varName);
         // Perform advection calculations here
       }
     }
@@ -436,7 +482,8 @@ void WRFModel<ConfigBackend, StateBackend>::timeStep(
       // Apply microphysics to relevant variables
       if (std::find(varNames.begin(), varNames.end(), "QVAPOR") !=
           varNames.end()) {
-        outState.setActiveVariable("QVAPOR");
+        // TODO: Implement setActiveVariable or refactor to work without it
+        // outState.setActiveVariable("QVAPOR");
         // Apply microphysics to water vapor
       }
     }
@@ -445,7 +492,8 @@ void WRFModel<ConfigBackend, StateBackend>::timeStep(
     if (enableRadiation_) {
       // Apply radiation physics
       if (std::find(varNames.begin(), varNames.end(), "T") != varNames.end()) {
-        outState.setActiveVariable("T");
+        // TODO: Implement setActiveVariable or refactor to work without it
+        // outState.setActiveVariable("T");
         // Apply radiation effects to temperature
       }
     }
@@ -464,8 +512,9 @@ void WRFModel<ConfigBackend, StateBackend>::timeStep(
 
     // 3. Apply diffusion (if coefficient > 0)
     if (diffusionCoefficient_ > 0.0) {
-      for (const auto& varName : varNames) {
-        outState.setActiveVariable(varName);
+      for ([[maybe_unused]] const auto& varName : varNames) {
+        // TODO: Implement setActiveVariable or refactor to work without it
+        // outState.setActiveVariable(varName);
         // Apply diffusion to variable
       }
     }
@@ -488,8 +537,9 @@ void WRFModel<ConfigBackend, StateBackend>::applyBoundaryConditions(
 
   const auto& varNames = state.getVariableNames();
 
-  for (const auto& varName : varNames) {
-    state.setActiveVariable(varName);
+  for ([[maybe_unused]] const auto& varName : varNames) {
+    // TODO: Implement setActiveVariable or refactor to work without it
+    // state.setActiveVariable(varName);
 
     // In a real implementation, this would apply periodic, open, or fixed
     // boundary conditions depending on the variable and domain configuration

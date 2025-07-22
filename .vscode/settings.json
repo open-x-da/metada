@@ -8,7 +8,7 @@
         "CMAKE_Fortran_FLAGS": "-Wno-unused-dummy-argument -Wno-unused-variable -Wno-conversion"
     },
     "cmake.configureArgs": [
-        "-DLOGGER_BACKEND=GLOG",
+        "-DLOGGER_BACKEND=NGLOG",
         "-DCONFIG_BACKEND=YAML"
     ],
     "terminal.integrated.defaultProfile.windows": "MSYS2 Bash",
@@ -123,6 +123,8 @@
         "stdfloat": "cpp",
         "syncstream": "cpp",
         "typeindex": "cpp",
-        "netcdf": "cpp"
+        "netcdf": "cpp",
+        "expected": "cpp",
+        "fstream": "cpp"
     }
 } 

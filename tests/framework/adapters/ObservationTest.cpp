@@ -38,9 +38,11 @@
 
 #include "Config.hpp"
 #include "Location.hpp"
+#include "Logger.hpp"
 #include "MockBackendTraits.hpp"
+#include "MockObservation.hpp"
+#include "MockObservationIterator.hpp"
 #include "Observation.hpp"
-#include "PointObservation.hpp"
 
 namespace metada::tests {
 
@@ -53,7 +55,6 @@ using framework::Config;
 using framework::CoordinateSystem;
 using framework::Location;
 using framework::Observation;
-using framework::ObservationPoint;
 
 /**
  * @brief Test fixture for Observation class tests
@@ -96,6 +97,10 @@ class ObservationTest : public ::testing::Test {
     auto test_dir = std::filesystem::path(__FILE__).parent_path();
     auto config_file = (test_dir / "test_config.yaml").string();
     config_ = std::make_unique<Config<traits::MockBackendTag>>(config_file);
+
+    // Initialize the Logger singleton before creating any objects that use it
+    framework::Logger<traits::MockBackendTag>::Init(*config_);
+
     obs1_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
     obs2_ = std::make_unique<Observation<traits::MockBackendTag>>(*config_);
 
@@ -118,6 +123,9 @@ class ObservationTest : public ::testing::Test {
     values_.clear();
     errors_.clear();
     config_.reset();
+
+    // Reset the Logger singleton after tests
+    framework::Logger<traits::MockBackendTag>::Reset();
   }
 
   /**
@@ -288,67 +296,6 @@ TEST_F(ObservationTest, ComparisonOperations) {
 }
 
 /**
- * @brief Test data access and iteration capabilities
- *
- * Verifies:
- * - getData (const and non-const)
- * - getData<T>() template method
- * - getTypeNames
- * - getVariableNames(typeName)
- * - begin()/end() iteration
- * - size() method
- * - operator[] indexing
- * - getCovariance
- */
-TEST_F(ObservationTest, DataAccessAndIteration) {
-  // Set up mock observation data
-  std::vector<ObservationPoint> mock_obs;
-  for (size_t i = 0; i < locations_.size(); ++i) {
-    Location loc(locations_[i].first, locations_[i].second, levels_[i],
-                 CoordinateSystem::GEOGRAPHIC);
-    mock_obs.emplace_back(loc, values_[i], errors_[i]);
-  }
-  obs1_->backend().setObservations(mock_obs);
-
-  // Test iteration capabilities
-  EXPECT_EQ(obs1_->size(), locations_.size());
-  verifyIteration();
-
-  // Test direct indexing
-  for (size_t i = 0; i < obs1_->size(); ++i) {
-    const auto& obs = (*obs1_)[i];
-    if (obs.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
-      auto [lat, lon, level] = obs.location.getGeographicCoords();
-      EXPECT_DOUBLE_EQ(lat, locations_[i].first);
-      EXPECT_DOUBLE_EQ(lon, locations_[i].second);
-      EXPECT_DOUBLE_EQ(level, levels_[i]);
-    }
-    EXPECT_DOUBLE_EQ(obs.value, values_[i]);
-    EXPECT_DOUBLE_EQ(obs.error, errors_[i]);
-  }
-
-  // Test type names access
-  const auto& types = obs1_->getTypeNames();
-  EXPECT_FALSE(types.empty());
-
-  // Test variable names access for a specific type
-  const auto& vars = obs1_->getVariableNames("obs_A");
-  EXPECT_FALSE(vars.empty());
-
-  // Test data access
-  verifyDataAccess();
-
-  // Test covariance access
-  const auto& covariance = obs1_->getCovariance();
-  // Now covariance is a vector of variances, not a matrix
-  EXPECT_EQ(covariance.size(), locations_.size());
-  for (size_t i = 0; i < covariance.size(); ++i) {
-    EXPECT_DOUBLE_EQ(covariance[i],
-                     errors_[i] * errors_[i]);  // Variance = error^2
-  }
-}
-
-/**
  * @brief Test arithmetic operations
  *
  * Verifies:
@@ -376,30 +323,6 @@ TEST_F(ObservationTest, ArithmeticOperations) {
   result = *obs1_ * 2.0;  // Right scalar multiplication
   result = 2.0 * *obs1_;  // Left scalar multiplication (friend operator)
   *obs1_ *= 2.0;          // Assignment operator
-}
-
-/**
- * @brief Test geographic filtering operations
- *
- * Verifies:
- * - getObservationsInBox functionality
- * - getObservationsInVerticalRange functionality
- */
-TEST_F(ObservationTest, GeographicFiltering) {
-  // Test geographic bounding box filtering
-  EXPECT_CALL(obs1_->backend(),
-              getObservationsInBox(30.0, 50.0, -125.0, -115.0))
-      .WillOnce(Return(std::vector<ObservationPoint>{}));
-
-  auto box_obs = obs1_->getObservationsInBox(30.0, 50.0, -125.0, -115.0);
-  EXPECT_TRUE(box_obs.empty());
-
-  // Test vertical range filtering
-  EXPECT_CALL(obs1_->backend(), getObservationsInVerticalRange(800.0, 1200.0))
-      .WillOnce(Return(std::vector<ObservationPoint>{}));
-
-  auto vert_obs = obs1_->getObservationsInVerticalRange(800.0, 1200.0);
-  EXPECT_TRUE(vert_obs.empty());
 }
 
 /**

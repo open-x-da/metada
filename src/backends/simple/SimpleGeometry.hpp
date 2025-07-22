@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include "PointObservation.hpp"
+#include "Location.hpp"
 #include "SimpleGeometryIterator.hpp"
 
 namespace metada::backends::simple {

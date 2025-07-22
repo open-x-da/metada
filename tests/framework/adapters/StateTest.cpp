@@ -31,6 +31,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -258,14 +259,18 @@ TEST_F(StateTest, StateOperations) {
   EXPECT_CALL(state1_->backend(), zero()).Times(1);
   state1_->zero();
 
-  // Test dot product
-  EXPECT_CALL(state1_->backend(), dot(testing::Ref(state2_->backend())))
-      .WillOnce(Return(15.0));
-  EXPECT_DOUBLE_EQ(state1_->dot(*state2_), 15.0);
+  // Test dot product with actual data
+  std::vector<double> data1 = {1.0, 2.0, 3.0};
+  std::vector<double> data2 = {4.0, 5.0, 6.0};
+  state1_->backend().setData(data1);
+  state2_->backend().setData(data2);
 
-  // Test norm
-  EXPECT_CALL(state1_->backend(), norm()).WillOnce(Return(3.0));
-  EXPECT_DOUBLE_EQ(state1_->norm(), 3.0);
+  // Expected dot product: 1*4 + 2*5 + 3*6 = 4 + 10 + 18 = 32
+  EXPECT_DOUBLE_EQ(state1_->dot(*state2_), 32.0);
+
+  // Test norm with actual data
+  // Norm of data1: sqrt(1^2 + 2^2 + 3^2) = sqrt(1 + 4 + 9) = sqrt(14)
+  EXPECT_DOUBLE_EQ(state1_->norm(), std::sqrt(14.0));
 }
 
 /**
@@ -363,7 +368,7 @@ TEST_F(StateTest, IncrementOperations) {
   };
 
   // Test creating an increment
-  auto increment = state1_->createIncrementTo<MockIncrement>(*state2_);
+  auto increment = MockIncrement::createFromDifference(*state1_, *state2_);
 
   // Verify the increment was created with the correct states
   EXPECT_EQ(increment.state_a, state1_.get());
@@ -371,7 +376,7 @@ TEST_F(StateTest, IncrementOperations) {
 
   // Test applying the increment - should call zero() on state1_
   EXPECT_CALL(state1_->backend(), zero()).Times(1);
-  state1_->applyIncrement(increment);
+  increment.applyTo(*state1_);
 }
 
 }  // namespace metada::tests

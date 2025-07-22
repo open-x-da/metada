@@ -4,15 +4,6 @@ add_library(base
 )
 add_library(metada::base ALIAS base)
 
-target_sources(base
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/NonCopyable.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/DateTime.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/Duration.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/Location.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/PointObservation.hpp
-)
-
 target_include_directories(base
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

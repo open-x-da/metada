@@ -29,7 +29,6 @@ Installing Dependencies
         python \
         numpy \
         googletest \
-        glog \
         llvm \
         lcov \
         yaml-cpp \

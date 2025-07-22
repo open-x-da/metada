@@ -59,11 +59,13 @@ contains
     ! wrapper_mpi_comm = comm_cpp
 
     ! Set MPI communicator
-    mpi_comp_comm = comm_cpp
+    ! mpi_comp_comm = comm_cpp
 
+#ifdef MACOM_REGION_MODE
     ! Initialize loop variables for region mode
     macom_loop_i = 1
     macom_loop_end = 1
+#endif
 
     ! Call MACOM's MPI initialization
     ! call init_mpi()

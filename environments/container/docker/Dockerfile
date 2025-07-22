@@ -24,7 +24,6 @@ RUN apt-get update && apt-get install -y \
     graphviz \
     wget \
     libgtest-dev \
-    libgoogle-glog-dev \
     clang-format \
     lcov \
     libyaml-cpp-dev \

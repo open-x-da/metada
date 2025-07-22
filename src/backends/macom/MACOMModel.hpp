@@ -141,6 +141,29 @@ class MACOMModel {
     return backends::macom::MACOMParallel::getInstance().isFortranMode();
   }
 
+  /**
+   * @brief Check if the model supports adjoint operations (required by
+   * framework)
+   * @return true if adjoint is supported, false otherwise
+   */
+  bool supportsAdjoint() const {
+    return false;
+  }  // MACOM doesn't support adjoint yet
+
+  /**
+   * @brief Run the adjoint model (required by framework)
+   * @param initialState Initial state for adjoint run
+   * @param finalState Final state from adjoint run
+   * @param adjointForcing Adjoint forcing
+   * @param adjointResult Adjoint result
+   */
+  void runAdjoint(const StateBackend& initialState,
+                  const StateBackend& finalState,
+                  const StateBackend& adjointForcing,
+                  StateBackend& adjointResult) const {
+    throw std::runtime_error("MACOM adjoint model not implemented yet");
+  }
+
  private:
   /**
    * @brief Run a single time step of the model

@@ -65,8 +65,8 @@ set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O3 -cpp -fno-tree-vectorize -fallow-argument-mismatch -Wno-missing-include-dirs")
 
 # MACOM mode selection - mutually exclusive options
-option(MACOM_REGION_MODE "Build MACOM in region mode" ON)
-option(MACOM_GLOBAL_MODE "Build MACOM in global mode" OFF)
+option(MACOM_REGION_MODE "Build MACOM in region mode" OFF)
+option(MACOM_GLOBAL_MODE "Build MACOM in global mode" ON)
 
 # Ensure only one mode is selected
 if(MACOM_REGION_MODE AND MACOM_GLOBAL_MODE)

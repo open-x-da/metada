@@ -184,4 +184,37 @@ TEST_F(ObsOperatorTest, Apply) {
   auto result = obsOp.apply(state, obs);
   EXPECT_EQ(result, sim_data);
 }
+
+/**
+ * @brief Test multi-variable state handling
+ *
+ * Verifies that the observation operator correctly handles multi-variable
+ * states by determining the appropriate state variable to interpolate from
+ * based on observation type and required state variables.
+ */
+TEST_F(ObsOperatorTest, MultiVariableStateHandling) {
+  // Create ObsOperator using config
+  ObsOperator<traits::MockBackendTag> obsOp(*config_);
+  auto& backend = obsOp.backend();
+
+  State<traits::MockBackendTag> state(*config_, *geometry_);
+  Observation<traits::MockBackendTag> obs(*config_);
+
+  // Test that the backend correctly handles multi-variable states
+  const auto sim_data = std::vector<double>{1.0, 2.0, 3.0};
+  EXPECT_CALL(backend, apply(_, _)).Times(1).WillOnce(Return(sim_data));
+
+  // Verify that the operator can handle observations that require different
+  // state variables
+  auto result = obsOp.apply(state, obs);
+  EXPECT_EQ(result, sim_data);
+
+  // Test that required state variables are correctly exposed
+  EXPECT_CALL(backend, getRequiredStateVars())
+      .WillOnce(ReturnRef(state_vars_return_));
+  const auto& required_vars = obsOp.getRequiredStateVars();
+  EXPECT_EQ(required_vars.size(), 2);
+  EXPECT_EQ(required_vars[0], "temperature");
+  EXPECT_EQ(required_vars[1], "pressure");
+}
 }  // namespace metada::tests

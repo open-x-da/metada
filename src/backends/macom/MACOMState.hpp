@@ -126,6 +126,63 @@ class MACOMState {
     return variables_.empty() ? 0 : variables_.at(activeVariable_).size();
   }
 
+  // --- Index-based access (required by BackgroundErrorCovariance) ---
+
+  /**
+   * @brief Access element by index (required by BackgroundErrorCovariance)
+   * @param index Index of the element to access
+   * @return Reference to the element
+   */
+  double& operator[](size_t index) {
+    if (variables_.empty() || activeVariable_.empty()) {
+      throw std::runtime_error("No active variable set");
+    }
+    if (index >= variables_.at(activeVariable_).size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return variables_.at(activeVariable_)[index];
+  }
+
+  /**
+   * @brief Access element by index (const version)
+   * @param index Index of the element to access
+   * @return Const reference to the element
+   */
+  const double& operator[](size_t index) const {
+    if (variables_.empty() || activeVariable_.empty()) {
+      throw std::runtime_error("No active variable set");
+    }
+    if (index >= variables_.at(activeVariable_).size()) {
+      throw std::out_of_range("Index out of range");
+    }
+    return variables_.at(activeVariable_)[index];
+  }
+
+  // --- Output operator (required by framework) ---
+
+  /**
+   * @brief Output operator for MACOMState
+   * @param os Output stream
+   * @param state MACOMState to output
+   * @return Output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os, const MACOMState& state) {
+    os << "MACOMState{";
+    os << "initialized: " << (state.initialized_ ? "true" : "false");
+    os << ", active_variable: \"" << state.activeVariable_ << "\"";
+    os << ", variables: [";
+    for (size_t i = 0; i < state.variableNames_.size(); ++i) {
+      if (i > 0) os << ", ";
+      os << "\"" << state.variableNames_[i] << "\"";
+    }
+    os << "]";
+    os << ", size: " << state.size();
+    os << ", nlpb: " << state.nlpb_;
+    os << ", nk: " << state.nk_;
+    os << "}";
+    return os;
+  }
+
   // --- Cloning interface (required by framework) ---
 
   /**
@@ -494,9 +551,6 @@ class MACOMState {
   std::size_t nlpb_ = 0;  // Number of grid points
   std::size_t nk_ = 0;    // Number of vertical levels
 
-  std::size_t nlpb_grid = 0;  // Number of grid points
-  std::size_t nk_grid = 0;    // Number of vertical levels
-
   // Variable data
   std::vector<double> u;  // u-velocity
   std::vector<double> v;  // v-velocity
@@ -561,7 +615,9 @@ MACOMState<ConfigBackend, GeometryBackend>::MACOMState(
       variables_(std::move(other.variables_)),
       dimensions_(std::move(other.dimensions_)),
       variableNames_(std::move(other.variableNames_)),
-      activeVariable_(std::move(other.activeVariable_)) {
+      activeVariable_(std::move(other.activeVariable_)),
+      nlpb_(other.nlpb_),
+      nk_(other.nk_) {
   other.initialized_ = false;
   other.variableNames_.clear();
   other.activeVariable_.clear();
@@ -602,8 +658,6 @@ MACOMState<ConfigBackend, GeometryBackend>::clone() const {
 
   cloned->nlpb_ = this->nlpb_;
   cloned->nk_ = this->nk_;
-  cloned->nlpb_grid = this->nlpb_grid;
-  cloned->nk_grid = this->nk_grid;
 
   return cloned;
 }
@@ -789,6 +843,39 @@ void MACOMState<ConfigBackend, GeometryBackend>::subtract(
       }
     }
   }
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+bool MACOMState<ConfigBackend, GeometryBackend>::isCompatible(
+    const MACOMState& other) const {
+  // Check if both states are initialized
+  if (!initialized_ || !other.initialized_) {
+    return false;
+  }
+
+  // Check if they have the same variables
+  if (variables_.size() != other.variables_.size()) {
+    return false;
+  }
+
+  // Check if all variables exist in both states and have the same dimensions
+  for (const auto& [name, data] : variables_) {
+    auto other_it = other.variables_.find(name);
+    if (other_it == other.variables_.end()) {
+      return false;  // Variable not found in other state
+    }
+
+    if (data.size() != other_it->second.size()) {
+      return false;  // Different sizes for the same variable
+    }
+  }
+
+  // Check if dimensions match
+  if (nlpb_ != other.nlpb_ || nk_ != other.nk_) {
+    return false;
+  }
+
+  return true;
 }
 
 template <typename ConfigBackend, typename GeometryBackend>
@@ -979,13 +1066,9 @@ void MACOMState<ConfigBackend, GeometryBackend>::getDimensionsFromGeometry(
         "getDimensionsFromGeometry: geometry not initialized");
   }
   // now pull the numbers out of the geometry
-  nlpb_grid = geometry->getNlpb();
-  nk_grid = geometry->getNk();
+  nlpb_ = geometry->getNlpb();
+  nk_ = geometry->getNk();
   // (if you need nkp1 you can grab that too)
-  // MACOM_LOG_INFO("MACOMState",
-  //                "State bound to geometry: nlpb=" + std::to_string(nlpb_grid)
-  //                +
-  //                    " nk=" + std::to_string(nk_grid));
 }
 
 template <typename ConfigBackend, typename GeometryBackend>
@@ -1159,11 +1242,22 @@ bool MACOMState<ConfigBackend, GeometryBackend>::CPPInitialization(
     MACOM_LOG_INFO("MACOMState",
                    "Initializing state with CPPInitialization...");
 
-    // Get input file path from config
-    inputFile_ = config.Get("input_file").asString();
+    // Get input file path from config (support both "file" and "input_file" for
+    // backward compatibility)
+    if (config.HasKey("file")) {
+      inputFile_ = config.Get("file").asString();
+    } else if (config.HasKey("input_file")) {
+      inputFile_ = config.Get("input_file").asString();
+    } else {
+      MACOM_LOG_ERROR("MACOMState",
+                      "Input file path not specified in configuration (neither "
+                      "'file' nor 'input_file' found)");
+      return false;
+    }
+
     if (inputFile_.empty()) {
       MACOM_LOG_ERROR("MACOMState",
-                      "Input file path not specified in configuration");
+                      "Input file path is empty in configuration");
       return false;
     }
 
@@ -1172,10 +1266,6 @@ bool MACOMState<ConfigBackend, GeometryBackend>::CPPInitialization(
 
     // Get dimensions from geometry
     getDimensionsFromGeometry(&geometry);
-
-    // MACOM_LOG_INFO("MACOMState", "Dimensions from Geometry: nlpb_grid = " +
-    //                          std::to_string(nlpb_grid) +
-    //                          ", nk_grid = " + std::to_string(nk_grid));
 
     // Open and validate NetCDF file
     netCDF::NcFile ncFile(inputFile_, netCDF::NcFile::read);
@@ -1188,26 +1278,10 @@ bool MACOMState<ConfigBackend, GeometryBackend>::CPPInitialization(
     // // Step 1: Load grid dimensions from the state file
     // loadVariableDimensions(ncFile);  // Sets this->nlpb_ and this->nk_
 
-    // Step 2: Compare dimensions with geometry
+    // Step 2: Compare dimensions with geometry (if needed)
     // MACOM_LOG_INFO("MACOMState", "Dimensions from State File: nlpb_ = " +
     //                                  std::to_string(this->nlpb_) +
     //                                  ", nk_ = " + std::to_string(this->nk_));
-    // if (this->nlpb_ != this->nlpb_grid || this->nk_ != this->nk_grid) {
-    //   std::ostringstream error_msg;
-    //   error_msg
-    //       << "Dimension mismatch between MACOMState file and
-    //       MACOMGeometry:\n"
-    //       << "  State File dimensions: nlpb=" << this->nlpb_
-    //       << ", nk=" << this->nk_ << "\n"
-    //       << "  Geometry dimensions:   nlpb=" << this->nlpb_grid
-    //       << ", nk=" << this->nk_grid;
-    //   MACOM_LOG_ERROR("MACOMState", error_msg.str());
-    //   throw std::runtime_error(error_msg.str());
-    // }
-    // MACOM_LOG_INFO("MACOMState",
-    //                "State file dimensions match geometry dimensions.");
-    nlpb_ = nlpb_grid;
-    nk_ = nk_grid;
 
     // Step 3: Load variable arrays
     // Get variables to load from config

@@ -10,6 +10,7 @@
 #include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObservationConcepts.hpp"
+#include "ObservationIterator.hpp"
 
 namespace metada::framework {
 
@@ -466,6 +467,67 @@ class Observation : private NonCopyable {
                                       double max_level) const {
     return backend_.getObservationsInVerticalRange(min_level, max_level);
   }
+
+  /**
+   * @brief Compute quadratic form with observation error covariance: v^T R^-1 v
+   *
+   * @details Computes the quadratic form of a vector with the inverse
+   * observation error covariance matrix. This is used in variational data
+   * assimilation to compute the observation term of the cost function.
+   *
+   * @param innovation Innovation vector (y - H(x))
+   * @return Quadratic form value
+   */
+  double quadraticForm(const std::vector<double>& innovation) const {
+    return backend_.quadraticForm(innovation);
+  }
+
+  /**
+   * @brief Apply inverse observation error covariance: R^-1 v
+   *
+   * @details Applies the inverse observation error covariance matrix to a
+   * vector. This is used in variational data assimilation gradient
+   * computations.
+   *
+   * @param innovation Innovation vector
+   * @return Result of R^-1 applied to the innovation
+   */
+  std::vector<double> applyInverseCovariance(
+      const std::vector<double>& innovation) const {
+    return backend_.applyInverseCovariance(innovation);
+  }
+
+  /**
+   * @brief Apply observation error covariance: R v
+   *
+   * @details Applies the observation error covariance matrix to a vector.
+   * This can be used for preconditioning or error propagation.
+   *
+   * @param vector Input vector
+   * @return Result of R applied to the vector
+   */
+  std::vector<double> applyCovariance(const std::vector<double>& vector) const {
+    return backend_.applyCovariance(vector);
+  }
+
+  /**
+   * @brief Get inverse observation error covariance matrix diagonal
+   *
+   * @details For diagonal observation error covariance matrices, returns the
+   * diagonal elements of R^-1.
+   *
+   * @return Vector containing diagonal elements of R^-1
+   */
+  std::vector<double> getInverseCovarianceDiagonal() const {
+    return backend_.getInverseCovarianceDiagonal();
+  }
+
+  /**
+   * @brief Check if observation error covariance is diagonal
+   *
+   * @return True if R is diagonal, false for full covariance matrix
+   */
+  bool isDiagonalCovariance() const { return backend_.isDiagonalCovariance(); }
 
  private:
   /**
