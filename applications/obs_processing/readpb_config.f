@@ -3,13 +3,13 @@
       PARAMETER (STRLN = 180)
       parameter (maxtype=15)
       parameter (maxplat=15)
-      parameter	(maxparm=5)
-      parameter	(maxsaid=15)
+      parameter (maxparm=5)
+      parameter (maxsaid=15)
 C*
       CHARACTER  outstg*(150), subset*8, 
      +           inf*300, outf*300, config*300, argv*300,
      +           crec*101, type(maxtype)*6,
-     +  		 parm(maxparm),id*4,idatec*10,
+     +           parm(maxparm),id*4,
      +           said(maxsaid)*5,sid*5,vtmp*5
      
       LOGICAL skip_vtmp
@@ -19,24 +19,24 @@ C*
       
       PARAMETER  ( NFILO = 15 ) 
       INTEGER    iunso ( NFILO )
-     +		/   51,   52,   53,   54,   55,
-     +		    56,   57,   58,   59,   60,
-     +		    61,   62,   63,   64,   65  /
+     +        /   51,   52,   53,   54,   55,
+     +            56,   57,   58,   59,   60,
+     +            61,   62,   63,   64,   65  /
 
-	  CHARACTER*6 filo ( NFILO )
-     +		/ 'ADPUPA', 'AIRCAR', 'AIRCFT', 'SATWND', 'PROFLR',
-     +		  'VADWND', 'SATBOG', 'SATEMP', 'ADPSFC', 'SFCSHP',
-     +		  'SFCBOG', 'SPSSMI', 'SYNDAT', 'ERS1DA', 'GOESND'  /
+      CHARACTER*6 filo ( NFILO )
+     +        / 'ADPUPA', 'AIRCAR', 'AIRCFT', 'SATWND', 'PROFLR',
+     +          'VADWND', 'SATBOG', 'SATEMP', 'ADPSFC', 'SFCSHP',
+     +          'SFCBOG', 'SPSSMI', 'SYNDAT', 'ERS1DA', 'GOESND'  /
 
       CHARACTER  var ( MXR8VT )
      +        /'P','Q','T','Z','U','V'/
 
       LOGICAL    found 
 
-      INTEGER    io,stat,n,inlength,np,nt,nplat,
-     +           count,k,flag,pflag,p,ns,s,platflag
-	
-   	  REAL*8	 lat1,lat2,lon1,lon2,platform
+      INTEGER    io,inlength,np,nt,nplat,
+     +           k,ns,p
+      
+      REAL*8     lat1,lat2,lon1,lon2
         
       INTEGER    tv_ev_idx, tvflag
 
@@ -70,7 +70,7 @@ c* Omit virtual temperature in output (default)
       print*, "outfile = ",outf
       print*, "config file = ",config
 
-c*	open the configuration file
+c*    open the configuration file
       open (unit=10, file=config, form='formatted')
       do i = 1,10
         read(10, '(A100)', iostat=io) crec
@@ -114,33 +114,33 @@ c*	open the configuration file
 c-----7---------------------------------------------------------------72
 C*    Open the output file(s)
 c-----7---------------------------------------------------------------72
-	  if(nt .gt. 0) then
-	    do kk = 1, nt
-	    do ii = 1, NFILO
-	      if (type(kk) .eq. filo(ii)) then
-	        open (unit=iunso(ii), file=trim(outf) // '.' // filo(ii))
+        if(nt .gt. 0) then
+          do kk = 1, nt
+          do ii = 1, NFILO
+            if (type(kk) .eq. filo(ii)) then
+              open (unit=iunso(ii), file=trim(outf) // '.' // filo(ii))
             WRITE (UNIT=iunso(ii), FMT=15)
             WRITE (UNIT=iunso(ii), FMT=20)
      +      'SID','XOB','YOB','ELV','DHR','TYP','T29','ITP',
      +      'lev','var','OB','QM', 'PC', 'RC', 'FC','AN','OE','CAT'
             WRITE (UNIT=iunso(ii), FMT=15)
-	        exit
-	      end if
-	    end do
-	    end do
-	  else
-	    do ii = 1, NFILO
-	      open (unit=iunso(ii), file=trim(outf) // '.' // filo(ii))
+              exit
+            end if
+          end do
+          end do
+        else
+          do ii = 1, NFILO
+            open (unit=iunso(ii), file=trim(outf) // '.' // filo(ii))
             WRITE (UNIT=iunso(ii), FMT=15)
             WRITE (UNIT=iunso(ii), FMT=20)
      +      'SID','XOB','YOB','ELV','DHR','TYP','T29','ITP',
      +      'lev','var','OB','QM', 'PC', 'RC', 'FC','AN','OE','CAT'
             WRITE (UNIT=iunso(ii), FMT=15)
-	    end do	  
-	  end if
+          end do        
+        end if
   15  FORMAT ("#", 148("-"))
   20  FORMAT ("#",a4,a11,a7,a9,a8,a9,a8,a7,a5,a6,8a9)
-	  
+        
 c-----7---------------------------------------------------------------72
 C*    Open the PREPBUFR input file
 c-----7---------------------------------------------------------------72
@@ -158,7 +158,7 @@ c-----7---------------------------------------------------------------72
       END IF
 
 c-----7---------------------------------------------------------------72
-C*	PREPBUFR data type subsetting filter
+C*    PREPBUFR data type subsetting filter
 c-----7---------------------------------------------------------------72
       if (nt .gt. 0) then
         k = 1
@@ -170,7 +170,7 @@ c-----7---------------------------------------------------------------72
             k = k + 1
           end if
         end do
-	    if ((.not. found) .and. (ierrpb .eq. 0)) then
+          if ((.not. found) .and. (ierrpb .eq. 0)) then
           go to 10
         end if
 c       End program if no subset match found and we are processing
@@ -193,7 +193,7 @@ c-----7---------------------------------------------------------------72
             k = k + 1
           end if
         end do
-	    if ((.not. found) .and. (ierrpb .eq. 0)) then
+          if ((.not. found) .and. (ierrpb .eq. 0)) then
           go to 10
         end if
 c       End program if no subset match found and we are processing
@@ -217,7 +217,7 @@ c-----7---------------------------------------------------------------72
             k = k + 1
           end if
         end do
-	    if ((.not. found) .and. (ierrpb .eq. 0)) then
+          if ((.not. found) .and. (ierrpb .eq. 0)) then
           go to 10
         end if
 c       End program if no subset match found and we are processing
@@ -248,7 +248,7 @@ C*      Case lon1 > lon2
             end if
           end if
         end if
-	    if ((.not. found) .and. (ierrpb .eq. 0)) then
+          if ((.not. found) .and. (ierrpb .eq. 0)) then
           go to 10
         end if
 c       End program if no subset match found and we are processing
@@ -259,21 +259,21 @@ c       the last report in the prepbufr file (ierrpb = 1)
       end if
       
 c-----7---------------------------------------------------------------72
-C*	Set the appropriate output file unit number.
+C*    Set the appropriate output file unit number.
 c-----7---------------------------------------------------------------72
-	  ii = 1
-	  found = .false.
-	  DO WHILE ((.not. found) .and. (ii .le. NFILO))
-	    IF (subset (1:6) .eq. filo (ii))  THEN
-		  found = .true.
-		  iuno = iunso(ii)
-	    ELSE 
-		  ii = ii + 1
-	    END IF
-	  END DO
-	  IF ((.not. found) .and. (ierrpb .eq. 0)) THEN
-	    GO TO 10
-	  END IF
+      ii = 1
+      found = .false.
+      DO WHILE ((.not. found) .and. (ii .le. NFILO))
+        IF (subset (1:6) .eq. filo (ii))  THEN
+          found = .true.
+          iuno = iunso(ii)
+        ELSE 
+          ii = ii + 1
+        END IF
+      END DO
+      IF ((.not. found) .and. (ierrpb .eq. 0)) THEN
+        GO TO 10
+      END IF
 
 c-----7---------------------------------------------------------------72
 c     Loop through the event data array EVNS
@@ -446,7 +446,7 @@ C*
 C*
         EQUIVALENCE     ( r8sid, csid ), ( r8sid2, csid2 )
 C*
-        SAVE            match, subst2, idate2
+        SAVE            match, subst2, idate2, hdr2, evns2
 C-----------------------------------------------------------------------
         iret = 0
 C*

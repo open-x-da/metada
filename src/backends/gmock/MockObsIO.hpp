@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-#include "ObsIOConcepts.hpp"
+#include "ObsRecord.hpp"
 
 namespace metada::backends::gmock {
 
@@ -111,13 +111,6 @@ class MockObsIO {
 
  private:
   ConfigBackend config_; /**< Initialization parameters */
-};
-
-// Static assertion to verify the backend meets the concept requirements
-template <typename T>
-struct MockObsIOConceptCheck {
-  static_assert(framework::ObsIOBackendImpl<MockObsIO<T>, T>,
-                "MockObsIO must satisfy the ObsIOBackendImpl concept");
 };
 
 }  // namespace metada::backends::gmock

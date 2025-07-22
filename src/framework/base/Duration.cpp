@@ -1,6 +1,7 @@
 #include "Duration.hpp"
 
 #include <chrono>
+#include <cmath>
 #include <format>
 #include <regex>
 #include <sstream>

@@ -25,6 +25,7 @@
 #include "DateTime.hpp"
 #include "Duration.hpp"
 #include "ObsIOConcepts.hpp"
+#include "ObsRecord.hpp"
 #include "UnitNumberManager.hpp"
 #include "isValidValue.hpp"
 
