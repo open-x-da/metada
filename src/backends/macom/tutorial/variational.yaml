@@ -26,6 +26,7 @@ max_iterations: 50
 tolerance: 1e-6
 gradient_tolerance: 1e-6
 line_search_enabled: true
+lbfgs_memory: 10
 preconditioning_enabled: false
 
 # Background error covariance configuration
@@ -44,10 +45,7 @@ geometry:
 background:
   file: "D:/macom/grid/nmefc_macom_initinal_1d_vertical_cropped.nc"
   variables:
-    - t      # Temperature
-    - s      # Salinity
-    - u      # U-component of velocity
-    - v      # V-component of velocity
+    - t      # Temperature only (for 3DVAR with temperature observations)
 
 # Model configuration for 4DVAR/FGAT (not needed for 3DVAR)
 model:
@@ -88,9 +86,6 @@ obs_operator:
   # Required state variables for this observation operator
   required_state_vars:
     - "t"      # Temperature
-    - "s"      # Salinity
-    - "u"      # U-component of velocity
-    - "v"      # V-component of velocity
   # Required observation variables (if any)
   required_obs_vars: []
   # Variables configuration (required by MACOMObsOperator)

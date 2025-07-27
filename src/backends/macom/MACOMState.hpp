@@ -1474,63 +1474,53 @@ void MACOMState<ConfigBackend, GeometryBackend>::saveToNetCDF(
     const std::string& filename) const {
   MACOM_LOG_INFO("MACOMState", "Saving state to NetCDF file: " + filename);
 
-  try {
-    // Use template file if available, otherwise use input file
-    std::string source_file =
-        template_file_.empty() ? inputFile_ : template_file_;
+  // Use template file if available, otherwise use input file
+  std::string source_file =
+      template_file_.empty() ? inputFile_ : template_file_;
 
-    if (source_file.empty()) {
-      MACOM_LOG_ERROR("MACOMState",
-                      "No template or input file available for NetCDF output");
-      saveToText(filename + ".txt");  // Fallback to text
-      return;
-    }
-
-    MACOM_LOG_INFO("MACOMState", "Using template file: " + source_file);
-
-    // Copy template file structure
-    std::string temp_cmd = "cp \"" + source_file + "\" \"" + filename + "\"";
-    int result = std::system(temp_cmd.c_str());
-    if (result != 0) {
-      MACOM_LOG_WARNING("MACOMState",
-                        "Failed to copy template file, falling back to text");
-      saveToText(filename + ".txt");  // Fallback to text
-      return;
-    }
-
-    // Open the copied file for writing
-    netCDF::NcFile ncFile(filename, netCDF::NcFile::write);
-    if (ncFile.isNull()) {
-      MACOM_LOG_ERROR("MACOMState",
-                      "Failed to open NetCDF file for writing: " + filename);
-      saveToText(filename + ".txt");  // Fallback to text
-      return;
-    }
-
-    // Update variable data (only the analyzed variables)
-    for (const auto& [varName, varData] : variables_) {
-      auto ncVar = ncFile.getVar(varName);
-      if (!ncVar.isNull() && varData.size() > 0) {
-        ncVar.putVar(varData.data());
-        MACOM_LOG_INFO("MACOMState", "Updated variable: " + varName);
-      } else {
-        MACOM_LOG_WARNING("MACOMState",
-                          "Variable not found in NetCDF file: " + varName);
-      }
-    }
-
-    ncFile.close();
-    MACOM_LOG_INFO("MACOMState", "Successfully saved NetCDF state");
-
-  } catch (const netCDF::exceptions::NcException& e) {
-    MACOM_LOG_ERROR("MACOMState",
-                    "NetCDF error while saving: " + std::string(e.what()));
-    saveToText(filename + ".txt");  // Fallback to text
-  } catch (const std::exception& e) {
-    MACOM_LOG_ERROR("MACOMState",
-                    "Error while saving: " + std::string(e.what()));
-    saveToText(filename + ".txt");  // Fallback to text
+  if (source_file.empty()) {
+    throw std::runtime_error(
+        "No template or input file available for NetCDF output");
   }
+
+  MACOM_LOG_INFO("MACOMState", "Using template file: " + source_file);
+
+  // Copy template file structure using C++ file operations
+  std::ifstream source(source_file, std::ios::binary);
+  if (!source.is_open()) {
+    throw std::runtime_error("Failed to open source file: " + source_file);
+  }
+
+  std::ofstream dest(filename, std::ios::binary);
+  if (!dest.is_open()) {
+    throw std::runtime_error("Failed to create destination file: " + filename);
+  }
+
+  dest << source.rdbuf();
+  source.close();
+  dest.close();
+
+  // Open the copied file for writing
+  netCDF::NcFile ncFile(filename, netCDF::NcFile::write);
+  if (ncFile.isNull()) {
+    throw std::runtime_error("Failed to open NetCDF file for writing: " +
+                             filename);
+  }
+
+  // Update variable data
+  for (const auto& [varName, varData] : variables_) {
+    auto ncVar = ncFile.getVar(varName);
+    if (!ncVar.isNull() && varData.size() > 0) {
+      ncVar.putVar(varData.data());
+      MACOM_LOG_INFO("MACOMState", "Updated variable: " + varName);
+    } else {
+      MACOM_LOG_WARNING("MACOMState",
+                        "Variable not found in NetCDF file: " + varName);
+    }
+  }
+
+  ncFile.close();
+  MACOM_LOG_INFO("MACOMState", "Successfully saved NetCDF state");
 }
 
 // Simple value modification - now modifies ALL grid points for testing
@@ -1561,10 +1551,12 @@ void MACOMState<ConfigBackend, GeometryBackend>::modifyValueAtLocation(
     modified_count++;
   }
 
-  std::cout << "TESTING MODE: Modified ALL " << modified_count
-            << " grid points of variable '" << activeVariable_ << "' by "
-            << delta_value << " (originally requested for location " << lat
-            << ", " << lon << ")" << std::endl;
+  std::string message =
+      "TESTING MODE: Modified ALL " + std::to_string(modified_count) +
+      " grid points of variable '" + activeVariable_ + "' by " +
+      std::to_string(delta_value) + " (originally requested for location " +
+      std::to_string(lat) + ", " + std::to_string(lon) + ")";
+  std::cout << message << std::endl;
 }
 
 }  // namespace metada::backends::macom
