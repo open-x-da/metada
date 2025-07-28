@@ -23,11 +23,7 @@ metada_project_initialize()
 
 # Find required external dependencies
 #metada_find_package(Python3 COMPONENTS Development NumPy)
-if(WIN32)
-    metada_find_package(GTest CONFIG)
-else()
-    metada_find_package(GTest)
-endif()
+metada_find_package(GTest CONFIG)
 metada_find_package(Git)
 metada_find_package(ClangFormat)
 metada_find_package(Eigen3 CONFIG)
@@ -36,11 +32,7 @@ metada_find_package(Eigen3 CONFIG)
 metada_find_package(Lcov OPTIONAL QUIET)
 metada_find_package(yaml-cpp OPTIONAL CONFIG QUIET)
 metada_find_package(nlohmann_json OPTIONAL CONFIG QUIET)
-if(WIN32)
-    metada_find_package(Glog OPTIONAL CONFIG QUIET)
-else()
-    metada_find_package(Glog)
-endif()
+
 metada_find_package(ng-log OPTIONAL CONFIG QUIET)
 
 # Configure CUDA support

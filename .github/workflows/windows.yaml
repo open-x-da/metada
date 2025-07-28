@@ -56,14 +56,14 @@ jobs:
           mingw-w64-x86_64-python-pip
           mingw-w64-x86_64-python-numpy
           mingw-w64-x86_64-gtest
-          mingw-w64-x86_64-glog
           mingw-w64-x86_64-clang-tools-extra
           mingw-w64-x86_64-lcov
           mingw-w64-x86_64-yaml-cpp
           mingw-w64-x86_64-nlohmann-json
           mingw-w64-x86_64-netcdf
           mingw-w64-x86_64-netcdf-cxx
-
+          mingw-w64-x86_64-eigen3
+          
     - name: Install xtl and xtensor
       run: |
         git clone https://github.com/xtensor-stack/xtl.git

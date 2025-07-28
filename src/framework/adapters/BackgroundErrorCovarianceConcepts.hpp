@@ -28,6 +28,9 @@ namespace metada::framework {
  */
 template <typename T>
 concept BackgroundErrorCovarianceBackendType = requires(T t) {
+  // Basic backend requirements
+  requires BackendType<T>;
+
   // Initialization and state
   { t.isInitialized() } -> std::convertible_to<bool>;
 

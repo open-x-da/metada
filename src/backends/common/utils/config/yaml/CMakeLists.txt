@@ -11,21 +11,8 @@ target_include_directories(config_yaml
 target_link_libraries(config_yaml
     PUBLIC
         metada::framework::adapters
-)
-if(WIN32)
-    # Windows platform
-    target_link_libraries(config_yaml
-        PUBLIC
-            yaml-cpp::yaml-cpp
-    )
-else()
-    # Linux/Unix platform
-    target_link_libraries(config_yaml
-        PUBLIC
-            yaml-cpp
-    )
-endif()
-        
+        yaml-cpp::yaml-cpp)
+
 # Add precompiled headers if enabled
 if(USE_PRECOMPILED_HEADERS)
     # Add standard C++ headers 
