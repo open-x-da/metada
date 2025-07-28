@@ -1,0 +1,114 @@
+# TL/AD Checks Configuration File for MACOM
+# This file configures the tangent linear and adjoint checks application
+
+# Logger configuration  
+logger:
+  app_name: "tl_ad_checks"
+  level: "debug"
+  color: true
+  console: true
+
+# Global parameters
+# Tolerance for TL/AD consistency check
+# (relative error threshold)
+tl_ad_tolerance: 1.0e-6
+gradient_tolerance: 1.0e-6
+# Number of random directions for gradient checks
+gradient_check_directions: 10
+finite_difference_epsilons:
+   - 1.0e-3
+   - 1.0e-4
+   - 1.0e-5
+   - 1.0e-6
+   - 1.0e-7
+   - 1.0e-8
+
+# Variational method: 3DVAR (single time analysis)
+variational_type: "3DVAR"
+
+# Minimization configuration
+minimization_algorithm: lbfgs
+max_iterations: 50
+tolerance: 1e-6
+gradient_tolerance: 1e-6
+line_search_enabled: true
+preconditioning_enabled: false
+
+# Geometry configuration (MACOM domain)
+geometry:
+  file: "D:/macom/grid/nmefc_macom_reg_ll_grid_1d_vertical_cropped.nc"
+
+# State configuration
+state:
+  file: "D:/macom/grid/nmefc_macom_initinal_1d_vertical_cropped.nc"
+  # Analysis variables for 3DVAR
+  variables:
+    - t      # Temperature
+  #  - s      # Salinity
+  #  - u      # U-component of velocity
+  #  - v      # V-component of velocity
+
+# Observations configuration (simplified for debugging)
+observations:
+  types:
+    - test_obs:
+        if_use: true
+        file: "D:/macom/obs/sst_satellite_20240101.txt"
+        format: "geographic"  # lat lon level value error
+        variables:
+          - t:
+              if_use: true
+              error: 0.4
+              missing_value: -999.0
+
+# Observation operator configuration
+obs_operator:
+  type: "identity"
+  # Required state variables for this observation operator
+  required_state_vars:
+    - "temperature"      # Temperature
+  # Required observation variables (if any)
+  required_obs_vars: []
+  # Variables configuration (required by MACOMObsOperator)
+  variables:
+    - t:
+        if_use: true
+        error: 0.4
+  # Interpolation settings
+  interpolation:
+    method: "nearest_neighbor"  # Only nearest-neighbor supported by IdentityObsOperator
+    coordinate_system: "geographic"  # or "grid"
+  # Quality control settings (not implemented in IdentityObsOperator, but documented for future use)
+  quality_control:
+    enabled: false  # Currently not implemented
+    gross_error_threshold: 10.0
+    buddy_check: false
+
+# Model configuration (MACOM model settings)
+model:
+  # Time control settings
+  time_control:
+    start_datetime: "2000-01-24T12:00:00Z"
+    end_datetime: "2000-01-24T12:00:01Z"  # Minimal forecast for TL/AD checks
+    forecast_length: "1s"  # Minimal forecast for TL/AD checks
+    time_step: "30s"
+    output_history: false
+    
+  # Physics options
+  physics:
+    temperature: true
+    salinity: true
+    velocity: true
+    
+  # Dynamical core options
+  dynamics:
+    advection_scheme: "upwind"
+    diffusion: 0.01
+
+# Background error covariance configuration (simplified)
+background_covariance:
+  size: 18400  # Match actual MACOM state size (nlpb * nk)
+  variance: 0.5  # Reasonable variance for ocean variables
+  background_covariance_type: "diagonal"
+  localization_enabled: false
+  localization_radius: 0.0 

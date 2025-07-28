@@ -1,0 +1,2 @@
+# lat    lon      level   value   error
+26.60   124.40   5.0    15.2    0.4

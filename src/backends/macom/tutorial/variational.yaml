@@ -1,0 +1,150 @@
+# Variational Data Assimilation Configuration for MACOM
+# This configuration file demonstrates how to set up 4DVAR, 3DVAR, or FGAT
+# Change the variational_type to select the desired method
+
+# Logger configuration
+logger:
+  app_name: "variational"
+  level: "debug"
+  color: true
+  console: true
+
+# Variational method selection: "4DVAR", "3DVAR", or "FGAT"
+variational_type: 3DVAR
+
+# Output configuration
+output_base_file: "./analysis"
+format: nc
+save_trajectory: true
+
+# Optional gradient test for debugging
+perform_gradient_test: false
+
+# Minimization configuration
+minimization_algorithm: lbfgs
+max_iterations: 50
+tolerance: 1e-6
+gradient_tolerance: 1e-6
+line_search_enabled: true
+lbfgs_memory: 10
+preconditioning_enabled: false
+
+# Background error covariance configuration
+background_covariance:
+  size: 18400  # MACOM state size (nlpb * nk)
+  variance: 0.5  # Reasonable variance for ocean variables
+  background_covariance_type: diagonal
+  localization_enabled: true
+  localization_radius: 100.0
+
+# Geometry configuration (MACOM-specific)
+geometry:
+  file: "D:/macom/grid/nmefc_macom_reg_ll_grid_1d_vertical_cropped.nc"
+
+# Background state configuration
+background:
+  file: "D:/macom/grid/nmefc_macom_initinal_1d_vertical_cropped.nc"
+  variables:
+    - t      # Temperature only (for 3DVAR with temperature observations)
+
+# Model configuration for 4DVAR/FGAT (not needed for 3DVAR)
+model:
+  model_name: MACOM
+  time_control:
+    start_datetime: "2000-01-24T12:00:00Z"
+    end_datetime: "2000-01-24T18:00:00Z"  # 6-hour assimilation window
+    forecast_length: "6h"  # 6-hour assimilation window
+    time_step: "30s"
+    output_interval: "1h"
+  physics:
+    temperature: true
+    salinity: true
+    velocity: true
+  dynamics:
+    advection_scheme: "upwind"
+    diffusion: 0.01
+    vertical_mixing: true
+
+# Observations configuration
+# For 3DVAR: Use only one observation time at analysis time
+# For 4DVAR/FGAT: Multiple observation times within the assimilation window
+observations:
+  types:
+    - analysis_obs:
+        if_use: true
+        file: "D:/macom/obs/sst_satellite_20240101.txt"
+        format: "geographic"  # lat lon level value error
+        variables:
+          - t:
+              if_use: true
+              error: 0.4
+              missing_value: -999.0
+
+# Observation operators configuration
+obs_operator:
+  type: "identity"
+  # Required state variables for this observation operator
+  required_state_vars:
+    - "t"      # Temperature
+  # Required observation variables (if any)
+  required_obs_vars: []
+  # Variables configuration (required by MACOMObsOperator)
+  variables:
+    - t:
+        if_use: true
+        error: 0.4
+  # Interpolation settings
+  interpolation:
+    method: "nearest_neighbor"  # Only nearest-neighbor supported by IdentityObsOperator
+    coordinate_system: "geographic"  # or "grid"
+  # Quality control settings (not implemented in IdentityObsOperator, but documented for future use)
+  quality_control:
+    enabled: false  # Currently not implemented
+    gross_error_threshold: 10.0
+    buddy_check: false
+
+# Example configurations for different variational methods:
+
+# For 3DVAR: Set variational_type to "3DVAR" and use only one observation/operator
+# variational_type: 3DVAR
+# (observations and obs_operator as shown above)
+
+# For FGAT: Set variational_type to "FGAT" - uses multiple obs times but simpler gradient
+# variational_type: FGAT
+# observations:
+#   types:
+#     - obs_t0:
+#         if_use: true
+#         file: "src/backends/macom/tutorial/sample_obs.txt"
+#         format: "geographic"
+#         time: 0  # Hours from start time
+#         variables:
+#           - t:
+#               if_use: true
+#               error: 0.4
+#               missing_value: -999.0
+#     - obs_t3:
+#         if_use: true
+#         file: "src/backends/macom/tutorial/sample_obs.txt"
+#         format: "geographic"
+#         time: 3  # Hours from start time
+#         variables:
+#           - t:
+#               if_use: true
+#               error: 0.4
+#               missing_value: -999.0
+#     - obs_t6:
+#         if_use: true
+#         file: "src/backends/macom/tutorial/sample_obs.txt"
+#         format: "geographic"
+#         time: 6  # Hours from start time
+#         variables:
+#           - t:
+#               if_use: true
+#               error: 0.4
+#               missing_value: -999.0
+
+# For 4DVAR: Set variational_type to "4DVAR" - full adjoint method
+# variational_type: 4DVAR
+# (observations as shown above for FGAT)
+# Note: Requires model with adjoint capabilities 

@@ -27,6 +27,7 @@ target_link_libraries(etkf
         metada::backends::common::observation
         metada::framework::algorithms
         metada::backends::simple
+        # metada::backends::macom
 )
 
 target_link_libraries(letkf
@@ -39,6 +40,7 @@ target_link_libraries(letkf
         metada::backends::common::observation
         metada::framework::algorithms
         metada::backends::simple
+        # metada::backends::macom
 )
 
 target_link_libraries(particle_filter
@@ -51,6 +53,7 @@ target_link_libraries(particle_filter
         metada::backends::common::observation
         metada::framework::algorithms
         metada::backends::simple
+        # metada::backends::macom
 )
 
 target_link_libraries(enkf
@@ -63,6 +66,7 @@ target_link_libraries(enkf
         metada::backends::common::observation
         metada::framework::algorithms
         metada::backends::simple
+        # metada::backends::macom
 )
 
 target_link_libraries(lwenkf
@@ -75,9 +79,22 @@ target_link_libraries(lwenkf
         metada::backends::common::observation
         metada::framework::algorithms
         metada::backends::simple
+        # metada::backends::macom
 )
 
 target_link_libraries(a4denvar
+    PRIVATE
+        metada::traits
+        metada::framework::adapters
+        metada::base
+        metada::framework::runs
+        metada::backends::common::utils
+        metada::backends::common::observation
+        metada::framework::algorithms
+        metada::backends::simple
+)
+
+target_link_libraries(particle_filter
     PRIVATE
         metada::traits
         metada::framework::adapters

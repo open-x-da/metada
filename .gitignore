@@ -80,3 +80,12 @@ build/
 wrfinput_d0*
 wrfbdy_d0*
 wrfout_d0*
+
+# macom source files
+src/backends/macom/fortran/src-region/
+src/backends/macom/fortran/src-globe/
+src/backends/macom/fortran/program/
+
+# cache files
+.cache/
+
