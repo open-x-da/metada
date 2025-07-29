@@ -53,7 +53,6 @@ jobs:
           netcdf \
           netcdf-cxx \
           eigen \
-          # MACOM dependencies
           open-mpi \
           hdf5 \
           curl \

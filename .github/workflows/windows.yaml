@@ -63,8 +63,7 @@ jobs:
           mingw-w64-x86_64-netcdf
           mingw-w64-x86_64-netcdf-cxx
           mingw-w64-x86_64-eigen3
-          # MACOM dependencies
-          mingw-w64-x86_64-openmpi
+          mingw-w64-x86_64-msmpi
           mingw-w64-x86_64-hdf5
           mingw-w64-x86_64-curl
           mingw-w64-x86_64-netcdf-fortran

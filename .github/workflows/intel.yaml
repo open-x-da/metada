@@ -53,7 +53,6 @@ jobs:
           libnetcdf-c++4-dev \
           libxtensor-dev \
           libeigen3-dev \
-          # MACOM dependencies
           libopenmpi-dev \
           libhdf5-dev \
           libcurl4-openssl-dev \
