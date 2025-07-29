@@ -49,19 +49,33 @@ jobs:
           nlohmann-json3-dev \
           libnetcdf-dev \
           libnetcdf-c++4-dev \
-          libxtensor-dev \
           libeigen3-dev \
           libopenmpi-dev \
           libhdf5-dev \
           libcurl4-openssl-dev \
-          libnetcdff-dev \
-          libnetcdf-c++4-dev
+          libnetcdff-dev
 
     - name: Install GCC 14.2.0
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
         sudo apt-get update
         sudo apt-get install -y gcc-14 g++-14 gfortran-14
+
+    - name: Install xtl and xtensor
+      run: |
+        git clone https://github.com/xtensor-stack/xtl.git
+        mkdir xtl/build
+        cd xtl/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake --build .
+        ninja install
+        cd ../..
+        git clone https://github.com/xtensor-stack/xtensor.git
+        mkdir xtensor/build
+        cd xtensor/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake --build .
+        ninja install
 
     - name: Install nanoflann
       run: |

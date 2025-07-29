@@ -71,12 +71,11 @@ target_sources(macom_backends
         MACOMState.hpp
 )
 
-# Link dependencies for C++ interface
+# Link dependencies for C++ interface # xtensor
 target_link_libraries(macom_backends 
     INTERFACE
         metada::base
         NetCDF::CXX4
-        xtensor
         nanoflann::nanoflann
 )
 
