@@ -68,14 +68,14 @@ jobs:
         cd xtl/build
         cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local
         cmake --build .
-        ninja install
+        sudo ninja install
         cd ../..
         git clone https://github.com/xtensor-stack/xtensor.git
         mkdir xtensor/build
         cd xtensor/build
         cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local
         cmake --build .
-        ninja install
+        sudo ninja install
 
     - name: Install nanoflann
       run: |
