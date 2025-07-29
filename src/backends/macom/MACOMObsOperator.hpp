@@ -300,9 +300,10 @@ class MACOMObsOperator {
    * @param obs Reference observations for context
    * @return Vector containing the transformed increment in observation space
    */
-  std::vector<double> applyTangentLinear(const StateBackend& state_increment,
-                                         const StateBackend& reference_state,
-                                         const ObsBackend& obs) const {
+  std::vector<double> applyTangentLinear(
+      const StateBackend& state_increment,
+      [[maybe_unused]] const StateBackend& reference_state,
+      const ObsBackend& obs) const {
     // For linear interpolation, tangent linear is identical to forward operator
     return apply(state_increment, obs);
   }

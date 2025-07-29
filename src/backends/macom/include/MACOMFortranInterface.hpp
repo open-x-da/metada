@@ -174,7 +174,6 @@ class MACOMFortranInterface {
   int io_procs_;       // Number of I/O processes
   int comp_procs_;     // Number of compute processes
   bool mpi_initialized_by_this_instance_;
-  bool model_components_initialized_;
 };
 
 }  // namespace metada::backends::macom

@@ -68,8 +68,7 @@ MACOMFortranInterface::MACOMFortranInterface()
       size_(1),
       io_procs_(0),
       comp_procs_(1),
-      mpi_initialized_by_this_instance_(false),
-      model_components_initialized_(false) {
+      mpi_initialized_by_this_instance_(false) {
 #if MACOM_MODE_ENABLED
   mpi_comm_ = MPI_COMM_NULL;
 #else

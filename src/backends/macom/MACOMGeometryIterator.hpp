@@ -1093,7 +1093,7 @@ MACOMGeometryIterator<ConfigBackend>::findNearestVerticalPointsBatch(
   const size_t num_queries = depths.size();
   std::vector<VerticalPoint> results(num_queries);
 
-  // 使用索引访问，可能更容易被编译器优化
+  // Use index access, which may be easier for compiler optimization
   for (size_t q = 0; q < num_queries; ++q) {
     results[q] = findNearestVerticalPoints(rC_z, nk, depths[q]);
   }

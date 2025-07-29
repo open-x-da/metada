@@ -15,7 +15,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
 
@@ -235,8 +234,6 @@ class WRFState {
   xt::xarray<double> getVariable(const std::string& variableName) {
     const auto& dims = dimensions_.at(variableName);
     size_t offset = variable_offsets_.at(variableName);
-    size_t size = 1;
-    for (size_t dim : dims) size *= dim;
 
     // Create a view into the flattened data
     return xt::adapt(flattened_data_.data() + offset, dims);
@@ -256,8 +253,6 @@ class WRFState {
   xt::xarray<double> getVariable(const std::string& variableName) const {
     const auto& dims = dimensions_.at(variableName);
     size_t offset = variable_offsets_.at(variableName);
-    size_t size = 1;
-    for (size_t dim : dims) size *= dim;
 
     // Create a view into the flattened data
     return xt::adapt(flattened_data_.data() + offset, dims);

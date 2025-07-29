@@ -53,13 +53,12 @@ class MACOMParallel {
   }
 
   /**
-   * @brief Initialize parallel environment
-   *
+   * @brief Initialize the parallel environment
    * @param argc Command line argument count
    * @param argv Command line arguments
    * @return true if initialization successful, false otherwise
    */
-  bool initialize(int argc, char** argv) {
+  bool initialize([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 #ifdef USE_MPI
     if (use_fortran_mpi_) {
       return initializeFortranMPI();
@@ -204,8 +203,6 @@ class MACOMParallel {
  private:
   // Fortran interface
   std::unique_ptr<MACOMFortranInterface> fortranInterface_;
-  int mpi_rank_;
-  int mpi_size_;
 
   // Private constructor for singleton
   MACOMParallel()
@@ -223,7 +220,8 @@ class MACOMParallel {
   /**
    * @brief Initialize MPI using C++ interface
    */
-  bool initializeCppMPI(int argc, char** argv) {
+  bool initializeCppMPI([[maybe_unused]] int argc,
+                        [[maybe_unused]] char** argv) {
 #ifdef USE_MPI
     // Check if we're running under mpiexec
     int initialized;
@@ -273,14 +271,14 @@ class MACOMParallel {
 
     fortranInterface_->initializeMPI(io_procs_);
 
-    mpi_rank_ = fortranInterface_->getRank();
+    // mpi_rank_ = fortranInterface_->getRank(); // This line is removed
     MACOM_LOG_INFO("MACOMParallel",
                    "MPI Initialized via Fortran. Model Rank: " +
-                       std::to_string(mpi_rank_));
+                       std::to_string(rank_));  // This line is updated
 
-    rank_ = mpi_rank_;
-    mpi_size_ = fortranInterface_->getSize();
-    size_ = mpi_size_;
+    // rank_ = mpi_rank_; // This line is removed
+    // mpi_size_ = fortranInterface_->getSize(); // This line is removed
+    size_ = fortranInterface_->getSize();  // This line is updated
 
     comp_procs_ = size_ - io_procs_;
 
@@ -343,9 +341,9 @@ class MACOMParallel {
   void finalizeFortranMPI() {
 #ifdef USE_MPI
     if (fortranInterface_) {
-      mpi_rank_ = fortranInterface_->getRank();
+      // mpi_rank_ = fortranInterface_->getRank(); // This line is removed
 
-      if (mpi_rank_ == 0) {
+      if (rank_ == 0) {  // This line is updated
         MACOM_LOG_INFO("MACOMParallel", "Finalizing MPI in Fortran mode...");
       }
       fortranInterface_->finalizeMPI();

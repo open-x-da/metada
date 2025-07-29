@@ -997,7 +997,7 @@ void MACOMState<ConfigBackend, GeometryBackend>::loadVariableArrays(
     dimensions_[variable_name] = {
         this->nlpb_, this->nk_};  // Store dimensions for this variable
 
-    // // 输出样本数据：从变量数据中间取10个值
+    // // Output sample data: take 10 values from the middle of variable data
     // std::stringstream sample_ss;
     // sample_ss << "Sample values for " << variable_name << ": ";
 
@@ -1034,7 +1034,7 @@ void MACOMState<ConfigBackend, GeometryBackend>::loadVariableArrays(
     // }
   }
 
-  // // 替换原来的输出语句
+  // // Replace original output statements
   // if (!variables_to_load.empty()) {
   //   MACOM_LOG_INFO("MACOMState", "Successfully loaded " +
   //                                    std::to_string(variables_to_load.size())

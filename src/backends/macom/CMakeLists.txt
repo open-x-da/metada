@@ -1,7 +1,7 @@
 # Find required dependencies for MACOM
 # Ensure FindMPI is robust. It should set MPI_FOUND and imported targets like MPI::MPI_C, MPI::MPI_Fortran.
 # MACOM mode selection - mutually exclusive options
-option(MACOM_REGION_MODE "Build MACOM in region mode" OFF)
+option(MACOM_REGION_MODE "Build MACOM in region mode" ON)
 option(MACOM_GLOBAL_MODE "Build MACOM in global mode" OFF)
 
 # Check if any MACOM mode is enabled
@@ -32,10 +32,10 @@ if(WIN32)
     set(NetCDF_Fortran_INCLUDE_DIRS "${NetCDF_Fortran_ROOT}/include")
     set(NetCDF_Fortran_LIBRARIES "${NetCDF_Fortran_ROOT}/lib/libnetcdff.dll.a")
 else()
-    # Linux/Unix 平台
+    # Linux/Unix platforms
     set(NetCDF_Fortran_INCLUDE_DIRS "/usr/include")
     set(NetCDF_Fortran_LIBRARIES "/usr/lib/x86_64-linux-gnu/libnetcdff.so")
-    # 确保变量被正确设置
+    # Ensure variables are properly set
     if(NOT HDF5_LIBRARIES)
         set(HDF5_INCLUDE_DIRS /usr/include)
         set(HDF5_LIBRARIES /usr/lib/x86_64-linux-gnu/hdf5/serial/libhdf5.so)
@@ -112,7 +112,7 @@ if(MACOM_MODE_ENABLED)
         message(STATUS "Auto-disabled sea ice options in region mode")
     endif()
 
-    # 设置Fortran预处理器宏定义
+    # Set Fortran preprocessor macro definitions
     set(DEF_FLAGS "")
 
     # Sea ice options - available in both modes but can be disabled
@@ -168,7 +168,7 @@ if(MACOM_MODE_ENABLED)
 
     string(REPLACE ";" " " DEF_FLAGS_STR "${DEF_FLAGS}")
 
-    # 确保在 CMakeLists.txt 中明确设置 Fortran 模块目录
+    # Ensure Fortran module directory is explicitly set in CMakeLists.txt
     set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
     # Select source files based on mode
@@ -186,17 +186,17 @@ if(MACOM_MODE_ENABLED)
         message(STATUS "Using global mode Fortran sources from src-globe/")
     endif()
 
-    # 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
+    # Create Fortran implementation library, ensure macom_logger.f90 comes before macom_fortran_wrapper.f90
     add_library(macom_fortran STATIC
         fortran/macom_logger.f90           
         fortran/macom_fortran_wrapper.f90
         ${SRC_FORTRAN_FILES}
     )
 
-    # 设置 Fortran 模块输出目录
+    # Set Fortran module output directory
     set_property(TARGET macom_fortran PROPERTY Fortran_MODULE_DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY})
 
-    # 添加模块目录到包含路径
+    # Add module directory to include paths
     target_include_directories(macom_fortran PUBLIC
         ${CMAKE_Fortran_MODULE_DIRECTORY}
         ${NetCDF_Fortran_INCLUDE_DIRS}
@@ -260,8 +260,26 @@ else()
     target_link_libraries(macom_backends INTERFACE macom_impl)
 endif()
 
-# Add format target
+# Add format targets
 AddFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Fortran formatting configuration
+# Uncomment one of the following options:
+
+# Option 1: Format all Fortran files (current setting)
+# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Option 2: Exclude src-region directory from formatting
+AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/src-region")
+
+# Option 3: Exclude src-globe directory from formatting  
+# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/src-globe")
+
+# Option 4: Exclude both directories from formatting
+# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/src-region;fortran/src-globe")
+
+# Option 5: Exclude legacy or third-party code
+# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/legacy;fortran/third_party")
 
 
 

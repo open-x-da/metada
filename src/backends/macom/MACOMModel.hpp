@@ -151,16 +151,16 @@ class MACOMModel {
   }  // MACOM doesn't support adjoint yet
 
   /**
-   * @brief Run the adjoint model (required by framework)
+   * @brief Run adjoint model (not implemented yet)
    * @param initialState Initial state for adjoint run
    * @param finalState Final state from adjoint run
    * @param adjointForcing Adjoint forcing
    * @param adjointResult Adjoint result
    */
-  void runAdjoint(const StateBackend& initialState,
-                  const StateBackend& finalState,
-                  const StateBackend& adjointForcing,
-                  StateBackend& adjointResult) const {
+  void runAdjoint([[maybe_unused]] const StateBackend& initialState,
+                  [[maybe_unused]] const StateBackend& finalState,
+                  [[maybe_unused]] const StateBackend& adjointForcing,
+                  [[maybe_unused]] StateBackend& adjointResult) const {
     throw std::runtime_error("MACOM adjoint model not implemented yet");
   }
 

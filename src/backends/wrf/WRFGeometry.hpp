@@ -11,7 +11,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
 
