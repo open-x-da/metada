@@ -1,8 +1,30 @@
 # Find required dependencies for MACOM
 # Ensure FindMPI is robust. It should set MPI_FOUND and imported targets like MPI::MPI_C, MPI::MPI_Fortran.
-metada_find_package(MPI REQUIRED)
-metada_find_package(HDF5 REQUIRED)
-metada_find_package(CURL REQUIRED)
+# MACOM mode selection - mutually exclusive options
+option(MACOM_REGION_MODE "Build MACOM in region mode" OFF)
+option(MACOM_GLOBAL_MODE "Build MACOM in global mode" OFF)
+
+# Check if any MACOM mode is enabled
+set(MACOM_MODE_ENABLED FALSE)
+if(MACOM_REGION_MODE OR MACOM_GLOBAL_MODE)
+    set(MACOM_MODE_ENABLED TRUE)
+endif()
+
+# Ensure only one mode is selected if any mode is enabled
+if(MACOM_REGION_MODE AND MACOM_GLOBAL_MODE)
+    message(FATAL_ERROR "MACOM_REGION_MODE and MACOM_GLOBAL_MODE are mutually exclusive. Please select only one.")
+endif()
+
+if(MACOM_MODE_ENABLED)
+    metada_find_package(MPI REQUIRED)
+    metada_find_package(HDF5 REQUIRED)
+    metada_find_package(CURL REQUIRED)
+else()
+    # When no MACOM mode is enabled, make MPI optional
+    metada_find_package(MPI)
+    metada_find_package(HDF5)
+    metada_find_package(CURL)
+endif()
 
 if(WIN32)
     # Find NetCDF Fortran for MSYS2/MINGW64
@@ -58,177 +80,186 @@ target_link_libraries(macom_backends
         nanoflann::nanoflann
 )
 
-# Set Fortran compiler
-set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
+# Only proceed with Fortran compilation if a mode is enabled
+if(MACOM_MODE_ENABLED)
+    # Set Fortran compiler
+    set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 
-# Set compiler flags
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O3 -cpp -fno-tree-vectorize -fallow-argument-mismatch -Wno-missing-include-dirs")
+    # Set compiler flags
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O3 -cpp -fno-tree-vectorize -fallow-argument-mismatch -Wno-missing-include-dirs")
 
-# MACOM mode selection - mutually exclusive options
-option(MACOM_REGION_MODE "Build MACOM in region mode" OFF)
-option(MACOM_GLOBAL_MODE "Build MACOM in global mode" ON)
+    # Fortran compilation flags and macros
+    option(SEAICE_VARIABLE_SALINITY "Variable salinity" ON)
+    option(SEAICE_ITD "Sea Ice Thickness Distribution" ON)
+    option(SEAICE_ALLOW_FREEDRIFT "Enable free drift code" ON)
+    option(SEAICE_ALLOW_DYNAMICS "Allow sea ice dynamic code" ON)
+    option(SEAICE_ALLOW_MOM_ADVECTION "Enable advection terms" OFF)
+    option(SEAICE_ALLOW_BOTTOMDRAG "Use parameterization of grounding ice" ON)
+    option(SEAICE_CAP_SUBLIM "Used in thermodyn module" ON)
+    option(OPENACC "Enable OpenACC" OFF)
+    option(OPENACCGPU "Enable OpenACC GPU" OFF)
+    option(SeaiceDebug "Enable Seaice Debug" OFF)
 
-# Ensure only one mode is selected
-if(MACOM_REGION_MODE AND MACOM_GLOBAL_MODE)
-    message(FATAL_ERROR "MACOM_REGION_MODE and MACOM_GLOBAL_MODE are mutually exclusive. Please select only one.")
-endif()
+    # Auto-disable sea ice options in region mode
+    if(MACOM_REGION_MODE)
+        set(SEAICE_VARIABLE_SALINITY OFF)
+        set(SEAICE_ITD OFF)
+        set(SEAICE_ALLOW_FREEDRIFT OFF)
+        set(SEAICE_ALLOW_DYNAMICS OFF)
+        set(SEAICE_ALLOW_MOM_ADVECTION OFF)
+        set(SEAICE_ALLOW_BOTTOMDRAG OFF)
+        set(SEAICE_CAP_SUBLIM OFF)
+        set(SeaiceDebug OFF)
+        message(STATUS "Auto-disabled sea ice options in region mode")
+    endif()
 
-if(NOT MACOM_REGION_MODE AND NOT MACOM_GLOBAL_MODE)
-    message(FATAL_ERROR "Please select either MACOM_REGION_MODE or MACOM_GLOBAL_MODE.")
-endif()
+    # 设置Fortran预处理器宏定义
+    set(DEF_FLAGS "")
 
-# Fortran compilation flags and macros
-option(SEAICE_VARIABLE_SALINITY "Variable salinity" ON)
-option(SEAICE_ITD "Sea Ice Thickness Distribution" ON)
-option(SEAICE_ALLOW_FREEDRIFT "Enable free drift code" ON)
-option(SEAICE_ALLOW_DYNAMICS "Allow sea ice dynamic code" ON)
-option(SEAICE_ALLOW_MOM_ADVECTION "Enable advection terms" OFF)
-option(SEAICE_ALLOW_BOTTOMDRAG "Use parameterization of grounding ice" ON)
-option(SEAICE_CAP_SUBLIM "Used in thermodyn module" ON)
-option(OPENACC "Enable OpenACC" OFF)
-option(OPENACCGPU "Enable OpenACC GPU" OFF)
-option(SeaiceDebug "Enable Seaice Debug" OFF)
+    # Sea ice options - available in both modes but can be disabled
+    if(SEAICE_VARIABLE_SALINITY)
+        list(APPEND DEF_FLAGS "-DSEAICE_VARIABLE_SALINITY")
+        add_compile_definitions(SEAICE_VARIABLE_SALINITY)
+    endif()
+    if(SEAICE_ITD)
+        list(APPEND DEF_FLAGS "-DSEAICE_ITD")
+        add_compile_definitions(SEAICE_ITD)
+    endif()
+    if(SEAICE_ALLOW_FREEDRIFT)
+        list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_FREEDRIFT")
+        add_compile_definitions(SEAICE_ALLOW_FREEDRIFT)
+    endif()
+    if(SEAICE_ALLOW_DYNAMICS)
+        list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_DYNAMICS")
+        add_compile_definitions(SEAICE_ALLOW_DYNAMICS)
+    endif()
+    if(SEAICE_ALLOW_MOM_ADVECTION)
+        list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_MOM_ADVECTION")
+        add_compile_definitions(SEAICE_ALLOW_MOM_ADVECTION)
+    endif()
+    if(SEAICE_ALLOW_BOTTOMDRAG)
+        list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_BOTTOMDRAG")
+        add_compile_definitions(SEAICE_ALLOW_BOTTOMDRAG)
+    endif()
+    if(SEAICE_CAP_SUBLIM)
+        list(APPEND DEF_FLAGS "-DSEAICE_CAP_SUBLIM")
+        add_compile_definitions(SEAICE_CAP_SUBLIM)
+    endif()
+    if(OPENACC)
+        list(APPEND DEF_FLAGS "-DOPENACC")
+        add_compile_definitions(OPENACC)
+    endif()
+    if(OPENACCGPU)
+        list(APPEND DEF_FLAGS "-DOPENACCGPU")
+        add_compile_definitions(OPENACCGPU)
+    endif()
+    if(SeaiceDebug)
+        list(APPEND DEF_FLAGS "-DSeaiceDebug")
+        add_compile_definitions(SeaiceDebug)
+    endif()
 
-# Auto-disable sea ice options in region mode
-if(MACOM_REGION_MODE)
-    set(SEAICE_VARIABLE_SALINITY OFF)
-    set(SEAICE_ITD OFF)
-    set(SEAICE_ALLOW_FREEDRIFT OFF)
-    set(SEAICE_ALLOW_DYNAMICS OFF)
-    set(SEAICE_ALLOW_MOM_ADVECTION OFF)
-    set(SEAICE_ALLOW_BOTTOMDRAG OFF)
-    set(SEAICE_CAP_SUBLIM OFF)
-    set(SeaiceDebug OFF)
-    message(STATUS "Auto-disabled sea ice options in region mode")
-endif()
+    # Mode-specific flags
+    if(MACOM_REGION_MODE)
+        list(APPEND DEF_FLAGS "-DBARMOD")
+        add_compile_definitions(BARMOD)
+        message(STATUS "Building MACOM in REGION mode (sea ice auto-disabled)")
+    else()
+        message(STATUS "Building MACOM in GLOBAL mode")
+    endif()
 
-# 设置Fortran预处理器宏定义
-set(DEF_FLAGS "")
+    string(REPLACE ";" " " DEF_FLAGS_STR "${DEF_FLAGS}")
 
-# Sea ice options - available in both modes but can be disabled
-if(SEAICE_VARIABLE_SALINITY)
-    list(APPEND DEF_FLAGS "-DSEAICE_VARIABLE_SALINITY")
-    add_compile_definitions(SEAICE_VARIABLE_SALINITY)
-endif()
-if(SEAICE_ITD)
-    list(APPEND DEF_FLAGS "-DSEAICE_ITD")
-    add_compile_definitions(SEAICE_ITD)
-endif()
-if(SEAICE_ALLOW_FREEDRIFT)
-    list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_FREEDRIFT")
-    add_compile_definitions(SEAICE_ALLOW_FREEDRIFT)
-endif()
-if(SEAICE_ALLOW_DYNAMICS)
-    list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_DYNAMICS")
-    add_compile_definitions(SEAICE_ALLOW_DYNAMICS)
-endif()
-if(SEAICE_ALLOW_MOM_ADVECTION)
-    list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_MOM_ADVECTION")
-    add_compile_definitions(SEAICE_ALLOW_MOM_ADVECTION)
-endif()
-if(SEAICE_ALLOW_BOTTOMDRAG)
-    list(APPEND DEF_FLAGS "-DSEAICE_ALLOW_BOTTOMDRAG")
-    add_compile_definitions(SEAICE_ALLOW_BOTTOMDRAG)
-endif()
-if(SEAICE_CAP_SUBLIM)
-    list(APPEND DEF_FLAGS "-DSEAICE_CAP_SUBLIM")
-    add_compile_definitions(SEAICE_CAP_SUBLIM)
-endif()
-if(OPENACC)
-    list(APPEND DEF_FLAGS "-DOPENACC")
-    add_compile_definitions(OPENACC)
-endif()
-if(OPENACCGPU)
-    list(APPEND DEF_FLAGS "-DOPENACCGPU")
-    add_compile_definitions(OPENACCGPU)
-endif()
-if(SeaiceDebug)
-    list(APPEND DEF_FLAGS "-DSeaiceDebug")
-    add_compile_definitions(SeaiceDebug)
-endif()
+    # 确保在 CMakeLists.txt 中明确设置 Fortran 模块目录
+    set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
-# Mode-specific flags
-if(MACOM_REGION_MODE)
-    list(APPEND DEF_FLAGS "-DBARMOD")
-    add_compile_definitions(BARMOD)
-    message(STATUS "Building MACOM in REGION mode (sea ice auto-disabled)")
-else()
-    message(STATUS "Building MACOM in GLOBAL mode")
-endif()
+    # Select source files based on mode
+    if(MACOM_REGION_MODE)
+        # Region mode: use src-region files
+        file(GLOB SRC_FORTRAN_FILES
+            "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-region/*.f90"
+        )
+        message(STATUS "Using region mode Fortran sources from src-region/")
+    else()
+        # Global mode: use src-globe files
+        file(GLOB SRC_FORTRAN_FILES
+            "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-globe/*.f90"
+        )
+        message(STATUS "Using global mode Fortran sources from src-globe/")
+    endif()
 
-string(REPLACE ";" " " DEF_FLAGS_STR "${DEF_FLAGS}")
-
-# 确保在 CMakeLists.txt 中明确设置 Fortran 模块目录
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-
-# Select source files based on mode
-if(MACOM_REGION_MODE)
-    # Region mode: use src-region files
-    file(GLOB SRC_FORTRAN_FILES
-        "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-region/*.f90"
+    # 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
+    add_library(macom_fortran STATIC
+        fortran/macom_logger.f90           
+        fortran/macom_fortran_wrapper.f90
+        ${SRC_FORTRAN_FILES}
     )
-    message(STATUS "Using region mode Fortran sources from src-region/")
-else()
-    # Global mode: use src-globe files
-    file(GLOB SRC_FORTRAN_FILES
-        "${CMAKE_CURRENT_SOURCE_DIR}/fortran/src-globe/*.f90"
+
+    # 设置 Fortran 模块输出目录
+    set_property(TARGET macom_fortran PROPERTY Fortran_MODULE_DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY})
+
+    # 添加模块目录到包含路径
+    target_include_directories(macom_fortran PUBLIC
+        ${CMAKE_Fortran_MODULE_DIRECTORY}
+        ${NetCDF_Fortran_INCLUDE_DIRS}
+        $<IF:$<NOT:$<BOOL:${WIN32}>>,${HDF5_INCLUDE_DIRS};${CURL_INCLUDE_DIRS},>
     )
-    message(STATUS "Using global mode Fortran sources from src-globe/")
-endif()
 
-# 创建 Fortran 实现库，确保 macom_logger.f90 在 macom_fortran_wrapper.f90 之前
-add_library(macom_fortran STATIC
-    fortran/macom_logger.f90           
-    fortran/macom_fortran_wrapper.f90
-    ${SRC_FORTRAN_FILES}
-)
+    # Set Fortran compiler flags and macros
+    target_compile_definitions(macom_fortran PUBLIC
+        $<$<COMPILE_LANGUAGE:Fortran>:${DEF_FLAGS}>
+    )
 
-# 设置 Fortran 模块输出目录
-set_property(TARGET macom_fortran PROPERTY Fortran_MODULE_DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY})
+    if(WIN32)
+        target_link_libraries(macom_fortran PUBLIC HDF5 CURL)
+    else()
+        target_link_libraries(macom_fortran PUBLIC ${HDF5_LIBRARIES} ${CURL_LIBRARIES})
+    endif()
 
-# 添加模块目录到包含路径
-target_include_directories(macom_fortran PUBLIC
-    ${CMAKE_Fortran_MODULE_DIRECTORY}
-    ${NetCDF_Fortran_INCLUDE_DIRS}
-    $<IF:$<NOT:$<BOOL:${WIN32}>>,${HDF5_INCLUDE_DIRS};${CURL_INCLUDE_DIRS},>
-)
+    # Link Fortran dependencies
+    target_link_libraries(macom_fortran PUBLIC
+        ${NetCDF_Fortran_LIBRARIES}
+        MPI::MPI_Fortran
+    )
 
-# Set Fortran compiler flags and macros
-target_compile_definitions(macom_fortran PUBLIC
-    $<$<COMPILE_LANGUAGE:Fortran>:${DEF_FLAGS}>
-)
+    # Create C++ implementation library that links with Fortran
+    add_library(macom_impl STATIC
+        src/MACOMFortranInterface.cpp
+    )
 
-if(WIN32)
-    target_link_libraries(macom_fortran PUBLIC HDF5 CURL)
+    # Set include directories for implementation
+    target_include_directories(macom_impl
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    # Link C++ implementation with Fortran implementation and dependencies
+    target_link_libraries(macom_impl PUBLIC
+        macom_fortran
+    )
+
+    # Link interface with implementation
+    target_link_libraries(macom_backends INTERFACE macom_impl)
+
 else()
-    target_link_libraries(macom_fortran PUBLIC ${HDF5_LIBRARIES} ${CURL_LIBRARIES})
+    # No MACOM mode enabled - only create C++ interface without Fortran
+    message(STATUS "MACOM modes disabled - building C++ interface only (no Fortran compilation)")
+    
+    # Create C++ implementation library without Fortran
+    add_library(macom_impl STATIC
+        src/MACOMFortranInterface.cpp
+    )
+
+    # Set include directories for implementation
+    target_include_directories(macom_impl
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    # Link interface with implementation (no Fortran dependencies)
+    target_link_libraries(macom_backends INTERFACE macom_impl)
 endif()
-
-# Link Fortran dependencies
-target_link_libraries(macom_fortran PUBLIC
-    ${NetCDF_Fortran_LIBRARIES}
-    MPI::MPI_Fortran
-)
-
-# Create C++ implementation library that links with Fortran
-add_library(macom_impl STATIC
-    src/MACOMFortranInterface.cpp
-)
-
-# Set include directories for implementation
-target_include_directories(macom_impl
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-# Link C++ implementation with Fortran implementation and dependencies
-target_link_libraries(macom_impl PUBLIC
-    macom_fortran
-)
-
-# Link interface with implementation
-target_link_libraries(macom_backends INTERFACE macom_impl)
 
 # Add format target
 AddFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
