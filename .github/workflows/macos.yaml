@@ -52,7 +52,12 @@ jobs:
           nlohmann-json \
           netcdf \
           netcdf-cxx \
-          eigen
+          eigen \
+          # MACOM dependencies
+          open-mpi \
+          hdf5 \
+          curl \
+          netcdf-fortran
         
     - name: Install xtl and xtensor
       run: |
@@ -66,6 +71,15 @@ jobs:
         git clone https://github.com/xtensor-stack/xtensor.git
         mkdir xtensor/build
         cd xtensor/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/opt/homebrew
+        cmake --build .
+        ninja install
+
+    - name: Install nanoflann
+      run: |
+        git clone https://github.com/jlblancoc/nanoflann.git
+        mkdir nanoflann/build
+        cd nanoflann/build
         cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/opt/homebrew
         cmake --build .
         ninja install

@@ -52,7 +52,12 @@ jobs:
           libnetcdf-dev \
           libnetcdf-c++4-dev \
           libxtensor-dev \
-          libeigen3-dev
+          libeigen3-dev \
+          # MACOM dependencies
+          libopenmpi-dev \
+          libhdf5-dev \
+          libcurl4-openssl-dev \
+          libnetcdff-dev
 
     - name: Install CMake 3.30+
       shell: bash
@@ -69,6 +74,17 @@ jobs:
         source /opt/intel/oneapi/setvars.sh --force || true
         echo "ICX path: $(which icx)"
         echo "IFX path: $(which ifx)"
+
+    - name: Install nanoflann
+      shell: bash
+      run: |
+        git clone https://github.com/jlblancoc/nanoflann.git
+        cd nanoflann
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+        make -j$(nproc)
+        make install
 
     - name: Install ng-log
       run: |
