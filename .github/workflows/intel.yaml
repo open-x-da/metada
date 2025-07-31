@@ -61,8 +61,10 @@ jobs:
     - name: Setup Python virtual environment and install Python packages
       shell: bash
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install fprettify
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install fprettify numpy 
 
     - name: Install CMake 3.30+
       shell: bash
