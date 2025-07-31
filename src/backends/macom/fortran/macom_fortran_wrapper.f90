@@ -98,7 +98,7 @@ contains
     call mpi_final_operations()
     if (mpi_rank .eq. 0) then
       call macom_log_info("FortranWrapper", &
-                "c_macom_finalize_mpi: used mpi_final_operations (global mode)")
+                          "c_macom_finalize_mpi: used mpi_final_operations (global mode)")
     end if
 #endif
 
@@ -128,7 +128,7 @@ contains
   end subroutine c_macom_read_namelist
 
   subroutine c_get_macom_config_flags(mitice, restart, assim, &
-                   init_iter, max_iter) bind(c, name='c_get_macom_config_flags')
+                                      init_iter, max_iter) bind(c, name='c_get_macom_config_flags')
     ! Get all configuration flags and parameters at once
     logical(C_BOOL), intent(out) :: mitice, restart, assim
     integer(C_INT), intent(out) :: init_iter, max_iter
@@ -167,7 +167,7 @@ contains
     ! For builds without sea ice support, this is a no-op
     if (mpi_rank .eq. 0) then
       call macom_log_info("FortranWrapper", &
-              "c_macom_initialize_mitice called (no-op - sea ice not compiled)")
+                          "c_macom_initialize_mitice called (no-op - sea ice not compiled)")
     end if
 #endif
   end subroutine c_macom_initialize_mitice
@@ -215,7 +215,7 @@ contains
     ! For builds without sea ice support, this is a no-op
     if (mpi_rank .eq. 0) then
       call macom_log_info("FortranWrapper", &
-                "c_macom_mitice_init_all called (no-op - sea ice not compiled)")
+                          "c_macom_mitice_init_all called (no-op - sea ice not compiled)")
     end if
 #endif
   end subroutine c_macom_mitice_init_all
@@ -289,7 +289,7 @@ contains
     ! For builds without sea ice support, this is a no-op
     if (mpi_rank .eq. 0) then
       call macom_log_info("FortranWrapper", &
-                "c_macom_finalize_mitice called (no-op - sea ice not compiled)")
+                          "c_macom_finalize_mitice called (no-op - sea ice not compiled)")
     end if
 #endif
   end subroutine c_macom_finalize_mitice

@@ -3,7 +3,7 @@
 
 # Basic formatting settings (matching Google C++ style)
 indent=2
-line-length=80
+line-length=150
 whitespace=3
 
 # Whitespace settings - Google style emphasizes readability
@@ -28,62 +28,6 @@ disable-whitespace=false
 # [keywords, procedures/modules, operators, constants]
 # keywords=lowercase (1), procedures=lowercase (1), operators=lowercase (1), constants=uppercase (2)
 case=[1, 1, 1, 2]
-
-# Multi-line formatting settings for automatic line breaking
-# Enable automatic line breaking for long lines
-enable-line-breaks=true
-# Maximum line length before breaking
-max-line-length=80
-# Continuation line indentation
-continuation-indent=4
-# Enable automatic array formatting
-enable-array-formatting=true
-# Enable automatic function call formatting
-enable-function-formatting=true
-# Enable automatic string formatting
-enable-string-formatting=true
-
-# Line breaking preferences
-# Break long function calls
-break-function-calls=true
-# Break long array declarations
-break-array-declarations=true
-# Break long string literals
-break-string-literals=true
-# Break long logical expressions
-break-logical-expressions=true
-# Break long arithmetic expressions
-break-arithmetic-expressions=true
-
-# Continuation character settings
-# Use & for line continuation
-continuation-char="&"
-# Place continuation character at end of line
-continuation-at-end=true
-# Indent continuation lines
-continuation-indent=true
-
-# Array formatting
-# Format long array declarations across multiple lines
-format-arrays=true
-# Align array elements
-align-array-elements=true
-# Maximum elements per line in arrays
-max-array-elements-per-line=3
-
-# Function call formatting
-# Format long function calls across multiple lines
-format-function-calls=true
-# Align function arguments
-align-function-arguments=true
-# Maximum arguments per line in function calls
-max-arguments-per-line=2
-
-# String formatting
-# Break long strings across multiple lines
-format-strings=true
-# Use string concatenation for long strings
-use-string-concatenation=true
 
 # Other settings - Google style principles
 enable-replacements=false

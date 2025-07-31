@@ -12,7 +12,7 @@ module macom_logger
 
   ! Log level names
   character(len=8), parameter :: level_names(4) = [character(len=8) :: &
-                                             "DEBUG", "INFO ", "WARN ", "ERROR"]
+                                                   "DEBUG", "INFO ", "WARN ", "ERROR"]
 
   ! Default log level
   integer, save :: current_log_level = LOG_INFO
