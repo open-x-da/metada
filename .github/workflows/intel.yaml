@@ -60,8 +60,7 @@ jobs:
   
     - name: Install fprettify
       run: |
-        python3 -m pip install --upgrade pip --break-system-packages
-        python3 -m pip install fprettify --break-system-packages
+        python3 -m pip install --user fprettify
 
     - name: Install CMake 3.30+
       shell: bash
