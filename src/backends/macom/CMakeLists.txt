@@ -1,7 +1,7 @@
 # Find required dependencies for MACOM
 # Ensure FindMPI is robust. It should set MPI_FOUND and imported targets like MPI::MPI_C, MPI::MPI_Fortran.
 # MACOM mode selection - mutually exclusive options
-option(MACOM_REGION_MODE "Build MACOM in region mode" ON)
+option(MACOM_REGION_MODE "Build MACOM in region mode" OFF)
 option(MACOM_GLOBAL_MODE "Build MACOM in global mode" OFF)
 
 # Check if any MACOM mode is enabled
@@ -263,23 +263,26 @@ endif()
 # Add format targets
 AddFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Fortran formatting configuration
-# Uncomment one of the following options:
+# Fortran formatting configuration - Multiple options for different use cases:
 
-# Option 1: Format all Fortran files (current setting)
+# Option 1: Format all Fortran files (SLOW - not recommended)
 # AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Option 2: Exclude src-region directory from formatting
-AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/src-region")
-
-# Option 3: Exclude src-globe directory from formatting  
-# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/src-globe")
-
-# Option 4: Exclude both directories from formatting
+# Option 2: Exclude large directories from formatting (MEDIUM SPEED)
 # AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/src-region;fortran/src-globe")
 
-# Option 5: Exclude legacy or third-party code
-# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/legacy;fortran/third_party")
+# Option 3: Format only specific files (FASTEST - RECOMMENDED)
+# Using relative paths from CMAKE_CURRENT_SOURCE_DIR
+AddFortranFormatTargetSelective(macom_backends FILES "fortran/macom_logger.f90;fortran/macom_fortran_wrapper.f90")
+
+# Alternative: Using absolute paths (more explicit)
+# AddFortranFormatTargetSelective(macom_backends FILES "${CMAKE_CURRENT_SOURCE_DIR}/fortran/macom_logger.f90;${CMAKE_CURRENT_SOURCE_DIR}/fortran/macom_fortran_wrapper.f90")
+
+# Option 4: Format specific directories only
+# AddFortranFormatTargetSelective(macom_backends DIRS "fortran/wrapper;fortran/utils")
+
+# Option 5: Disable Fortran formatting entirely
+# (No AddFortranFormatTarget call)
 
 
 

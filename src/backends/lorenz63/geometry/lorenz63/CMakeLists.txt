@@ -23,4 +23,3 @@ add_library(metada::backends::lorenz63::geometry
   ALIAS lorenz63_geometry)
 
 AddFormatTarget(lorenz63_geometry ${CMAKE_CURRENT_SOURCE_DIR})
-AddFortranFormatTarget(lorenz63_geometry ${CMAKE_CURRENT_SOURCE_DIR})

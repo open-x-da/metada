@@ -35,9 +35,9 @@ jobs:
       run: |
         brew update
         # Install gfortran from gcc
-        brew install gcc@13
+        brew install gcc@14
         # Find gfortran location
-        GFORTRAN_PATH=$(brew --prefix gcc@13)/bin/gfortran-13
+        GFORTRAN_PATH=$(brew --prefix gcc@14)/bin/gfortran-14
         echo "Found gfortran at: ${GFORTRAN_PATH}"
         # Install other dependencies
         brew install \
@@ -45,6 +45,7 @@ jobs:
           ninja \
           python \
           numpy \
+          fprettify \
           googletest \
           llvm \
           lcov \

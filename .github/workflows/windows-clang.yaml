@@ -69,6 +69,7 @@ jobs:
           mingw-w64-x86_64-hdf5
           mingw-w64-x86_64-curl
           mingw-w64-x86_64-netcdf-fortran
+          mingw-w64-x86_64-python-fprettify
           
     - name: Install xtl and xtensor
       run: |

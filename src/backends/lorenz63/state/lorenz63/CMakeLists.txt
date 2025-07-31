@@ -18,4 +18,3 @@ add_library(metada::backends::lorenz63::state
   ALIAS lorenz63_state)
 
 AddFormatTarget(lorenz63_state ${CMAKE_CURRENT_SOURCE_DIR})
-AddFortranFormatTarget(lorenz63_state ${CMAKE_CURRENT_SOURCE_DIR})
