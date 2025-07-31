@@ -1,0 +1,37 @@
+# Google Fortran Style Guide Configuration
+# Based on Google C++ Style Guide principles adapted for Fortran
+
+# Basic formatting settings (matching Google C++ style)
+indent=2
+line-length=150
+whitespace=3
+
+# Whitespace settings - Google style emphasizes readability
+whitespace-comma=true
+whitespace-assignment=true
+whitespace-decl=true
+whitespace-relational=true
+whitespace-logical=true
+whitespace-plusminus=true
+whitespace-multdiv=true
+whitespace-print=true
+whitespace-type=true
+whitespace-intrinsics=true
+
+# Indentation settings - Google style uses consistent indentation
+strict-indent=true
+enable-decl=true
+disable-indent=false
+disable-whitespace=false
+
+# Case formatting - Google style uses lowercase for keywords
+# [keywords, procedures/modules, operators, constants]
+# keywords=lowercase (1), procedures=lowercase (1), operators=lowercase (1), constants=uppercase (2)
+case=[1, 1, 1, 2]
+
+# Other settings - Google style principles
+enable-replacements=false
+c-relations=false
+strip-comments=true
+disable-fypp=false
+disable-indent-mod=false 

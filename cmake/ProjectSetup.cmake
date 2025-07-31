@@ -43,6 +43,9 @@ function(metada_project_initialize)
 
     # Include code formatting configuration
     include(CodeFormat)
+    
+    # Include Fortran code formatting configuration
+    include(FortranCodeFormat)
 
     # Include testing and coverage configuration
     include(TestingAndCoverage)

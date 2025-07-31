@@ -1,0 +1,51 @@
+logger:
+  app_name: "etkf"
+  level: "debug"
+  color: true
+  console: true
+
+# Geometry for the ensemble
+geometry:
+  file: "D:/macom/grid/nmefc_macom_reg_ll_grid_1d_vertical_cropped.nc"
+
+# Ensemble variables to analyze
+ensemble:
+  members:
+    - state:
+        file: "D:/macom/grid/nmefc_macom_initinal_1d_vertical_cropped.nc"
+        timestamp: "2000-01-24_12:00:00Z"
+        variables:
+          - t
+    - state:
+        file: "D:/macom/grid/nmefc_macom_initinal_1d_vertical_cropped.nc"
+        timestamp: "2000-01-24_12:00:00Z"
+        variables:
+          - t
+
+# Observation settings
+observations:
+  types:
+    - sea_surface_temp:
+        if_use: true
+        file: "D:/macom/obs/sst_satellite_20240101.txt"
+        format: "geographic"  # lat lon level value error
+        variables:
+          - temperature:
+              if_use: true
+              error: 0.5
+              missing_value: -999.0
+
+# Observation operator settings
+obs_operator:
+  variables:
+    - simple:
+        if_use: true
+        error: 0.1  # standard deviations
+
+# Analysis settings
+analysis:
+  algorithm: "etkf"
+  inflation: 1.0
+  localization_radius: 100.0
+  format: "nc"
+  output_base_file: "./analysis" 

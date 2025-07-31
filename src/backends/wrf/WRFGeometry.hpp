@@ -11,13 +11,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#if defined(_WIN32) || defined(__APPLE__)
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
-#else
-#include <xtensor/xadapt.hpp>
-#include <xtensor/xarray.hpp>
-#endif
 
 #include "Location.hpp"
 #include "WRFGeometryIterator.hpp"
