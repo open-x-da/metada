@@ -7,8 +7,6 @@
 
 #include "../include/MACOMFortranInterface.hpp"
 
-#include <mpi.h>
-
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -70,9 +68,12 @@ MACOMFortranInterface::MACOMFortranInterface()
       size_(1),
       io_procs_(0),
       comp_procs_(1),
-      mpi_initialized_by_this_instance_(false),
-      model_components_initialized_(false) {
+      mpi_initialized_by_this_instance_(false) {
+#if MACOM_MODE_ENABLED
   mpi_comm_ = MPI_COMM_NULL;
+#else
+  mpi_comm_ = nullptr;
+#endif
   f_comm_ = 0;
 }
 
@@ -88,6 +89,7 @@ MACOMFortranInterface::~MACOMFortranInterface() {
 }
 
 void MACOMFortranInterface::initializeMPI(int io_procs) {
+#if MACOM_MODE_ENABLED
   if (mpi_initialized_by_this_instance_) {
     logInfo("MACOMFortranInterface",
             "MPI already initialized by this instance");
@@ -128,6 +130,28 @@ void MACOMFortranInterface::initializeMPI(int io_procs) {
   comp_procs_ = size_ - io_procs_;
 
   mpi_initialized_by_this_instance_ = true;
+#else
+  // No MACOM mode enabled - just initialize basic MPI info
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - using basic MPI initialization");
+
+  // Get basic MPI info if MPI is available
+#if defined(MPI_FOUND) && MPI_FOUND
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank_);
+  MPI_Comm_size(MPI_COMM_WORLD, &size_);
+  mpi_comm_ = MPI_COMM_WORLD;
+#else
+  // No MPI available - use default values
+  rank_ = 0;
+  size_ = 1;
+  mpi_comm_ = nullptr;
+#endif
+
+  io_procs_ = io_procs;
+  comp_procs_ = size_ - io_procs_;
+
+  mpi_initialized_by_this_instance_ = true;
+#endif
 }
 
 int MACOMFortranInterface::getRank() const {
@@ -143,15 +167,21 @@ int MACOMFortranInterface::getFortranComm() const {
 }
 
 void MACOMFortranInterface::readNamelist() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error("MPI must be initialized before reading namelist");
   }
   // logInfo("MACOMFortranInterface", "Calling Fortran to read namelist...");
   c_macom_read_namelist();
   // logInfo("MACOMFortranInterface", "Fortran read namelist finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - namelist reading skipped");
+#endif
 }
 
 void MACOMFortranInterface::finalizeMPI() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     return;
   }
@@ -165,18 +195,35 @@ void MACOMFortranInterface::finalizeMPI() {
   mpi_initialized_by_this_instance_ = false;
   rank_ = 0;
   // logInfo("MACOMFortranInterface", "Fortran MPI finalize finished");
+#else
+  if (!mpi_initialized_by_this_instance_) {
+    return;
+  }
+
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - basic MPI finalization");
+  mpi_comm_ = nullptr;
+  f_comm_ = 0;
+  mpi_initialized_by_this_instance_ = false;
+  rank_ = 0;
+#endif
 }
 
 void MACOMFortranInterface::barrier() {
   if (!mpi_initialized_by_this_instance_) {
     return;
   }
+#if MACOM_MODE_ENABLED && defined(MPI_FOUND) && MPI_FOUND
   MPI_Barrier(mpi_comm_);
+#else
+  // No-op when MPI is not available
+#endif
 }
 
 void MACOMFortranInterface::getConfigFlags(bool& mitice, bool& restart,
                                            bool& assim, int& init_iter,
                                            int& max_iter) {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error(
         "MPI must be initialized before getting config flags");
@@ -184,9 +231,19 @@ void MACOMFortranInterface::getConfigFlags(bool& mitice, bool& restart,
   // logInfo("MACOMFortranInterface", "Calling Fortran to get config flags...");
   c_get_macom_config_flags(&mitice, &restart, &assim, &init_iter, &max_iter);
   // logInfo("MACOMFortranInterface", "Fortran get config flags finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - returning default config flags");
+  mitice = false;
+  restart = false;
+  assim = false;
+  init_iter = 0;
+  max_iter = 1;
+#endif
 }
 
 void MACOMFortranInterface::initializeMitice() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error(
         "MPI must be initialized before initializing mitice components");
@@ -196,6 +253,10 @@ void MACOMFortranInterface::initializeMitice() {
   c_macom_initialize_mitice();
   // logInfo("MACOMFortranInterface", "Fortran initialize mitice components
   // finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - mitice initialization skipped");
+#endif
 }
 
 int MACOMFortranInterface::getCompProcs() const {
@@ -207,6 +268,7 @@ int MACOMFortranInterface::getCompProcs() const {
 }
 
 void MACOMFortranInterface::sendInfoToIO() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error(
         "MPI must be initialized before sending info to IO");
@@ -214,9 +276,14 @@ void MACOMFortranInterface::sendInfoToIO() {
   // logInfo("MACOMFortranInterface", "Calling Fortran to send info to IO...");
   c_macom_mpi_send_info_comp_to_io();
   // logInfo("MACOMFortranInterface", "Fortran send info to IO finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - send info to IO skipped");
+#endif
 }
 
 void MACOMFortranInterface::openMiscRunInfo() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error(
         "MPI must be initialized before opening misc run info");
@@ -225,18 +292,28 @@ void MACOMFortranInterface::openMiscRunInfo() {
   // info...");
   c_macom_misc_run_info_open();
   // logInfo("MACOMFortranInterface", "Fortran open misc run info finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - open misc run info skipped");
+#endif
 }
 
 void MACOMFortranInterface::initCSP() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error("MPI must be initialized before initializing CSP");
   }
   logInfo("MACOMFortranInterface", "Calling Fortran to initialize CSP...");
   c_macom_init_csp();
   logInfo("MACOMFortranInterface", "Fortran CSP initialization finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - CSP initialization skipped");
+#endif
 }
 
 void MACOMFortranInterface::miticeInitAll() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error(
         "MPI must be initialized before initializing mitice (all)");
@@ -246,9 +323,14 @@ void MACOMFortranInterface::miticeInitAll() {
   c_macom_mitice_init_all();
   logInfo("MACOMFortranInterface",
           "Fortran mitice full initialization finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - mitice init all skipped");
+#endif
 }
 
 void MACOMFortranInterface::restartAndAssim() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error(
         "MPI must be initialized before restart/assimilation");
@@ -257,27 +339,45 @@ void MACOMFortranInterface::restartAndAssim() {
           "Calling Fortran to handle restart and assimilation...");
   c_macom_restart_and_assim();
   logInfo("MACOMFortranInterface", "Fortran restart/assimilation finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - restart and assimilation skipped");
+#endif
 }
 
 void MACOMFortranInterface::runCspStep() {
+#if MACOM_MODE_ENABLED
   if (!mpi_initialized_by_this_instance_) {
     throw std::runtime_error("MPI must be initialized before running CSP step");
   }
   logInfo("MACOMFortranInterface", "Calling Fortran to run CSP step...");
   c_macom_run_csp_step();
   logInfo("MACOMFortranInterface", "Fortran CSP step finished");
+#else
+  logInfo("MACOMFortranInterface", "MACOM modes disabled - CSP step skipped");
+#endif
 }
 
 void MACOMFortranInterface::CspIoMain() {
+#if MACOM_MODE_ENABLED
   logInfo("MACOMFortranInterface", "Calling Fortran IO process main...");
   c_macom_csp_io_main();
   logInfo("MACOMFortranInterface", "Fortran IO process main finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - CSP IO main skipped");
+#endif
 }
 
 void MACOMFortranInterface::finalizeMitice() {
+#if MACOM_MODE_ENABLED
   logInfo("MACOMFortranInterface", "Calling Fortran to finalize mitice...");
   c_macom_finalize_mitice();
   logInfo("MACOMFortranInterface", "Fortran mitice finalize finished");
+#else
+  logInfo("MACOMFortranInterface",
+          "MACOM modes disabled - mitice finalize skipped");
+#endif
 }
 
 }  // namespace metada::backends::macom

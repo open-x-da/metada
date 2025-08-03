@@ -7,10 +7,19 @@
 
 #pragma once
 
+// MACOM_MODE_ENABLED is defined by CMake
+#if MACOM_MODE_ENABLED
 #include <mpi.h>
+#else
+// Define a dummy MPI_Comm type when MPI is not available
+typedef void* MPI_Comm;
+#define MPI_COMM_NULL nullptr
+#define MPI_COMM_WORLD nullptr
+#endif
 
 // Forward declare the C functions from the Fortran wrapper
 extern "C" {
+#if MACOM_MODE_ENABLED
 void c_macom_initialize_mpi(int comm_c);
 void c_macom_get_mpi_rank(int* rank);
 void c_macom_get_mpi_size(int* size);
@@ -27,6 +36,7 @@ void c_macom_restart_and_assim();
 void c_macom_run_csp_step();
 void c_macom_csp_io_main();
 void c_macom_finalize_mitice();
+#endif
 }
 
 namespace metada::backends::macom {
@@ -164,7 +174,6 @@ class MACOMFortranInterface {
   int io_procs_;       // Number of I/O processes
   int comp_procs_;     // Number of compute processes
   bool mpi_initialized_by_this_instance_;
-  bool model_components_initialized_;
 };
 
 }  // namespace metada::backends::macom

@@ -35,9 +35,9 @@ jobs:
       run: |
         brew update
         # Install gfortran from gcc
-        brew install gcc@13
+        brew install gcc@14
         # Find gfortran location
-        GFORTRAN_PATH=$(brew --prefix gcc@13)/bin/gfortran-13
+        GFORTRAN_PATH=$(brew --prefix gcc@14)/bin/gfortran-14
         echo "Found gfortran at: ${GFORTRAN_PATH}"
         # Install other dependencies
         brew install \
@@ -45,6 +45,7 @@ jobs:
           ninja \
           python \
           numpy \
+          fprettify \
           googletest \
           llvm \
           lcov \
@@ -52,7 +53,11 @@ jobs:
           nlohmann-json \
           netcdf \
           netcdf-cxx \
-          eigen
+          eigen \
+          open-mpi \
+          hdf5 \
+          curl \
+          netcdf-fortran
         
     - name: Install xtl and xtensor
       run: |
@@ -66,6 +71,15 @@ jobs:
         git clone https://github.com/xtensor-stack/xtensor.git
         mkdir xtensor/build
         cd xtensor/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/opt/homebrew
+        cmake --build .
+        ninja install
+
+    - name: Install nanoflann
+      run: |
+        git clone https://github.com/jlblancoc/nanoflann.git
+        mkdir nanoflann/build
+        cd nanoflann/build
         cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/opt/homebrew
         cmake --build .
         ninja install

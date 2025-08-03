@@ -63,6 +63,11 @@ jobs:
           mingw-w64-x86_64-netcdf
           mingw-w64-x86_64-netcdf-cxx
           mingw-w64-x86_64-eigen3
+          mingw-w64-x86_64-msmpi
+          mingw-w64-x86_64-hdf5
+          mingw-w64-x86_64-curl
+          mingw-w64-x86_64-netcdf-fortran
+          mingw-w64-x86_64-python-fprettify
           
     - name: Install xtl and xtensor
       run: |
@@ -76,6 +81,15 @@ jobs:
         git clone https://github.com/xtensor-stack/xtensor.git
         mkdir xtensor/build
         cd xtensor/build
+        cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
+        cmake --build .
+        ninja install
+
+    - name: Install nanoflann
+      run: |
+        git clone https://github.com/jlblancoc/nanoflann.git
+        mkdir nanoflann/build
+        cd nanoflann/build
         cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64
         cmake --build .
         ninja install
