@@ -14,3 +14,6 @@ target_link_libraries(obsoperator
 
 # Add format target
 AddFormatTarget(obsoperator ${CMAKE_CURRENT_SOURCE_DIR}) 
+
+# Build the WRFDA bridge (stub by default)
+add_subdirectory(wrfda_bridge)
