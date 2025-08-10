@@ -263,26 +263,5 @@ endif()
 # Add format targets
 AddFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Fortran formatting configuration - Multiple options for different use cases:
-
-# Option 1: Format all Fortran files (SLOW - not recommended)
-# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR})
-
-# Option 2: Exclude large directories from formatting (MEDIUM SPEED)
-# AddFortranFormatTarget(macom_backends ${CMAKE_CURRENT_SOURCE_DIR} EXCLUDE_DIRS "fortran/src-region;fortran/src-globe")
-
-# Option 3: Format only specific files (FASTEST - RECOMMENDED)
-# Using relative paths from CMAKE_CURRENT_SOURCE_DIR
-AddFortranFormatTargetSelective(macom_backends FILES "fortran/macom_logger.f90;fortran/macom_fortran_wrapper.f90")
-
-# Alternative: Using absolute paths (more explicit)
-# AddFortranFormatTargetSelective(macom_backends FILES "${CMAKE_CURRENT_SOURCE_DIR}/fortran/macom_logger.f90;${CMAKE_CURRENT_SOURCE_DIR}/fortran/macom_fortran_wrapper.f90")
-
-# Option 4: Format specific directories only
-# AddFortranFormatTargetSelective(macom_backends DIRS "fortran/wrapper;fortran/utils")
-
-# Option 5: Disable Fortran formatting entirely
-# (No AddFortranFormatTarget call)
-
 
 
