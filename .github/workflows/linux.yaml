@@ -56,10 +56,7 @@ jobs:
           libcurl4-openssl-dev \
           libnetcdff-dev
 
-    - name: Install fprettify
-      run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install fprettify 
+ 
 
     - name: Install GCC 14.2.0
       run: |

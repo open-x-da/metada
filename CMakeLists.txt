@@ -26,7 +26,6 @@ metada_project_initialize()
 metada_find_package(GTest CONFIG)
 metada_find_package(Git)
 metada_find_package(ClangFormat)
-metada_find_package(Fprettify)
 metada_find_package(Eigen3 CONFIG)
 
 # Find optional external dependencies

@@ -45,7 +45,6 @@ jobs:
           ninja \
           python \
           numpy \
-          fprettify \
           googletest \
           llvm \
           lcov \
