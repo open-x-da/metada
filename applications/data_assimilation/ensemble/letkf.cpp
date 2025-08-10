@@ -21,9 +21,11 @@
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "SimpleBackendTraits.hpp"
+// #include "MACOMBackendTraits.hpp"
 
 namespace fwk = metada::framework;
 using BackendTag = metada::traits::SimpleBackendTag;
+// using BackendTag = metada::traits::MACOMBackendTag;
 
 int main(int argc, char** argv) {
   try {

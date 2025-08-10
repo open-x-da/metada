@@ -4,37 +4,31 @@ logger:
   color: true
   console: true
 
+# Geometry for the forecast
 geometry:
-  x_dim: 36
-  y_dim: 18
+  file: "D:/macom/glo_1_6/exp/nmefc_macom_csp_grid_d01.nc"
 
+# Initial state
 state:
-  file: "D:/linux/pdaf-fork/tutorial/inputs_offline/ens_1.txt"
+  file: "D:/macom/glo_1_6/exp/nmefc_macom_csp_initinal_d01.nc"
   timestamp: "2000-01-24T12:00:00Z"
   variables:
-    - U
-    - V
-    - QVAPOR
-    - T
-    - PH
-    - MU
-    - MUB
-    - P
-    - PB
-    - T2
-    - Q2
-    - U10
-    - V10
+    - "u"
+    - "v"
+    - "w"
+    - "t"
+    - "s"
 
+# Model configuration
 model:
   time_control:
     start_datetime: "2000-01-24T12:00:00Z"
-    forecast_length: 24h
+    forecast_length: "24h"
     end_datetime: "2000-01-25T12:00:00Z"
-    time_step: 360s
+    time_step: "360s"
     output_history: true
-    history_file: "forecast.nc"
-    history_frequency: 3600s
+    history_file: "./forecast.nc"
+    history_frequency: "3600s"
   dynamics:
     advection_scheme: "WENO"
     diffusion: 0.0
@@ -42,4 +36,4 @@ model:
     microphysics: true
     radiation: true
     pbl: true
-    lsm: true
+    lsm: true 

@@ -2,7 +2,10 @@
     "cmake.cmakePath": "C:/msys64/mingw64/bin/cmake.exe",
     "cmake.generator": "Ninja",
     "cmake.configureSettings": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "USE_MPI": "OFF",
+        "CMAKE_Fortran_COMPILER": "C:/msys64/mingw64/bin/gfortran.exe",
+        "CMAKE_Fortran_FLAGS": ""
     },
     "cmake.configureArgs": [
         "-DLOGGER_BACKEND=NGLOG",
@@ -111,8 +114,6 @@
         "csetjmp": "cpp",
         "csignal": "cpp",
         "cuchar": "cpp",
-        "expected": "cpp",
-        "fstream": "cpp",
         "future": "cpp",
         "generator": "cpp",
         "latch": "cpp",
@@ -121,6 +122,9 @@
         "spanstream": "cpp",
         "stdfloat": "cpp",
         "syncstream": "cpp",
-        "typeindex": "cpp"
+        "typeindex": "cpp",
+        "netcdf": "cpp",
+        "expected": "cpp",
+        "fstream": "cpp"
     }
 } 

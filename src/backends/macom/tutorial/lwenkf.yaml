@@ -1,0 +1,70 @@
+logger:
+  app_name: "lwenkf"
+  level: "debug"
+  color: true
+  console: true
+
+# Geometry for the ensemble
+geometry:
+  file: "D:/macom/grid/nmefc_macom_reg_ll_grid_1d_vertical_cropped.nc"
+
+# Ensemble variables to analyze
+ensemble:
+  members:
+    - state:
+        file: "D:/macom/grid/nmefc_macom_initinal_1d_vertical_cropped.nc"
+        timestamp: "2000-01-24_12:00:00Z"
+        variables:
+          - t
+          - s
+          - u
+          - v
+    - state:
+        file: "D:/macom/grid/nmefc_macom_initinal_1d_vertical_cropped.nc"
+        timestamp: "2000-01-24_12:00:00Z"
+        variables:
+          - t
+          - s
+          - u
+          - v
+
+# Observation settings
+observations:
+  types:
+    - sample_obs:
+        if_use: true
+        file: "D:/macom/obs/sst_satellite_20240101.txt"
+        format: "geographic"  # lat lon level value error
+        variables:
+          - temperature:
+              if_use: true
+              error: 0.4
+              missing_value: -999.0
+    
+
+# Observation operator settings
+obs_operator:
+  variables:
+    - temperature:
+        if_use: true
+        error: 0.5
+    - salinity:
+        if_use: true
+        error: 0.1
+
+# Analysis settings
+analysis:
+  algorithm: "lwenkf"
+  inflation: 1.1                    # Inflation factor for ensemble spread
+  inflation_method: "multiplicative" # Inflation method: multiplicative, additive, relaxation
+  
+  # Localization parameters
+  localization_radius: 100.0        # Localization radius (km)
+  localization_function: "gaussian"  # Localization function: gaussian, exponential, cutoff, gaspari_cohn
+  
+  # Weighting parameters
+  weighting_scheme: "adaptive"      # Weighting scheme: uniform, adaptive, inverse_var, likelihood
+  
+  # Output configuration
+  output_base_file: "./analysis"
+  format: "nc"                      # Output format: nc, txt, etc. 
