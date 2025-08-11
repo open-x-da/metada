@@ -56,8 +56,17 @@ if(WITH_WRFDA)
         target_include_directories(wrfda_bridge PUBLIC ${WRFDA_MOD_DIR})
         target_sources(wrfda_bridge PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_dispatch.F90
+            ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_force_symbols.F90
             ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge.c
         )
+
+        # Some WRFDA builds do not archive da_control.o into libwrfvar.a
+        # Link the object explicitly if present to satisfy module globals
+        set(WRFDA_DA_CONTROL_OBJ "${WRFDA_MOD_DIR}/da_control.o")
+        if (EXISTS ${WRFDA_DA_CONTROL_OBJ})
+            message(STATUS "WRFDA bridge: linking extra object ${WRFDA_DA_CONTROL_OBJ}")
+            target_link_libraries(wrfda_bridge PUBLIC ${WRFDA_DA_CONTROL_OBJ})
+        endif()
     else()
         message(WARNING "WRFDA bridge: WRFDA_MOD_DIR not set or missing; building stub only")
         target_sources(wrfda_bridge PRIVATE

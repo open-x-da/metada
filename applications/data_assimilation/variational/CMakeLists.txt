@@ -24,9 +24,26 @@ target_link_libraries(variational
       metada::framework::runs
       metada::backends::common::utils
       metada::backends::common::observation
+      metada::backends::common::io
+      metada::backends::common::obsoperator
+      metada::bridges::wrfda
       metada::framework::algorithms
       metada::backends::wrf
 )
+
+# If WRFDA is enabled, use linker group to resolve circular deps between wrfda_bridge and libwrfvar
+if(WITH_WRFDA AND WRFDA_VAR_LIB)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    # Explicitly add da_control.o if present and not archived in libwrfvar
+    set(WRFDA_DA_CONTROL_OBJ "${WRFDA_MOD_DIR}/da_control.o")
+    if (EXISTS ${WRFDA_DA_CONTROL_OBJ})
+      target_link_libraries(variational PRIVATE ${WRFDA_DA_CONTROL_OBJ})
+    endif()
+    target_link_options(variational PRIVATE -Wl,--start-group)
+    target_link_libraries(variational PRIVATE ${WRFDA_VAR_LIB})
+    target_link_options(variational PRIVATE -Wl,--end-group)
+  endif()
+endif()
 
 # Set output directory
 set_target_properties(tl_ad_checks

@@ -40,12 +40,15 @@ set_source_files_properties(
 set(HEADER_FILES
     BufrFortranAPI.h
     BufrObsIO.hpp
+    PrepBUFRObsAdapter.hpp
+    PrepBUFRWRFDAIntegration.hpp
 )
 
 # Add include directories for headers
 target_include_directories(common_io
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/backends/common/obsoperator>
 )
 
 # Make sure readpb.prm is found by the Fortran compiler

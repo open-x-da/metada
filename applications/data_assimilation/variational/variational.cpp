@@ -22,11 +22,15 @@
 #include "Model.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
-#include "SimpleBackendTraits.hpp"
 #include "State.hpp"
+#include "WRFBackendTraits.hpp"
+// PrepBUFR + WRFDA integration helpers
+#include "../src/backends/common/io/BufrObsIO.hpp"
+#include "../src/backends/common/io/PrepBUFRObsAdapter.hpp"
+#include "../src/backends/common/io/PrepBUFRWRFDAIntegration.hpp"
 
 namespace fwk = metada::framework;
-using BackendTag = metada::traits::SimpleBackendTag;
+using BackendTag = metada::traits::WRFBackendTag;
 
 int main(int argc, char** argv) {
   try {
@@ -49,6 +53,24 @@ int main(int argc, char** argv) {
 
     // Initialize geometry
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
+
+    // Optional: obtain obs families to assimilate from YAML (e.g., ["metar:t",
+    // "synop:p"]) and log
+    std::vector<std::string> obs_families;
+    try {
+      auto fam_val = config.Get("obs_families");
+      if (fam_val.isVectorString()) {
+        obs_families = fam_val.asVectorString();
+      } else if (fam_val.isString()) {
+        obs_families.push_back(fam_val.asString());
+      }
+    } catch (...) {
+      // key not present; proceed with defaults
+    }
+    if (!obs_families.empty()) {
+      logger.Info() << "Obs families from config:";
+      for (const auto& f : obs_families) logger.Info() << "  - " << f;
+    }
 
     // Initialize background state
     fwk::State<BackendTag> background(config.GetSubsection("background"),
@@ -73,6 +95,126 @@ int main(int argc, char** argv) {
 
     logger.Info() << "Loaded observation operator for " << var_type
                   << " analysis";
+
+    // Optional example: Read PrepBUFR, group, and call WRFDA H/HT per
+    // configured families
+    try {
+      auto bufr_cfg = config.GetSubsection("prepbufr");
+      using CfgBackend =
+          metada::traits::BackendTraits<BackendTag>::ConfigBackend;
+      metada::backends::io::BufrObsIO<CfgBackend> bufr(
+          std::move(bufr_cfg.backend()));
+      auto bufr_records = bufr.read();
+      auto batches =
+          metada::backends::common::io::PrepBUFRObsAdapter::groupByFamily(
+              bufr_records);
+
+      // Build simple grid arrays from geometry/background (placeholder example)
+      const auto& simpleGeom = geometry.backend();
+      const int nx = static_cast<int>(simpleGeom.x_dim());
+      const int ny = static_cast<int>(simpleGeom.y_dim());
+      int nz = 1;
+      try {
+        nz = config.Get("nz").asInt();
+      } catch (...) {
+        nz = 1;
+      }
+      const size_t nxy = static_cast<size_t>(nx) * ny;
+      const size_t nxyz = nxy * nz;
+      static std::vector<double> u(nxyz, 0.0), v(nxyz, 0.0), t(nxyz, 0.0),
+          q(nxyz, 0.0);
+      static std::vector<double> psfc(nxy, 0.0);
+      static std::vector<double> lats2d(nxy, 0.0), lons2d(nxy, 0.0);
+      static std::vector<double> levels(nz, 0.0);
+      // Fill trivial lat/lon and levels for demo purposes
+      for (int j = 0; j < ny; ++j) {
+        for (int i = 0; i < nx; ++i) {
+          size_t idx = static_cast<size_t>(i) + static_cast<size_t>(j) * nx;
+          lats2d[idx] = static_cast<double>(j);
+          lons2d[idx] = static_cast<double>(i);
+        }
+      }
+      for (int k = 0; k < nz; ++k)
+        levels[static_cast<size_t>(k)] = static_cast<double>(k + 1);
+
+      metada::backends::common::io::GridArrays grid{
+          nx,           ny,       nz,          u.data(),      v.data(),
+          t.data(),     q.data(), psfc.data(), lats2d.data(), lons2d.data(),
+          levels.data()};
+
+      if (!obs_families.empty()) {
+        logger.Info() << "Calling WRFDA H/HT for configured families...";
+        for (const auto& token : obs_families) {
+          std::vector<double> y_out;
+          if (token.rfind("airep:", 0) == 0) {
+            metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                applyProfiles(token, grid, batches.airep, y_out);
+            logger.Info() << "H(x) airep size=" << y_out.size();
+          } else if (token.rfind("pilot:", 0) == 0) {
+            metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                applyProfiles(token, grid, batches.pilot, y_out);
+            logger.Info() << "H(x) pilot size=" << y_out.size();
+          } else if (token.rfind("sound:", 0) == 0) {
+            metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                applyProfiles(token, grid, batches.sound, y_out);
+            logger.Info() << "H(x) sound size=" << y_out.size();
+          } else {
+            const metada::backends::common::io::SurfaceBatch* sb = nullptr;
+            if (token.rfind("metar:", 0) == 0)
+              sb = &batches.metar;
+            else if (token.rfind("synop:", 0) == 0)
+              sb = &batches.synop;
+            else if (token.rfind("ships:", 0) == 0)
+              sb = &batches.ships;
+            else if (token.rfind("buoy:", 0) == 0)
+              sb = &batches.buoy;
+            else if (token.rfind("sonde_sfc:", 0) == 0)
+              sb = &batches.sonde_sfc;
+            if (sb && !sb->lats.empty()) {
+              metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                  applySurface(token, grid, *sb, y_out);
+              logger.Info()
+                  << "H(x) surface " << token << " size=" << y_out.size();
+            }
+          }
+          // Example adjoint: reuse y_out as delta_y
+          if (!y_out.empty()) {
+            if (token.rfind("airep:", 0) == 0) {
+              metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                  adjointProfiles(token, grid, batches.airep, y_out, u.data(),
+                                  v.data(), t.data(), q.data(), psfc.data());
+            } else if (token.rfind("pilot:", 0) == 0) {
+              metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                  adjointProfiles(token, grid, batches.pilot, y_out, u.data(),
+                                  v.data(), t.data(), q.data(), psfc.data());
+            } else if (token.rfind("sound:", 0) == 0) {
+              metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                  adjointProfiles(token, grid, batches.sound, y_out, u.data(),
+                                  v.data(), t.data(), q.data(), psfc.data());
+            } else {
+              const metada::backends::common::io::SurfaceBatch* sb = nullptr;
+              if (token.rfind("metar:", 0) == 0)
+                sb = &batches.metar;
+              else if (token.rfind("synop:", 0) == 0)
+                sb = &batches.synop;
+              else if (token.rfind("ships:", 0) == 0)
+                sb = &batches.ships;
+              else if (token.rfind("buoy:", 0) == 0)
+                sb = &batches.buoy;
+              else if (token.rfind("sonde_sfc:", 0) == 0)
+                sb = &batches.sonde_sfc;
+              if (sb && !sb->lats.empty()) {
+                metada::backends::common::io::PrepBUFRWRFDAIntegration::
+                    adjointSurface(token, grid, *sb, y_out, u.data(), v.data(),
+                                   t.data(), q.data(), psfc.data());
+              }
+            }
+          }
+        }
+      }
+    } catch (const std::exception& e) {
+      logger.Warning() << "PrepBUFR/WRFDA example skipped: " << e.what();
+    }
 
     // Initialize background error covariance
     fwk::BackgroundErrorCovariance<BackendTag> bg_error_cov(

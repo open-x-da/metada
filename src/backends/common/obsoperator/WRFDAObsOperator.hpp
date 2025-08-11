@@ -24,8 +24,8 @@
 #include <utility>
 #include <vector>
 
-#include "Location.hpp"
 #include "IdentityObsOperator.hpp"
+#include "Location.hpp"
 
 namespace metada::backends::common::obsoperator {
 
@@ -95,14 +95,16 @@ class WRFDAObsOperator {
     }
 
     // Current implementation: delegate to identity/grid interpolation
-    delegate_ = std::make_unique<IdentityObsOperator<StateBackend, ObsBackend>>(config);
+    delegate_ =
+        std::make_unique<IdentityObsOperator<StateBackend, ObsBackend>>(config);
 
     initialized_ = true;
   }
 
   bool isInitialized() const { return initialized_; }
 
-  std::vector<double> apply(const StateBackend& state, const ObsBackend& obs) const {
+  std::vector<double> apply(const StateBackend& state,
+                            const ObsBackend& obs) const {
     ensureInitialized();
     return delegate_->apply(state, obs);
   }
@@ -111,7 +113,9 @@ class WRFDAObsOperator {
     return required_state_vars_;
   }
 
-  const std::vector<std::string>& getRequiredObsVars() const { return required_obs_vars_; }
+  const std::vector<std::string>& getRequiredObsVars() const {
+    return required_obs_vars_;
+  }
 
   std::vector<double> applyTangentLinear(const StateBackend& state_increment,
                                          const StateBackend& reference_state,
@@ -122,8 +126,7 @@ class WRFDAObsOperator {
 
   void applyAdjoint(const std::vector<double>& obs_increment,
                     const StateBackend& reference_state,
-                    StateBackend& result_state,
-                    const ObsBackend& obs) const {
+                    StateBackend& result_state, const ObsBackend& obs) const {
     ensureInitialized();
     delegate_->applyAdjoint(obs_increment, reference_state, result_state, obs);
   }
@@ -147,5 +150,3 @@ class WRFDAObsOperator {
 };
 
 }  // namespace metada::backends::common::obsoperator
-
-

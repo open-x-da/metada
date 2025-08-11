@@ -5,9 +5,10 @@
  * @author Metada Framework Team
  *
  * @details
- * This class provides an identity observation operator backend interface that maps 
- * any state backend to any observation backend. The observation operator performs nearest-neighbor 
- * interpolation from the model grid to observation locations.
+ * This class provides an identity observation operator backend interface that
+ * maps any state backend to any observation backend. The observation operator
+ * performs nearest-neighbor interpolation from the model grid to observation
+ * locations.
  */
 
 #pragma once
@@ -33,7 +34,8 @@ using framework::CoordinateSystem;
  * - Supports multiple observation types and variables
  * - Handles missing values and quality control
  * - Provides configuration-based initialization
- * - Works with any state and observation backends that provide required interfaces
+ * - Works with any state and observation backends that provide required
+ * interfaces
  *
  * @tparam StateBackend Type of state backend to operate on
  * @tparam ObsBackend Type of observation backend to operate on
@@ -150,9 +152,10 @@ class IdentityObsOperator {
 
       // Determine which state variable to interpolate from
       std::string state_var_name = determineStateVariable(obs_point);
-      
+
       // Perform variable-specific interpolation
-      double interpolated_value = interpolateFromVariable(state, obs_point, state_var_name);
+      double interpolated_value =
+          interpolateFromVariable(state, obs_point, state_var_name);
       result.push_back(interpolated_value);
     }
 
@@ -160,22 +163,25 @@ class IdentityObsOperator {
   }
 
   /**
-   * @brief Determine which state variable to interpolate from based on observation
+   * @brief Determine which state variable to interpolate from based on
+   * observation
    *
    * @param obs_point The observation point
    * @return Name of the state variable to interpolate from
    */
-  std::string determineStateVariable(const typename ObsBackend::value_type& obs_point) const {
+  std::string determineStateVariable(
+      const typename ObsBackend::value_type& obs_point) const {
     // If we have required state variables specified, use the first one
     if (!required_state_vars_.empty()) {
       return required_state_vars_[0];
     }
-    
-    // For WRFState-like backends, try to determine variable from observation type
+
+    // For WRFState-like backends, try to determine variable from observation
+    // type
     if constexpr (requires { obs_point.variable_name; }) {
       // If observation has a variable name, try to map it to state variable
       std::string obs_var = obs_point.variable_name;
-      
+
       // Simple mapping from observation variables to state variables
       if (obs_var == "T" || obs_var == "T2" || obs_var == "temperature") {
         return "T";  // Temperature
@@ -192,11 +198,12 @@ class IdentityObsOperator {
         return obs_var;
       }
     }
-    
+
     // Default: use first available variable from state
     // Note: We can't access state here, so we'll use a fallback
-    // The actual state variable selection will be handled in interpolateFromVariable
-    
+    // The actual state variable selection will be handled in
+    // interpolateFromVariable
+
     // Fallback: assume single variable state
     return "state";
   }
@@ -209,26 +216,34 @@ class IdentityObsOperator {
    * @param state_var_name Name of the state variable to interpolate from
    * @return Interpolated value
    */
-  double interpolateFromVariable(const StateBackend& state,
-                                const typename ObsBackend::value_type& obs_point,
-                                const std::string& state_var_name) const {
-      // Convert observation location to grid coordinates
-      double x, y, z;
-    if (obs_point.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
-        auto [lat, lon, level] = obs_point.location.getGeographicCoords();
-        auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(lat, lon, level, state.geometry());
-        x = static_cast<double>(grid_i);
-        y = static_cast<double>(grid_j);
-        z = static_cast<double>(grid_k);
-      } else {
-        auto [i, j, k] = obs_point.location.getGridCoords();
-        x = static_cast<double>(i);
-        y = static_cast<double>(j);
-        z = static_cast<double>(k);
-      }
-    if constexpr (requires { state.at(state_var_name, std::declval<size_t>()); }) {
+  double interpolateFromVariable(
+      const StateBackend& state,
+      const typename ObsBackend::value_type& obs_point,
+      const std::string& state_var_name) const {
+    // Convert observation location to grid coordinates
+    double x, y, z;
+    if (obs_point.location.getCoordinateSystem() ==
+        CoordinateSystem::GEOGRAPHIC) {
+      auto [lat, lon, level] = obs_point.location.getGeographicCoords();
+      auto [grid_i, grid_j, grid_k] =
+          convertGeographicToGrid(lat, lon, level, state.geometry());
+      x = static_cast<double>(grid_i);
+      y = static_cast<double>(grid_j);
+      z = static_cast<double>(grid_k);
+    } else {
+      auto [i, j, k] = obs_point.location.getGridCoords();
+      x = static_cast<double>(i);
+      y = static_cast<double>(j);
+      z = static_cast<double>(k);
+    }
+    if constexpr (requires {
+                    state.at(state_var_name, std::declval<size_t>());
+                  }) {
       return idw4InterpolationVariable(state, x, y, z, state_var_name);
-    } else if constexpr (requires { std::declval<StateBackend>().getVariable(state_var_name); }) {
+    } else if constexpr (requires {
+                           std::declval<StateBackend>().getVariable(
+                               state_var_name);
+                         }) {
       auto var_data = state.getVariable(state_var_name);
       size_t nx = static_cast<size_t>(state.geometry().x_dim());
       size_t ny = static_cast<size_t>(state.geometry().y_dim());
@@ -243,7 +258,7 @@ class IdentityObsOperator {
       size_t nz = 1;
       if constexpr (requires { state.geometry().z_dim(); }) {
         nz = state.geometry().z_dim();
-    }
+      }
       return idw4Interpolation(state, x, y, z, nx, ny, nz);
     }
   }
@@ -275,9 +290,10 @@ class IdentityObsOperator {
    * @param obs Reference observations for context
    * @return Vector containing the transformed increment in observation space
    */
-  std::vector<double> applyTangentLinear(const StateBackend& state_increment,
-                                         [[maybe_unused]] const StateBackend& reference_state,
-                                         const ObsBackend& obs) const {
+  std::vector<double> applyTangentLinear(
+      const StateBackend& state_increment,
+      [[maybe_unused]] const StateBackend& reference_state,
+      const ObsBackend& obs) const {
     // For identity operator, tangent linear is the same as forward operator
     return apply(state_increment, obs);
   }
@@ -298,8 +314,7 @@ class IdentityObsOperator {
    */
   void applyAdjoint(const std::vector<double>& obs_increment,
                     const StateBackend& reference_state,
-                    StateBackend& result_state,
-                    const ObsBackend& obs) const {
+                    StateBackend& result_state, const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("IdentityObsOperator not initialized");
     }
@@ -309,31 +324,36 @@ class IdentityObsOperator {
     result_state.zero();
 
     // For the adjoint of nearest-neighbor interpolation:
-    // 1. For each observation, determine its grid coordinates (same as in forward pass)
+    // 1. For each observation, determine its grid coordinates (same as in
+    // forward pass)
     // 2. Map each observation increment back to its corresponding grid point
-    
+
     size_t obs_size = obs_increment.size();
     if (obs_size != obs.size()) {
-      throw std::runtime_error("Observation increment size does not match observation count");
+      throw std::runtime_error(
+          "Observation increment size does not match observation count");
     }
 
     // Process each observation
     for (size_t obs_idx = 0; obs_idx < obs_size; ++obs_idx) {
       const auto& obs_point = obs[obs_idx];
       if (!obs_point.is_valid) {
-        continue; // Skip invalid observations
+        continue;  // Skip invalid observations
       }
 
       // Determine which state variable to update
       std::string state_var_name = determineStateVariable(obs_point);
-      
-      // Convert observation location to grid coordinates (same as in forward pass)
+
+      // Convert observation location to grid coordinates (same as in forward
+      // pass)
       double x, y, z;
-      if (obs_point.location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
+      if (obs_point.location.getCoordinateSystem() ==
+          CoordinateSystem::GEOGRAPHIC) {
         auto [lat, lon, level] = obs_point.location.getGeographicCoords();
-        
+
         // Convert geographic coordinates to grid coordinates
-        auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(lat, lon, level, reference_state.geometry());
+        auto [grid_i, grid_j, grid_k] = convertGeographicToGrid(
+            lat, lon, level, reference_state.geometry());
         x = static_cast<double>(grid_i);
         y = static_cast<double>(grid_j);
         z = static_cast<double>(grid_k);
@@ -345,9 +365,10 @@ class IdentityObsOperator {
         z = static_cast<double>(k);
       }
 
-      // Adjoint of nearest-neighbor interpolation: add the observation increment
-      // to the corresponding grid point in the appropriate variable
-      adjointIDW4InterpolationVariable(result_state, x, y, z, state_var_name, obs_increment[obs_idx]);
+      // Adjoint of nearest-neighbor interpolation: add the observation
+      // increment to the corresponding grid point in the appropriate variable
+      adjointIDW4InterpolationVariable(result_state, x, y, z, state_var_name,
+                                       obs_increment[obs_idx]);
     }
   }
 
@@ -378,14 +399,14 @@ class IdentityObsOperator {
    * @return Tuple of (i, j, k) grid coordinates
    */
   template <typename GeometryBackend>
-  std::tuple<size_t, size_t, size_t> convertGeographicToGrid(double lat, double lon, 
-                                                   double level,
-                                                   const GeometryBackend& geometry) const {
+  std::tuple<size_t, size_t, size_t> convertGeographicToGrid(
+      double lat, double lon, double level,
+      const GeometryBackend& geometry) const {
     // Try to use geometry-specific coordinate conversion if available
     if constexpr (requires { geometry.unstaggered_info(); }) {
       // For WRF-type geometry with coordinate arrays
       const auto& grid_info = geometry.unstaggered_info();
-      
+
       if (grid_info.has_2d_coords()) {
         // Find closest grid point by searching through coordinate arrays
         double min_dist = std::numeric_limits<double>::max();
@@ -397,7 +418,7 @@ class IdentityObsOperator {
 
           // Calculate Euclidean distance in lat/lon space
           double dist = std::sqrt((lon - grid_lon) * (lon - grid_lon) +
-                                 (lat - grid_lat) * (lat - grid_lat));
+                                  (lat - grid_lat) * (lat - grid_lat));
 
           if (dist < min_dist) {
             min_dist = dist;
@@ -408,7 +429,7 @@ class IdentityObsOperator {
         // Convert linear index to 2D grid coordinates
         size_t j = min_idx / grid_info.nx;
         size_t i = min_idx % grid_info.nx;
-        
+
         // Find closest vertical level
         size_t k = 0;
         if (grid_info.has_vertical_coords()) {
@@ -421,20 +442,20 @@ class IdentityObsOperator {
             }
           }
         }
-        
+
         return std::make_tuple(i, j, k);
       }
     }
-    
+
     // Fallback: Search through geometry locations (slower but more general)
     double min_dist = std::numeric_limits<double>::max();
     size_t best_i = 0, best_j = 0, best_k = 0;
-    
-    size_t z_dim = 1; // Default to 1 for 2D geometries
+
+    size_t z_dim = 1;  // Default to 1 for 2D geometries
     if constexpr (requires { geometry.z_dim(); }) {
       z_dim = geometry.z_dim();
     }
-    
+
     for (size_t k = 0; k < z_dim; ++k) {
       for (size_t j = 0; j < static_cast<size_t>(geometry.y_dim()); ++j) {
         for (size_t i = 0; i < static_cast<size_t>(geometry.x_dim()); ++i) {
@@ -442,22 +463,29 @@ class IdentityObsOperator {
             // Try to get geographic coordinates for this grid point
             auto grid_location = [&]() {
               if constexpr (requires { geometry.getLocation(i, j, k); }) {
-                return geometry.getLocation(static_cast<int>(i), static_cast<int>(j), static_cast<int>(k));
+                return geometry.getLocation(static_cast<int>(i),
+                                            static_cast<int>(j),
+                                            static_cast<int>(k));
               } else {
-                return geometry.getLocation(static_cast<int>(i), static_cast<int>(j));
+                return geometry.getLocation(static_cast<int>(i),
+                                            static_cast<int>(j));
               }
             }();
-            if (grid_location.getCoordinateSystem() == CoordinateSystem::GEOGRAPHIC) {
-              auto [grid_lat, grid_lon, grid_level] = grid_location.getGeographicCoords();
-              
+            if (grid_location.getCoordinateSystem() ==
+                CoordinateSystem::GEOGRAPHIC) {
+              auto [grid_lat, grid_lon, grid_level] =
+                  grid_location.getGeographicCoords();
+
               // Calculate distance in 3D space (lat, lon, level)
-              double horizontal_dist = std::sqrt((lon - grid_lon) * (lon - grid_lon) +
-                                               (lat - grid_lat) * (lat - grid_lat));
+              double horizontal_dist =
+                  std::sqrt((lon - grid_lon) * (lon - grid_lon) +
+                            (lat - grid_lat) * (lat - grid_lat));
               double vertical_dist = std::abs(level - grid_level);
-              
+
               // Combined distance (you might want to weight these differently)
-              double dist = horizontal_dist + vertical_dist * 0.001; // Scale vertical distance
-              
+              double dist = horizontal_dist +
+                            vertical_dist * 0.001;  // Scale vertical distance
+
               if (dist < min_dist) {
                 min_dist = dist;
                 best_i = i;
@@ -472,17 +500,18 @@ class IdentityObsOperator {
         }
       }
     }
-    
+
     return std::make_tuple(best_i, best_j, best_k);
   }
 
   /**
-   * @brief Utility to find the 4 nearest grid points and their distances for (x, y, z)
-   * Returns a vector of tuples: (i, j, k, distance)
-   * Handles 2D (nz=1) and 3D cases.
+   * @brief Utility to find the 4 nearest grid points and their distances for
+   * (x, y, z) Returns a vector of tuples: (i, j, k, distance) Handles 2D (nz=1)
+   * and 3D cases.
    */
   std::vector<std::tuple<size_t, size_t, size_t, double>>
-  find4NearestGridPoints(double x, double y, double z, size_t nx, size_t ny, size_t nz) const {
+  find4NearestGridPoints(double x, double y, double z, size_t nx, size_t ny,
+                         size_t nz) const {
     std::vector<std::tuple<size_t, size_t, size_t, double>> neighbors;
     // Clamp to grid bounds
     x = std::max(0.0, std::min(static_cast<double>(nx - 1), x));
@@ -499,8 +528,7 @@ class IdentityObsOperator {
     if (nz == 1) {
       // 4 neighbors in 2D
       std::vector<std::pair<size_t, size_t>> idxs = {
-        {i0, j0}, {i1, j0}, {i0, j1}, {i1, j1}
-      };
+          {i0, j0}, {i1, j0}, {i0, j1}, {i1, j1}};
       for (const auto& [ii, jj] : idxs) {
         double dist = std::sqrt((x - ii) * (x - ii) + (y - jj) * (y - jj));
         neighbors.emplace_back(ii, jj, 0, dist);
@@ -508,15 +536,16 @@ class IdentityObsOperator {
     } else {
       // 8 neighbors in 3D, but pick 4 closest
       std::vector<std::tuple<size_t, size_t, size_t>> idxs = {
-        {i0, j0, k0}, {i1, j0, k0}, {i0, j1, k0}, {i1, j1, k0},
-        {i0, j0, k1}, {i1, j0, k1}, {i0, j1, k1}, {i1, j1, k1}
-      };
+          {i0, j0, k0}, {i1, j0, k0}, {i0, j1, k0}, {i1, j1, k0},
+          {i0, j0, k1}, {i1, j0, k1}, {i0, j1, k1}, {i1, j1, k1}};
       std::vector<std::pair<double, std::tuple<size_t, size_t, size_t>>> dists;
       for (const auto& [ii, jj, kk] : idxs) {
-        double dist = std::sqrt((x - ii) * (x - ii) + (y - jj) * (y - jj) + (z - kk) * (z - kk));
+        double dist = std::sqrt((x - ii) * (x - ii) + (y - jj) * (y - jj) +
+                                (z - kk) * (z - kk));
         dists.emplace_back(dist, std::make_tuple(ii, jj, kk));
       }
-      std::sort(dists.begin(), dists.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+      std::sort(dists.begin(), dists.end(),
+                [](const auto& a, const auto& b) { return a.first < b.first; });
       for (size_t n = 0; n < 4 && n < dists.size(); ++n) {
         auto [dist, idx] = dists[n];
         auto [ii, jj, kk] = idx;
@@ -529,12 +558,13 @@ class IdentityObsOperator {
   /**
    * @brief 4-point IDW interpolation for single variable state
    */
-  double idw4Interpolation(const StateBackend& state, double x, double y, double z,
-                          size_t nx, size_t ny, size_t nz) const {
+  double idw4Interpolation(const StateBackend& state, double x, double y,
+                           double z, size_t nx, size_t ny, size_t nz) const {
     auto neighbors = find4NearestGridPoints(x, y, z, nx, ny, nz);
     double weighted_sum = 0.0, weight_sum = 0.0;
     for (const auto& [ii, jj, kk, dist] : neighbors) {
-      double w = (dist == 0.0) ? 1e12 : 1.0 / dist; // Large weight for exact match
+      double w =
+          (dist == 0.0) ? 1e12 : 1.0 / dist;  // Large weight for exact match
       // Pattern 1: operator[]
       if constexpr (requires { state[std::declval<size_t>()]; }) {
         size_t linear_index = kk * (ny * nx) + jj * nx + ii;
@@ -542,13 +572,22 @@ class IdentityObsOperator {
       } else if constexpr (requires { state.at(std::declval<size_t>()); }) {
         size_t linear_index = kk * (ny * nx) + jj * nx + ii;
         weighted_sum += w * state.at(linear_index);
-      } else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
-        weighted_sum += w * state.at(static_cast<int>(ii), static_cast<int>(jj), static_cast<int>(kk));
-      } else if constexpr (requires { state.at(std::declval<int>(), std::declval<int>()); }) {
-        weighted_sum += w * state.at(static_cast<int>(ii), static_cast<int>(jj));
+      } else if constexpr (requires {
+                             state.at(std::declval<int>(), std::declval<int>(),
+                                      std::declval<int>());
+                           }) {
+        weighted_sum += w * state.at(static_cast<int>(ii), static_cast<int>(jj),
+                                     static_cast<int>(kk));
+      } else if constexpr (requires {
+                             state.at(std::declval<int>(), std::declval<int>());
+                           }) {
+        weighted_sum +=
+            w * state.at(static_cast<int>(ii), static_cast<int>(jj));
       } else {
-        throw std::runtime_error("State backend does not support any recognized access methods for IDW.");
-    }
+        throw std::runtime_error(
+            "State backend does not support any recognized access methods for "
+            "IDW.");
+      }
       weight_sum += w;
     }
     return weighted_sum / weight_sum;
@@ -557,8 +596,9 @@ class IdentityObsOperator {
   /**
    * @brief 4-point IDW interpolation for a specific variable
    */
-  double idw4InterpolationVariable(const StateBackend& state, double x, double y, double z,
-                                  const std::string& state_var_name) const {
+  double idw4InterpolationVariable(const StateBackend& state, double x,
+                                   double y, double z,
+                                   const std::string& state_var_name) const {
     size_t nx = static_cast<size_t>(state.geometry().x_dim());
     size_t ny = static_cast<size_t>(state.geometry().y_dim());
     size_t nz = 1;
@@ -569,12 +609,18 @@ class IdentityObsOperator {
     double weighted_sum = 0.0, weight_sum = 0.0;
     for (const auto& [ii, jj, kk, dist] : neighbors) {
       double w = (dist == 0.0) ? 1e12 : 1.0 / dist;
-      if constexpr (requires { state.at(state_var_name, std::declval<size_t>()); }) {
-        if constexpr (requires { std::declval<StateBackend>().getVariableDimensions(state_var_name); }) {
+      if constexpr (requires {
+                      state.at(state_var_name, std::declval<size_t>());
+                    }) {
+        if constexpr (requires {
+                        std::declval<StateBackend>().getVariableDimensions(
+                            state_var_name);
+                      }) {
           const auto& var_dims = state.getVariableDimensions(state_var_name);
           size_t linear_index;
           if (var_dims.size() == 3) {
-            linear_index = kk * var_dims[1] * var_dims[2] + jj * var_dims[2] + ii;
+            linear_index =
+                kk * var_dims[1] * var_dims[2] + jj * var_dims[2] + ii;
           } else if (var_dims.size() == 2) {
             linear_index = jj * var_dims[1] + ii;
           } else {
@@ -584,11 +630,20 @@ class IdentityObsOperator {
         } else {
           size_t linear_index = kk * (ny * nx) + jj * nx + ii;
           weighted_sum += w * state.at(state_var_name, linear_index);
-    }
-      } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
-        weighted_sum += w * state.at(state_var_name, static_cast<int>(ii), static_cast<int>(jj), static_cast<int>(kk));
-      } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>()); }) {
-        weighted_sum += w * state.at(state_var_name, static_cast<int>(ii), static_cast<int>(jj));
+        }
+      } else if constexpr (requires {
+                             state.at(state_var_name, std::declval<int>(),
+                                      std::declval<int>(), std::declval<int>());
+                           }) {
+        weighted_sum +=
+            w * state.at(state_var_name, static_cast<int>(ii),
+                         static_cast<int>(jj), static_cast<int>(kk));
+      } else if constexpr (requires {
+                             state.at(state_var_name, std::declval<int>(),
+                                      std::declval<int>());
+                           }) {
+        weighted_sum += w * state.at(state_var_name, static_cast<int>(ii),
+                                     static_cast<int>(jj));
       } else if constexpr (requires { state[std::declval<size_t>()]; }) {
         size_t linear_index = kk * (nx * ny) + jj * nx + ii;
         weighted_sum += w * state[linear_index];
@@ -596,7 +651,9 @@ class IdentityObsOperator {
         size_t linear_index = kk * (nx * ny) + jj * nx + ii;
         weighted_sum += w * state.at(linear_index);
       } else {
-        throw std::runtime_error("State backend does not support any recognized access methods for variable IDW.");
+        throw std::runtime_error(
+            "State backend does not support any recognized access methods for "
+            "variable IDW.");
       }
       weight_sum += w;
     }
@@ -606,8 +663,9 @@ class IdentityObsOperator {
   /**
    * @brief 4-point IDW interpolation for a specific variable (array-based)
    */
-  double idw4InterpolationArray(const std::vector<double>& var_data, double x, double y, double z,
-                              size_t nx, size_t ny, size_t nz) const {
+  double idw4InterpolationArray(const std::vector<double>& var_data, double x,
+                                double y, double z, size_t nx, size_t ny,
+                                size_t nz) const {
     auto neighbors = find4NearestGridPoints(x, y, z, nx, ny, nz);
     double weighted_sum = 0.0, weight_sum = 0.0;
     for (const auto& [ii, jj, kk, dist] : neighbors) {
@@ -620,7 +678,8 @@ class IdentityObsOperator {
   }
 
   /**
-   * @brief Perform adjoint of nearest-neighbor interpolation from point to grid for a specific variable
+   * @brief Perform adjoint of nearest-neighbor interpolation from point to grid
+   * for a specific variable
    *
    * @param state Model state to update
    * @param x Grid x-coordinate (continuous)
@@ -629,8 +688,10 @@ class IdentityObsOperator {
    * @param state_var_name Name of the state variable to update
    * @param increment Value to add to the grid point
    */
-  void adjointIDW4InterpolationVariable(StateBackend& state, double x, double y, double z,
-                                        const std::string& state_var_name, double increment) const {
+  void adjointIDW4InterpolationVariable(StateBackend& state, double x, double y,
+                                        double z,
+                                        const std::string& state_var_name,
+                                        double increment) const {
     size_t nx = static_cast<size_t>(state.geometry().x_dim());
     size_t ny = static_cast<size_t>(state.geometry().y_dim());
     size_t nz = 1;
@@ -648,12 +709,18 @@ class IdentityObsOperator {
     for (size_t idx = 0; idx < neighbors.size(); ++idx) {
       auto [ii, jj, kk, dist] = neighbors[idx];
       double w = weights[idx] / weight_sum;
-      if constexpr (requires { state.at(state_var_name, std::declval<size_t>()); }) {
-        if constexpr (requires { std::declval<StateBackend>().getVariableDimensions(state_var_name); }) {
+      if constexpr (requires {
+                      state.at(state_var_name, std::declval<size_t>());
+                    }) {
+        if constexpr (requires {
+                        std::declval<StateBackend>().getVariableDimensions(
+                            state_var_name);
+                      }) {
           const auto& var_dims = state.getVariableDimensions(state_var_name);
           size_t linear_index;
           if (var_dims.size() == 3) {
-            linear_index = kk * var_dims[1] * var_dims[2] + jj * var_dims[2] + ii;
+            linear_index =
+                kk * var_dims[1] * var_dims[2] + jj * var_dims[2] + ii;
           } else if (var_dims.size() == 2) {
             linear_index = jj * var_dims[1] + ii;
           } else {
@@ -664,10 +731,18 @@ class IdentityObsOperator {
           size_t linear_index = kk * (ny * nx) + jj * nx + ii;
           state.at(state_var_name, linear_index) += w * increment;
         }
-      } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>(), std::declval<int>()); }) {
-        state.at(state_var_name, static_cast<int>(ii), static_cast<int>(jj), static_cast<int>(kk)) += w * increment;
-      } else if constexpr (requires { state.at(state_var_name, std::declval<int>(), std::declval<int>()); }) {
-        state.at(state_var_name, static_cast<int>(ii), static_cast<int>(jj)) += w * increment;
+      } else if constexpr (requires {
+                             state.at(state_var_name, std::declval<int>(),
+                                      std::declval<int>(), std::declval<int>());
+                           }) {
+        state.at(state_var_name, static_cast<int>(ii), static_cast<int>(jj),
+                 static_cast<int>(kk)) += w * increment;
+      } else if constexpr (requires {
+                             state.at(state_var_name, std::declval<int>(),
+                                      std::declval<int>());
+                           }) {
+        state.at(state_var_name, static_cast<int>(ii), static_cast<int>(jj)) +=
+            w * increment;
       } else if constexpr (requires { state[std::declval<size_t>()]; }) {
         size_t linear_index = kk * (nx * ny) + jj * nx + ii;
         state[linear_index] += w * increment;
@@ -675,7 +750,9 @@ class IdentityObsOperator {
         size_t linear_index = kk * (nx * ny) + jj * nx + ii;
         state.at(linear_index) += w * increment;
       } else {
-        throw std::runtime_error("State backend does not support any recognized access methods for variable adjoint IDW.");
+        throw std::runtime_error(
+            "State backend does not support any recognized access methods for "
+            "variable adjoint IDW.");
       }
     }
   }
@@ -686,4 +763,4 @@ class IdentityObsOperator {
       required_obs_vars_;  ///< Required observation variables
 };
 
-}  // namespace metada::backends::common::obsoperator 
+}  // namespace metada::backends::common::obsoperator
