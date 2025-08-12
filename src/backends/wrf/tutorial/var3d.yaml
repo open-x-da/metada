@@ -12,24 +12,6 @@ logger:
 # Variational method: 3DVAR (single time analysis)
 variational_type: "3DVAR"
 
-# Optional: observation families for WRFDA H/HT demonstration
-# Tokens are of the form "family:variable"
-obs_families:
-  - "metar:t"
-  - "sound:u"
-  - "sound:v"
-
-# PrepBUFR input for WRFDA H/HT demo block in variational.cpp
-prepbufr:
-  filename: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
-  # Limit to surface and upper-air reports to align with metar/sound families
-  data_types: ["ADPSFC", "ADPUPA"]
-  variables: ["PRES", "TEMP", "UWIND", "VWIND"]
-  include_virtual_temp: false
-  # Optional geographic filter
-  lats: [90, -90]
-  lons: [0, 360]
-
 # Output configuration
 output_base_file: "analysis_3dvar"
 format: "nc"
@@ -90,12 +72,12 @@ background:
   
 # Analysis time configuration removed for debugging
 
-# Observations configuration (simplified for debugging)
+# Observations configuration
 observations:
   types:
     - test_obs:
         if_use: true
-        file: "D:/linux/metada/src/backends/wrf/tutorial/wrf_obs.txt"
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
         coordinate: "geographic"
         variables:
           - U:
@@ -105,10 +87,11 @@ observations:
 
 # Observation operator configuration (simplified)
 obs_operator:
-  required_state_vars:
-    - U
-  required_obs_vars:
-    - U
+  # Optional WRFDA bridge hints (currently delegated to identity operator)
+  wrfda_root: "D:/linux/WRF/var/da"
+  wrfda_operator_family: "metar"
+  required_state_vars: [U]
+  required_obs_vars: [U]
 
 # Simplified configuration for debugging
 # Removed optional sections that may cause configuration parsing issues

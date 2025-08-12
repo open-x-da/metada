@@ -26,6 +26,7 @@
 
 #include "IdentityObsOperator.hpp"
 #include "Location.hpp"
+#include "WRFDAObsOperator_c_api.h"
 
 namespace metada::backends::common::obsoperator {
 
@@ -106,7 +107,96 @@ class WRFDAObsOperator {
   std::vector<double> apply(const StateBackend& state,
                             const ObsBackend& obs) const {
     ensureInitialized();
-    return delegate_->apply(state, obs);
+    // Collect observation coordinates (geographic)
+    const size_t num_observations = obs.size();
+    std::vector<double> obs_lats(num_observations);
+    std::vector<double> obs_lons(num_observations);
+    std::vector<double> obs_levels(num_observations, 0.0);
+    for (size_t i = 0; i < num_observations; ++i) {
+      const auto& loc = obs[i].location;
+      if (loc.getCoordinateSystem() !=
+          framework::CoordinateSystem::GEOGRAPHIC) {
+        throw std::runtime_error(
+            "WRFDAObsOperator requires geographic observation locations");
+      }
+      auto [lat, lon, level] = loc.getGeographicCoords();
+      obs_lats[i] = lat;
+      obs_lons[i] = lon;
+      obs_levels[i] = level;
+    }
+
+    // Helper to obtain variable buffers or zero-filled fallbacks
+    auto get_or_zero = [&](const std::string& var, std::vector<double>& storage,
+                           const double*& ptr, int& nx, int& ny, int& nz) {
+      ptr = static_cast<const double*>(state.getData(var));
+      if (ptr == nullptr) {
+        nx = static_cast<int>(state.geometry().x_dim());
+        ny = static_cast<int>(state.geometry().y_dim());
+        nz = static_cast<int>(state.geometry().z_dim());
+        const size_t n = static_cast<size_t>(std::max(1, nx) * std::max(1, ny) *
+                                             std::max(1, nz));
+        storage.assign(n, 0.0);
+        ptr = storage.data();
+      } else {
+        try {
+          const auto& dims = state.getVariableDimensions(var);
+          if (dims.size() == 3) {
+            nz = static_cast<int>(dims[0]);
+            ny = static_cast<int>(dims[1]);
+            nx = static_cast<int>(dims[2]);
+          } else if (dims.size() == 2) {
+            ny = static_cast<int>(dims[0]);
+            nx = static_cast<int>(dims[1]);
+            nz = 1;
+          }
+        } catch (...) {
+        }
+      }
+    };
+
+    const double *u = nullptr, *v = nullptr, *t = nullptr, *q = nullptr,
+                 *psfc = nullptr;
+    std::vector<double> u_zero, v_zero, t_zero, q_zero, psfc_zero;
+    int nx_u = 1, ny_u = 1, nz_u = 1;
+    int nx_v = 1, ny_v = 1, nz_v = 1;
+    int nx_t = 1, ny_t = 1, nz_t = 1;
+    int nx_q = 1, ny_q = 1, nz_q = 1;
+    int nx_ps = 1, ny_ps = 1, nz_ps = 1;
+    get_or_zero("U", u_zero, u, nx_u, ny_u, nz_u);
+    get_or_zero("V", v_zero, v, nx_v, ny_v, nz_v);
+    get_or_zero("T", t_zero, t, nx_t, ny_t, nz_t);
+    get_or_zero("Q", q_zero, q, nx_q, ny_q, nz_q);
+    get_or_zero("PSFC", psfc_zero, psfc, nx_ps, ny_ps, nz_ps);
+
+    // Canonical unstaggered grid dims
+    const int nx = static_cast<int>(state.geometry().x_dim());
+    const int ny = static_cast<int>(state.geometry().y_dim());
+    const int nz = static_cast<int>(state.geometry().z_dim());
+
+    // Geometry arrays
+    const auto& gi = state.geometry().unstaggered_info();
+    const double* lats2d = gi.latitude_2d.data();
+    const double* lons2d = gi.longitude_2d.data();
+    const double* levels_ptr =
+        gi.vertical_coords.empty() ? nullptr : gi.vertical_coords.data();
+    std::vector<double> dummy_levels(1, 0.0);
+    if (levels_ptr == nullptr) levels_ptr = dummy_levels.data();
+
+    std::vector<double> out_y(num_observations, 0.0);
+
+    const char* family_cstr =
+        (operator_family_.empty() ? "" : operator_family_.c_str());
+
+    const int rc = wrfda_xtoy_apply_grid(
+        family_cstr, nx, ny, nz, u, v, t, q, psfc, lats2d, lons2d, levels_ptr,
+        static_cast<int>(num_observations), obs_lats.data(), obs_lons.data(),
+        obs_levels.data(), out_y.data());
+    if (rc != 0) {
+      throw std::runtime_error("wrfda_xtoy_apply failed with code " +
+                               std::to_string(rc));
+    }
+
+    return out_y;
   }
 
   const std::vector<std::string>& getRequiredStateVars() const {
@@ -120,15 +210,105 @@ class WRFDAObsOperator {
   std::vector<double> applyTangentLinear(const StateBackend& state_increment,
                                          const StateBackend& reference_state,
                                          const ObsBackend& obs) const {
+    // For linearized operator, use same array-based call on increment
     ensureInitialized();
-    return delegate_->applyTangentLinear(state_increment, reference_state, obs);
+    return apply(state_increment, obs);
   }
 
   void applyAdjoint(const std::vector<double>& obs_increment,
                     const StateBackend& reference_state,
                     StateBackend& result_state, const ObsBackend& obs) const {
     ensureInitialized();
-    delegate_->applyAdjoint(obs_increment, reference_state, result_state, obs);
+
+    const size_t num_observations = obs.size();
+    if (obs_increment.size() != num_observations) {
+      throw std::runtime_error(
+          "Adjoint increment size does not match number of observations");
+    }
+
+    std::vector<double> obs_lats(num_observations);
+    std::vector<double> obs_lons(num_observations);
+    std::vector<double> obs_levels(num_observations, 0.0);
+    for (size_t i = 0; i < num_observations; ++i) {
+      const auto& loc = obs[i].location;
+      if (loc.getCoordinateSystem() !=
+          framework::CoordinateSystem::GEOGRAPHIC) {
+        throw std::runtime_error(
+            "WRFDAObsOperator requires geographic observation locations");
+      }
+      auto [lat, lon, level] = loc.getGeographicCoords();
+      obs_lats[i] = lat;
+      obs_lons[i] = lon;
+      obs_levels[i] = level;
+    }
+
+    // Prepare inout arrays for u,v,t,q,psfc accumulation
+    auto get_or_zero_inout = [&](const std::string& var,
+                                 std::vector<double>& storage, double*& ptr,
+                                 int& nx, int& ny, int& nz) {
+      ptr = static_cast<double*>(result_state.getData(var));
+      if (ptr == nullptr) {
+        nx = static_cast<int>(result_state.geometry().x_dim());
+        ny = static_cast<int>(result_state.geometry().y_dim());
+        nz = static_cast<int>(result_state.geometry().z_dim());
+        const size_t n = static_cast<size_t>(std::max(1, nx) * std::max(1, ny) *
+                                             std::max(1, nz));
+        storage.assign(n, 0.0);
+        ptr = storage.data();
+      } else {
+        try {
+          const auto& dims = result_state.getVariableDimensions(var);
+          if (dims.size() == 3) {
+            nz = static_cast<int>(dims[0]);
+            ny = static_cast<int>(dims[1]);
+            nx = static_cast<int>(dims[2]);
+          } else if (dims.size() == 2) {
+            ny = static_cast<int>(dims[0]);
+            nx = static_cast<int>(dims[1]);
+            nz = 1;
+          }
+        } catch (...) {
+        }
+      }
+    };
+
+    double *u = nullptr, *v = nullptr, *t = nullptr, *q = nullptr,
+           *psfc = nullptr;
+    std::vector<double> u_zero, v_zero, t_zero, q_zero, psfc_zero;
+    int nx_u = 1, ny_u = 1, nz_u = 1;
+    int nx_v = 1, ny_v = 1, nz_v = 1;
+    int nx_t = 1, ny_t = 1, nz_t = 1;
+    int nx_q = 1, ny_q = 1, nz_q = 1;
+    int nx_ps = 1, ny_ps = 1, nz_ps = 1;
+    get_or_zero_inout("U", u_zero, u, nx_u, ny_u, nz_u);
+    get_or_zero_inout("V", v_zero, v, nx_v, ny_v, nz_v);
+    get_or_zero_inout("T", t_zero, t, nx_t, ny_t, nz_t);
+    get_or_zero_inout("Q", q_zero, q, nx_q, ny_q, nz_q);
+    get_or_zero_inout("PSFC", psfc_zero, psfc, nx_ps, ny_ps, nz_ps);
+
+    const int nx = static_cast<int>(result_state.geometry().x_dim());
+    const int ny = static_cast<int>(result_state.geometry().y_dim());
+    const int nz = static_cast<int>(result_state.geometry().z_dim());
+
+    const auto& gi = result_state.geometry().unstaggered_info();
+    const double* lats2d = gi.latitude_2d.data();
+    const double* lons2d = gi.longitude_2d.data();
+    const double* levels_ptr =
+        gi.vertical_coords.empty() ? nullptr : gi.vertical_coords.data();
+    std::vector<double> dummy_levels(1, 0.0);
+    if (levels_ptr == nullptr) levels_ptr = dummy_levels.data();
+
+    const char* family_cstr =
+        (operator_family_.empty() ? "" : operator_family_.c_str());
+
+    const int rc = wrfda_xtoy_adjoint_grid(
+        family_cstr, nx, ny, nz, obs_increment.data(), lats2d, lons2d,
+        levels_ptr, static_cast<int>(num_observations), obs_lats.data(),
+        obs_lons.data(), obs_levels.data(), u, v, t, q, psfc);
+    if (rc != 0) {
+      throw std::runtime_error("wrfda_xtoy_adjoint failed with code " +
+                               std::to_string(rc));
+    }
   }
 
   bool supportsLinearization() const { return true; }

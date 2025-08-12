@@ -11,7 +11,10 @@ target_link_libraries(tl_ad_checks
       metada::base
       metada::framework::runs
       metada::backends::common::utils
+      metada::backends::common::io
       metada::backends::common::observation
+      metada::backends::common::obsoperator
+      metada::bridges::wrfda
       metada::framework::algorithms
       metada::backends::wrf
 )

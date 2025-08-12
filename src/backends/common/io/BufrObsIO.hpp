@@ -68,7 +68,17 @@ class BufrObsIO {
    * @param config Configuration parameters for BUFR processing
    */
   explicit BufrObsIO(ConfigBackend&& config) : config_(std::move(config)) {
-    filename_ = config_.Get("filename").asString();
+    // Support both 'filename' and 'file' keys for convenience
+    try {
+      filename_ = config_.Get("filename").asString();
+    } catch (...) {
+      try {
+        filename_ = config_.Get("file").asString();
+      } catch (...) {
+        throw std::runtime_error(
+            "BufrObsIO requires 'filename' or 'file' in config");
+      }
+    }
     // Load station_ids from config if present
     if (config_.HasKey("station_ids")) {
       auto station_ids_val = config_.Get("station_ids");
