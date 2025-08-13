@@ -207,16 +207,17 @@ class WRFDAObsOperator {
     return required_obs_vars_;
   }
 
-  std::vector<double> applyTangentLinear(const StateBackend& state_increment,
-                                         const StateBackend& reference_state,
-                                         const ObsBackend& obs) const {
+  std::vector<double> applyTangentLinear(
+      const StateBackend& state_increment,
+      [[maybe_unused]] const StateBackend& reference_state,
+      const ObsBackend& obs) const {
     // For linearized operator, use same array-based call on increment
     ensureInitialized();
     return apply(state_increment, obs);
   }
 
   void applyAdjoint(const std::vector<double>& obs_increment,
-                    const StateBackend& reference_state,
+                    [[maybe_unused]] const StateBackend& reference_state,
                     StateBackend& result_state, const ObsBackend& obs) const {
     ensureInitialized();
 

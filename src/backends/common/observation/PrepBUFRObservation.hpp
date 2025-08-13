@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -13,7 +14,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../io/BufrObsIO.hpp"
+#include "BufrObsIO.hpp"
+#include "ConfigValue.hpp"
 #include "ObsRecord.hpp"
 #include "PointObservation.hpp"
 #include "PrepBUFRObservationIterator.hpp"
@@ -22,6 +24,7 @@ namespace metada::backends::common::observation {
 
 using ObsRecord = framework::ObsRecord;
 using ObsLevelRecord = framework::ObsLevelRecord;
+using ConfigValue = metada::backends::config::ConfigValue;
 
 // Lightweight containers describing PrepBUFR observation geometries.
 struct SurfaceBatch {
@@ -59,90 +62,132 @@ class PrepBUFRObservation {
   template <typename ConfigBackend>
   explicit PrepBUFRObservation(const ConfigBackend& config) {
     const auto type_configs = config.Get("types").asVectorMap();
+    // Group observation types by file path to avoid reading the same file
+    // multiple times
+    std::map<
+        std::string,
+        std::vector<std::pair<std::string, std::map<std::string, ConfigValue>>>>
+        file_groups;
+
     for (const auto& type_map : type_configs) {
       const auto& [type_name, type_config] = *type_map.begin();
       const auto& type_backend = ConfigBackend(type_config.asMap());
       bool type_if_use = type_backend.Get("if_use").asBool();
       if (!type_if_use) continue;
 
-      // Desired output coordinate system (BUFR is naturally geographic)
-      std::string coordinate_system = "geographic";
+      // Get file path for this type
+      std::string file_path;
       try {
-        coordinate_system = type_backend.Get("coordinate").asString();
+        file_path = type_backend.Get("file").asString();
       } catch (...) {
+        try {
+          file_path = type_backend.Get("filename").asString();
+        } catch (...) {
+          continue;  // Skip types without valid file path
+        }
       }
 
-      // Read PrepBUFR records using BufrObsIO. Pass through the type-level
-      // config as-is; BufrObsIO accepts 'file' or 'filename' and will ignore
-      // unrelated keys.
-      auto bufr_io = metada::backends::io::BufrObsIO<ConfigBackend>(
-          ConfigBackend(type_config.asMap()));
+      // Store the configuration data as a map that can be copied
+      std::map<std::string, ConfigValue> config_data;
+      try {
+        config_data["if_use"] = type_backend.Get("if_use");
+        config_data["coordinate"] = type_backend.Get("coordinate");
+        config_data["variables"] = type_backend.Get("variables");
+      } catch (...) {
+        // Some keys might not exist, that's okay
+      }
+
+      file_groups[file_path].emplace_back(type_name, config_data);
+    }
+
+    // Process each file once and distribute records to appropriate types
+    for (const auto& [file_path, type_configs] : file_groups) {
+      // Read BUFR file once for all types that share it
+      auto bufr_io =
+          io::BufrObsIO<ConfigBackend>(ConfigBackend({{"file", file_path}}));
       std::vector<ObsRecord> records = bufr_io.read();
 
-      // Collect enabled variables for this type with their errors
-      struct VarSel {
-        std::string bufr_name;
-        double error;
-      };
-      std::vector<std::pair<std::string, VarSel>>
-          enabled_vars;  // (user var, sel)
-      try {
-        const auto& variables_configs =
-            type_backend.Get("variables").asVectorMap();
-        for (const auto& var_map : variables_configs) {
-          for (const auto& [var_name, var_config] : var_map) {
-            const auto& var_backend = ConfigBackend(var_config.asMap());
-            bool var_if_use = var_backend.Get("if_use").asBool();
-            if (!var_if_use) continue;
-            double error = var_backend.Get("error").asFloat();
-            // Map model variable name to BUFR variable short name
-            std::string bufr_name = mapUserVarToBufr(var_name);
-            if (!bufr_name.empty()) {
-              enabled_vars.push_back({var_name, VarSel{bufr_name, error}});
-            }
+      // Process each type that uses this file
+      for (const auto& [type_name, config_data] : type_configs) {
+        // Desired output coordinate system (BUFR is naturally geographic)
+        std::string coordinate_system = "geographic";
+        std::cout << "Processing type: " << type_name << std::endl;
+        try {
+          auto coord_it = config_data.find("coordinate");
+          if (coord_it != config_data.end()) {
+            coordinate_system = coord_it->second.asString();
           }
+        } catch (...) {
+          std::cout << "No coordinate section; default geographic" << std::endl;
         }
-      } catch (...) {
-        // No variables section; default none
-      }
 
-      // Flatten BUFR records into observation points for selected variables
-      for (const auto& rec : records) {
-        const double lat = rec.shared.latitude;
-        const double lon = rec.shared.longitude;
-
-        for (const auto& lvl : rec.levels) {
-          // Pick a representative level coordinate (prefer PRES then HEIGHT)
-          double level_coord = 0.0;
-          for (const auto& v : lvl) {
-            if (v.type == "PRES") {
-              level_coord = v.value;
-              break;
-            }
-            if (v.type == "HEIGHT") {
-              level_coord = v.value;
+        // Collect enabled variables for this type with their errors
+        struct VarSel {
+          std::string bufr_name;
+          double error;
+        };
+        std::vector<std::pair<std::string, VarSel>>
+            enabled_vars;  // (user var, sel)
+        try {
+          auto vars_it = config_data.find("variables");
+          if (vars_it != config_data.end()) {
+            const auto& variables_configs = vars_it->second.asVectorMap();
+            for (const auto& var_map : variables_configs) {
+              for (const auto& [var_name, var_config] : var_map) {
+                const auto& var_backend = ConfigBackend(var_config.asMap());
+                bool var_if_use = var_backend.Get("if_use").asBool();
+                if (!var_if_use) continue;
+                double error = var_backend.Get("error").asFloat();
+                // Map model variable name to BUFR variable short name
+                std::string bufr_name = mapUserVarToBufr(var_name);
+                if (!bufr_name.empty()) {
+                  enabled_vars.push_back({var_name, VarSel{bufr_name, error}});
+                }
+              }
             }
           }
+        } catch (...) {
+          // No variables section; default none
+        }
 
-          for (const auto& [user_var, sel] : enabled_vars) {
-            // Find the requested BUFR variable in this level
+        // Flatten BUFR records into observation points for selected variables
+        for (const auto& rec : records) {
+          const double lat = rec.shared.latitude;
+          const double lon = rec.shared.longitude;
+
+          for (const auto& lvl : rec.levels) {
+            // Pick a representative level coordinate (prefer PRES then HEIGHT)
+            double level_coord = 0.0;
             for (const auto& v : lvl) {
-              if (v.type == sel.bufr_name) {
-                framework::Location location(0, 0, 0);
-                if (coordinate_system == "grid") {
-                  // No grid indices in BUFR; fallback to geographic
-                  location = framework::Location(
-                      lat, lon, level_coord,
-                      framework::CoordinateSystem::GEOGRAPHIC);
-                } else {
-                  location = framework::Location(
-                      lat, lon, level_coord,
-                      framework::CoordinateSystem::GEOGRAPHIC);
-                }
-                observations_.emplace_back(location, v.value, sel.error);
-                type_variable_map_[type_name][user_var].push_back(
-                    observations_.size() - 1);
+              if (v.type == "PRES") {
+                level_coord = v.value;
                 break;
+              }
+              if (v.type == "HEIGHT") {
+                level_coord = v.value;
+              }
+            }
+
+            for (const auto& [user_var, sel] : enabled_vars) {
+              // Find the requested BUFR variable in this level
+              for (const auto& v : lvl) {
+                if (v.type == sel.bufr_name) {
+                  framework::Location location(0, 0, 0);
+                  if (coordinate_system == "grid") {
+                    // No grid indices in BUFR; fallback to geographic
+                    location = framework::Location(
+                        lat, lon, level_coord,
+                        framework::CoordinateSystem::GEOGRAPHIC);
+                  } else {
+                    location = framework::Location(
+                        lat, lon, level_coord,
+                        framework::CoordinateSystem::GEOGRAPHIC);
+                  }
+                  observations_.emplace_back(location, v.value, sel.error);
+                  type_variable_map_[type_name][user_var].push_back(
+                      observations_.size() - 1);
+                  break;
+                }
               }
             }
           }

@@ -62,6 +62,7 @@ class ObsOperator : public NonCopyable {
   /** @brief Default constructor is deleted since we need a backend */
   ObsOperator() = delete;
 
+ public:
   /**
    * @brief Constructor that initializes observation operator with configuration
    *
@@ -76,6 +77,75 @@ class ObsOperator : public NonCopyable {
   explicit ObsOperator(const Config<ConfigBackend>& config)
       : backend_(config.backend()) {
     logger_.Info() << "ObsOperator constructed";
+  }
+
+  /**
+   * @brief Constructor that initializes observation operator with configuration
+   * and observation
+   *
+   * @details Creates and initializes the observation operator backend using the
+   * provided configuration object and observation. Derives required variables
+   * from the observation and augments the configuration before passing to the
+   * backend.
+   *
+   * @param config Configuration object containing initialization parameters
+   * @param obs Observation object to derive required variables from
+   */
+  ObsOperator(const Config<BackendTag>& config,
+              const Observation<BackendTag>& obs)
+      : backend_([&]() {
+          // Extract observation types and variables
+          const auto type_names = obs.getTypeNames();
+
+          // Collect unique observation variable names across all types
+          std::vector<std::string> required_obs_vars;
+          auto add_unique = [&](const std::string& v) {
+            if (std::find(required_obs_vars.begin(), required_obs_vars.end(),
+                          v) == required_obs_vars.end()) {
+              required_obs_vars.push_back(v);
+            }
+          };
+          for (const auto& tname : type_names) {
+            for (const auto& v : obs.getVariableNames(tname)) add_unique(v);
+          }
+
+          // Derive required state vars from observation variables (same names)
+          std::vector<std::string> required_state_vars = required_obs_vars;
+
+          // Determine operator family: if single type enabled, use it; else
+          // empty
+          std::string operator_family =
+              (type_names.size() == 1) ? type_names[0] : "";
+
+          // Build augmented config with derived metadata
+          framework::ConfigMap config_map;
+
+          // Copy existing config values from the original config
+          try {
+            if (config.HasKey("wrfda_root")) {
+              config_map["wrfda_root"] = config.Get("wrfda_root");
+            }
+          } catch (...) {
+            // Ignore if key doesn't exist
+          }
+
+          // Set derived values
+          if (!operator_family.empty()) {
+            config_map["wrfda_operator_family"] =
+                framework::ConfigValue(operator_family);
+          }
+          config_map["required_state_vars"] =
+              framework::ConfigValue(required_state_vars);
+          config_map["required_obs_vars"] =
+              framework::ConfigValue(required_obs_vars);
+
+          // Create and return backend with the augmented config map
+          return ObsOperatorBackend(
+              typename traits::BackendTraits<BackendTag>::ConfigBackend(
+                  config_map));
+        }()) {
+    logger_.Info()
+        << "ObsOperator constructed with observation-derived configuration";
   }
 
   /**

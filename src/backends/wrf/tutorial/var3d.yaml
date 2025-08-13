@@ -75,23 +75,84 @@ background:
 # Observations configuration
 observations:
   types:
-    - test_obs:
+    - metar:
         if_use: true
         file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
         coordinate: "geographic"
+        # optional: restrict BUFR subsets interpreted as METAR, leave empty to auto-detect
+        # data_types: ["METAR"]
         variables:
           - U:
               if_use: true
+              error: 1.5
+          - V:
+              if_use: true
+              error: 1.5
+          - T:
+              if_use: false
               error: 1.0
-              missing_value: -999.0
+    - synop:
+        if_use: true
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+        coordinate: "geographic"
+        # data_types: ["SYNOP"]
+        variables:
+          - U:
+              if_use: true
+              error: 2.0
+          - V:
+              if_use: true
+              error: 2.0
+          - T:
+              if_use: true
+              error: 1.0
+    - airep:
+        if_use: true
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+        coordinate: "geographic"
+        # data_types: ["AIREP","AMDAR","TAMDAR"]
+        variables:
+          - U:
+              if_use: true
+              error: 3.0
+          - V:
+              if_use: true
+              error: 3.0
+    - ships:
+        if_use: false
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+        coordinate: "geographic"
+        # data_types: ["SHIP","BUOY"]
+        variables:
+          - U:
+              if_use: true
+              error: 2.5
+          - V:
+              if_use: true
+              error: 2.5
+    - sound:
+        if_use: false
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+        coordinate: "geographic"
+        # data_types: ["SOUND","RAOB"]
+        variables:
+          - T:
+              if_use: true
+              error: 1.0
+          - U:
+              if_use: true
+              error: 3.0
+          - V:
+              if_use: true
+              error: 3.0
 
 # Observation operator configuration (simplified)
 obs_operator:
   # Optional WRFDA bridge hints (currently delegated to identity operator)
   wrfda_root: "D:/linux/WRF/var/da"
   wrfda_operator_family: "metar"
-  required_state_vars: [U]
-  required_obs_vars: [U]
+  required_state_vars: [U, V, T, Q, PSFC]
+  required_obs_vars: [U, V, T]
 
 # Simplified configuration for debugging
 # Removed optional sections that may cause configuration parsing issues

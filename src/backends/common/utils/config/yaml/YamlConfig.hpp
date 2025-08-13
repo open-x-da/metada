@@ -170,6 +170,21 @@ class YamlConfig {
   void Clear();
 
   /**
+   * @brief Stream output operator for YamlConfig
+   *
+   * Outputs the YAML configuration as a formatted string to the given stream.
+   * This is useful for debugging and logging purposes.
+   *
+   * @param os Output stream to write to
+   * @param config YamlConfig object to output
+   * @return Reference to the output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os, const YamlConfig& config) {
+    os << config.ToString();
+    return os;
+  }
+
+  /**
    * @brief Create a new YamlConfig object representing a subsection
    *
    * @param key Dot-separated path to the subsection

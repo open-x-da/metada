@@ -47,6 +47,13 @@ int main(int argc, char** argv) {
     std::string var_type = config.Get("variational_type").asString();
     logger.Info() << "Variational method: " << var_type;
 
+    // Initialize observations first (data-driven workflow)
+    // For 3DVAR, we have a single observation time with multiple types
+    std::vector<fwk::Observation<BackendTag>> observations;
+    observations.emplace_back(config.GetSubsection("observations"));
+
+    logger.Info() << "Loaded observations for " << var_type << " analysis";
+
     // Initialize geometry
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
@@ -58,18 +65,12 @@ int main(int argc, char** argv) {
     // Initialize model
     fwk::Model<BackendTag> model(config.GetSubsection("model"));
 
-    // Initialize observations
-    // For 3DVAR, we have a single observation time with multiple types
-    std::vector<fwk::Observation<BackendTag>> observations;
-    observations.emplace_back(config.GetSubsection("observations"));
-
-    logger.Info() << "Loaded observations for " << var_type << " analysis";
-
     // Initialize observation operators
     // For 3DVAR, we need a single observation operator matching the observation
     // structure
     std::vector<fwk::ObsOperator<BackendTag>> obs_operators;
-    obs_operators.emplace_back(config.GetSubsection("obs_operator"));
+    obs_operators.emplace_back(config.GetSubsection("obs_operator"),
+                               observations.front());
 
     logger.Info() << "Loaded observation operator for " << var_type
                   << " analysis";
