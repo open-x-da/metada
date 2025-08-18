@@ -168,6 +168,7 @@ class MockObservation {
   MOCK_METHOD(void, initialize, ());
   MOCK_METHOD(void, applyQC, ());
   MOCK_METHOD(bool, equals, (const MockObservation& other), (const));
+  MOCK_METHOD(bool, isInitialized, (), (const));
 
   // Arithmetic operations
   MOCK_METHOD(void, add, (const MockObservation& other));
@@ -235,6 +236,19 @@ class MockObservation {
       }
     }
     return variables;
+  }
+
+  // Get the size of observation data for a specific type/variable
+  size_t getSize(const std::string& typeName,
+                 const std::string& varName) const {
+    auto type_it = type_variable_map_.find(typeName);
+    if (type_it != type_variable_map_.end()) {
+      auto var_it = type_it->second.find(varName);
+      if (var_it != type_it->second.end()) {
+        return var_it->second.size();
+      }
+    }
+    return 0;
   }
 
   // Get the observation error variances

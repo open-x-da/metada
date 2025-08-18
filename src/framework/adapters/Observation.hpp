@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iomanip>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -528,6 +529,78 @@ class Observation : private NonCopyable {
    * @return True if R is diagonal, false for full covariance matrix
    */
   bool isDiagonalCovariance() const { return backend_.isDiagonalCovariance(); }
+
+  /**
+   * @brief Stream insertion operator for observation summary
+   *
+   * @details Outputs a comprehensive summary of the observation data including:
+   * - Total number of observations
+   * - Summary for each observation type
+   * - Number of variables per type
+   * - Total observations per type
+   * - Coordinate system information
+   *
+   * @param os Output stream to write to
+   * @param obs Observation object to summarize
+   * @return Reference to the output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os, const Observation& obs) {
+    os << "=== Observation Summary ===\n";
+    os << "Total observations: " << obs.size() << "\n";
+    os << "Initialized: " << (obs.isInitialized() ? "Yes" : "No") << "\n";
+    os << "Coordinate system: Geographic\n\n";
+
+    const auto& type_names = obs.getTypeNames();
+    if (type_names.empty()) {
+      os << "No observation types defined\n";
+    } else {
+      os << "Observation Types (" << type_names.size() << "):\n";
+      os << std::string(50, '-') << "\n";
+
+      for (const auto& type_name : type_names) {
+        const auto& var_names = obs.getVariableNames(type_name);
+        size_t total_obs_for_type = 0;
+
+        // Count total observations for this type across all variables
+        for (const auto& var_name : var_names) {
+          total_obs_for_type += obs.getSize(type_name, var_name);
+        }
+
+        os << "Type: " << std::setw(15) << std::left << type_name;
+        os << " | Variables: " << std::setw(3) << std::right
+           << var_names.size();
+        os << " | Total obs: " << std::setw(6) << std::right
+           << total_obs_for_type << "\n";
+
+        // Show variable details if there are any
+        if (!var_names.empty()) {
+          os << "  Variables: ";
+          for (size_t i = 0; i < var_names.size(); ++i) {
+            if (i > 0) os << ", ";
+            os << var_names[i] << "(" << obs.getSize(type_name, var_names[i])
+               << ")";
+          }
+          os << "\n";
+        }
+        os << "\n";
+      }
+    }
+
+    // Show covariance information
+    os << "Covariance Information:\n";
+    os << std::string(50, '-') << "\n";
+    os << "Diagonal: " << (obs.isDiagonalCovariance() ? "Yes" : "No") << "\n";
+
+    const auto& cov = obs.getCovariance();
+    if (!cov.empty()) {
+      double min_error = *std::min_element(cov.begin(), cov.end());
+      double max_error = *std::max_element(cov.begin(), cov.end());
+      os << "Error variance range: [" << min_error << ", " << max_error
+         << "]\n";
+    }
+
+    return os;
+  }
 
  private:
   /**

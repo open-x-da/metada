@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <iomanip>
 #include <memory>
 #include <string>
 #include <vector>
@@ -142,6 +144,62 @@ class LiteObs {
   // Test helper methods
   void setObservations(const std::vector<double>& obs) { observations_ = obs; }
   void setCovariance(const std::vector<double>& cov) { covariance_ = cov; }
+
+  /**
+   * @brief Stream insertion operator for LiteObs summary
+   *
+   * @details Outputs a summary of the lite observation data including:
+   * - Total number of observations
+   * - Observation types and variables
+   * - Quality control statistics
+   * - Covariance information
+   *
+   * @param os Output stream to write to
+   * @param obs LiteObs object to summarize
+   * @return Reference to the output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os, const LiteObs& obs) {
+    os << "=== Lite Observation Summary ===\n";
+    os << "Total observations: " << obs.observations_.size() << "\n\n";
+
+    // Show observation types and variables
+    const auto& type_names = obs.getTypeNames();
+    os << "Observation Types (" << type_names.size() << "):\n";
+    os << std::string(50, '-') << "\n";
+
+    for (const auto& type_name : type_names) {
+      const auto& var_names = obs.getVariableNames(type_name);
+      os << "Type: " << std::setw(15) << std::left << type_name;
+      os << " | Variables: " << std::setw(3) << std::right << var_names.size();
+      os << " | Total obs: " << std::setw(6) << std::right
+         << obs.observations_.size() << "\n";
+
+      if (!var_names.empty()) {
+        os << "  Variables: ";
+        for (size_t i = 0; i < var_names.size(); ++i) {
+          if (i > 0) os << ", ";
+          os << var_names[i] << "(" << obs.observations_.size() << ")";
+        }
+        os << "\n";
+      }
+      os << "\n";
+    }
+
+    // Show covariance information
+    os << "Covariance Information:\n";
+    os << std::string(50, '-') << "\n";
+    os << "Diagonal: " << (obs.isDiagonalCovariance() ? "Yes" : "No") << "\n";
+
+    const auto& cov = obs.getCovariance();
+    if (!cov.empty()) {
+      double min_error = *std::min_element(cov.begin(), cov.end());
+      double max_error = *std::max_element(cov.begin(), cov.end());
+      os << "Error variance range: [" << std::scientific << std::setprecision(2)
+         << min_error << ", " << max_error << "]\n";
+    }
+
+    return os;
+  }
 
  private:
   std::vector<double> observations_;

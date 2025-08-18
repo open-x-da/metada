@@ -35,6 +35,9 @@ metada_find_package(nlohmann_json OPTIONAL CONFIG QUIET)
 
 metada_find_package(ng-log OPTIONAL CONFIG QUIET)
 
+# Find Arrow/Parquet libraries for observation data I/O
+metada_find_package(Arrow REQUIRED CONFIG)
+
 # Configure CUDA support
 include(CUDA)
 

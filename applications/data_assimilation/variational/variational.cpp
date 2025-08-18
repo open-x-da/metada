@@ -53,7 +53,9 @@ int main(int argc, char** argv) {
     observations.emplace_back(config.GetSubsection("observations"));
 
     logger.Info() << "Loaded observations for " << var_type << " analysis";
+    logger.Info() << "Observations: " << observations.front();
 
+    return 0;
     // Initialize geometry
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 

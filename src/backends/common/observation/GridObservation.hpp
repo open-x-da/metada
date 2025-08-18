@@ -533,6 +533,30 @@ class GridObservation {
     return result;
   }
 
+  /**
+   * @brief Get the size of observation data for a specific type/variable
+   * @param type_name Name of the observation type
+   * @param var_name Name of the variable
+   * @return Size of the observation data vector
+   */
+  size_t getSize(const std::string& type_name,
+                 const std::string& var_name) const {
+    auto type_it = type_variable_map_.find(type_name);
+    if (type_it != type_variable_map_.end()) {
+      auto var_it = type_it->second.find(var_name);
+      if (var_it != type_it->second.end()) {
+        return var_it->second.size();
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * @brief Check if observation error covariance is diagonal
+   * @return True if R is diagonal, false for full covariance matrix
+   */
+  bool isDiagonalCovariance() const { return true; }
+
  private:
   /**
    * @brief Private constructor for cloning
@@ -554,6 +578,130 @@ class GridObservation {
       type_variable_map_;
 
   std::vector<double> covariance_;  ///< Observation error covariance matrix
+
+  /**
+   * @brief Stream insertion operator for GridObservation summary
+   *
+   * @details Outputs a detailed summary of the grid observation data including:
+   * - Total number of observations
+   * - Summary for each observation type and variable
+   * - Geographic distribution information
+   * - Quality control statistics
+   *
+   * @param os Output stream to write to
+   * @param obs GridObservation object to summarize
+   * @return Reference to the output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const GridObservation& obs) {
+    os << "=== Grid Observation Summary ===\n";
+    os << "Total observations: " << obs.observations_.size() << "\n\n";
+
+    // Count valid vs invalid observations
+    size_t valid_count = 0;
+    size_t invalid_count = 0;
+    for (const auto& observation : obs.observations_) {
+      if (observation.is_valid) {
+        valid_count++;
+      } else {
+        invalid_count++;
+      }
+    }
+    os << "Quality Control:\n";
+    os << std::string(50, '-') << "\n";
+    os << "Valid observations: " << valid_count << "\n";
+    os << "Invalid observations: " << invalid_count << "\n";
+    os << "Total: " << (valid_count + invalid_count) << "\n\n";
+
+    // Show observation types and variables
+    const auto& type_names = obs.getTypeNames();
+    if (type_names.empty()) {
+      os << "No observation types defined\n";
+    } else {
+      os << "Observation Types (" << type_names.size() << "):\n";
+      os << std::string(50, '-') << "\n";
+
+      for (const auto& type_name : type_names) {
+        const auto& var_names = obs.getVariableNames(type_name);
+        size_t total_obs_for_type = 0;
+
+        // Count total observations for this type across all variables
+        for (const auto& var_name : var_names) {
+          total_obs_for_type += obs.getSize(type_name, var_name);
+        }
+
+        os << "Type: " << std::setw(15) << std::left << type_name;
+        os << " | Variables: " << std::setw(3) << std::right
+           << var_names.size();
+        os << " | Total obs: " << std::setw(6) << std::right
+           << total_obs_for_type << "\n";
+
+        // Show variable details if there are any
+        if (!var_names.empty()) {
+          os << "  Variables: ";
+          for (size_t i = 0; i < var_names.size(); ++i) {
+            if (i > 0) os << ", ";
+            os << var_names[i] << "(" << obs.getSize(type_name, var_names[i])
+               << ")";
+          }
+          os << "\n";
+        }
+        os << "\n";
+      }
+    }
+
+    // Show geographic distribution
+    if (!obs.observations_.empty()) {
+      os << "Geographic Distribution:\n";
+      os << std::string(50, '-') << "\n";
+
+      double min_lat = std::numeric_limits<double>::max();
+      double max_lat = std::numeric_limits<double>::lowest();
+      double min_lon = std::numeric_limits<double>::max();
+      double max_lon = std::numeric_limits<double>::lowest();
+      double min_level = std::numeric_limits<double>::max();
+      double max_level = std::numeric_limits<double>::lowest();
+
+      for (const auto& observation : obs.observations_) {
+        if (observation.is_valid &&
+            observation.location.getCoordinateSystem() ==
+                CoordinateSystem::GEOGRAPHIC) {
+          auto [lat, lon, level] = observation.location.getGeographicCoords();
+          min_lat = std::min(min_lat, lat);
+          max_lat = std::max(max_lat, lat);
+          min_lon = std::min(min_lon, lon);
+          max_lon = std::max(max_lon, lon);
+          min_level = std::min(min_level, level);
+          max_level = std::max(max_level, level);
+        }
+      }
+
+      if (min_lat != std::numeric_limits<double>::max()) {
+        os << "Latitude range: [" << std::fixed << std::setprecision(2)
+           << min_lat << ", " << max_lat << "]\n";
+        os << "Longitude range: [" << std::fixed << std::setprecision(2)
+           << min_lon << ", " << max_lon << "]\n";
+        os << "Level range: [" << std::fixed << std::setprecision(2)
+           << min_level << ", " << max_level << "]\n";
+      }
+      os << "\n";
+    }
+
+    // Show covariance information
+    os << "Covariance Information:\n";
+    os << std::string(50, '-') << "\n";
+    os << "Diagonal: " << (obs.isDiagonalCovariance() ? "Yes" : "No") << "\n";
+
+    const auto& cov = obs.getCovariance();
+    if (!cov.empty()) {
+      double min_error = *std::min_element(cov.begin(), cov.end());
+      double max_error = *std::max_element(cov.begin(), cov.end());
+      os << "Error variance range: [" << std::scientific << std::setprecision(2)
+         << min_error << ", " << max_error << "]\n";
+    }
+
+    return os;
+  }
 };
 
 }  // namespace metada::backends::common::observation

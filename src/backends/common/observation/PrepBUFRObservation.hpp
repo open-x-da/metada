@@ -17,6 +17,7 @@
 #include "BufrObsIO.hpp"
 #include "ConfigValue.hpp"
 #include "ObsRecord.hpp"
+#include "ParquetObservation.hpp"
 #include "PointObservation.hpp"
 #include "PrepBUFRObservationIterator.hpp"
 
@@ -25,6 +26,7 @@ namespace metada::backends::common::observation {
 using ObsRecord = framework::ObsRecord;
 using ObsLevelRecord = framework::ObsLevelRecord;
 using ConfigValue = metada::backends::config::ConfigValue;
+using ParquetObservation = framework::ParquetObservation;
 
 // Lightweight containers describing PrepBUFR observation geometries.
 struct SurfaceBatch {
@@ -62,6 +64,7 @@ class PrepBUFRObservation {
   template <typename ConfigBackend>
   explicit PrepBUFRObservation(const ConfigBackend& config) {
     const auto type_configs = config.Get("types").asVectorMap();
+
     // Group observation types by file path to avoid reading the same file
     // multiple times
     std::map<
@@ -93,6 +96,10 @@ class PrepBUFRObservation {
         config_data["if_use"] = type_backend.Get("if_use");
         config_data["coordinate"] = type_backend.Get("coordinate");
         config_data["variables"] = type_backend.Get("variables");
+        // Add data_types if present for BUFR subset filtering
+        if (type_backend.HasKey("data_types")) {
+          config_data["data_types"] = type_backend.Get("data_types");
+        }
       } catch (...) {
         // Some keys might not exist, that's okay
       }
@@ -102,16 +109,75 @@ class PrepBUFRObservation {
 
     // Process each file once and distribute records to appropriate types
     for (const auto& [file_path, type_configs] : file_groups) {
+      std::cout << "Processing file: " << file_path << std::endl;
+
       // Read BUFR file once for all types that share it
-      auto bufr_io =
-          io::BufrObsIO<ConfigBackend>(ConfigBackend({{"file", file_path}}));
-      std::vector<ObsRecord> records = bufr_io.read();
+      std::vector<ObsRecord> all_records;
+      {
+        auto bufr_io =
+            io::BufrObsIO<ConfigBackend>(ConfigBackend({{"file", file_path}}));
+        all_records = bufr_io.read();
+        // BufrObsIO destructor will close the file when it goes out of scope
+      }
+
+      std::cout << "Read " << all_records.size() << " total records from file"
+                << std::endl;
+
+      // Show BUFR subset distribution in the file
+      std::map<std::string, size_t> file_subset_counts;
+      for (const auto& rec : all_records) {
+        // Trim trailing whitespace from BUFR subset names
+        std::string trimmed_type = rec.shared.report_type;
+        trimmed_type.erase(trimmed_type.find_last_not_of(" \t\r\n") + 1);
+        file_subset_counts[trimmed_type]++;
+      }
+      std::cout << "BUFR subsets in file: ";
+      for (const auto& [subset, count] : file_subset_counts) {
+        std::cout << subset << "(" << count << ") ";
+      }
+      std::cout << std::endl;
+
+      // Show available BUFR variables in the first few records for debugging
+      std::cout << "Sample BUFR variables in first few records:" << std::endl;
+      size_t sample_count = 0;
+      for (const auto& rec : all_records) {
+        if (sample_count >= 3) break;  // Only show first 3 records
+        std::cout << "  Record " << sample_count
+                  << " (type: " << rec.shared.report_type << "): ";
+        for (const auto& lvl : rec.levels) {
+          for (const auto& v : lvl) {
+            std::cout << v.type << " ";
+          }
+        }
+        std::cout << std::endl;
+        sample_count++;
+      }
+
+      // Show first few records of each BUFR subset type for debugging
+      std::cout << "First few records of each BUFR subset:" << std::endl;
+      std::map<std::string, size_t> subset_sample_counts;
+      for (const auto& rec : all_records) {
+        if (subset_sample_counts[rec.shared.report_type] <
+            2) {  // Show 2 records per subset
+          std::cout << "  " << rec.shared.report_type << " record "
+                    << subset_sample_counts[rec.shared.report_type]
+                    << " (type: '" << rec.shared.report_type << "'): ";
+          for (const auto& lvl : rec.levels) {
+            for (const auto& v : lvl) {
+              std::cout << v.type << " ";
+            }
+          }
+          std::cout << std::endl;
+          subset_sample_counts[rec.shared.report_type]++;
+        }
+      }
 
       // Process each type that uses this file
       for (const auto& [type_name, config_data] : type_configs) {
+        std::cout << "Processing type: " << type_name << std::endl;
+
         // Desired output coordinate system (BUFR is naturally geographic)
         std::string coordinate_system = "geographic";
-        std::cout << "Processing type: " << type_name << std::endl;
         try {
           auto coord_it = config_data.find("coordinate");
           if (coord_it != config_data.end()) {
@@ -126,8 +192,7 @@ class PrepBUFRObservation {
           std::string bufr_name;
           double error;
         };
-        std::vector<std::pair<std::string, VarSel>>
-            enabled_vars;  // (user var, sel)
+        std::vector<std::pair<std::string, VarSel>> enabled_vars;
         try {
           auto vars_it = config_data.find("variables");
           if (vars_it != config_data.end()) {
@@ -142,20 +207,95 @@ class PrepBUFRObservation {
                 std::string bufr_name = mapUserVarToBufr(var_name);
                 if (!bufr_name.empty()) {
                   enabled_vars.push_back({var_name, VarSel{bufr_name, error}});
+                  std::cout << "  Enabled variable: " << var_name << " -> "
+                            << bufr_name << " (error: " << error << ")"
+                            << std::endl;
                 }
               }
             }
           }
         } catch (...) {
-          // No variables section; default none
+          std::cout << "No variables section for " << type_name << std::endl;
+        }
+
+        // Initialize the type in the map
+        type_variable_map_[type_name] =
+            std::unordered_map<std::string, std::vector<size_t>>();
+        for (const auto& [user_var, _] : enabled_vars) {
+          type_variable_map_[type_name][user_var] = std::vector<size_t>();
+        }
+
+        // Get allowed BUFR data types for this observation type
+        std::vector<std::string> allowed_data_types;
+        try {
+          auto data_types_it = config_data.find("data_types");
+          if (data_types_it != config_data.end()) {
+            std::cout << "  Found data_types in config" << std::endl;
+            // data_types is a simple array of strings
+            const auto& data_types_array =
+                data_types_it->second.asVectorString();
+            std::cout << "  Parsed as string array with "
+                      << data_types_array.size() << " elements" << std::endl;
+            for (const auto& dt_name : data_types_array) {
+              allowed_data_types.push_back(dt_name);
+              std::cout << "    Added allowed type: " << dt_name << std::endl;
+            }
+          } else {
+            std::cout << "  No data_types key found in config_data"
+                      << std::endl;
+          }
+        } catch (const std::exception& e) {
+          std::cout << "  Exception parsing data_types: " << e.what()
+                    << std::endl;
+        }
+
+        // Show which BUFR subsets will be processed for this type
+        if (!allowed_data_types.empty()) {
+          std::cout << "  Allowed BUFR subsets: ";
+          for (size_t i = 0; i < allowed_data_types.size(); ++i) {
+            if (i > 0) std::cout << ", ";
+            std::cout << allowed_data_types[i];
+          }
+          std::cout << std::endl;
+        } else {
+          std::cout << "  No BUFR subset filtering - processing all records"
+                    << std::endl;
         }
 
         // Flatten BUFR records into observation points for selected variables
-        for (const auto& rec : records) {
+        size_t type_obs_count = 0;
+        size_t records_processed = 0;
+        size_t records_filtered = 0;
+        size_t levels_processed = 0;
+        size_t variables_found = 0;
+
+        for (const auto& rec : all_records) {
+          // Filter by BUFR subset if data_types are specified
+          if (!allowed_data_types.empty()) {
+            bool subset_allowed = false;
+            // Trim trailing whitespace from BUFR subset name for comparison
+            std::string trimmed_report_type = rec.shared.report_type;
+            trimmed_report_type.erase(
+                trimmed_report_type.find_last_not_of(" \t\r\n") + 1);
+
+            for (const auto& allowed_type : allowed_data_types) {
+              if (trimmed_report_type == allowed_type) {
+                subset_allowed = true;
+                break;
+              }
+            }
+            if (!subset_allowed) {
+              records_filtered++;
+              continue;  // Skip this record if subset not allowed
+            }
+          }
+
+          records_processed++;
           const double lat = rec.shared.latitude;
           const double lon = rec.shared.longitude;
 
           for (const auto& lvl : rec.levels) {
+            levels_processed++;
             // Pick a representative level coordinate (prefer PRES then HEIGHT)
             double level_coord = 0.0;
             for (const auto& v : lvl) {
@@ -172,6 +312,7 @@ class PrepBUFRObservation {
               // Find the requested BUFR variable in this level
               for (const auto& v : lvl) {
                 if (v.type == sel.bufr_name) {
+                  variables_found++;
                   framework::Location location(0, 0, 0);
                   if (coordinate_system == "grid") {
                     // No grid indices in BUFR; fallback to geographic
@@ -183,15 +324,62 @@ class PrepBUFRObservation {
                         lat, lon, level_coord,
                         framework::CoordinateSystem::GEOGRAPHIC);
                   }
+
+                  size_t obs_index = observations_.size();
                   observations_.emplace_back(location, v.value, sel.error);
-                  type_variable_map_[type_name][user_var].push_back(
-                      observations_.size() - 1);
+                  type_variable_map_[type_name][user_var].push_back(obs_index);
+                  type_obs_count++;
                   break;
                 }
               }
             }
           }
         }
+
+        // Debug output for understanding why no observations were found
+        std::cout << "  Debug: Records processed: " << records_processed
+                  << ", Records filtered out: " << records_filtered
+                  << ", Levels processed: " << levels_processed
+                  << ", Variables found: " << variables_found << std::endl;
+
+        std::cout << "Added " << type_obs_count << " observations for type "
+                  << type_name << std::endl;
+
+        // Show BUFR subset distribution for this type
+        if (!allowed_data_types.empty()) {
+          std::map<std::string, size_t> subset_counts;
+          for (const auto& rec : all_records) {
+            bool subset_allowed = false;
+            // Trim trailing whitespace from BUFR subset name for comparison
+            std::string trimmed_report_type = rec.shared.report_type;
+            trimmed_report_type.erase(
+                trimmed_report_type.find_last_not_of(" \t\r\n") + 1);
+
+            for (const auto& allowed_type : allowed_data_types) {
+              if (trimmed_report_type == allowed_type) {
+                subset_allowed = true;
+                subset_counts[trimmed_report_type]++;
+                break;
+              }
+            }
+          }
+          std::cout << "  BUFR subset distribution: ";
+          for (const auto& [subset, count] : subset_counts) {
+            std::cout << subset << "(" << count << ") ";
+          }
+          std::cout << std::endl;
+        }
+      }
+    }
+
+    std::cout << "Total observations: " << observations_.size() << std::endl;
+    std::cout << "Type map size: " << type_variable_map_.size() << std::endl;
+    for (const auto& [type_name, var_map] : type_variable_map_) {
+      std::cout << "  Type " << type_name << " has " << var_map.size()
+                << " variables" << std::endl;
+      for (const auto& [var_name, indices] : var_map) {
+        std::cout << "    Variable " << var_name << " has " << indices.size()
+                  << " observations" << std::endl;
       }
     }
   }
@@ -470,6 +658,30 @@ class PrepBUFRObservation {
     return result;
   }
 
+  /**
+   * @brief Get the size of observation data for a specific type/variable
+   * @param type_name Name of the observation type
+   * @param var_name Name of the variable
+   * @return Size of the observation data vector
+   */
+  size_t getSize(const std::string& type_name,
+                 const std::string& var_name) const {
+    auto type_it = type_variable_map_.find(type_name);
+    if (type_it != type_variable_map_.end()) {
+      auto var_it = type_it->second.find(var_name);
+      if (var_it != type_it->second.end()) {
+        return var_it->second.size();
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * @brief Check if observation error covariance is diagonal
+   * @return True if R is diagonal, false for full covariance matrix
+   */
+  bool isDiagonalCovariance() const { return true; }
+
   // Batch builder from ObsRecords (static utility)
   static FamilyBatches groupByFamily(const std::vector<ObsRecord>& records) {
     FamilyBatches batches;
@@ -494,12 +706,6 @@ class PrepBUFRObservation {
   }
 
  private:
-  // Size for a given type/variable (fallback: entire flattened vector)
-  size_t getSize(const std::string& /*type_name*/,
-                 const std::string& /*var_name*/) const {
-    return observations_.size();
-  }
-
   // Additional covariance helpers required by Observation adapter API
   std::vector<double> applyCovariance(const std::vector<double>& vec) const {
     if (vec.size() != observations_.size()) {
@@ -531,7 +737,6 @@ class PrepBUFRObservation {
     return diag;
   }
 
-  bool isDiagonalCovariance() const { return true; }
   static bool isSurfaceSubset(const std::string& subset) {
     return subset == "METAR" || subset == "SYNOP" || subset == "BUOY" ||
            subset == "SHIP" || subset == "SOND";
@@ -605,11 +810,251 @@ class PrepBUFRObservation {
       return "PRES";
     return std::string();
   }
+
   // Private clone constructor
   PrepBUFRObservation(const PrepBUFRObservation& other, bool)
       : observations_(other.observations_),
         type_variable_map_(other.type_variable_map_),
         covariance_(other.covariance_) {}
+
+  // Implementation of ParquetObservation methods
+  ParquetObservation toParquetObservation() const {
+    ParquetObservation result;
+
+    // Reserve space for efficiency
+    result.reserve(observations_.size());
+
+    for (size_t i = 0; i < observations_.size(); ++i) {
+      const auto& obs = observations_[i];
+
+      // Create metadata
+      ParquetObservation::ObservationMeta meta;
+      meta.station_id = "UNKNOWN";  // BUFR doesn't always have station IDs
+
+      // Get geographic coordinates from Location
+      auto [lat, lon, level] = obs.location.getGeographicCoords();
+      meta.longitude = lon;
+      meta.latitude = lat;
+      meta.elevation = level;
+      meta.pressure = level;  // Use level as pressure proxy
+      meta.datetime =
+          DateTime();  // Default datetime, would need to be extracted from BUFR
+      meta.obs_type = 0;  // Default, would need to be mapped from BUFR subset
+      meta.channel = 0;   // Surface observations don't have channels
+      meta.obs_error = obs.error;
+      meta.qc_flag = obs.is_valid ? 1 : 0;
+      meta.report_type = "BUFR";
+      meta.instrument_type = "UNKNOWN";
+
+      // Determine category based on pressure/height
+      if (level > 0) {
+        meta.category = ParquetObservation::ObsType::PROFILE;
+      } else {
+        meta.category = ParquetObservation::ObsType::SURFACE;
+      }
+
+      // Create field values
+      std::unordered_map<std::string, ParquetObservation::FieldValue> fields;
+      fields["value"] = obs.value;
+      fields["error"] = obs.error;
+      fields["is_valid"] = obs.is_valid ? 1 : 0;
+
+      // Add location fields
+      fields["longitude"] = lon;
+      fields["latitude"] = lat;
+      fields["height"] = level;
+
+      result.addObservation(meta, fields);
+    }
+
+    return result;
+  }
+
+  template <typename ConfigBackend>
+  static ParquetObservation createParquetObservation(
+      const ConfigBackend& config) {
+    ParquetObservation result;
+
+    const auto type_configs = config.Get("types").asVectorMap();
+
+    // Group observation types by file path to avoid reading the same file
+    // multiple times
+    std::map<
+        std::string,
+        std::vector<std::pair<std::string, std::map<std::string, ConfigValue>>>>
+        file_groups;
+
+    for (const auto& type_map : type_configs) {
+      const auto& [type_name, type_config] = *type_map.begin();
+      const auto& type_backend = ConfigBackend(type_config.asMap());
+      bool type_if_use = type_backend.Get("if_use").asBool();
+      if (!type_if_use) continue;
+
+      // Get file path for this type
+      std::string file_path;
+      try {
+        file_path = type_backend.Get("file").asString();
+      } catch (...) {
+        try {
+          file_path = type_backend.Get("filename").asString();
+        } catch (...) {
+          continue;  // Skip types without valid file path
+        }
+      }
+
+      // Store the configuration data as a map that can be copied
+      std::map<std::string, ConfigValue> config_data;
+      try {
+        config_data["if_use"] = type_backend.Get("if_use");
+        config_data["coordinate"] = type_backend.Get("coordinate");
+        config_data["variables"] = type_backend.Get("variables");
+      } catch (...) {
+        // Some keys might not exist, that's okay
+      }
+
+      file_groups[file_path].emplace_back(type_name, config_data);
+    }
+
+    // Process each file once and distribute records to appropriate types
+    for (const auto& [file_path, type_configs] : file_groups) {
+      // Read BUFR file once for all types that share it
+      auto bufr_io =
+          io::BufrObsIO<ConfigBackend>(ConfigBackend({{"file", file_path}}));
+      std::vector<ObsRecord> records = bufr_io.read();
+
+      // Process each type that uses this file
+      for (const auto& [type_name, config_data] : type_configs) {
+        // Desired output coordinate system (BUFR is naturally geographic)
+        std::string coordinate_system = "geographic";
+        std::cout << "Processing type: " << type_name << std::endl;
+        try {
+          auto coord_it = config_data.find("coordinate");
+          if (coord_it != config_data.end()) {
+            coordinate_system = coord_it->second.asString();
+          }
+        } catch (...) {
+          std::cout << "No coordinate section; default geographic" << std::endl;
+        }
+
+        // Collect enabled variables for this type with their errors
+        struct VarSel {
+          std::string bufr_name;
+          double error;
+        };
+        std::vector<std::pair<std::string, VarSel>>
+            enabled_vars;  // (user var, sel)
+        try {
+          auto vars_it = config_data.find("variables");
+          if (vars_it != config_data.end()) {
+            const auto& variables_configs = vars_it->second.asVectorMap();
+            for (const auto& var_map : variables_configs) {
+              for (const auto& [var_name, var_config] : var_map) {
+                const auto& var_backend = ConfigBackend(var_config.asMap());
+                bool var_if_use = var_backend.Get("if_use").asBool();
+                if (!var_if_use) continue;
+                double error = var_backend.Get("error").asFloat();
+                // Map model variable name to BUFR variable short name
+                std::string bufr_name = mapUserVarToBufr(var_name);
+                if (!bufr_name.empty()) {
+                  enabled_vars.push_back({var_name, VarSel{bufr_name, error}});
+                }
+              }
+            }
+          }
+        } catch (...) {
+          // No variables section; default none
+        }
+
+        // Flatten BUFR records into ParquetObservation for selected variables
+        for (const auto& rec : records) {
+          const double lat = rec.shared.latitude;
+          const double lon = rec.shared.longitude;
+
+          for (const auto& lvl : rec.levels) {
+            // Pick a representative level coordinate (prefer PRES then HEIGHT)
+            double level_coord = 0.0;
+            for (const auto& v : lvl) {
+              if (v.type == "PRES") {
+                level_coord = v.value;
+                break;
+              }
+              if (v.type == "HEIGHT") {
+                level_coord = v.value;
+              }
+            }
+
+            for (const auto& [user_var, sel] : enabled_vars) {
+              // Find the requested BUFR variable in this level
+              for (const auto& v : lvl) {
+                if (v.type == sel.bufr_name) {
+                  // Create metadata for this observation
+                  ParquetObservation::ObservationMeta meta;
+                  meta.station_id = rec.shared.station_id;
+                  meta.longitude = lon;
+                  meta.latitude = lat;
+                  meta.elevation = rec.shared.elevation;
+                  meta.pressure = level_coord;
+                  meta.datetime = rec.shared.datetime;
+                  meta.obs_type = getObsTypeFromSubset(type_name);
+                  meta.channel =
+                      0;  // Surface/profile observations don't have channels
+                  meta.obs_error = sel.error;
+                  meta.qc_flag = v.qc_marker;
+                  meta.report_type = type_name;
+                  meta.instrument_type = rec.shared.instrument_type;
+
+                  // Determine category based on observation type
+                  if (isSurfaceSubset(type_name)) {
+                    meta.category = ParquetObservation::ObsType::SURFACE;
+                  } else if (isAirep(type_name) || isPilot(type_name) ||
+                             isSound(type_name)) {
+                    meta.category = ParquetObservation::ObsType::PROFILE;
+                  } else {
+                    meta.category = ParquetObservation::ObsType::UNKNOWN;
+                  }
+
+                  // Create field values
+                  std::unordered_map<std::string,
+                                     ParquetObservation::FieldValue>
+                      fields;
+                  fields[user_var] = v.value;
+                  fields["error"] = sel.error;
+                  fields["qc_marker"] = static_cast<int>(v.qc_marker);
+                  fields["unit"] = v.unit ? *v.unit : "";
+
+                  // Add location fields
+                  fields["longitude"] = lon;
+                  fields["latitude"] = lat;
+                  fields["height"] = level_coord;
+                  fields["elevation"] = rec.shared.elevation;
+
+                  result.addObservation(meta, fields);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  // Helper method to map subset names to WMO observation type codes
+  static int getObsTypeFromSubset(const std::string& subset) {
+    if (subset == "METAR") return 1;
+    if (subset == "SYNOP") return 2;
+    if (subset == "SHIP") return 3;
+    if (subset == "BUOY") return 4;
+    if (subset == "AIREP") return 5;
+    if (subset == "AMDAR") return 6;
+    if (subset == "TAMDAR") return 7;
+    if (subset == "PILOT") return 8;
+    if (subset == "SOUND") return 9;
+    if (subset == "RAOB") return 10;
+    return 0;  // Unknown
+  }
 
   // Data members
   std::vector<framework::ObservationPoint> observations_;
@@ -617,6 +1062,131 @@ class PrepBUFRObservation {
                      std::unordered_map<std::string, std::vector<size_t>>>
       type_variable_map_;
   std::vector<double> covariance_;
+
+  /**
+   * @brief Stream insertion operator for PrepBUFRObservation summary
+   *
+   * @details Outputs a detailed summary of the PrepBUFR observation data
+   * including:
+   * - Total number of observations
+   * - Summary for each observation type and variable
+   * - Geographic distribution information
+   * - Quality control statistics
+   *
+   * @param os Output stream to write to
+   * @param obs PrepBUFRObservation object to summarize
+   * @return Reference to the output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const PrepBUFRObservation& obs) {
+    os << "=== PrepBUFR Observation Summary ===\n";
+    os << "Total observations: " << obs.observations_.size() << "\n\n";
+
+    // Count valid vs invalid observations
+    size_t valid_count = 0;
+    size_t invalid_count = 0;
+    for (const auto& observation : obs.observations_) {
+      if (observation.is_valid) {
+        valid_count++;
+      } else {
+        invalid_count++;
+      }
+    }
+    os << "Quality Control:\n";
+    os << std::string(50, '-') << "\n";
+    os << "Valid observations: " << valid_count << "\n";
+    os << "Invalid observations: " << invalid_count << "\n";
+    os << "Total: " << (valid_count + invalid_count) << "\n\n";
+
+    // Show observation types and variables
+    const auto& type_names = obs.getTypeNames();
+    if (type_names.empty()) {
+      os << "No observation types defined\n";
+    } else {
+      os << "Observation Types (" << type_names.size() << "):\n";
+      os << std::string(50, '-') << "\n";
+
+      for (const auto& type_name : type_names) {
+        const auto& var_names = obs.getVariableNames(type_name);
+        size_t total_obs_for_type = 0;
+
+        // Count total observations for this type across all variables
+        for (const auto& var_name : var_names) {
+          total_obs_for_type += obs.getSize(type_name, var_name);
+        }
+
+        os << "Type: " << std::setw(15) << std::left << type_name;
+        os << " | Variables: " << std::setw(3) << std::right
+           << var_names.size();
+        os << " | Total obs: " << std::setw(6) << std::right
+           << total_obs_for_type << "\n";
+
+        // Show variable details if there are any
+        if (!var_names.empty()) {
+          os << "  Variables: ";
+          for (size_t i = 0; i < var_names.size(); ++i) {
+            if (i > 0) os << ", ";
+            os << var_names[i] << "(" << obs.getSize(type_name, var_names[i])
+               << ")";
+          }
+          os << "\n";
+        }
+        os << "\n";
+      }
+    }
+
+    // Show geographic distribution
+    if (!obs.observations_.empty()) {
+      os << "Geographic Distribution:\n";
+      os << std::string(50, '-') << "\n";
+
+      double min_lat = std::numeric_limits<double>::max();
+      double max_lat = std::numeric_limits<double>::lowest();
+      double min_lon = std::numeric_limits<double>::max();
+      double max_lon = std::numeric_limits<double>::lowest();
+      double min_level = std::numeric_limits<double>::max();
+      double max_level = std::numeric_limits<double>::lowest();
+
+      for (const auto& observation : obs.observations_) {
+        if (observation.is_valid &&
+            observation.location.getCoordinateSystem() ==
+                framework::CoordinateSystem::GEOGRAPHIC) {
+          auto [lat, lon, level] = observation.location.getGeographicCoords();
+          min_lat = std::min(min_lat, lat);
+          max_lat = std::max(max_lat, lat);
+          min_lon = std::min(min_lon, lon);
+          max_lon = std::max(max_lon, lon);
+          min_level = std::min(min_level, level);
+          max_level = std::max(max_level, level);
+        }
+      }
+
+      if (min_lat != std::numeric_limits<double>::max()) {
+        os << "Latitude range: [" << std::fixed << std::setprecision(2)
+           << min_lat << ", " << max_lat << "]\n";
+        os << "Longitude range: [" << std::fixed << std::setprecision(2)
+           << min_lon << ", " << max_lon << "]\n";
+        os << "Level range: [" << std::fixed << std::setprecision(2)
+           << min_level << ", " << max_level << "]\n";
+      }
+      os << "\n";
+    }
+
+    // Show covariance information
+    os << "Covariance Information:\n";
+    os << std::string(50, '-') << "\n";
+    os << "Diagonal: " << (obs.isDiagonalCovariance() ? "Yes" : "No") << "\n";
+
+    const auto& cov = obs.getCovariance();
+    if (!cov.empty()) {
+      double min_error = *std::min_element(cov.begin(), cov.end());
+      double max_error = *std::max_element(cov.begin(), cov.end());
+      os << "Error variance range: [" << std::scientific << std::setprecision(2)
+         << min_error << ", " << max_error << "]\n";
+    }
+
+    return os;
+  }
 };
 
 }  // namespace metada::backends::common::observation

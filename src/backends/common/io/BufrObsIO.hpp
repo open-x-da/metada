@@ -320,7 +320,7 @@ class BufrObsIO {
         continue;
       }
       // Populate base record information
-      populateBaseRecord(record.shared, date, header, stid);
+      populateBaseRecord(record.shared, date, header, stid, subset);
 
       // Filter by station_id if station_ids_ is not empty
       if (!station_ids_.empty() &&
@@ -366,9 +366,11 @@ class BufrObsIO {
    * @param date The observation date
    * @param header The BUFR header array
    * @param stid Buffer to store station ID
+   * @param subset BUFR subset name (e.g., "METAR", "SYNOP", "AIREP")
    */
   void populateBaseRecord(ObsRecordShared& shared, int date,
-                          const double header[], char* stid) {
+                          const double header[], char* stid,
+                          const std::string& subset) {
     std::memcpy(stid, &header[0], 8);
     shared.station_id = stid;
     shared.longitude = header[1];  // XOB
@@ -378,7 +380,7 @@ class BufrObsIO {
     if (header[4] != 0.0) {
       shared.datetime += Duration::fromHoursF(header[4]);
     }
-    shared.report_type = std::to_string(static_cast<int>(header[5]));
+    shared.report_type = subset;  // Store the actual BUFR subset name
     shared.input_report_type = std::to_string(static_cast<int>(header[6]));
     shared.instrument_type = std::to_string(static_cast<int>(header[7]));
   }
