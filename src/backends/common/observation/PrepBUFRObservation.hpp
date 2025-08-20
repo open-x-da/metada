@@ -123,53 +123,12 @@ class PrepBUFRObservation {
       std::cout << "Read " << all_records.size() << " total records from file"
                 << std::endl;
 
-      // Show BUFR subset distribution in the file
-      std::map<std::string, size_t> file_subset_counts;
+      // Store BUFR subset distribution for later display
       for (const auto& rec : all_records) {
         // Trim trailing whitespace from BUFR subset names
         std::string trimmed_type = rec.shared.report_type;
         trimmed_type.erase(trimmed_type.find_last_not_of(" \t\r\n") + 1);
-        file_subset_counts[trimmed_type]++;
-      }
-      std::cout << "BUFR subsets in file: ";
-      for (const auto& [subset, count] : file_subset_counts) {
-        std::cout << subset << "(" << count << ") ";
-      }
-      std::cout << std::endl;
-
-      // Show available BUFR variables in the first few records for debugging
-      std::cout << "Sample BUFR variables in first few records:" << std::endl;
-      size_t sample_count = 0;
-      for (const auto& rec : all_records) {
-        if (sample_count >= 3) break;  // Only show first 3 records
-        std::cout << "  Record " << sample_count
-                  << " (type: " << rec.shared.report_type << "): ";
-        for (const auto& lvl : rec.levels) {
-          for (const auto& v : lvl) {
-            std::cout << v.type << " ";
-          }
-        }
-        std::cout << std::endl;
-        sample_count++;
-      }
-
-      // Show first few records of each BUFR subset type for debugging
-      std::cout << "First few records of each BUFR subset:" << std::endl;
-      std::map<std::string, size_t> subset_sample_counts;
-      for (const auto& rec : all_records) {
-        if (subset_sample_counts[rec.shared.report_type] <
-            2) {  // Show 2 records per subset
-          std::cout << "  " << rec.shared.report_type << " record "
-                    << subset_sample_counts[rec.shared.report_type]
-                    << " (type: '" << rec.shared.report_type << "'): ";
-          for (const auto& lvl : rec.levels) {
-            for (const auto& v : lvl) {
-              std::cout << v.type << " ";
-            }
-          }
-          std::cout << std::endl;
-          subset_sample_counts[rec.shared.report_type]++;
-        }
+        bufr_subset_counts_[trimmed_type]++;
       }
 
       // Process each type that uses this file
@@ -345,9 +304,8 @@ class PrepBUFRObservation {
         std::cout << "Added " << type_obs_count << " observations for type "
                   << type_name << std::endl;
 
-        // Show BUFR subset distribution for this type
+        // Store BUFR subset distribution for this type
         if (!allowed_data_types.empty()) {
-          std::map<std::string, size_t> subset_counts;
           for (const auto& rec : all_records) {
             bool subset_allowed = false;
             // Trim trailing whitespace from BUFR subset name for comparison
@@ -358,16 +316,11 @@ class PrepBUFRObservation {
             for (const auto& allowed_type : allowed_data_types) {
               if (trimmed_report_type == allowed_type) {
                 subset_allowed = true;
-                subset_counts[trimmed_report_type]++;
+                type_bufr_subset_counts_[type_name][trimmed_report_type]++;
                 break;
               }
             }
           }
-          std::cout << "  BUFR subset distribution: ";
-          for (const auto& [subset, count] : subset_counts) {
-            std::cout << subset << "(" << count << ") ";
-          }
-          std::cout << std::endl;
         }
       }
     }
@@ -388,13 +341,17 @@ class PrepBUFRObservation {
   PrepBUFRObservation(PrepBUFRObservation&& other) noexcept
       : observations_(std::move(other.observations_)),
         type_variable_map_(std::move(other.type_variable_map_)),
-        covariance_(std::move(other.covariance_)) {}
+        covariance_(std::move(other.covariance_)),
+        bufr_subset_counts_(std::move(other.bufr_subset_counts_)),
+        type_bufr_subset_counts_(std::move(other.type_bufr_subset_counts_)) {}
 
   PrepBUFRObservation& operator=(PrepBUFRObservation&& other) noexcept {
     if (this != &other) {
       observations_ = std::move(other.observations_);
       type_variable_map_ = std::move(other.type_variable_map_);
       covariance_ = std::move(other.covariance_);
+      bufr_subset_counts_ = std::move(other.bufr_subset_counts_);
+      type_bufr_subset_counts_ = std::move(other.type_bufr_subset_counts_);
     }
     return *this;
   }
@@ -1062,6 +1019,10 @@ class PrepBUFRObservation {
                      std::unordered_map<std::string, std::vector<size_t>>>
       type_variable_map_;
   std::vector<double> covariance_;
+  std::map<std::string, size_t>
+      bufr_subset_counts_;  // Store overall BUFR subset distribution
+  std::map<std::string, std::map<std::string, size_t>>
+      type_bufr_subset_counts_;  // Store per-type BUFR subset distribution
 
   /**
    * @brief Stream insertion operator for PrepBUFRObservation summary
@@ -1132,6 +1093,33 @@ class PrepBUFRObservation {
           os << "\n";
         }
         os << "\n";
+      }
+    }
+
+    // Show BUFR subset distribution
+    if (!obs.bufr_subset_counts_.empty()) {
+      os << "Overall BUFR Subset Distribution:\n";
+      os << std::string(50, '-') << "\n";
+      for (const auto& [subset, count] : obs.bufr_subset_counts_) {
+        os << std::setw(15) << std::left << subset << ": " << count << "\n";
+      }
+      os << "\n";
+    }
+
+    // Show per-type BUFR subset distribution
+    if (!obs.type_bufr_subset_counts_.empty()) {
+      os << "Per-Type BUFR Subset Distribution:\n";
+      os << std::string(50, '-') << "\n";
+      for (const auto& [type_name, subset_counts] :
+           obs.type_bufr_subset_counts_) {
+        if (!subset_counts.empty()) {
+          os << "Type: " << std::setw(15) << std::left << type_name << "\n";
+          for (const auto& [subset, count] : subset_counts) {
+            os << "  " << std::setw(15) << std::left << subset << ": " << count
+               << "\n";
+          }
+          os << "\n";
+        }
       }
     }
 
