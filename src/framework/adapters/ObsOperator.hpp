@@ -120,18 +120,38 @@ class ObsOperator : public NonCopyable {
           // Build augmented config with derived metadata
           framework::ConfigMap config_map;
 
-          // Copy existing config values from the original config
+          // Copy specific configuration keys that are commonly needed across
+          // backends This preserves backend-specific configuration (WRFDA, GSI,
+          // DART, etc.) while maintaining framework genericity
           try {
-            if (config.HasKey("wrfda_root")) {
-              config_map["wrfda_root"] = config.Get("wrfda_root");
+            if (config.HasKey("external_root")) {
+              config_map["external_root"] = config.Get("external_root");
             }
           } catch (...) {
             // Ignore if key doesn't exist
           }
 
-          // Set derived values
+          try {
+            if (config.HasKey("external_system")) {
+              config_map["external_system"] = config.Get("external_system");
+            }
+          } catch (...) {
+            // Ignore if key doesn't exist
+          }
+
+          try {
+            if (config.HasKey("operator_family")) {
+              config_map["operator_family"] = config.Get("operator_family");
+            }
+          } catch (...) {
+            // Ignore if key doesn't exist
+          }
+
+          // Set derived values - handle both single and multiple operator
+          // families
           if (!operator_family.empty()) {
-            config_map["wrfda_operator_family"] =
+            // If we have a single type, use it as the primary family
+            config_map["operator_family"] =
                 framework::ConfigValue(operator_family);
           }
           config_map["required_state_vars"] =

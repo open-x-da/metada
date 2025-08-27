@@ -307,7 +307,6 @@ class PrepBUFRObservation {
         // Store BUFR subset distribution for this type
         if (!allowed_data_types.empty()) {
           for (const auto& rec : all_records) {
-            bool subset_allowed = false;
             // Trim trailing whitespace from BUFR subset name for comparison
             std::string trimmed_report_type = rec.shared.report_type;
             trimmed_report_type.erase(
@@ -315,7 +314,6 @@ class PrepBUFRObservation {
 
             for (const auto& allowed_type : allowed_data_types) {
               if (trimmed_report_type == allowed_type) {
-                subset_allowed = true;
                 type_bufr_subset_counts_[type_name][trimmed_report_type]++;
                 break;
               }

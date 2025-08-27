@@ -68,7 +68,9 @@ background:
   file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
   # Analysis variables for 3DVAR
   variables:
-    - U      # U-component of wind
+    - U
+    - V
+    - T #U-component of wind
   
 # Analysis time configuration removed for debugging
 
@@ -121,11 +123,18 @@ observations:
 
 # Observation operator configuration (simplified)
 obs_operator:
-  # Optional WRFDA bridge hints (currently delegated to identity operator)
-  wrfda_root: "D:/linux/WRF/var/da"
-  wrfda_operator_family: "metar"
+  # Generic external operator configuration for WRFDA
+  external_root: "D:/linux/WRF/var/da"  # Path to WRFDA sources
+  external_system: "wrfda"               # WRFDA system identifier
+  operator_family: ["metar", "sound"]    # Support both surface and upper-air observations
   required_state_vars: [U, V, T, Q, PSFC]
   required_obs_vars: [U, V, T]
+  
+  # Note: This same configuration structure can be used for other backends:
+  # - For GSI: external_root: "D:/linux/GSI", external_system: "gsi"
+  # - For DART: external_root: "D:/linux/DART", external_system: "dart"
+  # - The framework automatically preserves all backend-specific keys
+  # - Switching is done at configuration time, not runtime, for better performance
 
 # Simplified configuration for debugging
 # Removed optional sections that may cause configuration parsing issues
