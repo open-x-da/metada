@@ -40,15 +40,58 @@ namespace metada::backends::common::obsoperator {
 template <typename StateBackend, typename ObsBackend>
 class WRFDAObsOperator {
  public:
+  /**
+   * @brief Default constructor (deleted)
+   * 
+   * @details This class requires configuration for initialization and cannot be
+   * default-constructed.
+   */
   WRFDAObsOperator() = delete;
+
+  /**
+   * @brief Copy constructor (deleted)
+   * 
+   * @details Copying is not supported to prevent resource sharing issues.
+   * Use move semantics instead.
+   */
   WRFDAObsOperator(const WRFDAObsOperator&) = delete;
+
+  /**
+   * @brief Copy assignment operator (deleted)
+   * 
+   * @details Copy assignment is not supported to prevent resource sharing issues.
+   * Use move semantics instead.
+   */
   WRFDAObsOperator& operator=(const WRFDAObsOperator&) = delete;
 
+  /**
+   * @brief Constructor with configuration
+   * 
+   * @tparam ConfigBackend The configuration backend type
+   * @param config Configuration object containing operator parameters
+   * 
+   * @details Initializes the WRFDA observation operator with the provided
+   * configuration. The configuration should include external system paths,
+   * operator families, and required variable specifications.
+   * 
+   * @throws std::runtime_error if initialization fails
+   */
   template <typename ConfigBackend>
   explicit WRFDAObsOperator(const ConfigBackend& config) {
     initialize(config);
   }
 
+  /**
+   * @brief Move constructor
+   * 
+   * @param other The WRFDAObsOperator to move from
+   * 
+   * @details Moves ownership of resources from another WRFDAObsOperator instance.
+   * The source object is left in a valid but unspecified state.
+   * 
+   * @note This constructor is noexcept, ensuring it can be used in containers
+   * that require noexcept move operations.
+   */
   WRFDAObsOperator(WRFDAObsOperator&& other) noexcept
       : initialized_(other.initialized_),
         required_state_vars_(std::move(other.required_state_vars_)),
@@ -59,6 +102,18 @@ class WRFDAObsOperator {
     other.initialized_ = false;
   }
 
+  /**
+   * @brief Move assignment operator
+   * 
+   * @param other The WRFDAObsOperator to move from
+   * @return Reference to this object
+   * 
+   * @details Moves ownership of resources from another WRFDAObsOperator instance.
+   * The source object is left in a valid but unspecified state.
+   * 
+   * @note This operator is noexcept, ensuring it can be used in containers
+   * that require noexcept move operations.
+   */
   WRFDAObsOperator& operator=(WRFDAObsOperator&& other) noexcept {
     if (this != &other) {
       initialized_ = other.initialized_;
@@ -72,6 +127,24 @@ class WRFDAObsOperator {
     return *this;
   }
 
+  /**
+   * @brief Initialize the WRFDA observation operator
+   * 
+   * @tparam ConfigBackend The configuration backend type
+   * @param config Configuration object containing operator parameters
+   * 
+   * @details Initializes the operator with configuration parameters including:
+   * - external_root: Path to external operator sources
+   * - external_system: External system identifier
+   * - operator_family: Observation operator family or families
+   * - required_state_vars: Required state variables
+   * - required_obs_vars: Required observation variables
+   * 
+   * @throws std::runtime_error if already initialized or if configuration
+   * parsing fails
+   * 
+   * @note This method can only be called once per instance
+   */
   template <typename ConfigBackend>
   void initialize(const ConfigBackend& config) {
     if (isInitialized()) {
@@ -123,8 +196,38 @@ class WRFDAObsOperator {
     initialized_ = true;
   }
 
+  /**
+   * @brief Check if the operator is initialized
+   * 
+   * @return true if initialized, false otherwise
+   * 
+   * @details Returns the initialization status of the operator. The operator
+   * must be initialized before any operations can be performed.
+   */
   bool isInitialized() const { return initialized_; }
 
+  /**
+   * @brief Apply the observation operator (forward operator)
+   * 
+   * @param state The background state to apply the operator to
+   * @param obs The observations defining the observation locations
+   * @return Vector of simulated observations
+   * 
+   * @details Applies the WRFDA observation operator to transform the model
+   * state into observation space. This method:
+   * - Extracts observation coordinates (lat, lon, level)
+   * - Retrieves state variables (U, V, T, Q, PSFC)
+   * - Calls the WRFDA C API for the actual computation
+   * - Handles memory limitations for large observation sets
+   * - Returns simulated observations at the specified locations
+   * 
+   * @throws std::runtime_error if operator is not initialized, if observation
+   * locations are not geographic, or if WRFDA computation fails
+   * 
+   * @note Observations must use geographic coordinate system
+   * @note For large observation sets (>10000), only the first 10000 are processed
+   * to avoid WRFDA memory limitations
+   */
   std::vector<double> apply(const StateBackend& state,
                             const ObsBackend& obs) const {
     ensureInitialized();
@@ -304,14 +407,51 @@ class WRFDAObsOperator {
     return out_y;
   }
 
+  /**
+   * @brief Get the required state variables
+   * 
+   * @return Reference to vector of required state variable names
+   * 
+   * @details Returns the list of state variables that must be present
+   * in the state for the operator to function correctly. These variables
+   * are typically meteorological fields like U, V, T, Q, and PSFC.
+   */
   const std::vector<std::string>& getRequiredStateVars() const {
     return required_state_vars_;
   }
 
+  /**
+   * @brief Get the required observation variables
+   * 
+   * @return Reference to vector of required observation variable names
+   * 
+   * @details Returns the list of observation variables that the operator
+   * can process. This helps in validating observation data before
+   * applying the operator.
+   */
   const std::vector<std::string>& getRequiredObsVars() const {
     return required_obs_vars_;
   }
 
+  /**
+   * @brief Apply the tangent linear observation operator
+   * 
+   * @param state_increment The state increment to apply the operator to
+   * @param reference_state The reference state (unused in this implementation)
+   * @param obs The observations defining the observation locations
+   * @return Vector of simulated observation increments
+   * 
+   * @details Applies the tangent linear observation operator to transform
+   * state increments into observation space. For this linearized operator,
+   * the same array-based call is used on the increment as in the forward
+   * operator.
+   * 
+   * @throws std::runtime_error if operator is not initialized, if observation
+   * locations are not geographic, or if WRFDA computation fails
+   * 
+   * @note This implementation treats the operator as linear, so the tangent
+   * linear operator is identical to the forward operator applied to increments
+   */
   std::vector<double> applyTangentLinear(
       const StateBackend& state_increment,
       [[maybe_unused]] const StateBackend& reference_state,
@@ -321,6 +461,29 @@ class WRFDAObsOperator {
     return apply(state_increment, obs);
   }
 
+  /**
+   * @brief Apply the adjoint observation operator
+   * 
+   * @param obs_increment The observation increment to apply the adjoint to
+   * @param reference_state The reference state (unused in this implementation)
+   * @param result_state The state to accumulate the adjoint result in
+   * @param obs The observations defining the observation locations
+   * 
+   * @details Applies the adjoint observation operator to transform observation
+   * increments back to state space. This method:
+   * - Extracts observation coordinates (lat, lon, level)
+   * - Prepares state variable buffers for accumulation
+   * - Calls the WRFDA adjoint C API for the actual computation
+   * - Accumulates the result in the provided state
+   * 
+   * @throws std::runtime_error if operator is not initialized, if observation
+   * locations are not geographic, if increment sizes don't match, or if
+   * WRFDA adjoint computation fails
+   * 
+   * @note The result_state is modified in-place by accumulating the adjoint
+   * contribution
+   * @note Observations must use geographic coordinate system
+   */
   void applyAdjoint(const std::vector<double>& obs_increment,
                     [[maybe_unused]] const StateBackend& reference_state,
                     StateBackend& result_state, const ObsBackend& obs) const {
@@ -453,7 +616,27 @@ class WRFDAObsOperator {
     }
   }
 
+  /**
+   * @brief Check if the operator supports linearization
+   * 
+   * @return true (this operator supports linearization)
+   * 
+   * @details Indicates whether the operator can be linearized around a
+   * reference state. This operator supports both tangent linear and
+   * adjoint operations.
+   */
   bool supportsLinearization() const { return true; }
+
+  /**
+   * @brief Check if the operator is linear
+   * 
+   * @return true (this operator is treated as linear)
+   * 
+   * @details Indicates whether the operator is linear. This operator
+   * treats the observation operator as linear, which means the tangent
+   * linear operator is identical to the forward operator applied to
+   * increments.
+   */
   bool isLinear() const { return true; }
 
   /**
@@ -461,6 +644,16 @@ class WRFDAObsOperator {
    *
    * @param obs_type The observation type (e.g., "ADPSFC", "ADPUPA", "SFCSHP")
    * @return The appropriate operator family to use, or empty string if no match
+   * 
+   * @details Maps observation types to appropriate operator families based on
+   * WRFDA conventions:
+   * - Surface observations (ADPSFC, SFCSHP, METAR) → "metar" family
+   * - Upper-air observations (ADPUPA, AIRCRAFT, PROFILER) → "sound" family
+   * - GPS observations (GPSPW, GPSREF) → "gpspw" family
+   * - Radar observations (RADAR, RADARV) → "radar" family
+   * 
+   * If no specific match is found, returns the first available family.
+   * Returns empty string if no families are configured.
    */
   std::string determineOperatorFamily(const std::string& obs_type) const {
     if (operator_families_.empty()) {
@@ -504,17 +697,67 @@ class WRFDAObsOperator {
   }
 
  private:
+  /**
+   * @brief Ensure the operator is initialized before use
+   * 
+   * @throws std::runtime_error if the operator is not initialized
+   * 
+   * @details This is a helper method that checks the initialization
+   * status and throws an exception if the operator is not ready for use.
+   * Called by all public methods that require initialization.
+   */
   void ensureInitialized() const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFDAObsOperator not initialized");
     }
   }
 
+  /**
+   * @brief Initialization status flag
+   * 
+   * @details Indicates whether the operator has been properly initialized
+   * with configuration parameters.
+   */
   bool initialized_ = false;
+
+  /**
+   * @brief Required state variables for the operator
+   * 
+   * @details List of state variable names that must be present in the
+   * state for the operator to function correctly.
+   */
   std::vector<std::string> required_state_vars_;
+
+  /**
+   * @brief Required observation variables for the operator
+   * 
+   * @details List of observation variable names that the operator
+   * can process.
+   */
   std::vector<std::string> required_obs_vars_;
+
+  /**
+   * @brief Path to external operator sources
+   * 
+   * @details Root directory path containing external observation operator
+   * implementations (e.g., WRFDA, GSI, DART).
+   */
   std::string external_root_;
+
+  /**
+   * @brief External system identifier
+   * 
+   * @details Identifier for the external observation operator system
+   * being used (e.g., "wrfda", "gsi", "dart").
+   */
   std::string external_system_;
+
+  /**
+   * @brief Available operator families
+   * 
+   * @details List of observation operator families that are available
+   * for use (e.g., "metar", "sound", "gpspw", "radar").
+   */
   std::vector<std::string> operator_families_;
 };
 
