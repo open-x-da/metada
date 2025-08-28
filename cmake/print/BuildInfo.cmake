@@ -8,15 +8,6 @@ function(print_build_info)
     message(STATUS "    - CMake Version: ${CMAKE_VERSION}")
     message(STATUS "    - CMake Path: ${CMAKE_COMMAND}")
     
-    message(STATUS "  Build Acceleration:")
-    if(USE_PRECOMPILED_HEADERS)
-        message(STATUS "    - Precompiled headers: Enabled")
-    else()
-        message(STATUS "    - Precompiled headers: Disabled")
-    endif()
-    
-    
-    
     message(STATUS "  Compiler Options:")
     print_compiler_flags()
 endfunction()
