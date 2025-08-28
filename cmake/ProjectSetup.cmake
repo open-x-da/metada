@@ -30,10 +30,6 @@ function(metada_project_initialize)
     
     # Option to control precompiled headers usage
     option(USE_PRECOMPILED_HEADERS "Enable precompiled headers for faster builds" OFF)
-    
-    # Option to control unity builds
-    option(USE_UNITY_BUILD "Enable unity builds for faster compilation" OFF)
-    option(UNITY_BUILD_BATCH_SIZE "Number of source files to batch in each unity source" 8)
 
     # Include compiler flags configuration
     include(CompilerFlags)
@@ -49,9 +45,6 @@ function(metada_project_initialize)
     
     # Include precompiled headers configuration
     include(PrecompiledHeaders)
-    
-    # Include unity build configuration
-    include(UnityBuild)
     
     # Include package configuration module
     include(package/Config)

@@ -15,11 +15,7 @@ function(print_build_info)
         message(STATUS "    - Precompiled headers: Disabled")
     endif()
     
-    if(USE_UNITY_BUILD)
-        message(STATUS "    - Unity builds: Enabled (batch size: ${UNITY_BUILD_BATCH_SIZE})")
-    else()
-        message(STATUS "    - Unity builds: Disabled")
-    endif()
+    
     
     message(STATUS "  Compiler Options:")
     print_compiler_flags()
