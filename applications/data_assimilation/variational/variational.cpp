@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
     // Initialize observations first (data-driven workflow)
     // For 3DVAR, we have a single observation time with multiple types
     std::vector<fwk::Observation<BackendTag>> observations;
-    observations.emplace_back(config.GetSubsection("observations"));
+    observations.emplace_back(config.GetSubsection("observation"));
 
     logger.Info() << "Loaded observations for " << var_type << " analysis";
     logger.Info() << "Observations: " << observations.front();

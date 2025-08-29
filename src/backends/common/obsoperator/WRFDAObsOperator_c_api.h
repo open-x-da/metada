@@ -1,15 +1,14 @@
 /**
  * @file WRFDAObsOperator_c_api.h
- * @brief C-facing API stub for bridging to Fortran WRFDA observation operators
+ * @brief C-facing API for bridging to Fortran WRFDA observation operators
  *
  * @details
- * This header declares a minimal C API intended to be implemented by a small
- * Fortran/C interoperability library that calls WRFDA routines under
- * D:/linux/WRF/var/da (da_transform_xtoy_* and adjoints). The implementation
- * can be provided separately per platform/toolchain and linked externally.
+ * This header declares a minimal C API implemented by a Fortran/C
+ * interoperability library that calls WRFDA routines under D:/linux/WRF/var/da
+ * (da_transform_xtoy_* and adjoints). The implementation is provided by the
+ * wrfda_bridge library.
  *
- * The C++ WRFDAObsOperator can optionally dlopen/LoadLibrary such bridge later
- * or link to it directly when available.
+ * The C++ WRFDAObsOperator links to this bridge library directly.
  */
 
 #pragma once

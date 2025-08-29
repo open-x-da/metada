@@ -13,8 +13,8 @@ target_include_directories(wrfda_bridge
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
 )
 
-# Optional knobs for future real WRFDA linking
-option(WITH_WRFDA "Enable linking real WRFDA obs operator routines" OFF)
+# WRFDA linking configuration
+option(WITH_WRFDA "Enable linking real WRFDA obs operator routines" ON)
 set(WRFDA_ROOT "" CACHE PATH "Path to WRF/var/da root directory (e.g., D:/linux/WRF/var/da)")
 
 # Allow specifying the prebuilt WRFDA static library directly
@@ -68,18 +68,11 @@ if(WITH_WRFDA)
             target_link_libraries(wrfda_bridge PUBLIC ${WRFDA_DA_CONTROL_OBJ})
         endif()
     else()
-        message(WARNING "WRFDA bridge: WRFDA_MOD_DIR not set or missing; building stub only")
-        target_sources(wrfda_bridge PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge_stub.f90
-            ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge.c
-        )
+        message(FATAL_ERROR "WRFDA bridge: WRFDA_MOD_DIR must be set to build with real WRFDA observation operators")
     endif()
 else()
-    # Build stub bridge when WRFDA is disabled
-    target_sources(wrfda_bridge PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge_stub.f90
-        ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge.c
-    )
+    # WRFDA is required for this bridge
+    message(FATAL_ERROR "WRFDA bridge: WITH_WRFDA must be enabled to build with real WRFDA observation operators")
 endif()
 
 add_library(metada::bridges::wrfda ALIAS wrfda_bridge)

@@ -6,8 +6,11 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -556,6 +559,18 @@ class GridObservation {
    * @return True if R is diagonal, false for full covariance matrix
    */
   bool isDiagonalCovariance() const { return true; }
+
+  /**
+   * @brief Get information about applied filters
+   *
+   * @details Returns a summary of what filtering was applied during observation
+   * loading, including data types, variables, and geographic bounds.
+   *
+   * @return String containing filtering information
+   */
+  std::string getFilteringInfo() const {
+    return "GridObservation: No early filtering applied";
+  }
 
  private:
   /**

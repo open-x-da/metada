@@ -283,6 +283,11 @@ class MockObservation {
   }
   MOCK_METHOD(bool, isDiagonalCovariance, (), (const));
 
+  // Get filtering information
+  std::string getFilteringInfo() const {
+    return "MockObservation: No filtering applied (mock implementation)";
+  }
+
   // Test helper methods
   void setObservations(const std::vector<ObservationPoint>& obs) {
     observations_ = obs;

@@ -41,7 +41,7 @@ background_covariance:
 model:
   # Time control settings
   time_control:
-    start_datetime: "2020-01-01T12:00:00Z"
+    start_datetime: "2000-01-24T12:00:00Z"
     forecast_length: 1s  # Minimal forecast for 3DVAR - just analysis
     time_step: 30s
     output_history: false
@@ -70,19 +70,28 @@ background:
   variables:
     - U
     - V
-    - T #U-component of wind
+    - T
+    - Q
+    - PSFC
   
-# Analysis time configuration removed for debugging
+# Analysis time configuration
+analysis_time: &analysis_time "2000-01-24T12:00:00Z"
+time_window: &time_window "±3h" # Time window around analysis time (±3 hours)
 
-# Observations configuration
-observations:
+# Observation configuration
+observation:
   types:
     - adpsfc:
         if_use: true
-        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+        file: &gads "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2000012412.wo40.nr"
         coordinate: "geographic"
         # optional: restrict BUFR subsets interpreted as METAR, leave empty to auto-detect
         data_types: ["ADPSFC"]
+        # Filter to only process observations from station ID 57494
+        station_ids: [57494]
+        # Analysis time configuration for this observation type
+        analysis_time: *analysis_time
+        time_window: *time_window  # Time window around analysis time (±3 hours)
         variables:
           - U:
               if_use: true
@@ -94,8 +103,8 @@ observations:
               if_use: false
               error: 1.0
     - ships:
-        if_use: true
-        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+        if_use: false
+        file: *gads
         coordinate: "geographic"
         data_types: ["SFCSHP"]
         variables:
@@ -109,8 +118,8 @@ observations:
               if_use: true
               error: 1.0
     - sound:
-        if_use: true
-        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+        if_use: false
+        file: *gads
         coordinate: "geographic"
         data_types: ["ADPUPA"]
         variables:

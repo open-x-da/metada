@@ -16,6 +16,8 @@
 
 #include "BufrObsIO.hpp"
 #include "ConfigValue.hpp"
+#include "DateTime.hpp"
+#include "Duration.hpp"
 #include "ObsRecord.hpp"
 #include "ParquetObservation.hpp"
 #include "PointObservation.hpp"
@@ -27,6 +29,8 @@ using ObsRecord = framework::ObsRecord;
 using ObsLevelRecord = framework::ObsLevelRecord;
 using ConfigValue = metada::backends::config::ConfigValue;
 using ParquetObservation = framework::ParquetObservation;
+using DateTime = metada::DateTime;
+using Duration = metada::Duration;
 
 // Lightweight containers describing PrepBUFR observation geometries.
 struct SurfaceBatch {
@@ -100,6 +104,17 @@ class PrepBUFRObservation {
         if (type_backend.HasKey("data_types")) {
           config_data["data_types"] = type_backend.Get("data_types");
         }
+        // Add station_ids if present for station filtering
+        if (type_backend.HasKey("station_ids")) {
+          config_data["station_ids"] = type_backend.Get("station_ids");
+        }
+        // Add time window configuration if present
+        if (type_backend.HasKey("analysis_time")) {
+          config_data["analysis_time"] = type_backend.Get("analysis_time");
+        }
+        if (type_backend.HasKey("time_window")) {
+          config_data["time_window"] = type_backend.Get("time_window");
+        }
       } catch (...) {
         // Some keys might not exist, that's okay
       }
@@ -112,10 +127,127 @@ class PrepBUFRObservation {
       std::cout << "Processing file: " << file_path << std::endl;
 
       // Read BUFR file once for all types that share it
+      // Pass the type configurations to BufrObsIO for early filtering
       std::vector<ObsRecord> all_records;
       {
-        auto bufr_io =
-            io::BufrObsIO<ConfigBackend>(ConfigBackend({{"file", file_path}}));
+        // Create a configuration that includes all enabled types, variables,
+        // and filters
+        std::map<std::string, ConfigValue> bufr_config;
+        bufr_config["file"] = file_path;
+
+        // Collect all enabled data types, variables, and filters for early
+        // filtering
+        std::vector<std::string> enabled_data_types;
+        std::vector<std::string> enabled_variables;
+        std::vector<int> enabled_station_ids;
+
+        // Time window filtering
+        std::optional<DateTime> analysis_time;
+        std::optional<Duration> time_window;
+
+        for (const auto& [type_name, config_data] : type_configs) {
+          // Only process types that are enabled
+          if (config_data.at("if_use").asBool()) {
+            // Add data types if present
+            auto data_types_it = config_data.find("data_types");
+            if (data_types_it != config_data.end()) {
+              try {
+                const auto& data_types_array =
+                    data_types_it->second.asVectorString();
+                enabled_data_types.insert(enabled_data_types.end(),
+                                          data_types_array.begin(),
+                                          data_types_array.end());
+              } catch (...) {
+                // Skip if parsing fails
+              }
+            }
+
+            // Add station IDs if present
+            auto station_ids_it = config_data.find("station_ids");
+            if (station_ids_it != config_data.end()) {
+              try {
+                const auto& station_ids_array =
+                    station_ids_it->second.asVectorInt();
+                enabled_station_ids.insert(enabled_station_ids.end(),
+                                           station_ids_array.begin(),
+                                           station_ids_array.end());
+              } catch (...) {
+                // Skip if parsing fails
+              }
+            }
+
+            // Add variables if present
+            auto vars_it = config_data.find("variables");
+            if (vars_it != config_data.end()) {
+              try {
+                const auto& variables_configs = vars_it->second.asVectorMap();
+                for (const auto& var_map : variables_configs) {
+                  for (const auto& [var_name, var_config] : var_map) {
+                    const auto& var_backend = ConfigBackend(var_config.asMap());
+                    if (var_backend.Get("if_use").asBool()) {
+                      std::string bufr_name = mapUserVarToBufr(var_name);
+                      if (!bufr_name.empty()) {
+                        enabled_variables.push_back(bufr_name);
+                      }
+                    }
+                  }
+                }
+              } catch (...) {
+                // Skip if parsing fails
+              }
+            }
+          }
+        }
+
+        // Collect time window information from the first enabled observation
+        // type that has time window configuration
+        for (const auto& [type_name, config_data] : type_configs) {
+          if (config_data.at("if_use").asBool()) {
+            try {
+              if (config_data.find("analysis_time") != config_data.end()) {
+                analysis_time =
+                    DateTime(config_data.at("analysis_time").asString());
+              }
+              if (config_data.find("time_window") != config_data.end()) {
+                std::string time_window_str =
+                    config_data.at("time_window").asString();
+                // Parse time window string like "±3h", "±30m", etc.
+                if (time_window_str.starts_with("±")) {
+                  time_window_str = time_window_str.substr(1);  // Remove ±
+                  time_window = Duration(
+                      time_window_str);  // Let Duration handle the parsing
+                }
+              }
+              // Break after finding the first enabled type with time window
+              // config
+              if (analysis_time.has_value() || time_window.has_value()) {
+                break;
+              }
+            } catch (...) {
+              // Time window parsing failed for this type, continue to next
+              continue;
+            }
+          }
+        }
+
+        // Add all filtering configuration to BufrObsIO
+        if (!enabled_data_types.empty()) {
+          bufr_config["data_types"] = enabled_data_types;
+        }
+        if (!enabled_variables.empty()) {
+          bufr_config["variables"] = enabled_variables;
+        }
+        if (!enabled_station_ids.empty()) {
+          bufr_config["station_ids"] = enabled_station_ids;
+        }
+        if (analysis_time.has_value()) {
+          bufr_config["analysis_time"] = analysis_time->iso8601();
+        }
+        if (time_window.has_value()) {
+          bufr_config["time_window"] = time_window->toString();
+        }
+
+        auto bufr_io = io::BufrObsIO<ConfigBackend>(ConfigBackend(bufr_config));
         all_records = bufr_io.read();
         // BufrObsIO destructor will close the file when it goes out of scope
       }
@@ -321,6 +453,11 @@ class PrepBUFRObservation {
           }
         }
       }
+
+      // Store the configuration for this file's types for later reference
+      for (const auto& [type_name, config_data] : type_configs) {
+        type_configs_[type_name] = config_data;
+      }
     }
 
     std::cout << "Total observations: " << observations_.size() << std::endl;
@@ -341,7 +478,8 @@ class PrepBUFRObservation {
         type_variable_map_(std::move(other.type_variable_map_)),
         covariance_(std::move(other.covariance_)),
         bufr_subset_counts_(std::move(other.bufr_subset_counts_)),
-        type_bufr_subset_counts_(std::move(other.type_bufr_subset_counts_)) {}
+        type_bufr_subset_counts_(std::move(other.type_bufr_subset_counts_)),
+        type_configs_(std::move(other.type_configs_)) {}
 
   PrepBUFRObservation& operator=(PrepBUFRObservation&& other) noexcept {
     if (this != &other) {
@@ -350,6 +488,7 @@ class PrepBUFRObservation {
       covariance_ = std::move(other.covariance_);
       bufr_subset_counts_ = std::move(other.bufr_subset_counts_);
       type_bufr_subset_counts_ = std::move(other.type_bufr_subset_counts_);
+      type_configs_ = std::move(other.type_configs_);
     }
     return *this;
   }
@@ -637,6 +776,76 @@ class PrepBUFRObservation {
    */
   bool isDiagonalCovariance() const { return true; }
 
+  /**
+   * @brief Get information about applied filters
+   *
+   * @details Returns a summary of what filtering was applied during observation
+   * loading, including data types, variables, and geographic bounds.
+   *
+   * @return String containing filtering information
+   */
+  std::string getFilteringInfo() const {
+    std::ostringstream oss;
+    oss << "PrepBUFR Observation Filtering Summary:\n";
+    oss << "=====================================\n";
+
+    // Show enabled types and their variables
+    for (const auto& [type_name, var_map] : type_variable_map_) {
+      oss << "Type: " << type_name << "\n";
+      oss << "  Variables: ";
+      for (const auto& [var_name, indices] : var_map) {
+        oss << var_name << "(" << indices.size() << " obs) ";
+      }
+      oss << "\n";
+
+      // Show station filtering if applied
+      auto type_config_it = type_configs_.find(type_name);
+      if (type_config_it != type_configs_.end()) {
+        auto station_ids_it = type_config_it->second.find("station_ids");
+        if (station_ids_it != type_config_it->second.end()) {
+          try {
+            const auto& station_ids = station_ids_it->second.asVectorInt();
+            if (!station_ids.empty()) {
+              oss << "  Station Filter: Only stations ";
+              for (size_t i = 0; i < station_ids.size(); ++i) {
+                if (i > 0) oss << ", ";
+                oss << station_ids[i];
+              }
+              oss << "\n";
+            }
+          } catch (...) {
+            // Skip if parsing fails
+          }
+        }
+
+        // Show time window filtering if applied
+        auto analysis_time_it = type_config_it->second.find("analysis_time");
+        auto time_window_it = type_config_it->second.find("time_window");
+        if (analysis_time_it != type_config_it->second.end() &&
+            time_window_it != type_config_it->second.end()) {
+          try {
+            std::string analysis_time_str = analysis_time_it->second.asString();
+            std::string time_window_str = time_window_it->second.asString();
+            oss << "  Time Filter: " << analysis_time_str << " "
+                << time_window_str << "\n";
+          } catch (...) {
+            // Skip if parsing fails
+          }
+        }
+      }
+    }
+
+    // Show BUFR subset distribution
+    if (!bufr_subset_counts_.empty()) {
+      oss << "\nBUFR Subset Distribution:\n";
+      for (const auto& [subset, count] : bufr_subset_counts_) {
+        oss << "  " << subset << ": " << count << " records\n";
+      }
+    }
+
+    return oss.str();
+  }
+
   // Batch builder from ObsRecords (static utility)
   static FamilyBatches groupByFamily(const std::vector<ObsRecord>& records) {
     FamilyBatches batches;
@@ -873,8 +1082,63 @@ class PrepBUFRObservation {
     // Process each file once and distribute records to appropriate types
     for (const auto& [file_path, type_configs] : file_groups) {
       // Read BUFR file once for all types that share it
-      auto bufr_io =
-          io::BufrObsIO<ConfigBackend>(ConfigBackend({{"file", file_path}}));
+      // Apply early filtering based on enabled types and variables
+      std::map<std::string, ConfigValue> bufr_config;
+      bufr_config["file"] = file_path;
+
+      // Collect all enabled data types and variables for early filtering
+      std::vector<std::string> enabled_data_types;
+      std::vector<std::string> enabled_variables;
+
+      for (const auto& [type_name, config_data] : type_configs) {
+        // Only process types that are enabled
+        if (config_data.at("if_use").asBool()) {
+          // Add data types if present
+          auto data_types_it = config_data.find("data_types");
+          if (data_types_it != config_data.end()) {
+            try {
+              const auto& data_types_array =
+                  data_types_it->second.asVectorString();
+              enabled_data_types.insert(enabled_data_types.end(),
+                                        data_types_array.begin(),
+                                        data_types_array.end());
+            } catch (...) {
+              // Skip if parsing fails
+            }
+          }
+
+          // Add variables if present
+          auto vars_it = config_data.find("variables");
+          if (vars_it != config_data.end()) {
+            try {
+              const auto& variables_configs = vars_it->second.asVectorMap();
+              for (const auto& var_map : variables_configs) {
+                for (const auto& [var_name, var_config] : var_map) {
+                  const auto& var_backend = ConfigBackend(var_config.asMap());
+                  if (var_backend.Get("if_use").asBool()) {
+                    std::string bufr_name = mapUserVarToBufr(var_name);
+                    if (!bufr_name.empty()) {
+                      enabled_variables.push_back(bufr_name);
+                    }
+                  }
+                }
+              }
+            } catch (...) {
+              // Skip if parsing fails
+            }
+          }
+        }
+      }
+
+      // Add filtering configuration to BufrObsIO
+      if (!enabled_data_types.empty()) {
+        bufr_config["data_types"] = enabled_data_types;
+      }
+      if (!enabled_variables.empty()) {
+        bufr_config["variables"] = enabled_variables;
+      }
+
+      auto bufr_io = io::BufrObsIO<ConfigBackend>(ConfigBackend(bufr_config));
       std::vector<ObsRecord> records = bufr_io.read();
 
       // Process each type that uses this file
@@ -1021,6 +1285,8 @@ class PrepBUFRObservation {
       bufr_subset_counts_;  // Store overall BUFR subset distribution
   std::map<std::string, std::map<std::string, size_t>>
       type_bufr_subset_counts_;  // Store per-type BUFR subset distribution
+  std::map<std::string, std::map<std::string, ConfigValue>>
+      type_configs_;  // Store original configuration for filtering info
 
   /**
    * @brief Stream insertion operator for PrepBUFRObservation summary

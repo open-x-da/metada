@@ -65,6 +65,12 @@ class BufrObsIO {
    * @details Initializes the BUFR I/O backend with the provided parameters,
    * which may include configuration options specific to BUFR handling.
    *
+   * Supports early filtering to improve performance:
+   * - data_types: Filter by BUFR subset types (e.g., ["METAR", "SYNOP"])
+   * - variables: Filter by observation variables (e.g., ["TEMP", "UWIND"])
+   * - station_ids: Filter by station identifiers
+   * - lats/lons: Filter by geographic bounds
+   *
    * @param config Configuration parameters for BUFR processing
    */
   explicit BufrObsIO(ConfigBackend&& config) : config_(std::move(config)) {
@@ -144,6 +150,30 @@ class BufrObsIO {
         variables_ = variables_val.asVectorString();
       }
     }
+
+    // Load time window filtering from config if present
+    if (config_.HasKey("analysis_time")) {
+      try {
+        std::string analysis_time_str = config_.Get("analysis_time").asString();
+        analysis_time_ = DateTime(analysis_time_str);
+      } catch (...) {
+        // Skip if parsing fails
+      }
+    }
+
+    if (config_.HasKey("time_window")) {
+      try {
+        std::string time_window_str = config_.Get("time_window").asString();
+        // Parse time window string like "±3h", "±30m", etc.
+        if (time_window_str.starts_with("±")) {
+          time_window_str = time_window_str.substr(1);  // Remove ±
+        }
+        time_window_ =
+            Duration(time_window_str);  // Let Duration handle the parsing
+      } catch (...) {
+        // Skip if parsing fails
+      }
+    }
     // Initialize Fortran buffer fields
     memset(subsetBuffer_, ' ', 8);
     subsetBuffer_[8] = '\0';
@@ -188,7 +218,9 @@ class BufrObsIO {
         include_virtual_temp_(other.include_virtual_temp_),
         lats_(std::move(other.lats_)),
         lons_(std::move(other.lons_)),
-        variables_(std::move(other.variables_)) {
+        variables_(std::move(other.variables_)),
+        analysis_time_(std::move(other.analysis_time_)),
+        time_window_(std::move(other.time_window_)) {
     std::memcpy(subsetBuffer_, other.subsetBuffer_, sizeof(subsetBuffer_));
     std::memcpy(tempHeader_, other.tempHeader_, sizeof(tempHeader_));
   }
@@ -219,6 +251,8 @@ class BufrObsIO {
       lats_ = std::move(other.lats_);
       lons_ = std::move(other.lons_);
       variables_ = std::move(other.variables_);
+      analysis_time_ = std::move(other.analysis_time_);
+      time_window_ = std::move(other.time_window_);
     }
     return *this;
   }
@@ -238,6 +272,7 @@ class BufrObsIO {
    *
    * @details Parses the BUFR data source and extracts observation records.
    * Uses the Fortran BUFR API to decode the binary format.
+   * Applies early filtering based on configuration to only read relevant data.
    *
    * @return Vector of observation records read from the data source
    * @throws std::runtime_error If the data cannot be read or parsed
@@ -246,10 +281,32 @@ class BufrObsIO {
     std::vector<ObsRecord> records;
     records.reserve(100);  // Pre-allocate space to avoid reallocations
 
+    // Log filtering configuration for debugging
+    if (!data_types_.empty()) {
+      std::cout << "BufrObsIO: Filtering by data types: ";
+      for (size_t i = 0; i < data_types_.size(); ++i) {
+        if (i > 0) std::cout << ", ";
+        std::cout << data_types_[i];
+      }
+      std::cout << std::endl;
+    }
+
+    if (!variables_.empty()) {
+      std::cout << "BufrObsIO: Filtering by variables: ";
+      for (size_t i = 0; i < variables_.size(); ++i) {
+        if (i > 0) std::cout << ", ";
+        std::cout << variables_[i];
+      }
+      std::cout << std::endl;
+    }
+
     try {
       open(filename_);
       records = readBufrRecords();
       close();
+
+      std::cout << "BufrObsIO: Read " << records.size()
+                << " filtered records from " << filename_ << std::endl;
     } catch (const std::exception& e) {
       throw std::runtime_error("Failed to read BUFR data: " +
                                std::string(e.what()));
@@ -326,6 +383,12 @@ class BufrObsIO {
       if (!station_ids_.empty() &&
           std::find(station_ids_.begin(), station_ids_.end(),
                     trim(record.shared.station_id)) == station_ids_.end()) {
+        if (ret == 1) break;
+        continue;
+      }
+
+      // Filter by time window if specified
+      if (!isWithinTimeWindow(record.shared.datetime)) {
         if (ret == 1) break;
         continue;
       }
@@ -458,6 +521,10 @@ class BufrObsIO {
   std::vector<float> lons_;
   std::vector<std::string> variables_;
 
+  // Time window filtering
+  std::optional<DateTime> analysis_time_;
+  std::optional<Duration> time_window_;
+
   void open(const std::string& filename) {
     if (isOpen_) {
       close_bufr_file_(unitNumber_);
@@ -513,6 +580,23 @@ class BufrObsIO {
     auto start = s.find_first_not_of(" \t\n\r");
     auto end = s.find_last_not_of(" \t\n\r");
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
+  }
+
+  /**
+   * @brief Check if an observation time is within the configured time window
+   *
+   * @param obs_time The observation time to check
+   * @return true if the observation is within the time window, false otherwise
+   */
+  bool isWithinTimeWindow(const DateTime& obs_time) const {
+    if (!analysis_time_.has_value() || !time_window_.has_value()) {
+      return true;  // No time filtering configured
+    }
+
+    DateTime window_start = *analysis_time_ - *time_window_;
+    DateTime window_end = *analysis_time_ + *time_window_;
+
+    return obs_time > window_start && obs_time < window_end;
   }
 };
 

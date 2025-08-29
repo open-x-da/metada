@@ -167,6 +167,24 @@ class Observation : private NonCopyable {
   }
 
   /**
+   * @brief Get information about applied filters
+   *
+   * @details Returns a summary of what filtering was applied during observation
+   * loading, including data types, variables, and geographic bounds.
+   * Delegates to the concrete backend implementation when available.
+   *
+   * @return String containing filtering information
+   */
+  std::string getFilteringInfo() const {
+    // Use constexpr if to check if the backend has getFilteringInfo method
+    if constexpr (requires { backend_.getFilteringInfo(); }) {
+      return backend_.getFilteringInfo();
+    } else {
+      return "Filtering information not available from this backend";
+    }
+  }
+
+  /**
    * @brief Equality operator
    *
    * @details Compares this observation with another for equality by delegating

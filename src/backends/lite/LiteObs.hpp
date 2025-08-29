@@ -141,6 +141,11 @@ class LiteObs {
   // Check if covariance is diagonal
   bool isDiagonalCovariance() const { return true; }
 
+  // Get filtering information
+  std::string getFilteringInfo() const {
+    return "LiteObs: No early filtering applied (lite implementation)";
+  }
+
   // Test helper methods
   void setObservations(const std::vector<double>& obs) { observations_ = obs; }
   void setCovariance(const std::vector<double>& cov) { covariance_ = cov; }

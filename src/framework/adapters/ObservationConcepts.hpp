@@ -92,6 +92,11 @@ concept ObservationBackendImpl =
       { t.initialize() } -> std::same_as<void>;
       { t.applyQC() } -> std::same_as<void>;
 
+      // Filtering information (temporarily disabled due to C++20 concepts issue
+      // with GridObservation)
+      // TODO: Re-enable once GridObservation compilation issue is resolved
+      // { ct.getFilteringInfo() } -> std::convertible_to<std::string>;
+
       // File I/O
       //{ t.loadFromFile(filename, error, missing_value) } ->
       // std::same_as<void>; { ct.saveToFile(filename) } -> std::same_as<void>;
