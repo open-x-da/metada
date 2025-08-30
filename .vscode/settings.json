@@ -125,6 +125,7 @@
         "spanstream": "cpp",
         "stdfloat": "cpp",
         "syncstream": "cpp",
-        "typeindex": "cpp"
+        "typeindex": "cpp",
+        "*.inc": "fortran"
     }
 } 

@@ -402,37 +402,17 @@ class WRFDAObsOperator {
     // Extract 2D lat/lon from the geometry (assuming they're available)
     // If not available, we'll need to generate them from the grid info
     if (gi.latitude_2d.empty() || gi.longitude_2d.empty()) {
-      // Generate basic lat/lon grid if not provided
-      // This is a simplified approach - in practice, these should come from the
-      // geometry
-      for (int j = 0; j < ny; ++j) {
-        for (int i = 0; i < nx; ++i) {
-          const size_t idx_2d = static_cast<size_t>(j * nx + i);
-          // Use observation bounds to estimate grid extent
-          if (!obs_lats.empty() && !obs_lons.empty()) {
-            double min_lat =
-                *std::min_element(obs_lats.begin(), obs_lats.end());
-            double max_lat =
-                *std::max_element(obs_lats.begin(), obs_lats.end());
-            double min_lon =
-                *std::min_element(obs_lons.begin(), obs_lons.end());
-            double max_lon =
-                *std::max_element(obs_lons.begin(), obs_lons.end());
-
-            lats2d[idx_2d] = min_lat + (max_lat - min_lat) * j / (ny - 1);
-            lons2d[idx_2d] = min_lon + (max_lon - min_lon) * i / (nx - 1);
-          } else {
-            // Fallback to default values
-            lats2d[idx_2d] = 0.0;
-            lons2d[idx_2d] = 0.0;
-          }
-        }
-      }
-    } else {
-      // Use provided lat/lon from geometry
-      std::copy(gi.latitude_2d.begin(), gi.latitude_2d.end(), lats2d.begin());
-      std::copy(gi.longitude_2d.begin(), gi.longitude_2d.end(), lons2d.begin());
+      // Cannot proceed without latitude and longitude data
+      // These are essential for WRFDA observation operator functionality
+      throw std::runtime_error(
+          "WRFDAObsOperator: Missing required latitude and longitude data. "
+          "The geometry must provide valid latitude_2d and longitude_2d arrays "
+          "for proper observation localization and grid interpolation.");
     }
+
+    // Use provided lat/lon from geometry
+    std::copy(gi.latitude_2d.begin(), gi.latitude_2d.end(), lats2d.begin());
+    std::copy(gi.longitude_2d.begin(), gi.longitude_2d.end(), lons2d.begin());
 
     // Prepare vertical levels array
     std::vector<double> levels(nz);
@@ -440,10 +420,12 @@ class WRFDAObsOperator {
       std::copy(gi.vertical_coords.begin(), gi.vertical_coords.end(),
                 levels.begin());
     } else {
-      // Generate default levels if not provided
-      for (int k = 0; k < nz; ++k) {
-        levels[k] = static_cast<double>(k);
-      }
+      // Cannot proceed without vertical coordinate data
+      // These are essential for WRFDA observation operator functionality
+      throw std::runtime_error(
+          "WRFDAObsOperator: Missing required vertical coordinate data. "
+          "The geometry must provide valid vertical_coords array "
+          "for proper vertical interpolation and level assignment.");
     }
 
     // Call the proper WRFDA grid-based operator

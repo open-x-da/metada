@@ -71,12 +71,12 @@ background:
     - U
     - V
     - T
-    - Q
+    - QVAPOR
     - PSFC
   
 # Analysis time configuration
 analysis_time: &analysis_time "2000-01-24T12:00:00Z"
-time_window: &time_window "±3h" # Time window around analysis time (±3 hours)
+time_window: &time_window "±5m" # Time window around analysis time (±3 hours)
 
 # Observation configuration
 observation:
@@ -88,7 +88,7 @@ observation:
         # optional: restrict BUFR subsets interpreted as METAR, leave empty to auto-detect
         data_types: ["ADPSFC"]
         # Filter to only process observations from station ID 57494
-        station_ids: [57494]
+        station_ids: [72405]
         # Analysis time configuration for this observation type
         analysis_time: *analysis_time
         time_window: *time_window  # Time window around analysis time (±3 hours)
