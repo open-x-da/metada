@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "../../wrf/WRFGridInfo.hpp"
 #include "Location.hpp"
 #include "WRFDAObsOperator_c_api.h"
 
@@ -347,6 +348,32 @@ class WRFDAObsOperator {
           "for proper vertical interpolation and level assignment.");
     }
 
+    // Convert staggered U and V to unstaggered grids if needed
+    std::vector<double> u_unstaggered, v_unstaggered;
+    const double *u_final = u, *v_final = v;
+
+    if (u && isVariableStaggered(state, "U")) {
+      // U is staggered, convert to unstaggered
+      convertStaggeredUToUnstaggered(
+          std::vector<double>(u, u + nx_u * ny_u * nz_u), u_unstaggered, nx, ny,
+          nz);
+      u_final = u_unstaggered.data();
+      std::cout << "WRFDA: Converted U from staggered (" << nx_u << "x" << ny_u
+                << "x" << nz_u << ") to unstaggered (" << nx << "x" << ny << "x"
+                << nz << ")" << std::endl;
+    }
+
+    if (v && isVariableStaggered(state, "V")) {
+      // V is staggered, convert to unstaggered
+      convertStaggeredVToUnstaggered(
+          std::vector<double>(v, v + nx_v * ny_v * nz_v), v_unstaggered, nx, ny,
+          nz);
+      v_final = v_unstaggered.data();
+      std::cout << "WRFDA: Converted V from staggered (" << nx_v << "x" << ny_v
+                << "x" << nz_v << ") to unstaggered (" << nx << "x" << ny << "x"
+                << nz << ")" << std::endl;
+    }
+
     // Call the proper WRFDA grid-based operator
     // This function expects separate arrays for each variable, which is correct
     // Note: WRFDA can handle nullptr for missing variables, but we should
@@ -366,11 +393,15 @@ class WRFDAObsOperator {
               << ", T=" << (t ? "present" : "null")
               << ", Q=" << (q ? "present" : "null")
               << ", PSFC=" << (psfc ? "present" : "null") << std::endl;
+    std::cout << "  Using converted arrays: U="
+              << (u_final != u ? "converted" : "original")
+              << ", V=" << (v_final != v ? "converted" : "original")
+              << std::endl;
     std::cout << "  Observations: " << num_observations << std::endl;
     std::cout << "  Operator family: " << family_cstr << std::endl;
 
     const int rc = wrfda_xtoy_apply_grid(
-        family_cstr, nx, ny, nz, u, v, t, q,
+        family_cstr, nx, ny, nz, u_final, v_final, t, q,
         psfc,  // Individual variable arrays
         lats2d.data(), lons2d.data(), levels.data(),  // Grid metadata
         static_cast<int>(num_observations), obs_lats.data(), obs_lons.data(),
@@ -569,6 +600,32 @@ class WRFDAObsOperator {
     const int ny = static_cast<int>(result_state.geometry().y_dim());
     const int nz = static_cast<int>(result_state.geometry().z_dim());
 
+    // Convert staggered U and V to unstaggered grids if needed
+    std::vector<double> u_unstaggered, v_unstaggered;
+    const double *u_final = u, *v_final = v;
+
+    if (u && isVariableStaggered(result_state, "U")) {
+      // U is staggered, convert to unstaggered
+      convertStaggeredUToUnstaggered(
+          std::vector<double>(u, u + nx_u * ny_u * nz_u), u_unstaggered, nx, ny,
+          nz);
+      u_final = u_unstaggered.data();
+      std::cout << "WRFDA Adjoint: Converted U from staggered (" << nx_u << "x"
+                << ny_u << "x" << nz_u << ") to unstaggered (" << nx << "x"
+                << ny << "x" << nz << ")" << std::endl;
+    }
+
+    if (v && isVariableStaggered(result_state, "V")) {
+      // V is staggered, convert to unstaggered
+      convertStaggeredVToUnstaggered(
+          std::vector<double>(v, v + nx_v * ny_v * nz_v), v_unstaggered, nx, ny,
+          nz);
+      v_final = v_unstaggered.data();
+      std::cout << "WRFDA Adjoint: Converted V from staggered (" << nx_v << "x"
+                << ny_v << "x" << nz_v << ") to unstaggered (" << nx << "x"
+                << ny << "x" << nz << ")" << std::endl;
+    }
+
     // Use the gi variable already declared above
     const double* levels_ptr =
         gi.vertical_coords.empty() ? nullptr : gi.vertical_coords.data();
@@ -586,13 +643,13 @@ class WRFDAObsOperator {
     if (u) {
       for (size_t i = 0; i < grid_size && i < static_cast<size_t>(nx * ny * nz);
            ++i) {
-        state_values[i] += u[i];
+        state_values[i] += u_final[i];
       }
     }
     if (v) {
       for (size_t i = 0; i < grid_size && i < static_cast<size_t>(nx * ny * nz);
            ++i) {
-        state_values[i] += v[i];
+        state_values[i] += v_final[i];
       }
     }
     if (t) {
@@ -707,6 +764,115 @@ class WRFDAObsOperator {
 
     // If no specific match found, return the first available family
     return operator_families_[0];
+  }
+
+  /**
+   * @brief Convert staggered U variable to unstaggered grid
+   *
+   * @param u_staggered Input staggered U array (nx+1, ny, nz)
+   * @param u_unstaggered Output unstaggered U array (nx, ny, nz)
+   * @param nx Number of x grid points (unstaggered)
+   * @param ny Number of y grid points
+   * @param nz Number of z grid points
+   *
+   * @details U is staggered in x-direction, so we interpolate to cell centers
+   * by averaging adjacent staggered points. Boundary points use the nearest
+   * staggered point.
+   */
+  void convertStaggeredUToUnstaggered(const std::vector<double>& u_staggered,
+                                      std::vector<double>& u_unstaggered,
+                                      int nx, int ny, int nz) const {
+    u_unstaggered.resize(nx * ny * nz);
+
+    for (int k = 0; k < nz; ++k) {
+      for (int j = 0; j < ny; ++j) {
+        for (int i = 0; i < nx; ++i) {
+          const size_t unstaggered_idx = k * ny * nx + j * nx + i;
+
+          if (i == 0) {
+            // Left boundary: use first staggered point
+            u_unstaggered[unstaggered_idx] =
+                u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i];
+          } else if (i == nx - 1) {
+            // Right boundary: use last staggered point
+            u_unstaggered[unstaggered_idx] =
+                u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i];
+          } else {
+            // Interior: average of two adjacent staggered points
+            u_unstaggered[unstaggered_idx] =
+                0.5 * (u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i] +
+                       u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i + 1]);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * @brief Convert staggered V variable to unstaggered grid
+   *
+   * @param v_staggered Input staggered V array (nx, ny+1, nz)
+   * @param v_unstaggered Output unstaggered V array (nx, ny, nz)
+   * @param nx Number of x grid points
+   * @param ny Number of y grid points (unstaggered)
+   * @param nz Number of z grid points
+   *
+   * @details V is staggered in y-direction, so we interpolate to cell centers
+   * by averaging adjacent staggered points. Boundary points use the nearest
+   * staggered point.
+   */
+  void convertStaggeredVToUnstaggered(const std::vector<double>& v_staggered,
+                                      std::vector<double>& v_unstaggered,
+                                      int nx, int ny, int nz) const {
+    v_unstaggered.resize(nx * ny * nz);
+
+    for (int k = 0; k < nz; ++k) {
+      for (int j = 0; j < ny; ++j) {
+        for (int i = 0; i < nx; ++i) {
+          const size_t unstaggered_idx = k * ny * nx + j * nx + i;
+
+          if (j == 0) {
+            // Bottom boundary: use first staggered point
+            v_unstaggered[unstaggered_idx] =
+                v_staggered[k * (ny + 1) * nx + j * nx + i];
+          } else if (j == ny - 1) {
+            // Top boundary: use last staggered point
+            v_unstaggered[unstaggered_idx] =
+                v_staggered[k * (ny + 1) * nx + j * nx + i];
+          } else {
+            // Interior: average of two adjacent staggered points
+            v_unstaggered[unstaggered_idx] =
+                0.5 * (v_staggered[k * (ny + 1) * nx + j * nx + i] +
+                       v_staggered[k * (ny + 1) * nx + (j + 1) * nx + i]);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * @brief Check if a variable is staggered using the existing WRF
+   * infrastructure
+   *
+   * @param state The state backend containing variable grid information
+   * @param var_name Variable name (U, V, T, Q, PSFC)
+   * @return true if the variable is staggered, false otherwise
+   */
+  bool isVariableStaggered(const StateBackend& state,
+                           const std::string& var_name) const {
+    try {
+      const auto& grid_info = state.getVariableGridInfo(var_name);
+      return (
+          grid_info.grid_type ==
+              metada::backends::wrf::VariableGridInfo::GridType::U_STAGGERED ||
+          grid_info.grid_type ==
+              metada::backends::wrf::VariableGridInfo::GridType::V_STAGGERED ||
+          grid_info.grid_type ==
+              metada::backends::wrf::VariableGridInfo::GridType::W_STAGGERED);
+    } catch (...) {
+      // If we can't get grid info, assume unstaggered
+      return false;
+    }
   }
 
  private:

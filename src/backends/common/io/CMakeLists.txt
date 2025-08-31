@@ -40,7 +40,6 @@ set_source_files_properties(
 set(HEADER_FILES
     BufrFortranAPI.h
     BufrObsIO.hpp
-    PrepBUFRObsAdapter.hpp
 )
 
 # Add include directories for headers

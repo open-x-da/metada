@@ -171,12 +171,6 @@ contains
     call da_copy_tile_dims(grid)
     print *, "WRFDA DEBUG: da_copy_tile_dims completed"
      
-    ! Get the grid bounds that were set in init_domain_from_arrays
-    ! These will be used by da_copy_dims to set module-level variables
-    print *, "WRFDA DEBUG: Grid bounds from grid structure: sm33=", grid%sm33, " em33=", grid%em33
-     
-
-     
     print *, "WRFDA DEBUG: Setting sfc_assi_options"
     sfc_assi_options = sfc_assi_options_1
     print *, "WRFDA DEBUG: sfc_assi_options set to", sfc_assi_options
@@ -682,19 +676,16 @@ contains
         
         ! Set all vertical levels to the same horizontal position for surface observations
         do k = 1, nz
-          ! CRITICAL FIX: WRFDA interpolation expects 0-based grid indices
-          ! This is because it accesses fm3d(i,j,k) and fm3d(i+1,j+1,k)
-          ! So if i=73 (1-based), i+1=74 would be out of bounds
-          ! But if i=72 (0-based), i+1=73 stays within bounds
-          iv%info(family)%i(k,n) = i - 1  ! Convert to 0-based
-          iv%info(family)%j(k,n) = j - 1  ! Convert to 0-based
-          iv%info(family)%x(k,n) = real(xfloat - 1.0)  ! Convert to 0-based
-          iv%info(family)%y(k,n) = real(yfloat - 1.0)  ! Convert to 0-based
+          ! WRFDA uses 1-based indexing for grid indices
+          iv%info(family)%i(k,n) = i  ! Keep 1-based
+          iv%info(family)%j(k,n) = j  ! Keep 1-based
+          iv%info(family)%x(k,n) = real(xfloat)  ! Keep 1-based
+          iv%info(family)%y(k,n) = real(yfloat)  ! Keep 1-based
           
-          ! Calculate proper interpolation weights using 0-based indices
-          iv%info(family)%dx(k,n) = (xfloat - 1.0) - real(iv%info(family)%i(k,n), c_double)
+          ! Calculate proper interpolation weights using 1-based indices
+          iv%info(family)%dx(k,n) = xfloat - real(iv%info(family)%i(k,n), c_double)
           iv%info(family)%dxm(k,n) = 1.0 - iv%info(family)%dx(k,n)
-          iv%info(family)%dy(k,n) = (yfloat - 1.0) - real(iv%info(family)%j(k,n), c_double)
+          iv%info(family)%dy(k,n) = yfloat - real(iv%info(family)%j(k,n), c_double)
           iv%info(family)%dym(k,n) = 1.0 - iv%info(family)%dy(k,n)
         end do
        if (nz > 1) then
