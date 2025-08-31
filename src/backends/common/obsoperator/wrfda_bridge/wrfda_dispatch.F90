@@ -1494,22 +1494,6 @@ contains
     print *, "WRFDA DEBUG: Calculated dz=", dz, " dzm=", dzm
   end subroutine find_fractional_k
 
-  subroutine geo_vec(lat0, lon0, lat1, lon1, dx, dy)
-    ! Convert two lat/lon positions to local tangent-plane meters (east/north)
-    real(c_double), intent(in) :: lat0, lon0, lat1, lon1
-    real(c_double), intent(out) :: dx, dy
-    real(c_double), parameter :: deg2rad = 0.017453292519943295d0
-    real(c_double), parameter :: R = 6371000.0d0
-    real(c_double) :: phi0, phi1, lam0, lam1, dphi, dlam, m
-    phi0 = lat0 * deg2rad; phi1 = lat1 * deg2rad
-    lam0 = lon0 * deg2rad; lam1 = lon1 * deg2rad
-    dphi = phi1 - phi0
-    dlam = lam1 - lam0
-    m = cos(0.5d0*(phi0+phi1))
-    dx = R * dlam * m
-    dy = R * dphi
-  end subroutine geo_vec
-
 end module metada_wrfda_dispatch
 
 
