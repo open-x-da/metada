@@ -1,0 +1,43 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules for METADA Project
+
+## WRFDA Integration Guidelines
+- WRFDA ObsOperator should be implemented under src/backends/common/obsoperator parallel to IdentityObsOperator, for use by any model backends (WRF, CMA, GRAPES) and future GSI ObsOperator; integration will require C/Fortran bridges to call native WRFDA routines.
+- The tangent linear, adjoint, and gradient checks for observation operators should be implemented generically in the framework rather than in the backends.
+- WRFDA code should remain untouched; implement all integration hooks in METADA.
+
+## Code Quality and Documentation
+- Prefer doxygen-style documentation for each method.
+- Prefer proposed code fixes to be concise.
+
+## Fortran-Specific Rules
+- **CRITICAL**: All variable declarations in Fortran subroutines MUST be placed at the beginning of the subroutine, before any executable statements.
+- **NEVER** place `real`, `integer`, `logical`, or other type declarations in the middle of Fortran code.
+- **ALWAYS** declare all variables at the top of the subroutine with other variable declarations.
+- **Common Mistake to Avoid**: Do not declare variables like `real(c_double) :: var_name` after executable statements like `var_name = value`.
+
+## Decision-Making Authority
+- **CRITICAL RULE**: Whenever there are any disputes, uncertainties, or controversial decisions encountered during planning or coding processes, you MUST immediately and proactively inform me and let me make the decision. Do not proceed with assumptions or make decisions on my behalf in such situations.
+- **APPROACH CHANGE RULE**: When attempting to try a different approach to solve a problem, you MUST ask for my decision before proceeding. Do not automatically switch approaches without explicit approval.# Cursor Rules for METADA Project
+
+## WRFDA Integration Guidelines
+- WRFDA ObsOperator should be implemented under src/backends/common/obsoperator parallel to IdentityObsOperator, for use by any model backends (WRF, CMA, GRAPES) and future GSI ObsOperator; integration will require C/Fortran bridges to call native WRFDA routines.
+- The tangent linear, adjoint, and gradient checks for observation operators should be implemented generically in the framework rather than in the backends.
+- WRFDA code should remain untouched; implement all integration hooks in METADA.
+
+## Code Quality and Documentation
+- Prefer doxygen-style documentation for each method.
+- Prefer proposed code fixes to be concise.
+
+## Fortran-Specific Rules
+- **CRITICAL**: All variable declarations in Fortran subroutines MUST be placed at the beginning of the subroutine, before any executable statements.
+- **NEVER** place `real`, `integer`, `logical`, or other type declarations in the middle of Fortran code.
+- **ALWAYS** declare all variables at the top of the subroutine with other variable declarations.
+- **Common Mistake to Avoid**: Do not declare variables like `real(c_double) :: var_name` after executable statements like `var_name = value`.
+
+## Decision-Making Authority
+- **CRITICAL RULE**: Whenever there are any disputes, uncertainties, or controversial decisions encountered during planning or coding processes, you MUST immediately and proactively inform me and let me make the decision. Do not proceed with assumptions or make decisions on my behalf in such situations.
+- **APPROACH CHANGE RULE**: When attempting to try a different approach to solve a problem, you MUST ask for my decision before proceeding. Do not automatically switch approaches without explicit approval.
