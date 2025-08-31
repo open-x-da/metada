@@ -41,7 +41,6 @@ set(HEADER_FILES
     BufrFortranAPI.h
     BufrObsIO.hpp
     PrepBUFRObsAdapter.hpp
-    PrepBUFRWRFDAIntegration.hpp
 )
 
 # Add include directories for headers

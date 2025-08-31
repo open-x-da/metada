@@ -389,14 +389,30 @@ class PrepBUFRObservation {
             levels_processed++;
             // Pick a representative level coordinate (prefer PRES then HEIGHT)
             double level_coord = 0.0;
+            bool level_found = false;
             for (const auto& v : lvl) {
               if (v.type == "PRES") {
                 level_coord = v.value;
+                level_found = true;
                 break;
               }
               if (v.type == "HEIGHT") {
                 level_coord = v.value;
+                level_found = true;
               }
+            }
+            // If no level information found, set to surface level (0.99 for
+            // sigma coordinates) This is appropriate for ADPSFC (surface
+            // pressure) observations Sigma coordinates typically range from 0.0
+            // (top) to 1.0 (surface) Using 0.99 ensures we're at the surface
+            // but within typical model bounds
+            if (!level_found) {
+              level_coord = 0.99;  // Surface level for sigma coordinates
+                                   // (within typical bounds)
+              std::cout << "WARNING: No level information found for "
+                           "observation at lat="
+                        << lat << ", lon=" << lon
+                        << ", setting to surface level 0.99" << std::endl;
             }
 
             for (const auto& [user_var, sel] : enabled_vars) {

@@ -56,8 +56,6 @@ if(WITH_WRFDA)
         target_include_directories(wrfda_bridge PUBLIC ${WRFDA_MOD_DIR})
         target_sources(wrfda_bridge PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_dispatch.F90
-            ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_force_symbols.F90
-            ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge.c
         )
 
         # Some WRFDA builds do not archive da_control.o into libwrfvar.a

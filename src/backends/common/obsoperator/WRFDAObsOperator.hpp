@@ -309,87 +309,6 @@ class WRFDAObsOperator {
     const char* family_cstr =
         (operator_families_.empty() ? "" : operator_families_[0].c_str());
 
-    // Check if we have too many observations for WRFDA to handle efficiently
-    // WRFDA has memory limitations with large numbers of observations
-    const size_t max_obs_for_wrfda = 10000;  // Conservative limit
-    if (num_observations > max_obs_for_wrfda) {
-      std::cout << "WARNING: Too many observations (" << num_observations
-                << ") for WRFDA operator. Limiting to first "
-                << max_obs_for_wrfda
-                << " observations to avoid memory allocation failure."
-                << std::endl;
-
-      // Use only the first max_obs_for_wrfda observations
-      const size_t limited_obs = max_obs_for_wrfda;
-      std::vector<double> limited_lats(limited_obs);
-      std::vector<double> limited_lons(limited_obs);
-      std::vector<double> limited_levels(limited_obs);
-      std::vector<double> limited_out_y(limited_obs);
-
-      std::copy(obs_lats.begin(), obs_lats.begin() + limited_obs,
-                limited_lats.begin());
-      std::copy(obs_lons.begin(), obs_lons.begin() + limited_obs,
-                limited_lons.begin());
-      std::copy(obs_levels.begin(), obs_levels.begin() + limited_obs,
-                limited_levels.begin());
-
-      // Use the proper WRFDA grid-based operator for limited observations
-      // This ensures consistency with the main implementation
-
-      // Prepare 2D lat/lon arrays for WRFDA (required by the grid API)
-      std::vector<double> lats2d(nx * ny);
-      std::vector<double> lons2d(nx * ny);
-
-      // Generate basic lat/lon grid for limited observations
-      for (int j = 0; j < ny; ++j) {
-        for (int i = 0; i < nx; ++i) {
-          const size_t idx_2d = static_cast<size_t>(j * nx + i);
-          // Use limited observation bounds to estimate grid extent
-          double min_lat =
-              *std::min_element(limited_lats.begin(), limited_lats.end());
-          double max_lat =
-              *std::max_element(limited_lats.begin(), limited_lats.end());
-          double min_lon =
-              *std::min_element(limited_lons.begin(), limited_lons.end());
-          double max_lon =
-              *std::max_element(limited_lons.begin(), limited_lons.end());
-
-          lats2d[idx_2d] = min_lat + (max_lat - min_lat) * j / (ny - 1);
-          lons2d[idx_2d] = min_lon + (max_lon - min_lon) * i / (nx - 1);
-        }
-      }
-
-      // Prepare vertical levels array
-      std::vector<double> levels(nz);
-      if (levels_ptr != nullptr && !gi.vertical_coords.empty()) {
-        std::copy(gi.vertical_coords.begin(), gi.vertical_coords.end(),
-                  levels.begin());
-      } else {
-        // Generate default levels if not provided
-        for (int k = 0; k < nz; ++k) {
-          levels[k] = static_cast<double>(k);
-        }
-      }
-
-      const int rc = wrfda_xtoy_apply_grid(
-          family_cstr, nx, ny, nz, u, v, t, q,
-          psfc,  // Individual variable arrays
-          lats2d.data(), lons2d.data(), levels.data(),  // Grid metadata
-          static_cast<int>(limited_obs), limited_lats.data(),
-          limited_lons.data(), limited_levels.data(), limited_out_y.data());
-
-      if (rc != 0) {
-        throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
-                                 std::to_string(rc));
-      }
-
-      // Pad the output with zeros for the remaining observations
-      out_y.assign(num_observations, 0.0);
-      std::copy(limited_out_y.begin(), limited_out_y.end(), out_y.begin());
-
-      return out_y;
-    }
-
     // Use the proper WRFDA grid-based operator that handles variables
     // separately This avoids the physical nonsense of averaging different
     // variable types and properly prepares the state for WRFDA's observation
@@ -555,6 +474,20 @@ class WRFDAObsOperator {
     std::vector<double> obs_lats(num_observations);
     std::vector<double> obs_lons(num_observations);
     std::vector<double> obs_levels(num_observations, 0.0);
+
+    // Get model vertical levels to determine appropriate defaults
+    const auto& gi = result_state.geometry().unstaggered_info();
+    double surface_level = 1.0;    // Default surface level (sigma coordinates)
+    double min_model_level = 0.0;  // Default minimum model level
+
+    if (!gi.vertical_coords.empty()) {
+      // Find actual min/max model levels
+      min_model_level = *std::min_element(gi.vertical_coords.begin(),
+                                          gi.vertical_coords.end());
+      surface_level = *std::max_element(gi.vertical_coords.begin(),
+                                        gi.vertical_coords.end());
+    }
+
     for (size_t i = 0; i < num_observations; ++i) {
       const auto& loc = obs[i].location;
       if (loc.getCoordinateSystem() !=
@@ -565,7 +498,27 @@ class WRFDAObsOperator {
       auto [lat, lon, level] = loc.getGeographicCoords();
       obs_lats[i] = lat;
       obs_lons[i] = lon;
-      obs_levels[i] = level;
+
+      // Handle invalid observation levels
+      if (level <= 0.0 || std::isnan(level) || std::isinf(level)) {
+        // This is likely a surface observation or missing level info
+        // Set to surface level (highest model level, typically 1.0 for sigma)
+        obs_levels[i] = surface_level;
+        std::cout << "WARNING: Observation " << i << " has invalid level "
+                  << level << ", setting to surface level " << surface_level
+                  << std::endl;
+      } else if (level < min_model_level) {
+        // Level is below model domain, likely a surface observation
+        // Set to surface level
+        obs_levels[i] = surface_level;
+        std::cout << "WARNING: Observation " << i << " level " << level
+                  << " below model minimum " << min_model_level
+                  << ", setting to surface level " << surface_level
+                  << std::endl;
+      } else {
+        // Valid level within model domain
+        obs_levels[i] = level;
+      }
     }
 
     // Prepare inout arrays for u,v,t,q,psfc accumulation
@@ -616,7 +569,7 @@ class WRFDAObsOperator {
     const int ny = static_cast<int>(result_state.geometry().y_dim());
     const int nz = static_cast<int>(result_state.geometry().z_dim());
 
-    const auto& gi = result_state.geometry().unstaggered_info();
+    // Use the gi variable already declared above
     const double* levels_ptr =
         gi.vertical_coords.empty() ? nullptr : gi.vertical_coords.data();
     std::vector<double> dummy_levels(1, 0.0);
@@ -661,12 +614,17 @@ class WRFDAObsOperator {
       }
     }
 
-    const int rc = wrfda_xtoy_adjoint(
-        family_cstr, external_root_.c_str(), obs_increment.data(),
-        obs_lats.data(), obs_lons.data(), obs_levels.data(),
-        static_cast<int>(num_observations), state_values.data(), nx, ny, nz);
+    const int rc = wrfda_xtoy_adjoint_grid(
+        family_cstr, nx, ny, nz,
+        obs_increment.data(),  // delta_y
+        gi.latitude_2d.data(), gi.longitude_2d.data(),
+        gi.vertical_coords.data(),  // lats2d, lons2d, levels
+        static_cast<int>(num_observations), obs_lats.data(), obs_lons.data(),
+        obs_levels.data(), state_values.data(), state_values.data(),
+        state_values.data(), state_values.data(),
+        state_values.data());  // inout_u, inout_v, inout_t, inout_q, inout_psfc
     if (rc != 0) {
-      throw std::runtime_error("wrfda_xtoy_adjoint failed with code " +
+      throw std::runtime_error("wrfda_xtoy_adjoint_grid failed with code " +
                                std::to_string(rc));
     }
   }

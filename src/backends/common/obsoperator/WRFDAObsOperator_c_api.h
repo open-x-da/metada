@@ -17,30 +17,6 @@
 extern "C" {
 #endif
 
-// Forward operator: y = H(x)
-// Returns 0 on success, non-zero on failure.
-int wrfda_xtoy_apply(
-    const char* operator_family,  // e.g., "metar", "gpspw"
-    const char* wrfda_root,       // path to WRF/var/da
-    const double* state_values,   // flattened x array (backend-defined layout)
-    int nx, int ny, int nz,       // grid dims
-    const double* obs_lats,       // observation lats
-    const double* obs_lons,       // observation lons
-    const double*
-        obs_levels,  // observation vertical coordinate (pressure/level)
-    int num_obs,     // number of observations
-    double* out_y    // output y array of size num_obs
-);
-
-// Adjoint operator: x += H^T(delta_y)
-int wrfda_xtoy_adjoint(
-    const char* operator_family, const char* wrfda_root,
-    const double* delta_y,  // size: num_obs
-    const double* obs_lats, const double* obs_lons, const double* obs_levels,
-    int num_obs,
-    double* inout_state_values,  // flattened x array to accumulate into
-    int nx, int ny, int nz);
-
 // Handle-based API (preferred when WRFDA domain/iv/y are already allocated)
 // Opaque pointers are expected to point to WRFDA types:
 //   domain :: WRFDA domain/grid structure
