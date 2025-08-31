@@ -1,0 +1,343 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules for METADA Project
+
+## Project Overview
+METADA is a modular data assimilation framework written in C++20 with Fortran interoperability for WRFDA integration. The project follows a layered architecture with clear separation between framework, backends, and applications.
+
+## Architecture and Design Principles
+
+### Core Architecture
+- **Framework Layer**: Core abstractions, algorithms, and utilities in `src/framework/`
+- **Backend Layer**: Model-specific implementations in `src/backends/`
+- **Application Layer**: Executable applications in `applications/`
+- **Traits Layer**: Compile-time configuration and type traits in `src/traits/`
+
+### Design Patterns
+- **Interface Segregation**: Use interface libraries (INTERFACE targets) for header-only components
+- **Dependency Injection**: Backends implement framework interfaces
+- **RAII**: All resource management follows RAII principles
+- **SOLID Principles**: Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
+
+## C++ Programming Guidelines
+
+### Language Standards
+- **C++20**: Use C++20 features including `std::format`, `std::chrono`, concepts, and ranges
+- **Modern C++**: Prefer modern C++ idioms over legacy patterns
+- **Compile-time**: Maximize compile-time computation and type safety
+
+### Naming Conventions
+- **Namespaces**: Use `metada::` as root namespace, then logical subdivisions
+  - `metada::framework::base` for core framework
+  - `metada::framework::algorithms` for algorithms
+  - `metada::framework::adapters` for scientific representations
+  - `metada::backends::common` for common backend functionality
+  - `metada::backends::wrf` for WRF-specific backend
+- **Classes**: PascalCase (e.g., `DateTime`, `Duration`, `WRFDAObsOperator`)
+- **Functions/Methods**: camelCase (e.g., `getData()`, `applyObservationOperator()`)
+- **Variables**: camelCase (e.g., `stateValues`, `observationLocations`)
+- **Constants**: ALL_CAPS (e.g., `MAX_ITERATIONS`, `DEFAULT_TOLERANCE`)
+- **Files**: snake_case (e.g., `wrfda_dispatch.F90`, `DateTime.hpp`)
+
+### Code Organization
+- **Header Files**: Place in appropriate include directories, use `#pragma once`
+- **Implementation**: Separate `.cpp` files for non-template implementations
+- **Templates**: Header-only for template classes and functions
+- **Dependencies**: Minimize coupling between modules, use forward declarations
+
+### Documentation Standards
+- **Doxygen**: Use Doxygen-style comments for all public APIs
+- **Documentation**: Include `@brief`, `@param`, `@return`, `@throws`, `@note` where appropriate
+- **Examples**: Provide usage examples in complex function documentation
+- **Implementation Notes**: Document non-obvious implementation details
+
+## Fortran Interoperability Guidelines
+
+### WRFDA Integration
+- **WRFDA Code**: NEVER modify WRFDA source code; implement all integration hooks in METADA
+- **C Bindings**: Use `bind(C, name="...")` for Fortran functions called from C++
+- **Data Passing**: Use `iso_c_binding` types for C++/Fortran data exchange
+- **Error Handling**: Return integer error codes from Fortran, convert to exceptions in C++
+
+### Fortran-Specific Rules
+- **Variable Declarations**: ALL variable declarations MUST be at the beginning of subroutines, before any executable statements
+- **Module Usage**: Use `use` statements at the top, specify `only:` for selective imports
+- **Array Handling**: Be explicit about array bounds and indexing conventions
+- **Memory Management**: Let WRFDA handle its own memory allocation/deallocation
+
+## Build System Guidelines
+
+### CMake Structure
+- **Target Naming**: Use `metada::` prefix for all public targets
+- **Interface Libraries**: Use INTERFACE libraries for header-only components
+- **Dependencies**: Explicitly declare all dependencies between targets
+- **Options**: Use CMake options for configurable features (e.g., `WITH_WRFDA`)
+
+### Library Organization
+- **Base Library**: `metada::base` for core utilities (DateTime, Duration)
+- **Framework Libraries**: `metada::framework::*` for framework components
+- **Backend Libraries**: `metada::backends::*` for model-specific implementations
+- **Bridge Libraries**: `metada::bridges::*` for external system integration
+
+## Error Handling Strategy
+
+### Exception Handling
+- **C++ Code**: Use exceptions for unexpected errors, `std::runtime_error` for runtime failures
+- **Fortran Code**: Return integer error codes (0 = success, non-zero = error)
+- **C++ Wrappers**: Convert Fortran return codes to appropriate exceptions
+- **Error Context**: Include meaningful error messages and context information
+
+### Error Recovery
+- **Graceful Degradation**: Implement fallback mechanisms where possible
+- **Validation**: Validate inputs and state before processing
+- **Logging**: Use appropriate logging levels for different error types
+
+## Testing Guidelines
+
+### Test Organization
+- **Unit Tests**: Test individual components in isolation
+- **Integration Tests**: Test component interactions
+- **Test Naming**: Use descriptive test names that explain the scenario
+- **Test Structure**: Follow Arrange-Act-Assert pattern
+
+### Test Dependencies
+- **Google Test**: Use Google Test framework for C++ tests
+- **Mock Objects**: Use test doubles for external dependencies
+- **Test Data**: Provide realistic test data that exercises edge cases
+
+## Performance Guidelines
+
+### Memory Management
+- **Smart Pointers**: Use `std::unique_ptr` and `std::shared_ptr` over raw pointers
+- **Containers**: Prefer `std::vector` over C-style arrays
+- **Move Semantics**: Use move semantics to avoid unnecessary copying
+- **RAII**: Ensure all resources are properly managed through RAII
+
+### Algorithm Efficiency
+- **Complexity**: Be aware of algorithmic complexity for large datasets
+- **Profiling**: Profile performance-critical sections
+- **Optimization**: Optimize only after identifying bottlenecks
+
+## WRFDA-Specific Guidelines
+
+### Observation Operator Integration
+- **Operator Families**: Support WRFDA operator families (metar, synop, sound, etc.)
+- **Data Structures**: Align with WRFDA's `iv_type`, `y_type`, `x_type` structures
+- **Indexing**: Handle 0-based vs 1-based indexing conventions correctly
+- **Domain Boundaries**: Implement robust out-of-domain observation handling
+
+### Interoperability Challenges
+- **String Handling**: Properly handle C-style null-terminated strings in Fortran
+- **Array Passing**: Ensure correct array layout and memory alignment
+- **Module Dependencies**: Handle Fortran module dependencies correctly
+- **Build Integration**: Integrate with WRFDA build system and dependencies
+
+## Code Quality Standards
+
+### Code Style
+- **Formatting**: Use `.clang-format` for consistent code formatting
+- **Linting**: Address compiler warnings and static analysis issues
+- **Complexity**: Keep functions under 50 lines, classes under 500 lines
+- **Readability**: Write self-documenting code with clear variable names
+
+### Review Process
+- **Pull Requests**: Require code review for all changes
+- **Testing**: Ensure all tests pass before merging
+- **Documentation**: Update documentation for API changes
+- **Backward Compatibility**: Maintain backward compatibility where possible
+
+## Development Workflow
+
+### Version Control
+- **Branch Naming**: Use descriptive branch names (e.g., `feature/wrfda-integration`)
+- **Commit Messages**: Write clear, descriptive commit messages
+- **Pull Requests**: Use pull requests for code review and discussion
+
+### Continuous Integration
+- **Build Verification**: Ensure builds succeed on all supported platforms
+- **Test Coverage**: Maintain high test coverage for critical components
+- **Static Analysis**: Use static analysis tools to catch potential issues
+
+## Decision-Making Authority
+
+### Critical Rules
+- **WRFDA Integration**: All WRFDA integration decisions require user approval
+- **Architecture Changes**: Major architectural changes require user approval
+- **API Changes**: Breaking API changes require user approval
+- **Approach Changes**: When attempting different approaches, ask for user decision before proceeding
+
+### User Involvement
+- **Disputes**: Immediately inform user of any disputes, uncertainties, or controversial decisions
+- **Planning**: Involve user in planning processes for complex features
+- **Coding**: Let user make decisions on approach when multiple options exist# Cursor Rules for METADA Project
+
+## Project Overview
+METADA is a modular data assimilation framework written in C++20 with Fortran interoperability for WRFDA integration. The project follows a layered architecture with clear separation between framework, backends, and applications.
+
+## Architecture and Design Principles
+
+### Core Architecture
+- **Framework Layer**: Core abstractions, algorithms, and utilities in `src/framework/`
+- **Backend Layer**: Model-specific implementations in `src/backends/`
+- **Application Layer**: Executable applications in `applications/`
+- **Traits Layer**: Compile-time configuration and type traits in `src/traits/`
+
+### Design Patterns
+- **Interface Segregation**: Use interface libraries (INTERFACE targets) for header-only components
+- **Dependency Injection**: Backends implement framework interfaces
+- **RAII**: All resource management follows RAII principles
+- **SOLID Principles**: Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
+
+## C++ Programming Guidelines
+
+### Language Standards
+- **C++20**: Use C++20 features including `std::format`, `std::chrono`, concepts, and ranges
+- **Modern C++**: Prefer modern C++ idioms over legacy patterns
+- **Compile-time**: Maximize compile-time computation and type safety
+
+### Naming Conventions
+- **Namespaces**: Use `metada::` as root namespace, then logical subdivisions
+  - `metada::framework::base` for core framework
+  - `metada::framework::algorithms` for algorithms
+  - `metada::framework::adapters` for scientific representations
+  - `metada::backends::common` for common backend functionality
+  - `metada::backends::wrf` for WRF-specific backend
+- **Classes**: PascalCase (e.g., `DateTime`, `Duration`, `WRFDAObsOperator`)
+- **Functions/Methods**: camelCase (e.g., `getData()`, `applyObservationOperator()`)
+- **Variables**: camelCase (e.g., `stateValues`, `observationLocations`)
+- **Constants**: ALL_CAPS (e.g., `MAX_ITERATIONS`, `DEFAULT_TOLERANCE`)
+- **Files**: snake_case (e.g., `wrfda_dispatch.F90`, `DateTime.hpp`)
+
+### Code Organization
+- **Header Files**: Place in appropriate include directories, use `#pragma once`
+- **Implementation**: Separate `.cpp` files for non-template implementations
+- **Templates**: Header-only for template classes and functions
+- **Dependencies**: Minimize coupling between modules, use forward declarations
+
+### Documentation Standards
+- **Doxygen**: Use Doxygen-style comments for all public APIs
+- **Documentation**: Include `@brief`, `@param`, `@return`, `@throws`, `@note` where appropriate
+- **Examples**: Provide usage examples in complex function documentation
+- **Implementation Notes**: Document non-obvious implementation details
+
+## Fortran Interoperability Guidelines
+
+### WRFDA Integration
+- **WRFDA Code**: NEVER modify WRFDA source code; implement all integration hooks in METADA
+- **C Bindings**: Use `bind(C, name="...")` for Fortran functions called from C++
+- **Data Passing**: Use `iso_c_binding` types for C++/Fortran data exchange
+- **Error Handling**: Return integer error codes from Fortran, convert to exceptions in C++
+
+### Fortran-Specific Rules
+- **Variable Declarations**: ALL variable declarations MUST be at the beginning of subroutines, before any executable statements
+- **Module Usage**: Use `use` statements at the top, specify `only:` for selective imports
+- **Array Handling**: Be explicit about array bounds and indexing conventions
+- **Memory Management**: Let WRFDA handle its own memory allocation/deallocation
+
+## Build System Guidelines
+
+### CMake Structure
+- **Target Naming**: Use `metada::` prefix for all public targets
+- **Interface Libraries**: Use INTERFACE libraries for header-only components
+- **Dependencies**: Explicitly declare all dependencies between targets
+- **Options**: Use CMake options for configurable features (e.g., `WITH_WRFDA`)
+
+### Library Organization
+- **Base Library**: `metada::base` for core utilities (DateTime, Duration)
+- **Framework Libraries**: `metada::framework::*` for framework components
+- **Backend Libraries**: `metada::backends::*` for model-specific implementations
+- **Bridge Libraries**: `metada::bridges::*` for external system integration
+
+## Error Handling Strategy
+
+### Exception Handling
+- **C++ Code**: Use exceptions for unexpected errors, `std::runtime_error` for runtime failures
+- **Fortran Code**: Return integer error codes (0 = success, non-zero = error)
+- **C++ Wrappers**: Convert Fortran return codes to appropriate exceptions
+- **Error Context**: Include meaningful error messages and context information
+
+### Error Recovery
+- **Graceful Degradation**: Implement fallback mechanisms where possible
+- **Validation**: Validate inputs and state before processing
+- **Logging**: Use appropriate logging levels for different error types
+
+## Testing Guidelines
+
+### Test Organization
+- **Unit Tests**: Test individual components in isolation
+- **Integration Tests**: Test component interactions
+- **Test Naming**: Use descriptive test names that explain the scenario
+- **Test Structure**: Follow Arrange-Act-Assert pattern
+
+### Test Dependencies
+- **Google Test**: Use Google Test framework for C++ tests
+- **Mock Objects**: Use test doubles for external dependencies
+- **Test Data**: Provide realistic test data that exercises edge cases
+
+## Performance Guidelines
+
+### Memory Management
+- **Smart Pointers**: Use `std::unique_ptr` and `std::shared_ptr` over raw pointers
+- **Containers**: Prefer `std::vector` over C-style arrays
+- **Move Semantics**: Use move semantics to avoid unnecessary copying
+- **RAII**: Ensure all resources are properly managed through RAII
+
+### Algorithm Efficiency
+- **Complexity**: Be aware of algorithmic complexity for large datasets
+- **Profiling**: Profile performance-critical sections
+- **Optimization**: Optimize only after identifying bottlenecks
+
+## WRFDA-Specific Guidelines
+
+### Observation Operator Integration
+- **Operator Families**: Support WRFDA operator families (metar, synop, sound, etc.)
+- **Data Structures**: Align with WRFDA's `iv_type`, `y_type`, `x_type` structures
+- **Indexing**: Handle 0-based vs 1-based indexing conventions correctly
+- **Domain Boundaries**: Implement robust out-of-domain observation handling
+
+### Interoperability Challenges
+- **String Handling**: Properly handle C-style null-terminated strings in Fortran
+- **Array Passing**: Ensure correct array layout and memory alignment
+- **Module Dependencies**: Handle Fortran module dependencies correctly
+- **Build Integration**: Integrate with WRFDA build system and dependencies
+
+## Code Quality Standards
+
+### Code Style
+- **Formatting**: Use `.clang-format` for consistent code formatting
+- **Linting**: Address compiler warnings and static analysis issues
+- **Complexity**: Keep functions under 50 lines, classes under 500 lines
+- **Readability**: Write self-documenting code with clear variable names
+
+### Review Process
+- **Pull Requests**: Require code review for all changes
+- **Testing**: Ensure all tests pass before merging
+- **Documentation**: Update documentation for API changes
+- **Backward Compatibility**: Maintain backward compatibility where possible
+
+## Development Workflow
+
+### Version Control
+- **Branch Naming**: Use descriptive branch names (e.g., `feature/wrfda-integration`)
+- **Commit Messages**: Write clear, descriptive commit messages
+- **Pull Requests**: Use pull requests for code review and discussion
+
+### Continuous Integration
+- **Build Verification**: Ensure builds succeed on all supported platforms
+- **Test Coverage**: Maintain high test coverage for critical components
+- **Static Analysis**: Use static analysis tools to catch potential issues
+
+## Decision-Making Authority
+
+### Critical Rules
+- **WRFDA Integration**: All WRFDA integration decisions require user approval
+- **Architecture Changes**: Major architectural changes require user approval
+- **API Changes**: Breaking API changes require user approval
+- **Approach Changes**: When attempting different approaches, ask for user decision before proceeding
+
+### User Involvement
+- **Disputes**: Immediately inform user of any disputes, uncertainties, or controversial decisions
+- **Planning**: Involve user in planning processes for complex features
+- **Coding**: Let user make decisions on approach when multiple options exist
