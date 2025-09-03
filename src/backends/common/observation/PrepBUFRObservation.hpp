@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -176,26 +177,10 @@ class PrepBUFRObservation {
               }
             }
 
-            // Add variables if present
-            auto vars_it = config_data.find("variables");
-            if (vars_it != config_data.end()) {
-              try {
-                const auto& variables_configs = vars_it->second.asVectorMap();
-                for (const auto& var_map : variables_configs) {
-                  for (const auto& [var_name, var_config] : var_map) {
-                    const auto& var_backend = ConfigBackend(var_config.asMap());
-                    if (var_backend.Get("if_use").asBool()) {
-                      std::string bufr_name = mapUserVarToBufr(var_name);
-                      if (!bufr_name.empty()) {
-                        enabled_variables.push_back(bufr_name);
-                      }
-                    }
-                  }
-                }
-              } catch (...) {
-                // Skip if parsing fails
-              }
-            }
+            // Note: We don't do early variable filtering here because:
+            // 1. Different stations may have different variables available
+            // 2. We want to let the BUFR reader find all available variables
+            // 3. The actual filtering happens later when processing each record
           }
         }
 
@@ -234,9 +219,10 @@ class PrepBUFRObservation {
         if (!enabled_data_types.empty()) {
           bufr_config["data_types"] = enabled_data_types;
         }
-        if (!enabled_variables.empty()) {
-          bufr_config["variables"] = enabled_variables;
-        }
+        // Note: We don't filter by variables at the BUFR level because:
+        // 1. Different stations may have different variables available
+        // 2. We want to let the BUFR reader find all available variables
+        // 3. The actual filtering happens later when processing each record
         if (!enabled_station_ids.empty()) {
           bufr_config["station_ids"] = enabled_station_ids;
         }
@@ -353,7 +339,9 @@ class PrepBUFRObservation {
                     << std::endl;
         }
 
-        // Flatten BUFR records into observation points for selected variables
+        // NEW: Track unique observation locations for this type
+        std::map<std::string, size_t>
+            unique_location_map;  // location_key -> obs_index
         size_t type_obs_count = 0;
         size_t records_processed = 0;
         size_t records_filtered = 0;
@@ -390,52 +378,103 @@ class PrepBUFRObservation {
             // Pick a representative level coordinate (prefer PRES then HEIGHT)
             double level_coord = 0.0;
             bool level_found = false;
-            for (const auto& v : lvl) {
-              if (v.type == "PRES") {
-                level_coord = v.value;
-                level_found = true;
+
+            // Check if this is a surface observation type first
+            bool is_surface_obs = false;
+            for (const auto& allowed_type : allowed_data_types) {
+              if (allowed_type == "ADPSFC" || allowed_type == "METAR" ||
+                  allowed_type == "SYNOP" || allowed_type == "SHIP") {
+                is_surface_obs = true;
                 break;
               }
-              if (v.type == "HEIGHT") {
-                level_coord = v.value;
-                level_found = true;
+            }
+
+            // For surface observations, use sigma level 1.0 regardless of
+            // pressure
+            if (is_surface_obs) {
+              level_coord = 1.0;  // Surface level for sigma coordinates
+              level_found = true;
+              std::cout << "Surface observation: Using sigma level 1.0 as "
+                           "level coordinate"
+                        << std::endl;
+            } else {
+              // For non-surface observations, use PRES or HEIGHT values
+              for (const auto& v : lvl) {
+                if (v.type == "PRES") {
+                  level_coord = v.value;
+                  level_found = true;
+                  break;
+                }
+                if (v.type == "HEIGHT") {
+                  level_coord = v.value;
+                  level_found = true;
+                }
               }
             }
-            // If no level information found, set to surface level (0.99 for
-            // sigma coordinates) This is appropriate for ADPSFC (surface
-            // pressure) observations Sigma coordinates typically range from 0.0
-            // (top) to 1.0 (surface) Using 0.99 ensures we're at the surface
-            // but within typical model bounds
+            // If still no level found, use default surface level
             if (!level_found) {
-              level_coord = 0.99;  // Surface level for sigma coordinates
-                                   // (within typical bounds)
+              // For non-surface observations without level info, use a default
+              level_coord = 0.99;  // Default level for sigma coordinates
               std::cout << "WARNING: No level information found for "
                            "observation at lat="
                         << lat << ", lon=" << lon
-                        << ", setting to surface level 0.99" << std::endl;
+                        << ", setting to default level 0.99" << std::endl;
             }
 
+            // Create a unique location key for this observation point
+            std::ostringstream location_key_stream;
+            location_key_stream << std::fixed << std::setprecision(6) << lat
+                                << "_" << lon << "_" << level_coord;
+            std::string location_key = location_key_stream.str();
+
+            // Check if we already have an observation at this location
+            auto location_it = unique_location_map.find(location_key);
+            size_t obs_index;
+
+            if (location_it == unique_location_map.end()) {
+              // This is a new location - create a new observation point
+              framework::Location location(0, 0, 0);
+              if (coordinate_system == "grid") {
+                // No grid indices in BUFR; fallback to geographic
+                location = framework::Location(
+                    lat, lon, level_coord,
+                    framework::CoordinateSystem::GEOGRAPHIC);
+              } else {
+                location = framework::Location(
+                    lat, lon, level_coord,
+                    framework::CoordinateSystem::GEOGRAPHIC);
+              }
+
+              // Create a placeholder observation point (value and error will be
+              // set later)
+              obs_index = observations_.size();
+              observations_.emplace_back(location, 0.0, 0.0);
+              unique_location_map[location_key] = obs_index;
+              type_obs_count++;
+            } else {
+              // We already have an observation at this location
+              obs_index = location_it->second;
+            }
+
+            // Now process variables at this location
             for (const auto& [user_var, sel] : enabled_vars) {
               // Find the requested BUFR variable in this level
               for (const auto& v : lvl) {
                 if (v.type == sel.bufr_name) {
                   variables_found++;
-                  framework::Location location(0, 0, 0);
-                  if (coordinate_system == "grid") {
-                    // No grid indices in BUFR; fallback to geographic
-                    location = framework::Location(
-                        lat, lon, level_coord,
-                        framework::CoordinateSystem::GEOGRAPHIC);
-                  } else {
-                    location = framework::Location(
-                        lat, lon, level_coord,
-                        framework::CoordinateSystem::GEOGRAPHIC);
+
+                  // Store the variable value and error in the observation point
+                  // We'll use the first variable's value/error as
+                  // representative
+                  if (type_variable_map_[type_name][user_var].empty()) {
+                    // This is the first variable for this location, update the
+                    // observation point
+                    observations_[obs_index].value = v.value;
+                    observations_[obs_index].error = sel.error;
                   }
 
-                  size_t obs_index = observations_.size();
-                  observations_.emplace_back(location, v.value, sel.error);
+                  // Map this variable to the observation location
                   type_variable_map_[type_name][user_var].push_back(obs_index);
-                  type_obs_count++;
                   break;
                 }
               }
@@ -449,8 +488,10 @@ class PrepBUFRObservation {
                   << ", Levels processed: " << levels_processed
                   << ", Variables found: " << variables_found << std::endl;
 
-        std::cout << "Added " << type_obs_count << " observations for type "
-                  << type_name << std::endl;
+        std::cout << "Added " << type_obs_count
+                  << " unique observation locations for type " << type_name
+                  << " (with " << enabled_vars.size()
+                  << " variables per location)" << std::endl;
 
         // Store BUFR subset distribution for this type
         if (!allowed_data_types.empty()) {
@@ -476,14 +517,17 @@ class PrepBUFRObservation {
       }
     }
 
-    std::cout << "Total observations: " << observations_.size() << std::endl;
+    std::cout << "Total unique observation locations: " << observations_.size()
+              << std::endl;
     std::cout << "Type map size: " << type_variable_map_.size() << std::endl;
     for (const auto& [type_name, var_map] : type_variable_map_) {
+      size_t unique_locations = getUniqueLocationCount(type_name);
       std::cout << "  Type " << type_name << " has " << var_map.size()
-                << " variables" << std::endl;
+                << " variables at " << unique_locations << " unique locations"
+                << std::endl;
       for (const auto& [var_name, indices] : var_map) {
         std::cout << "    Variable " << var_name << " has " << indices.size()
-                  << " observations" << std::endl;
+                  << " measurements" << std::endl;
       }
     }
   }
@@ -785,6 +829,32 @@ class PrepBUFRObservation {
     }
     return 0;
   }
+
+  /**
+   * @brief Get the number of unique observation locations for a specific type
+   * @param type_name Name of the observation type
+   * @return Number of unique observation locations for this type
+   */
+  size_t getUniqueLocationCount(const std::string& type_name) const {
+    auto type_it = type_variable_map_.find(type_name);
+    if (type_it != type_variable_map_.end()) {
+      // Count unique locations by collecting all indices and removing
+      // duplicates
+      std::set<size_t> unique_locations;
+      for (const auto& [var_name, indices] : type_it->second) {
+        unique_locations.insert(indices.begin(), indices.end());
+      }
+      return unique_locations.size();
+    }
+    return 0;
+  }
+
+  /**
+   * @brief Get the total number of unique observation locations across all
+   * types
+   * @return Total number of unique observation locations
+   */
+  size_t getTotalUniqueLocationCount() const { return observations_.size(); }
 
   /**
    * @brief Check if observation error covariance is diagonal
@@ -1123,26 +1193,10 @@ class PrepBUFRObservation {
             }
           }
 
-          // Add variables if present
-          auto vars_it = config_data.find("variables");
-          if (vars_it != config_data.end()) {
-            try {
-              const auto& variables_configs = vars_it->second.asVectorMap();
-              for (const auto& var_map : variables_configs) {
-                for (const auto& [var_name, var_config] : var_map) {
-                  const auto& var_backend = ConfigBackend(var_config.asMap());
-                  if (var_backend.Get("if_use").asBool()) {
-                    std::string bufr_name = mapUserVarToBufr(var_name);
-                    if (!bufr_name.empty()) {
-                      enabled_variables.push_back(bufr_name);
-                    }
-                  }
-                }
-              }
-            } catch (...) {
-              // Skip if parsing fails
-            }
-          }
+          // Note: We don't do early variable filtering here because:
+          // 1. Different stations may have different variables available
+          // 2. We want to let the BUFR reader find all available variables
+          // 3. The actual filtering happens later when processing each record
         }
       }
 
@@ -1150,9 +1204,10 @@ class PrepBUFRObservation {
       if (!enabled_data_types.empty()) {
         bufr_config["data_types"] = enabled_data_types;
       }
-      if (!enabled_variables.empty()) {
-        bufr_config["variables"] = enabled_variables;
-      }
+      // Note: We don't filter by variables at the BUFR level because:
+      // 1. Different stations may have different variables available
+      // 2. We want to let the BUFR reader find all available variables
+      // 3. The actual filtering happens later when processing each record
 
       auto bufr_io = io::BufrObsIO<ConfigBackend>(ConfigBackend(bufr_config));
       std::vector<ObsRecord> records = bufr_io.read();
@@ -1309,7 +1364,7 @@ class PrepBUFRObservation {
    *
    * @details Outputs a detailed summary of the PrepBUFR observation data
    * including:
-   * - Total number of observations
+   * - Total number of unique observation locations
    * - Summary for each observation type and variable
    * - Geographic distribution information
    * - Quality control statistics
@@ -1321,7 +1376,8 @@ class PrepBUFRObservation {
   friend std::ostream& operator<<(std::ostream& os,
                                   const PrepBUFRObservation& obs) {
     os << "=== PrepBUFR Observation Summary ===\n";
-    os << "Total observations: " << obs.observations_.size() << "\n\n";
+    os << "Total unique observation locations: " << obs.observations_.size()
+       << "\n\n";
 
     // Count valid vs invalid observations
     size_t valid_count = 0;
@@ -1335,9 +1391,9 @@ class PrepBUFRObservation {
     }
     os << "Quality Control:\n";
     os << std::string(50, '-') << "\n";
-    os << "Valid observations: " << valid_count << "\n";
-    os << "Invalid observations: " << invalid_count << "\n";
-    os << "Total: " << (valid_count + invalid_count) << "\n\n";
+    os << "Valid observation locations: " << valid_count << "\n";
+    os << "Invalid observation locations: " << invalid_count << "\n";
+    os << "Total locations: " << (valid_count + invalid_count) << "\n\n";
 
     // Show observation types and variables
     const auto& type_names = obs.getTypeNames();
@@ -1351,15 +1407,13 @@ class PrepBUFRObservation {
         const auto& var_names = obs.getVariableNames(type_name);
         size_t total_obs_for_type = 0;
 
-        // Count total observations for this type across all variables
-        for (const auto& var_name : var_names) {
-          total_obs_for_type += obs.getSize(type_name, var_name);
-        }
+        // Count total unique observation locations for this type
+        total_obs_for_type = obs.getUniqueLocationCount(type_name);
 
         os << "Type: " << std::setw(15) << std::left << type_name;
         os << " | Variables: " << std::setw(3) << std::right
            << var_names.size();
-        os << " | Total obs: " << std::setw(6) << std::right
+        os << " | Locations: " << std::setw(6) << std::right
            << total_obs_for_type << "\n";
 
         // Show variable details if there are any
@@ -1368,7 +1422,7 @@ class PrepBUFRObservation {
           for (size_t i = 0; i < var_names.size(); ++i) {
             if (i > 0) os << ", ";
             os << var_names[i] << "(" << obs.getSize(type_name, var_names[i])
-               << ")";
+               << " measurements)";
           }
           os << "\n";
         }

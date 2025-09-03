@@ -1,0 +1,325 @@
+---
+description: Reference for writting API in METADA to map data to WRFDA functions.
+globs:
+alwaysApply: true
+---
+# WRF 3D-Var SYNOP Analysis: Comprehensive Documentation
+
+## Table of Contents
+1. [Overview](#overview)
+2. [Data Flow Architecture](#data-flow-architecture)
+3. [Core Data Types](#core-data-types)
+4. [Key Subroutines and Functions](#key-subroutines-and-functions)
+5. [Vertical Interpolation Logic](#vertical-interpolation-logic)
+6. [Grid Handling and Arakawa-C Support](#grid-handling-and-arakawa-c-support)
+7. [Minimal Implementation Requirements](#minimal-implementation-requirements)
+8. [Code Examples and References](#code-examples-and-references)
+
+## Overview
+
+This document provides a comprehensive analysis of WRF's 3D-Var data assimilation system for SYNOP (surface) observations. The analysis is based on the actual WRF codebase and covers the incremental 3D-Var formulation where analysis increments are computed and applied to background states.
+
+## Data Flow Architecture
+
+### High-Level Pipeline
+```
+Raw GTS Data → OBSPROC → ASCII Format → WRFDA → 3D-Var Assimilation
+```
+
+### WRFDA Internal Flow
+```
+Background State (xb) → Forward Operator (H) → Innovation Vector (d) → Cost Function → Analysis Increment (xa)
+```
+
+## Core Data Types
+
+### 1. Field Type (Basic Observation Component)
+**File:** `var/da/da_define_structures/da_define_structures.f90` (lines 200-210)
+
+```fortran
+type field_type
+   real :: data             ! Observation value or innovation
+   integer :: qc           ! Quality control flag
+   real :: error           ! Observation error standard deviation
+end type field_type
+```
+
+### 2. SYNOP Observation Type
+**File:** `var/da/da_define_structures/da_define_structures.f90` (lines 442-449)
+
+```fortran
+type synop_type
+   real :: h              ! Height in m
+   type (field_type) :: u, v, t, p, q  ! Wind, temp, pressure, humidity
+   type (field_type) :: slp            ! Sea level pressure
+   type (field_type) :: pw             ! Precipitable water
+   type (field_type) :: ref            ! Refractivity
+   type (field_type) :: td2m, rh2m    ! 2m dewpoint, relative humidity
+   type (field_type) :: t2m, u10m, v10m ! 2m/10m temperature and winds
+end type synop_type
+```
+
+### 3. Innovation Vector Type (iv)
+**File:** `var/da/da_define_structures/da_define_structures.f90` (lines 844-850)
+
+```fortran
+type iv_type
+   integer :: nstats(num_ob_indexes)
+   integer :: time
+   integer :: num_inst, total_rad_pixel, total_rad_channel
+   
+   ! Error factors for different observation types
+   real :: synop_ef_u, synop_ef_v, synop_ef_t, synop_ef_p, synop_ef_q
+   real :: synop_ef_rh, synop_ef_td2m, synop_ef_slp, synop_ef_pw
+   
+   ! Observation arrays
+   type (synop_type), pointer :: synop(:)
+   type (info_type), pointer :: info(:)
+end type iv_type
+```
+
+### 4. Background State Type (xb)
+**File:** `var/obsproc/MAP_plot/Dir_map/DA_Define_Structures.f90` (lines 90-147)
+
+```fortran
+type xb_type
+   ! 3D Meteorological Variables
+   REAL, POINTER :: u(:,:,:)      ! U-wind component (m/s)
+   REAL, POINTER :: v(:,:,:)      ! V-wind component (m/s) 
+   REAL, POINTER :: t(:,:,:)      ! Temperature (K)
+   REAL, POINTER :: q(:,:,:)      ! Specific humidity (kg/kg)
+   REAL, POINTER :: p_c(:,:,:)    ! Pressure at mass points (Pa)
+   REAL, POINTER :: h(:,:,:)      ! Height (m)
+   
+   ! 2D Surface Variables
+   REAL, POINTER :: psfc(:,:)     ! Surface pressure (Pa)
+   REAL, POINTER :: t2(:,:)       ! 2m temperature (K)
+   REAL, POINTER :: q2(:,:)       ! 2m specific humidity (kg/kg)
+   REAL, POINTER :: u10(:,:)      ! 10m U-wind (m/s)
+   REAL, POINTER :: v10(:,:)      ! 10m V-wind (m/s)
+end type xb_type
+```
+
+### 5. Analysis Increment Type (xa)
+**File:** Various `var/da/da_*.inc` files
+
+```fortran
+type x_type
+   ! Core 3D Meteorological Variables
+   REAL, POINTER :: u(:,:,:)      ! U-wind increment (m/s)
+   REAL, POINTER :: v(:,:,:)      ! V-wind increment (m/s)
+   REAL, POINTER :: w(:,:,:)      ! Vertical velocity increment (m/s)
+   REAL, POINTER :: t(:,:,:)      ! Temperature increment (K)
+   REAL, POINTER :: p(:,:,:)      ! Pressure increment (Pa)
+   REAL, POINTER :: q(:,:,:)      ! Specific humidity increment (kg/kg)
+   REAL, POINTER :: rho(:,:,:)    ! Density increment (kg/m³)
+   
+   ! 2D Surface Variables
+   REAL, POINTER :: psfc(:,:)     ! Surface pressure increment (Pa)
+   REAL, POINTER :: t2(:,:)       ! 2m temperature increment (K)
+   REAL, POINTER :: q2(:,:)       ! 2m specific humidity increment (kg/kg)
+   REAL, POINTER :: u10(:,:)      ! 10m U-wind increment (m/s)
+   REAL, POINTER :: v10(:,:)      ! 10m V-wind increment (m/s)
+end type x_type
+```
+
+## Key Subroutines and Functions
+
+### 1. Innovation Vector Computation
+**File:** `var/da/da_synop/da_get_innov_vector_synop.inc` (lines 1-327)
+
+```fortran
+subroutine da_get_innov_vector_synop(it, num_qcstat_conv, grid, ob, iv)
+   ! Computes O-B (innovation vector) for SYNOP observations
+   ! Key operations:
+   ! 1. Quality control checks
+   ! 2. Horizontal interpolation to observation location
+   ! 3. Vertical interpolation (pressure or height-based)
+   ! 4. Surface corrections
+   ! 5. Innovation computation: d = y - H(xb)
+end subroutine
+```
+
+### 2. Forward Operator (H Operator)
+**File:** `var/da/da_synop/da_transform_xtoy_synop.inc` (lines 1-86)
+
+```fortran
+subroutine da_transform_xtoy_synop(grid, iv, y)
+   ! Transforms analysis increment to observation space
+   ! Key operations:
+   ! 1. Interpolate analysis increments to observation location
+   ! 2. Apply forward operator: H(δx)
+   ! 3. Handle staggered grid configurations
+end subroutine
+```
+
+### 3. Vertical Interpolation
+**File:** `var/da/da_interpolation/da_to_zk.inc` (lines 1-77)
+
+```fortran
+subroutine da_to_zk(obs_v, mdl_v, kts, kte, v_interp_optn, zk)
+   ! Determines fractional vertical level for interpolation
+   ! Supports both pressure and height-based interpolation
+   ! Returns interpolation weights and level indices
+end subroutine
+```
+
+### 4. Horizontal Interpolation
+**File:** `var/da/da_interpolation/da_interp_lin_3d.inc` (lines 1-89)
+
+```fortran
+subroutine da_interp_lin_3d(ob, iv, field, field_int)
+   ! Linear interpolation for 3D fields
+   ! Handles staggered grid configurations
+   ! Computes bilinear interpolation weights
+end subroutine
+```
+
+### 5. Surface Correction
+**File:** `var/da/da_tools/da_obs_sfc_correction.inc` (lines 1-100)
+
+```fortran
+subroutine da_obs_sfc_correction(iv, ob, grid)
+   ! Applies surface corrections for observations
+   ! Handles height differences between model and observation
+   ! Applies lapse rate corrections
+end subroutine
+```
+
+## Vertical Interpolation Logic
+
+### Decision Criteria
+**File:** `var/da/da_synop/da_get_innov_vector_synop.inc` (lines 99-160)
+
+The system determines interpolation method based on data availability:
+
+#### Priority Order:
+1. **Height-based interpolation (`v_interp_h`)** - if observation height is available
+2. **Pressure-based interpolation (`v_interp_p`)** - if pressure data is available
+3. **Surface-level assumption** - if neither height nor pressure available
+
+#### Implementation:
+```fortran
+! Height-based interpolation (preferred)
+if (iv % synop(n) % h > missing_r) then
+   ! Use height field for vertical interpolation
+   v_interp_optn = v_interp_h
+   
+! Pressure-based interpolation (fallback)
+else if (iv % synop(n) % p % data > missing_r) then
+   ! Use pressure field for vertical interpolation
+   v_interp_optn = v_interp_p
+   
+! Surface-level assumption (last resort)
+else
+   ! Assume observation is at surface level
+   v_interp_optn = v_interp_surface
+end if
+```
+
+## Grid Handling and Arakawa-C Support
+
+### Staggered Grid Configuration
+**File:** `var/da/da_interpolation/da_interp_lin_3d.inc` (lines 1-89)
+
+The system handles Arakawa-C staggered grid where:
+- **Mass variables** (T, P, Q): located at mass points (cell centers)
+- **U-wind**: located at u-points (half grid spacing east)
+- **V-wind**: located at v-points (half grid spacing north)
+
+### Interpolation Weights
+```fortran
+! Bilinear interpolation weights
+dxm = 1.0 - dx
+dym = 1.0 - dy
+
+! Interpolate to observation location
+field_int = dym*(dxm*field(i,j,k) + dx*field(i+1,j,k)) &
+          + dy *(dxm*field(i,j+1,k) + dx*field(i+1,j+1,k))
+```
+
+## Minimal Implementation Requirements
+
+### Essential Data Types
+1. **field_type** - Basic observation component
+2. **synop_type** - SYNOP observation structure
+3. **iv_type** - Innovation vector container
+4. **xb_type** - Background state
+5. **x_type** - Analysis increment
+
+### Core Subroutines
+1. **da_get_innov_vector_synop** - Innovation computation
+2. **da_transform_xtoy_synop** - Forward operator
+3. **da_to_zk** - Vertical interpolation
+4. **da_interp_lin_3d** - Horizontal interpolation
+5. **da_obs_sfc_correction** - Surface corrections
+
+### Key Constants
+```fortran
+! Vertical interpolation options
+integer, parameter :: v_interp_p = 1        ! Pressure-based
+integer, parameter :: v_interp_h = 2        ! Height-based
+integer, parameter :: v_interp_surface = 3  ! Surface-level
+
+! Missing value
+real, parameter :: missing_r = -888888.0
+
+! Maximum height difference for surface correction
+real, parameter :: Max_StHeight_Diff = 100.0  ! meters
+```
+
+## Code Examples and References
+
+### Innovation Vector Computation Example
+```fortran
+! Example usage in main assimilation loop
+do n = 1, iv%info(synop)%nlocal
+   if (iv%info(synop)%proc_domain(1,n)) then
+      ! Get innovation vector for SYNOP observation n
+      call da_get_innov_vector_synop(it, num_qcstat_conv, grid, ob, iv)
+      
+      ! Apply forward operator
+      call da_transform_xtoy_synop(grid, iv, y)
+   end if
+end do
+```
+
+### Vertical Interpolation Example
+```fortran
+! Determine vertical interpolation method
+if (iv%synop(n)%h > missing_r) then
+   v_interp_optn = v_interp_h
+   call da_to_zk(obs_h, mdl_h, kts, kte, v_interp_optn, zk)
+else if (iv%synop(n)%p%data > missing_r) then
+   v_interp_optn = v_interp_p
+   call da_to_zk(obs_p, mdl_p, kts, kte, v_interp_optn, zk)
+end if
+```
+
+## File References
+
+### Core Source Files
+- **Data Structures:** `var/da/da_define_structures/da_define_structures.f90`
+- **SYNOP Innovation:** `var/da/da_synop/da_get_innov_vector_synop.inc`
+- **SYNOP Forward Operator:** `var/da/da_synop/da_transform_xtoy_synop.inc`
+- **Vertical Interpolation:** `var/da/da_interpolation/da_to_zk.inc`
+- **Horizontal Interpolation:** `var/da/da_interpolation/da_interp_lin_3d.inc`
+- **Surface Correction:** `var/da/da_tools/da_obs_sfc_correction.inc`
+
+### Supporting Files
+- **Grid Tools:** `var/da/da_tools/da_llxy.inc`
+- **Constants:** Various `var/da/da_*/da_*.inc` files
+- **Background State:** `var/obsproc/MAP_plot/Dir_map/DA_Define_Structures.f90`
+
+## Notes
+
+- This analysis is based on WRF version 4.x codebase
+- All code snippets are extracted from actual source files
+- The system supports both regional and global grid configurations
+- Vertical interpolation automatically adapts to available data
+- Surface corrections are applied for height differences > 100m
+- The implementation handles missing data gracefully with fallback options
+
+---
+
+*Document generated from WRF codebase analysis - Use for reference in other projects*

@@ -247,7 +247,25 @@ class WRFDAObsOperator {
       auto [lat, lon, level] = loc.getGeographicCoords();
       obs_lats[i] = lat;
       obs_lons[i] = lon;
-      obs_levels[i] = level;
+
+      // Determine observation type and set level appropriately
+      // For surface observations (like ADPSFC), always use sigma level 1.0
+      // This ensures consistent behavior regardless of varying pressure values
+      // in BUFR data
+      if (operator_families_.empty() || operator_families_[0] == "metar" ||
+          operator_families_[0] == "synop" ||
+          operator_families_[0] == "adpsfc") {
+        // Surface observation family - always use sigma level 1.0 (surface
+        // level) This avoids varying olev values from run to run due to
+        // pressure variations
+        obs_levels[i] = 1.0;
+      } else if (level <= 0.0) {
+        // Upper-air observation with invalid level - use model surface level
+        obs_levels[i] = 1.0;
+      } else {
+        // Upper-air observation with valid level
+        obs_levels[i] = level;
+      }
     }
 
     // Helper to obtain variable buffers or zero-filled fallbacks
@@ -290,7 +308,7 @@ class WRFDAObsOperator {
     get_or_zero("U", u_zero, u, nx_u, ny_u, nz_u);
     get_or_zero("V", v_zero, v, nx_v, ny_v, nz_v);
     get_or_zero("T", t_zero, t, nx_t, ny_t, nz_t);
-    get_or_zero("Q", q_zero, q, nx_q, ny_q, nz_q);
+    get_or_zero("QVAPOR", q_zero, q, nx_q, ny_q, nz_q);
     get_or_zero("PSFC", psfc_zero, psfc, nx_ps, ny_ps, nz_ps);
 
     // Canonical unstaggered grid dims
@@ -506,18 +524,8 @@ class WRFDAObsOperator {
     std::vector<double> obs_lons(num_observations);
     std::vector<double> obs_levels(num_observations, 0.0);
 
-    // Get model vertical levels to determine appropriate defaults
+    // Get model vertical levels for reference
     const auto& gi = result_state.geometry().unstaggered_info();
-    double surface_level = 1.0;    // Default surface level (sigma coordinates)
-    double min_model_level = 0.0;  // Default minimum model level
-
-    if (!gi.vertical_coords.empty()) {
-      // Find actual min/max model levels
-      min_model_level = *std::min_element(gi.vertical_coords.begin(),
-                                          gi.vertical_coords.end());
-      surface_level = *std::max_element(gi.vertical_coords.begin(),
-                                        gi.vertical_coords.end());
-    }
 
     for (size_t i = 0; i < num_observations; ++i) {
       const auto& loc = obs[i].location;
@@ -530,24 +538,24 @@ class WRFDAObsOperator {
       obs_lats[i] = lat;
       obs_lons[i] = lon;
 
-      // Handle invalid observation levels
-      if (level <= 0.0 || std::isnan(level) || std::isinf(level)) {
-        // This is likely a surface observation or missing level info
-        // Set to surface level (highest model level, typically 1.0 for sigma)
-        obs_levels[i] = surface_level;
-        std::cout << "WARNING: Observation " << i << " has invalid level "
-                  << level << ", setting to surface level " << surface_level
-                  << std::endl;
-      } else if (level < min_model_level) {
-        // Level is below model domain, likely a surface observation
-        // Set to surface level
-        obs_levels[i] = surface_level;
-        std::cout << "WARNING: Observation " << i << " level " << level
-                  << " below model minimum " << min_model_level
-                  << ", setting to surface level " << surface_level
-                  << std::endl;
+      // Determine observation type and set level appropriately
+      // For surface observations (like ADPSFC), use sigma level 1.0 (surface)
+      // Determine observation type and set level appropriately (same logic as
+      // apply method) For surface observations (like ADPSFC), always use sigma
+      // level 1.0 This ensures consistent behavior regardless of varying
+      // pressure values in BUFR data
+      if (operator_families_.empty() || operator_families_[0] == "metar" ||
+          operator_families_[0] == "synop" ||
+          operator_families_[0] == "adpsfc") {
+        // Surface observation family - always use sigma level 1.0 (surface
+        // level) This avoids varying olev values from run to run due to
+        // pressure variations
+        obs_levels[i] = 1.0;
+      } else if (level <= 0.0) {
+        // Upper-air observation with invalid level - use model surface level
+        obs_levels[i] = 1.0;
       } else {
-        // Valid level within model domain
+        // Upper-air observation with valid level
         obs_levels[i] = level;
       }
     }
@@ -593,7 +601,7 @@ class WRFDAObsOperator {
     get_or_zero_inout("U", u_zero, u, nx_u, ny_u, nz_u);
     get_or_zero_inout("V", v_zero, v, nx_v, ny_v, nz_v);
     get_or_zero_inout("T", t_zero, t, nx_t, ny_t, nz_t);
-    get_or_zero_inout("Q", q_zero, q, nx_q, ny_q, nz_q);
+    get_or_zero_inout("QVAPOR", q_zero, q, nx_q, ny_q, nz_q);
     get_or_zero_inout("PSFC", psfc_zero, psfc, nx_ps, ny_ps, nz_ps);
 
     const int nx = static_cast<int>(result_state.geometry().x_dim());

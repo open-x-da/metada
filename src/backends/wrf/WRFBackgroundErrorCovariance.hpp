@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace metada::backends::wrf {
@@ -10,9 +11,8 @@ namespace metada::backends::wrf {
  * @brief WRF backend implementation for background error covariance matrix
  *
  * @details This class provides a WRF-specific implementation of background
- * error covariance operations. For now, it provides diagonal covariance
- * functionality that can be extended to support WRF-specific covariance
- * structures.
+ * error covariance operations with support for variable-specific error
+ * statistics, length scales, and vertical scales.
  *
  * @tparam ConfigBackend Configuration backend type
  */
@@ -26,200 +26,217 @@ class WRFBackgroundErrorCovariance {
    */
   explicit WRFBackgroundErrorCovariance(const ConfigBackend& config)
       : initialized_(false) {
-    // Parse WRF-specific covariance configuration with safe defaults
+    // Parse WRF-specific covariance configuration
     try {
-      // Read configuration values if they exist, otherwise use defaults
-      size_ = config.HasKey("size")
-                  ? static_cast<size_t>(config.Get("size").asInt())
-                  : 1000;
+      // Read background error statistics file path
+      if (config.HasKey("file")) {
+        be_file_ = config.Get("file").asString();
+      }
 
-      variance_ =
-          config.HasKey("variance") ? config.Get("variance").asFloat() : 1.0;
+      // Read variables list
+      if (config.HasKey("variables")) {
+        auto vars = config.Get("variables");
+        if (vars.isVectorString()) {
+          variables_ = vars.asVectorString();
+        } else if (vars.isVectorConfigValue()) {
+          const auto& vec = vars.asVectorConfigValue();
+          for (const auto& var : vec) {
+            if (var.isString()) {
+              variables_.push_back(var.asString());
+            }
+          }
+        }
+      }
 
-      localization_radius_ = config.HasKey("localization_radius")
-                                 ? config.Get("localization_radius").asFloat()
-                                 : 0.0;
+      // Read variable-specific length scales
+      if (config.HasKey("length_scales")) {
+        auto length_scales = config.Get("length_scales");
+        if (length_scales.isMap()) {
+          const auto& map = length_scales.asMap();
+          for (const auto& var : variables_) {
+            auto it = map.find(var);
+            if (it != map.end() && it->second.isFloat()) {
+              length_scales_[var] = it->second.asFloat();
+            }
+          }
+        }
+      }
 
+      // Read variable-specific vertical scales
+      if (config.HasKey("vertical_scales")) {
+        auto vertical_scales = config.Get("vertical_scales");
+        if (vertical_scales.isMap()) {
+          const auto& map = vertical_scales.asMap();
+          for (const auto& var : variables_) {
+            auto it = map.find(var);
+            if (it != map.end() && it->second.isFloat()) {
+              vertical_scales_[var] = it->second.asFloat();
+            }
+          }
+        }
+      }
+
+      // Read variable-specific error standard deviations
+      if (config.HasKey("error_std")) {
+        auto error_std = config.Get("error_std");
+        if (error_std.isMap()) {
+          const auto& map = error_std.asMap();
+          for (const auto& var : variables_) {
+            auto it = map.find(var);
+            if (it != map.end() && it->second.isFloat()) {
+              error_std_[var] = it->second.asFloat();
+            }
+          }
+        }
+      }
+
+      // Set default size (will be updated when state is known)
+      size_ = 1000;
       initialized_ = true;
     } catch (const std::exception& e) {
       // If configuration parsing fails, use safe defaults
       size_ = 1000;
-      variance_ = 1.0;
-      localization_radius_ = 0.0;
       initialized_ = true;
     }
   }
 
-  /**
-   * @brief Constructor with explicit parameters
-   *
-   * @param size Size of the state vector (matrix dimension)
-   * @param variance Default variance value for diagonal elements
-   */
-  explicit WRFBackgroundErrorCovariance(size_t size = 1000,
-                                        double variance = 1.0)
-      : size_(size),
-        variance_(variance),
-        localization_radius_(0.0),
-        initialized_(true) {}
-
   // Initialization and state
   bool isInitialized() const { return initialized_; }
 
-  // Representation support queries
-  bool supportsDiagonal() const { return true; }
-  bool supportsEnsemble() const { return false; }    // TODO: Implement for WRF
-  bool supportsParametric() const { return false; }  // TODO: Implement for WRF
-  bool supportsHybrid() const { return false; }      // TODO: Implement for WRF
-  bool supportsFull() const { return false; }
+  // Variable-specific configuration access
+  const std::vector<std::string>& getVariables() const { return variables_; }
+  const std::string& getBackgroundErrorFile() const { return be_file_; }
 
-  // Localization support
-  bool supportsLocalization() const { return true; }
-  void setLocalizationRadius(double radius) { localization_radius_ = radius; }
-  double getLocalizationRadius() const { return localization_radius_; }
+  double getLengthScale(const std::string& variable) const {
+    auto it = length_scales_.find(variable);
+    return (it != length_scales_.end()) ? it->second : 50.0;  // Default 50 km
+  }
 
-  // Matrix size information
-  size_t getMatrixSize() const { return size_; }
-  size_t getRank() const { return size_; }
+  double getVerticalScale(const std::string& variable) const {
+    auto it = vertical_scales_.find(variable);
+    return (it != vertical_scales_.end()) ? it->second
+                                          : 0.5;  // Default 0.5 scale height
+  }
 
-  // Diagonal covariance operations
-  double getVariance() const { return variance_; }
-  void setVariance(double variance) { variance_ = variance; }
-
-  /**
-   * @brief Apply B^{-1} to a vector (for diagonal case: divide by variance)
-   *
-   * @param input Input vector
-   * @return Result vector
-   */
-  std::vector<double> applyInverse(const std::vector<double>& input) const {
-    if (input.size() != size_) {
-      throw std::invalid_argument("Vector size mismatch");
-    }
-
-    std::vector<double> result(size_);
-    for (size_t i = 0; i < size_; ++i) {
-      result[i] = input[i] / variance_;
-    }
-    return result;
+  double getErrorStd(const std::string& variable) const {
+    auto it = error_std_.find(variable);
+    return (it != error_std_.end()) ? it->second : 1.0;  // Default 1.0
   }
 
   /**
-   * @brief Apply B to a vector (for diagonal case: multiply by variance)
-   *
-   * @param input Input vector
-   * @return Result vector
-   */
-  std::vector<double> apply(const std::vector<double>& input) const {
-    if (input.size() != size_) {
-      throw std::invalid_argument("Vector size mismatch");
-    }
-
-    std::vector<double> result(size_);
-    for (size_t i = 0; i < size_; ++i) {
-      result[i] = input[i] * variance_;
-    }
-    return result;
-  }
-
-  /**
-   * @brief Compute quadratic form x^T B^{-1} x
-   *
-   * @param vector Input vector x
-   * @return Quadratic form value
-   */
-  double quadraticForm(const std::vector<double>& vector) const {
-    if (vector.size() != size_) {
-      throw std::invalid_argument("Vector size mismatch");
-    }
-
-    double result = 0.0;
-    for (size_t i = 0; i < size_; ++i) {
-      result += vector[i] * vector[i] / variance_;
-    }
-    return result;
-  }
-
-  /**
-   * @brief Apply square root B^{1/2} to a vector
-   *
-   * @param input Input vector
-   * @return Result vector
-   */
-  std::vector<double> applySqrt(const std::vector<double>& input) const {
-    if (input.size() != size_) {
-      throw std::invalid_argument("Vector size mismatch");
-    }
-
-    std::vector<double> result(size_);
-    double sqrt_variance = std::sqrt(variance_);
-    for (size_t i = 0; i < size_; ++i) {
-      result[i] = input[i] * sqrt_variance;
-    }
-    return result;
-  }
-
-  /**
-   * @brief Compute quadratic form for diagonal covariance
+   * @brief Compute quadratic form for diagonal covariance using
+   * variable-specific error statistics
    */
   template <typename StateType>
   double computeQuadraticFormDiagonal(const StateType& increment) const {
-    // For WRF, implement a basic diagonal quadratic form
-    // This is a simplified implementation that treats WRF state as a vector
+    // For WRF, implement variable-specific diagonal quadratic form
     size_t state_size = increment.size();
 
     // Update size to match actual state if needed
     if (size_ != state_size) {
-      // For debugging - log the size mismatch
       size_ = state_size;  // Update to actual state size
     }
 
     const double* data = static_cast<const double*>(increment.getData());
 
     double result = 0.0;
+    // Use average error standard deviation across all variables as fallback
+    double avg_error_std = 1.0;
+    if (!error_std_.empty()) {
+      double sum = 0.0;
+      for (const auto& pair : error_std_) {
+        sum += pair.second;
+      }
+      avg_error_std = sum / error_std_.size();
+    }
+
     for (size_t i = 0; i < state_size; ++i) {
-      result += (data[i] * data[i]) / variance_;
+      double variance = avg_error_std * avg_error_std;
+      result += (data[i] * data[i]) / variance;
     }
 
     return result;
   }
 
   /**
-   * @brief Compute quadratic form for ensemble covariance (fallback to
-   * diagonal)
+   * @brief Compute quadratic form for ensemble covariance
    */
   template <typename StateType>
   double computeQuadraticFormEnsemble(const StateType& increment) const {
+    // For WRF, ensemble covariance is not implemented yet, fallback to diagonal
     return computeQuadraticFormDiagonal(increment);
   }
 
   /**
-   * @brief Compute quadratic form for parametric covariance (fallback to
-   * diagonal)
+   * @brief Compute quadratic form for parametric covariance
    */
   template <typename StateType>
   double computeQuadraticFormParametric(const StateType& increment) const {
+    // For WRF, parametric covariance is not implemented yet, fallback to
+    // diagonal
     return computeQuadraticFormDiagonal(increment);
   }
 
   /**
-   * @brief Compute quadratic form for hybrid covariance (fallback to diagonal)
+   * @brief Compute quadratic form for hybrid covariance
    */
   template <typename StateType>
   double computeQuadraticFormHybrid(const StateType& increment) const {
+    // For WRF, hybrid covariance is not implemented yet, fallback to diagonal
     return computeQuadraticFormDiagonal(increment);
   }
 
   /**
-   * @brief Compute quadratic form for full covariance (fallback to diagonal)
+   * @brief Compute quadratic form for full covariance
    */
   template <typename StateType>
   double computeQuadraticFormFull(const StateType& increment) const {
+    // For WRF, full covariance is not implemented yet, fallback to diagonal
     return computeQuadraticFormDiagonal(increment);
   }
 
   /**
-   * @brief Apply inverse diagonal covariance
+   * @brief Apply inverse ensemble covariance
+   */
+  template <typename StateType>
+  void applyInverseEnsemble(const StateType& increment,
+                            StateType& result) const {
+    // For WRF, ensemble covariance is not implemented yet, fallback to diagonal
+    applyInverseDiagonal(increment, result);
+  }
+
+  /**
+   * @brief Apply inverse parametric covariance
+   */
+  template <typename StateType>
+  void applyInverseParametric(const StateType& increment,
+                              StateType& result) const {
+    // For WRF, parametric covariance is not implemented yet, fallback to
+    // diagonal
+    applyInverseDiagonal(increment, result);
+  }
+
+  /**
+   * @brief Apply inverse hybrid covariance
+   */
+  template <typename StateType>
+  void applyInverseHybrid(const StateType& increment, StateType& result) const {
+    // For WRF, hybrid covariance is not implemented yet, fallback to diagonal
+    applyInverseDiagonal(increment, result);
+  }
+
+  /**
+   * @brief Apply inverse full covariance
+   */
+  template <typename StateType>
+  void applyInverseFull(const StateType& increment, StateType& result) const {
+    // For WRF, full covariance is not implemented yet, fallback to diagonal
+    applyInverseDiagonal(increment, result);
+  }
+
+  /**
+   * @brief Apply inverse diagonal covariance using variable-specific error
+   * statistics
    */
   template <typename StateType>
   void applyInverseDiagonal(const StateType& increment,
@@ -236,52 +253,37 @@ class WRFBackgroundErrorCovariance {
 
     double* result_data = static_cast<double*>(result.getData());
 
-    // For diagonal covariance: B^-1 = diag(1/sigma_i^2)
-    for (size_t i = 0; i < state_size; ++i) {
-      result_data[i] /= variance_;
+    // Use average error standard deviation across all variables as fallback
+    double avg_error_std = 1.0;
+    if (!error_std_.empty()) {
+      double sum = 0.0;
+      for (const auto& pair : error_std_) {
+        sum += pair.second;
+      }
+      avg_error_std = sum / error_std_.size();
     }
-  }
 
-  /**
-   * @brief Apply inverse ensemble covariance (fallback to diagonal)
-   */
-  template <typename StateType>
-  void applyInverseEnsemble(const StateType& increment,
-                            StateType& result) const {
-    applyInverseDiagonal(increment, result);
-  }
-
-  /**
-   * @brief Apply inverse parametric covariance (fallback to diagonal)
-   */
-  template <typename StateType>
-  void applyInverseParametric(const StateType& increment,
-                              StateType& result) const {
-    applyInverseDiagonal(increment, result);
-  }
-
-  /**
-   * @brief Apply inverse hybrid covariance (fallback to diagonal)
-   */
-  template <typename StateType>
-  void applyInverseHybrid(const StateType& increment, StateType& result) const {
-    applyInverseDiagonal(increment, result);
-  }
-
-  /**
-   * @brief Apply inverse full covariance (fallback to diagonal)
-   */
-  template <typename StateType>
-  void applyInverseFull(const StateType& increment, StateType& result) const {
-    applyInverseDiagonal(increment, result);
+    // For diagonal covariance: B^-1 = diag(1/sigma_i^2)
+    double variance = avg_error_std * avg_error_std;
+    for (size_t i = 0; i < state_size; ++i) {
+      result_data[i] /= variance;
+    }
   }
 
  private:
   mutable size_t size_;  ///< Matrix size (state vector dimension) - mutable for
                          ///< auto-sizing
-  double variance_;      ///< Diagonal variance value
-  double localization_radius_;  ///< Localization radius
-  bool initialized_;            ///< Initialization status
+  bool initialized_;     ///< Initialization status
+
+  // WRF-specific configuration
+  std::string be_file_;  ///< Background error statistics file path
+  std::vector<std::string> variables_;  ///< List of analysis variables
+  std::unordered_map<std::string, double>
+      length_scales_;  ///< Variable-specific length scales (km)
+  std::unordered_map<std::string, double>
+      vertical_scales_;  ///< Variable-specific vertical scales (scale height)
+  std::unordered_map<std::string, double>
+      error_std_;  ///< Variable-specific error standard deviations
 };
 
 }  // namespace metada::backends::wrf

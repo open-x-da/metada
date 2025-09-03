@@ -54,8 +54,12 @@ class BackgroundErrorCovariance : public NonCopyable {
   explicit BackgroundErrorCovariance(const Config<BackendTag>& config)
       : backend_(config.backend()),
         representation_(determineRepresentation(config)),
-        localization_enabled_(config.Get("localization_enabled").asBool()),
-        localization_radius_(config.Get("localization_radius").asFloat()) {
+        localization_enabled_(config.HasKey("localization_enabled")
+                                  ? config.Get("localization_enabled").asBool()
+                                  : false),
+        localization_radius_(config.HasKey("localization_radius")
+                                 ? config.Get("localization_radius").asFloat()
+                                 : 0.0) {
     logger_.Info() << "BackgroundErrorCovariance constructed with "
                    << getRepresentationName() << " representation";
 
@@ -218,6 +222,11 @@ class BackgroundErrorCovariance : public NonCopyable {
    * @brief Determine representation from configuration
    */
   Representation determineRepresentation(const Config<BackendTag>& config) {
+    if (!config.HasKey("background_covariance_type")) {
+      // Default to diagonal for simplicity
+      return Representation::Diagonal;
+    }
+
     std::string type = config.Get("background_covariance_type").asString();
     if (type == "diagonal") return Representation::Diagonal;
     if (type == "ensemble") return Representation::EnsembleBased;

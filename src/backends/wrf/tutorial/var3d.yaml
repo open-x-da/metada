@@ -100,7 +100,7 @@ observation:
               if_use: true
               error: 1.5
           - T:
-              if_use: false
+              if_use: true
               error: 1.0
     - ships:
         if_use: false
@@ -136,8 +136,8 @@ obs_operator:
   external_root: "D:/linux/WRF/var/da"  # Path to WRFDA sources
   external_system: "wrfda"               # WRFDA system identifier
   operator_family: ["metar", "sound"]    # Support both surface and upper-air observations
-  required_state_vars: [U, V, T, Q, PSFC]
-  required_obs_vars: [U, V, T]
+  required_state_vars: [U, V, T, QVAPOR, PSFC]
+  required_obs_vars: [U, V, T, QVAPOR]
   
   # Note: This same configuration structure can be used for other backends:
   # - For GSI: external_root: "D:/linux/GSI", external_system: "gsi"

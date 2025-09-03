@@ -1,0 +1,134 @@
+# Incremental 3DVAR Configuration for METADA
+# This configuration uses the incremental variational formulation where
+# the cost function works with analysis increments δx instead of total states x
+
+# Variational method configuration
+variational_type: "3DVAR"  # 3DVAR, FGAT, or 4DVAR
+minimization_algorithm: "L-BFGS"  # L-BFGS, CG, or SteepestDescent
+max_iterations: 50
+cost_tolerance: 1.0e-6
+gradient_tolerance: 1.0e-6
+
+# Output configuration
+output_base_file: "incremental_analysis"
+format: "nc"  # NetCDF format
+save_trajectory: false
+
+# Optional: Perform gradient test
+perform_gradient_test: true
+
+# Geometry configuration (WRF domain)
+# WRFGeometry automatically reads all grid information from the NetCDF file
+geometry:
+  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+
+# Background state configuration
+background:
+  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+  # Analysis variables for 3DVAR
+  variables:
+    - U
+    - V
+    - T
+    - QVAPOR
+    - PSFC
+
+# Model configuration (WRF model settings)
+model:
+  # Time control settings
+  time_control:
+    start_datetime: "2000-01-24T12:00:00Z"
+    forecast_length: 1s  # Minimal forecast for 3DVAR - just analysis
+    time_step: 30s
+    output_history: false
+    
+  # Physics options
+  physics:
+    microphysics: true
+    radiation: true
+    pbl: true
+    lsm: true
+    
+  # Dynamical core options
+  dynamics:
+    advection_scheme: "WENO"
+    diffusion: 0.01
+
+# Analysis time configuration
+analysis_time: &analysis_time "2000-01-24T12:00:00Z"
+time_window: &time_window "±5m" # Time window around analysis time
+
+# Observation configuration
+observation:
+  types:
+    - adpsfc:
+        if_use: true
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2000012412.wo40.nr"
+        coordinate: "geographic"
+        data_types: ["ADPSFC"]
+        station_ids: [72405]
+        analysis_time: *analysis_time
+        time_window: *time_window
+        variables:
+          - U:
+              if_use: true
+              error: 1.5
+          - V:
+              if_use: true
+              error: 1.5
+          - T:
+              if_use: true
+              error: 1.0
+          - Q:
+              if_use: true
+              error: 0.5e-3
+          - PSFC:
+              if_use: true
+              error: 100.0
+
+# Observation operator configuration
+obs_operator:
+  type: "WRFDA"
+  required_state_vars: [U, V, T, QVAPOR, PSFC]
+  operator_families: ["synop"]  # SYNOP surface observations
+  interpolation_method: "bilinear"
+  vertical_interpolation: "pressure"
+  surface_correction: true
+  quality_control: true
+
+# Background error covariance configuration
+background_covariance:
+  # Framework-expected keys
+  background_covariance_type: "diagonal"  # Framework expects this key
+  localization_enabled: false
+  localization_radius: 0.0
+  
+  # WRF-specific configuration
+  type: "WRF"
+  file: "be.dat"  # Background error statistics file
+  variables: ["U", "V", "T", "QVAPOR", "PSFC"]
+  length_scales:
+    U: 50.0  # km
+    V: 50.0  # km
+    T: 50.0  # km
+    QVAPOR: 50.0  # km
+    PSFC: 100.0  # km
+  vertical_scales:
+    U: 0.5  # scale height
+    V: 0.5  # scale height
+    T: 0.5  # scale height
+    QVAPOR: 0.3  # scale height
+    PSFC: 1.0  # surface variable
+  error_std:
+    U: 2.0  # m/s
+    V: 2.0  # m/s
+    T: 1.0  # K
+    QVAPOR: 0.5e-3  # kg/kg
+    PSFC: 100.0  # Pa
+
+# Logging configuration
+logger:
+  app_name: "incremental_var3d"
+  level: "info"
+  color: true
+  console: true
