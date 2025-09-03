@@ -44,6 +44,19 @@ int wrfda_xtoy_apply_grid(const char* operator_family, int nx, int ny, int nz,
                           const double* obs_lons, const double* obs_levels,
                           double* out_y);
 
+// New function that properly separates total state into background and
+// increments
+int wrfda_xtoy_apply_grid_with_background(
+    const char* operator_family, int nx, int ny, int nz, const double* u_total,
+    const double* v_total, const double* t_total, const double* q_total,
+    const double* psfc_total,  // total state (xb + δx)
+    const double* u_bg, const double* v_bg, const double* t_bg,
+    const double* q_bg, const double* psfc_bg,   // background state (xb)
+    const double* lats2d, const double* lons2d,  // size nx*ny
+    const double* levels,                        // size nz
+    int num_obs, const double* obs_lats, const double* obs_lons,
+    const double* obs_levels, double* out_y);
+
 int wrfda_xtoy_adjoint_grid(const char* operator_family, int nx, int ny, int nz,
                             const double* delta_y,  // size num_obs
                             const double* lats2d, const double* lons2d,

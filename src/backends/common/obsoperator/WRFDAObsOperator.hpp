@@ -229,173 +229,105 @@ class WRFDAObsOperator {
    * @note For large observation sets (>10000), only the first 10000 are
    * processed to avoid WRFDA memory limitations
    */
+
+  /**
+   * @brief Set the background state for proper WRFDA integration
+   *
+   * @param background_state The background state (xb)
+   *
+   * @details This method sets the background state that will be used to
+   * properly separate total state into background and increments for WRFDA.
+   * When the background state is set, the operator will use the new
+   * wrfda_xtoy_apply_grid_with_background function for better accuracy.
+   */
+  void setBackgroundState(const StateBackend& background_state) {
+    background_state_data_ = background_state.getObsOperatorData();
+    has_background_state_ = true;
+  }
+
+  /**
+   * @brief Clear the background state
+   *
+   * @details This method clears the stored background state, causing the
+   * operator to fall back to the original behavior.
+   */
+  void clearBackgroundState() {
+    has_background_state_ = false;
+    background_state_data_ = {};
+  }
+
   std::vector<double> apply(const StateBackend& state,
                             const ObsBackend& obs) const {
     ensureInitialized();
-    // Collect observation coordinates (geographic)
-    const size_t num_observations = obs.size();
-    std::vector<double> obs_lats(num_observations);
-    std::vector<double> obs_lons(num_observations);
-    std::vector<double> obs_levels(num_observations, 0.0);
-    for (size_t i = 0; i < num_observations; ++i) {
-      const auto& loc = obs[i].location;
-      if (loc.getCoordinateSystem() !=
-          framework::CoordinateSystem::GEOGRAPHIC) {
-        throw std::runtime_error(
-            "WRFDAObsOperator requires geographic observation locations");
-      }
-      auto [lat, lon, level] = loc.getGeographicCoords();
-      obs_lats[i] = lat;
-      obs_lons[i] = lon;
 
-      // Determine observation type and set level appropriately
-      // For surface observations (like ADPSFC), always use sigma level 1.0
-      // This ensures consistent behavior regardless of varying pressure values
-      // in BUFR data
-      if (operator_families_.empty() || operator_families_[0] == "metar" ||
-          operator_families_[0] == "synop" ||
-          operator_families_[0] == "adpsfc") {
-        // Surface observation family - always use sigma level 1.0 (surface
-        // level) This avoids varying olev values from run to run due to
-        // pressure variations
-        obs_levels[i] = 1.0;
-      } else if (level <= 0.0) {
-        // Upper-air observation with invalid level - use model surface level
-        obs_levels[i] = 1.0;
-      } else {
-        // Upper-air observation with valid level
-        obs_levels[i] = level;
-      }
-    }
+    // Extract optimized data from backends
+    // Note: The state parameter can be either:
+    // 1. Background state (xb) - when computing innovations H(xb)
+    // 2. Total state (xb + δx) - when computing cost function H(xb + δx)
+    // If background state is available via setBackgroundState(), the operator
+    // will use the new WRFDA function that properly separates the states.
+    const auto state_data = state.getObsOperatorData();
+    const auto obs_data = obs.getObsOperatorData();
 
-    // Helper to obtain variable buffers or zero-filled fallbacks
-    auto get_or_zero = [&](const std::string& var, std::vector<double>& storage,
-                           const double*& ptr, int& nx, int& ny, int& nz) {
-      ptr = static_cast<const double*>(state.getData(var));
-      if (ptr == nullptr) {
-        nx = static_cast<int>(state.geometry().x_dim());
-        ny = static_cast<int>(state.geometry().y_dim());
-        nz = static_cast<int>(state.geometry().z_dim());
-        const size_t n = static_cast<size_t>(std::max(1, nx) * std::max(1, ny) *
-                                             std::max(1, nz));
-        storage.assign(n, 0.0);
-        ptr = storage.data();
-      } else {
-        try {
-          const auto& dims = state.getVariableDimensions(var);
-          if (dims.size() == 3) {
-            nz = static_cast<int>(dims[0]);
-            ny = static_cast<int>(dims[1]);
-            nx = static_cast<int>(dims[2]);
-          } else if (dims.size() == 2) {
-            ny = static_cast<int>(dims[0]);
-            nx = static_cast<int>(dims[1]);
-            nz = 1;
-          }
-        } catch (...) {
-        }
-      }
-    };
+    const size_t num_observations = obs_data.num_obs;
 
-    const double *u = nullptr, *v = nullptr, *t = nullptr, *q = nullptr,
-                 *psfc = nullptr;
-    std::vector<double> u_zero, v_zero, t_zero, q_zero, psfc_zero;
-    int nx_u = 1, ny_u = 1, nz_u = 1;
-    int nx_v = 1, ny_v = 1, nz_v = 1;
-    int nx_t = 1, ny_t = 1, nz_t = 1;
-    int nx_q = 1, ny_q = 1, nz_q = 1;
-    int nx_ps = 1, ny_ps = 1, nz_ps = 1;
-    get_or_zero("U", u_zero, u, nx_u, ny_u, nz_u);
-    get_or_zero("V", v_zero, v, nx_v, ny_v, nz_v);
-    get_or_zero("T", t_zero, t, nx_t, ny_t, nz_t);
-    get_or_zero("QVAPOR", q_zero, q, nx_q, ny_q, nz_q);
-    get_or_zero("PSFC", psfc_zero, psfc, nx_ps, ny_ps, nz_ps);
+    // Use pre-extracted state data
+    const int nx = state_data.nx;
+    const int ny = state_data.ny;
+    const int nz = state_data.nz;
 
-    // Canonical unstaggered grid dims
-    const int nx = static_cast<int>(state.geometry().x_dim());
-    const int ny = static_cast<int>(state.geometry().y_dim());
-    const int nz = static_cast<int>(state.geometry().z_dim());
+    // Get state variables (already extracted and optimized)
+    const double* u = state_data.u;
+    const double* v = state_data.v;
+    const double* t = state_data.t;
+    const double* q = state_data.q;
+    const double* psfc = state_data.psfc;
 
-    // Geometry arrays
-    const auto& gi = state.geometry().unstaggered_info();
-    const double* levels_ptr =
-        gi.vertical_coords.empty() ? nullptr : gi.vertical_coords.data();
-    std::vector<double> dummy_levels(1, 0.0);
-    if (levels_ptr == nullptr) levels_ptr = dummy_levels.data();
+    // Get grid metadata (already extracted)
+    const double* lats_2d = state_data.lats_2d;
+    const double* lons_2d = state_data.lons_2d;
+    const double* levels = state_data.levels;
 
     std::vector<double> out_y(num_observations, 0.0);
 
     const char* family_cstr =
         (operator_families_.empty() ? "" : operator_families_[0].c_str());
 
-    // Use the proper WRFDA grid-based operator that handles variables
-    // separately This avoids the physical nonsense of averaging different
-    // variable types and properly prepares the state for WRFDA's observation
-    // operator
-
-    // Prepare 2D lat/lon arrays for WRFDA (required by the grid API)
-    std::vector<double> lats2d(nx * ny);
-    std::vector<double> lons2d(nx * ny);
-
-    // Extract 2D lat/lon from the geometry (assuming they're available)
-    // If not available, we'll need to generate them from the grid info
-    if (gi.latitude_2d.empty() || gi.longitude_2d.empty()) {
-      // Cannot proceed without latitude and longitude data
-      // These are essential for WRFDA observation operator functionality
+    // Validate required data
+    if (!lats_2d || !lons_2d || !levels) {
       throw std::runtime_error(
-          "WRFDAObsOperator: Missing required latitude and longitude data. "
-          "The geometry must provide valid latitude_2d and longitude_2d arrays "
-          "for proper observation localization and grid interpolation.");
-    }
-
-    // Use provided lat/lon from geometry
-    std::copy(gi.latitude_2d.begin(), gi.latitude_2d.end(), lats2d.begin());
-    std::copy(gi.longitude_2d.begin(), gi.longitude_2d.end(), lons2d.begin());
-
-    // Prepare vertical levels array
-    std::vector<double> levels(nz);
-    if (levels_ptr != nullptr && !gi.vertical_coords.empty()) {
-      std::copy(gi.vertical_coords.begin(), gi.vertical_coords.end(),
-                levels.begin());
-    } else {
-      // Cannot proceed without vertical coordinate data
-      // These are essential for WRFDA observation operator functionality
-      throw std::runtime_error(
-          "WRFDAObsOperator: Missing required vertical coordinate data. "
-          "The geometry must provide valid vertical_coords array "
-          "for proper vertical interpolation and level assignment.");
+          "WRFDAObsOperator: Missing required grid metadata (lat/lon/levels)");
     }
 
     // Convert staggered U and V to unstaggered grids if needed
     std::vector<double> u_unstaggered, v_unstaggered;
     const double *u_final = u, *v_final = v;
 
-    if (u && isVariableStaggered(state, "U")) {
+    if (u && state_data.u_dims.is_staggered) {
       // U is staggered, convert to unstaggered
+      const auto& dims = state_data.u_dims;
       convertStaggeredUToUnstaggered(
-          std::vector<double>(u, u + nx_u * ny_u * nz_u), u_unstaggered, nx, ny,
-          nz);
+          std::vector<double>(u, u + dims.nx * dims.ny * dims.nz),
+          u_unstaggered, nx, ny, nz);
       u_final = u_unstaggered.data();
-      std::cout << "WRFDA: Converted U from staggered (" << nx_u << "x" << ny_u
-                << "x" << nz_u << ") to unstaggered (" << nx << "x" << ny << "x"
-                << nz << ")" << std::endl;
+      std::cout << "WRFDA: Converted U from staggered (" << dims.nx << "x"
+                << dims.ny << "x" << dims.nz << ") to unstaggered (" << nx
+                << "x" << ny << "x" << nz << ")" << std::endl;
     }
 
-    if (v && isVariableStaggered(state, "V")) {
+    if (v && state_data.v_dims.is_staggered) {
       // V is staggered, convert to unstaggered
+      const auto& dims = state_data.v_dims;
       convertStaggeredVToUnstaggered(
-          std::vector<double>(v, v + nx_v * ny_v * nz_v), v_unstaggered, nx, ny,
-          nz);
+          std::vector<double>(v, v + dims.nx * dims.ny * dims.nz),
+          v_unstaggered, nx, ny, nz);
       v_final = v_unstaggered.data();
-      std::cout << "WRFDA: Converted V from staggered (" << nx_v << "x" << ny_v
-                << "x" << nz_v << ") to unstaggered (" << nx << "x" << ny << "x"
-                << nz << ")" << std::endl;
+      std::cout << "WRFDA: Converted V from staggered (" << dims.nx << "x"
+                << dims.ny << "x" << dims.nz << ") to unstaggered (" << nx
+                << "x" << ny << "x" << nz << ")" << std::endl;
     }
 
-    // Call the proper WRFDA grid-based operator
-    // This function expects separate arrays for each variable, which is correct
-    // Note: WRFDA can handle nullptr for missing variables, but we should
-    // ensure at least the essential variables are present
+    // Validate essential variables
     if (!u && !v && !t) {
       throw std::runtime_error(
           "WRFDA observation operator requires at least one of U, V, or T "
@@ -418,15 +350,72 @@ class WRFDAObsOperator {
     std::cout << "  Observations: " << num_observations << std::endl;
     std::cout << "  Operator family: " << family_cstr << std::endl;
 
-    const int rc = wrfda_xtoy_apply_grid(
-        family_cstr, nx, ny, nz, u_final, v_final, t, q,
-        psfc,  // Individual variable arrays
-        lats2d.data(), lons2d.data(), levels.data(),  // Grid metadata
-        static_cast<int>(num_observations), obs_lats.data(), obs_lons.data(),
-        obs_levels.data(), out_y.data());
-    if (rc != 0) {
-      throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
-                               std::to_string(rc));
+    // Choose the appropriate WRFDA function based on whether we have background
+    // state
+    int rc;
+    if (has_background_state_) {
+      // Use the new function that properly separates background and increments
+      std::cout << "WRFDA: Using wrfda_xtoy_apply_grid_with_background for "
+                   "proper state separation"
+                << std::endl;
+
+      // Get background state data
+      const double* u_bg = background_state_data_.u;
+      const double* v_bg = background_state_data_.v;
+      const double* t_bg = background_state_data_.t;
+      const double* q_bg = background_state_data_.q;
+      const double* psfc_bg = background_state_data_.psfc;
+
+      // Handle staggered grid conversion for background state if needed
+      std::vector<double> u_bg_unstaggered, v_bg_unstaggered;
+      const double *u_bg_final = u_bg, *v_bg_final = v_bg;
+
+      if (u_bg && background_state_data_.u_dims.is_staggered) {
+        const auto& dims = background_state_data_.u_dims;
+        convertStaggeredUToUnstaggered(
+            std::vector<double>(u_bg, u_bg + dims.nx * dims.ny * dims.nz),
+            u_bg_unstaggered, nx, ny, nz);
+        u_bg_final = u_bg_unstaggered.data();
+      }
+
+      if (v_bg && background_state_data_.v_dims.is_staggered) {
+        const auto& dims = background_state_data_.v_dims;
+        convertStaggeredVToUnstaggered(
+            std::vector<double>(v_bg, v_bg + dims.nx * dims.ny * dims.nz),
+            v_bg_unstaggered, nx, ny, nz);
+        v_bg_final = v_bg_unstaggered.data();
+      }
+
+      rc = wrfda_xtoy_apply_grid_with_background(
+          family_cstr, nx, ny, nz, u_final, v_final, t, q,
+          psfc,                                         // total state (xb + δx)
+          u_bg_final, v_bg_final, t_bg, q_bg, psfc_bg,  // background state (xb)
+          lats_2d, lons_2d, levels,                     // Grid metadata
+          static_cast<int>(num_observations), obs_data.lats.data(),
+          obs_data.lons.data(), obs_data.levels.data(), out_y.data());
+
+      if (rc != 0) {
+        throw std::runtime_error(
+            "wrfda_xtoy_apply_grid_with_background failed with code " +
+            std::to_string(rc));
+      }
+    } else {
+      // Use the original function (assumes input state is background state)
+      std::cout << "WRFDA: Using original wrfda_xtoy_apply_grid (no background "
+                   "state available)"
+                << std::endl;
+
+      rc = wrfda_xtoy_apply_grid(family_cstr, nx, ny, nz, u_final, v_final, t,
+                                 q, psfc, lats_2d, lons_2d,
+                                 levels,  // Grid metadata
+                                 static_cast<int>(num_observations),
+                                 obs_data.lats.data(), obs_data.lons.data(),
+                                 obs_data.levels.data(), out_y.data());
+
+      if (rc != 0) {
+        throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
+                                 std::to_string(rc));
+      }
     }
 
     return out_y;
@@ -946,6 +935,22 @@ class WRFDAObsOperator {
    * for use (e.g., "metar", "sound", "gpspw", "radar").
    */
   std::vector<std::string> operator_families_;
+
+  /**
+   * @brief Background state data for proper WRFDA integration
+   *
+   * @details Stores the background state data that will be used to
+   * properly separate total state into background and increments.
+   */
+  mutable typename StateBackend::ObsOperatorData background_state_data_;
+
+  /**
+   * @brief Flag indicating whether background state is available
+   *
+   * @details When true, the operator will use the new WRFDA function
+   * that properly separates background and increments.
+   */
+  mutable bool has_background_state_ = false;
 };
 
 }  // namespace metada::backends::common::obsoperator

@@ -955,6 +955,62 @@ class PrepBUFRObservation {
     return batches;
   }
 
+  /**
+   * @brief Extract data for observation operators
+   *
+   * @details This method extracts the essential data that observation operators
+   * need from the observations, optimized for efficient access. It returns a
+   * structure containing observation coordinates, values, and metadata.
+   *
+   * @return Structure containing observation operator data
+   */
+  struct ObsOperatorData {
+    // Number of observations
+    size_t num_obs;
+
+    // Observation coordinates
+    std::vector<double> lats;
+    std::vector<double> lons;
+    std::vector<double> levels;
+
+    // Observation types (for operator family selection)
+    std::vector<std::string> types;
+
+    // Observation values (for innovation computation)
+    std::vector<double> values;
+
+    // Observation errors (for cost function weighting)
+    std::vector<double> errors;
+  };
+
+  ObsOperatorData getObsOperatorData() const {
+    ObsOperatorData data;
+    data.num_obs = observations_.size();
+
+    // Reserve space for efficiency
+    data.lats.reserve(data.num_obs);
+    data.lons.reserve(data.num_obs);
+    data.levels.reserve(data.num_obs);
+    data.values.reserve(data.num_obs);
+    data.errors.reserve(data.num_obs);
+
+    // Extract data from observations
+    for (const auto& obs : observations_) {
+      auto [lat, lon, level] = obs.location.getGeographicCoords();
+      data.lats.push_back(lat);
+      data.lons.push_back(lon);
+      data.levels.push_back(level);
+      data.values.push_back(obs.value);
+      data.errors.push_back(obs.error);
+    }
+
+    // For now, we'll use a default type - this could be enhanced to extract
+    // actual observation types from the type_variable_map_
+    data.types.assign(data.num_obs, "ADPSFC");  // Default to surface obs
+
+    return data;
+  }
+
  private:
   // Additional covariance helpers required by Observation adapter API
   std::vector<double> applyCovariance(const std::vector<double>& vec) const {

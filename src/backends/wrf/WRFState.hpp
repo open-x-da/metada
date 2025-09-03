@@ -337,6 +337,47 @@ class WRFState {
   size_t size() const;
   ///@}
 
+  ///@{ @name Observation Operator Support
+  /**
+   * @brief Extract data for observation operators
+   *
+   * @details This method extracts the essential data that observation operators
+   * need from the state, optimized for efficient access. It returns a structure
+   * containing raw pointers to the data arrays and metadata.
+   *
+   * @return Structure containing observation operator data
+   */
+  struct ObsOperatorData {
+    // Grid dimensions
+    int nx, ny, nz;
+
+    // State variables (as raw pointers for efficiency)
+    const double* u = nullptr;
+    const double* v = nullptr;
+    const double* t = nullptr;
+    const double* q = nullptr;
+    const double* psfc = nullptr;
+
+    // Grid metadata
+    const double* lats_2d = nullptr;
+    const double* lons_2d = nullptr;
+    const double* levels = nullptr;
+
+    // Variable dimensions (for staggered grids)
+    struct VariableDims {
+      int nx, ny, nz;
+      bool is_staggered = false;
+    };
+
+    VariableDims u_dims, v_dims, t_dims, q_dims, psfc_dims;
+
+    // Zero-filled fallback storage (when variables are missing)
+    std::vector<double> u_zero, v_zero, t_zero, q_zero, psfc_zero;
+  };
+
+  ObsOperatorData getObsOperatorData() const;
+  ///@}
+
   ///@{ @name Total State Vector Access
   /**
    * @brief Access element in total state vector (unchecked)
@@ -1691,6 +1732,92 @@ bool WRFState<ConfigBackend, GeometryBackend>::isCompatible(
   }
 
   return true;
+}
+
+// Implementation of getObsOperatorData
+template <typename ConfigBackend, typename GeometryBackend>
+typename WRFState<ConfigBackend, GeometryBackend>::ObsOperatorData
+WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
+  ObsOperatorData data;
+
+  // Set grid dimensions
+  data.nx = static_cast<int>(geometry_.x_dim());
+  data.ny = static_cast<int>(geometry_.y_dim());
+  data.nz = static_cast<int>(geometry_.z_dim());
+
+  // Get state variables
+  data.u = static_cast<const double*>(getData("U"));
+  data.v = static_cast<const double*>(getData("V"));
+  data.t = static_cast<const double*>(getData("T"));
+  data.q = static_cast<const double*>(getData("QVAPOR"));
+  data.psfc = static_cast<const double*>(getData("PSFC"));
+
+  // Get grid metadata
+  const auto& gi = geometry_.unstaggered_info();
+  data.lats_2d = gi.latitude_2d.empty() ? nullptr : gi.latitude_2d.data();
+  data.lons_2d = gi.longitude_2d.empty() ? nullptr : gi.longitude_2d.data();
+  data.levels =
+      gi.vertical_coords.empty() ? nullptr : gi.vertical_coords.data();
+
+  // Set variable dimensions and staggered flags
+  auto set_dims = [&](const std::string& var_name,
+                      ObsOperatorData::VariableDims& dims) {
+    try {
+      const auto& var_dims = getVariableDimensions(var_name);
+      if (var_dims.size() >= 3) {
+        dims.nz = static_cast<int>(var_dims[0]);
+        dims.ny = static_cast<int>(var_dims[1]);
+        dims.nx = static_cast<int>(var_dims[2]);
+      } else if (var_dims.size() == 2) {
+        dims.ny = static_cast<int>(var_dims[0]);
+        dims.nx = static_cast<int>(var_dims[1]);
+        dims.nz = 1;
+      } else {
+        dims.nx = dims.ny = dims.nz = 1;
+      }
+
+      // Check if staggered
+      const auto& grid_info = getVariableGridInfo(var_name);
+      dims.is_staggered =
+          (grid_info.grid_type != VariableGridInfo::GridType::UNSTAGGERED);
+    } catch (...) {
+      dims.nx = dims.ny = dims.nz = 1;
+      dims.is_staggered = false;
+    }
+  };
+
+  set_dims("U", data.u_dims);
+  set_dims("V", data.v_dims);
+  set_dims("T", data.t_dims);
+  set_dims("QVAPOR", data.q_dims);
+  set_dims("PSFC", data.psfc_dims);
+
+  // Create zero-filled fallbacks for missing variables
+  const size_t grid_size = static_cast<size_t>(data.nx * data.ny * data.nz);
+  const size_t surface_size = static_cast<size_t>(data.nx * data.ny);
+
+  if (!data.u) {
+    data.u_zero.assign(grid_size, 0.0);
+    data.u = data.u_zero.data();
+  }
+  if (!data.v) {
+    data.v_zero.assign(grid_size, 0.0);
+    data.v = data.v_zero.data();
+  }
+  if (!data.t) {
+    data.t_zero.assign(grid_size, 0.0);
+    data.t = data.t_zero.data();
+  }
+  if (!data.q) {
+    data.q_zero.assign(grid_size, 0.0);
+    data.q = data.q_zero.data();
+  }
+  if (!data.psfc) {
+    data.psfc_zero.assign(surface_size, 0.0);
+    data.psfc = data.psfc_zero.data();
+  }
+
+  return data;
 }
 
 }  // namespace metada::backends::wrf
