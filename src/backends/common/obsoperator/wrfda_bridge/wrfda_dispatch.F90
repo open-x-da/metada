@@ -34,6 +34,11 @@ module metada_wrfda_dispatch
   type(domain), save, target :: persistent_grid
   logical, save :: grid_initialized = .false.
   
+  ! Persistent background state for incremental 3D-Var
+  ! Background state (xb) is constant throughout the outer loop
+  logical, save :: background_state_initialized = .false.
+  integer, save :: background_nx, background_ny, background_nz
+  
 contains
 
   ! Handle-based entry points: directly call WRFDA routines using provided handles
@@ -135,12 +140,12 @@ contains
     wrfda_xtoy_adjoint_handles = 0_c_int
   end function wrfda_xtoy_adjoint_handles
 
-  ! Real WRFDA call via grid arrays: build minimal domain/iv/y and dispatch
-  ! This function handles the forward operator H(xb + δx) where:
-  ! - u, v, t, q, psfc are the TOTAL state (background + increments)
-  ! - We need to separate them into xb (background) and xa (increments)
-  ! - For now, we assume the input is the background state (xb) and set xa to zero
-  ! - TODO: Implement proper separation when background state is available separately
+  ! Forward operator: H(xb + xa) where xb is background state and xa is analysis increments
+  ! This function computes the forward operator for incremental 3D-Var:
+  ! - xb (background state): constant throughout outer loop, used for innovation computation
+  ! - xa (analysis increments): start at zero, updated by each iteration
+  ! - Total state: x_total = xb + xa (computed internally)
+  ! - Forward operator: H(xb + xa)
   integer(c_int) function wrfda_xtoy_apply_grid(operator_family, nx, ny, nz, u, v, t, q, psfc, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, out_y) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
@@ -166,10 +171,21 @@ contains
     print *, "WRFDA DEBUG: Entering wrfda_xtoy_apply_grid"
     print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
 
-    ! Minimal init (high-level: we assume single tile, column-major layout)
-    print *, "WRFDA DEBUG: About to call init_domain_from_background_state"
-    call init_domain_from_background_state(grid, nx, ny, nz, u, v, t, q, psfc)
-    print *, "WRFDA DEBUG: init_domain_from_background_state completed"
+    ! For incremental 3D-Var, we assume the input arrays are analysis increments (xa)
+    ! and we use the persistent background state (xb) that was initialized earlier
+    if (.not. background_state_initialized) then
+      print *, "WRFDA ERROR: Background state not initialized. Call wrfda_initialize_background_state first."
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
+    end if
+    
+    ! Use persistent grid with background state and update analysis increments
+    print *, "WRFDA DEBUG: Using persistent background state and updating analysis increments"
+    call wrfda_update_analysis_increments(u, v, t, q, psfc)
+    print *, "WRFDA DEBUG: Analysis increments updated"
+    
+    ! Copy persistent grid to local grid for processing
+    grid = persistent_grid
      
     ! CRITICAL FIX: Call da_copy_dims to set up module-level grid bounds
     ! This is required for WRFDA interpolation routines to work properly
@@ -261,13 +277,18 @@ contains
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
 
-  ! New function that properly separates total state into background and increments
-  integer(c_int) function wrfda_xtoy_apply_grid_with_background(operator_family, nx, ny, nz, u_total, v_total, t_total, q_total, psfc_total, u_bg, v_bg, t_bg, q_bg, psfc_bg, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, out_y) bind(C, name="wrfda_xtoy_apply_grid_with_background")
+  ! Forward operator with separate background and increment inputs
+  ! This function properly implements incremental 3D-Var forward operator:
+  ! - u_bg, v_bg, t_bg, q_bg, psfc_bg: background state (xb) - constant throughout outer loop
+  ! - u_inc, v_inc, t_inc, q_inc, psfc_inc: analysis increments (xa) - updated by each iteration
+  ! - Total state: x_total = xb + xa
+  ! - Forward operator: H(xb + xa)
+  integer(c_int) function wrfda_xtoy_apply_grid_with_background(operator_family, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg, u_inc, v_inc, t_inc, q_inc, psfc_inc, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, out_y) bind(C, name="wrfda_xtoy_apply_grid_with_background")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
     integer(c_int), value :: nx, ny, nz
-    real(c_double), intent(in) :: u_total(*), v_total(*), t_total(*), q_total(*), psfc_total(*)
     real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
+    real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
     real(c_double), intent(in) :: lats2d(*), lons2d(*)
     real(c_double), intent(in) :: levels(*)
     integer(c_int), value :: num_obs
@@ -289,7 +310,7 @@ contains
     print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
 
     ! Initialize domain with proper separation of background and increments
-    call init_domain_with_separation(grid, nx, ny, nz, u_total, v_total, t_total, q_total, psfc_total, u_bg, v_bg, t_bg, q_bg, psfc_bg)
+    call init_domain_with_separation(grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg, u_inc, v_inc, t_inc, q_inc, psfc_inc)
      
     ! CRITICAL FIX: Call da_copy_dims to set up module-level grid bounds
     print *, "WRFDA DEBUG: Calling da_copy_dims to set up module-level grid bounds"
@@ -379,6 +400,67 @@ contains
     wrfda_xtoy_apply_grid_with_background = 0_c_int
   end function wrfda_xtoy_apply_grid_with_background
 
+  ! Enhanced function for constructing iv_type with detailed observation information
+  integer(c_int) function wrfda_construct_iv_from_observations(operator_family, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets, iv_ptr) bind(C, name="wrfda_construct_iv_from_observations")
+    implicit none
+    character(c_char), intent(in) :: operator_family(*)
+    integer(c_int), value :: nx, ny, nz
+    real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
+    integer(c_int), value :: num_obs
+    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
+    real(c_double), intent(in) :: obs_values(*), obs_errors(*)
+    character(c_char), intent(in) :: obs_types(*), obs_station_ids(*)
+    real(c_double), intent(in) :: obs_elevations(*), obs_pressures(*), obs_heights(*)
+    integer(c_int), intent(in) :: obs_qc_flags(*), obs_usage_flags(*)
+    real(c_double), intent(in) :: obs_time_offsets(*)
+    type(c_ptr), value :: iv_ptr
+
+    type(iv_type), pointer :: iv
+    integer :: n
+    character(len=256) :: fambuf
+    integer :: famlen
+    character(len=256) :: op_str, fam_str, var_str
+    integer :: fam_id
+    character(len=1) :: var_code
+    
+    ! Suppress unused argument warnings for parameters not currently used
+    if (obs_types(1) == c_null_char .and. obs_station_ids(1) == c_null_char .and. obs_time_offsets(1) < 0.0) then
+      ! This will never execute but prevents unused argument warnings
+      continue
+    end if
+
+    ! DEBUG: Print entry point
+    print *, "WRFDA DEBUG: Entering wrfda_construct_iv_from_observations"
+    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
+
+    ! Get pointer to iv_type
+    call c_f_pointer(iv_ptr, iv)
+
+    ! Parse operator family string
+    fambuf = '' ; famlen = 0
+    do n = 1, 256
+      if (operator_family(n) == c_null_char) exit
+      famlen = famlen + 1
+      fambuf(famlen:famlen) = achar(iachar(operator_family(n)))
+    end do
+    op_str = trim(fambuf(1:max(famlen,1)))
+    print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
+     
+    call parse_family_variable(op_str, fam_str, var_str, fam_id, var_code)
+    print *, "WRFDA DEBUG: Family='", trim(fam_str), "' Variable='", trim(var_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+
+    ! Initialize iv_type with enhanced observation information
+    call init_iv_from_enhanced_obs(fam_id, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets)
+
+    print *, "WRFDA DEBUG: wrfda_construct_iv_from_observations completed successfully"
+    wrfda_construct_iv_from_observations = 0_c_int
+  end function wrfda_construct_iv_from_observations
+
+  ! Adjoint operator: H^T * δy -> δx (gradient accumulation)
+  ! This function computes the adjoint of the forward operator for incremental 3D-Var:
+  ! - delta_y: gradient in observation space
+  ! - inout_u, inout_v, inout_t, inout_q, inout_psfc: gradient in state space (accumulated)
+  ! - The adjoint operator accumulates gradients into the state space arrays
   integer(c_int) function wrfda_xtoy_adjoint_grid(operator_family, nx, ny, nz, delta_y, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, inout_u, inout_v, inout_t, inout_q, inout_psfc) bind(C, name="wrfda_xtoy_adjoint_grid")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
@@ -401,9 +483,24 @@ contains
     integer :: fam_id
     character(len=1) :: var_code
 
-    ! CRITICAL FIX: Use the correct initialization that fills arrays with actual data
-    ! For adjoint operator, we need the background state in xb and gradient increments in xa
-    call init_domain_from_background_state(grid, nx, ny, nz, inout_u, inout_v, inout_t, inout_q, inout_psfc)
+    ! For adjoint operator, we use the persistent background state (xb) and zero xa initially
+    ! The adjoint operator accumulates gradients into jo_grad_x, which we then add to inout arrays
+    if (.not. background_state_initialized) then
+      print *, "WRFDA ERROR: Background state not initialized. Call wrfda_initialize_background_state first."
+      wrfda_xtoy_adjoint_grid = 1_c_int
+      return
+    end if
+    
+    ! Use persistent grid with background state and zero analysis increments
+    print *, "WRFDA DEBUG: Using persistent background state for adjoint operator"
+    grid = persistent_grid
+    
+    ! Zero out analysis increments for adjoint computation
+    grid%xa%u = 0.0
+    grid%xa%v = 0.0
+    grid%xa%t = 0.0
+    grid%xa%q = 0.0
+    grid%xa%psfc = 0.0
     
          ! CRITICAL FIX: Call da_copy_dims to set up module-level grid bounds
      ! This is required for WRFDA interpolation routines to work properly
@@ -681,6 +778,82 @@ contains
     print *, "WRFDA DEBUG: init_domain_from_arrays completed successfully"
   end subroutine init_domain_from_arrays
 
+  ! Initialize domain for adjoint operator
+  ! For adjoint operator, we need background state in xb and zero xa initially
+  ! The adjoint operator accumulates gradients into jo_grad_x
+  subroutine init_domain_for_adjoint(grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg)
+    type(domain), intent(inout) :: grid
+    integer, intent(in) :: nx, ny, nz
+    real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
+    integer :: i,j,k, nz1
+    nz1 = max(1, nz)
+    
+    print *, "WRFDA DEBUG: init_domain_for_adjoint: nx=", nx, " ny=", ny, " nz=", nz, " nz1=", nz1
+    
+    ! Set WRFDA grid bounds (same as before)
+    grid%sm31 = 1; grid%em31 = nx
+    grid%sm32 = 1; grid%em32 = ny  
+    grid%sm33 = 1; grid%em33 = nz1
+    
+    grid%sd31 = 1; grid%ed31 = nx
+    grid%sd32 = 1; grid%ed32 = ny
+    grid%sd33 = 1; grid%ed33 = nz1
+    
+    grid%sp31 = 1; grid%ep31 = nx
+    grid%sp32 = 1; grid%ep32 = ny
+    grid%sp33 = 1; grid%ep33 = nz1
+    
+    grid%xp%kds = 1; grid%xp%kde = nz1
+    grid%xp%ids = 1; grid%xp%ide = nx
+    grid%xp%jds = 1; grid%xp%jde = ny
+    
+    grid%xp%kts = 1; grid%xp%kte = nz1
+    grid%xp%its = 1; grid%xp%ite = nx
+    grid%xp%jts = 1; grid%xp%jte = ny
+    
+    grid%num_tiles = 1
+    allocate(grid%i_start(1:1), grid%i_end(1:1))
+    allocate(grid%j_start(1:1), grid%j_end(1:1))
+    grid%i_start(1) = 1; grid%i_end(1) = nx
+    grid%j_start(1) = 1; grid%j_end(1) = ny
+    
+    ! Allocate xb fields (background state) with 1-based bounds
+    print *, "WRFDA DEBUG: Allocating xb fields (background state) for adjoint"
+    allocate(grid%xb%u(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%v(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%t(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%q(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%psfc(1:nx,1:ny))
+    print *, "WRFDA DEBUG: xb fields allocated for adjoint"
+    
+    ! Fill xb fields with background state data
+    print *, "WRFDA DEBUG: Filling xb fields with background state data for adjoint"
+    do k=1,nz1; do j=1,ny; do i=1,nx
+      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+      grid%xb%u(i,j,k) = real(u_bg(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xb%v(i,j,k) = real(v_bg(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xb%t(i,j,k) = real(t_bg(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xb%q(i,j,k) = real(q_bg(i + (j-1)*nx + (k-1)*nx*ny))
+    end do; end do; end do
+    do j=1,ny; do i=1,nx
+      ! C++ row-major indexing: [i][j] -> i + j*nx
+      grid%xb%psfc(i,j) = real(psfc_bg(i + (j-1)*nx))
+    end do; end do
+    print *, "WRFDA DEBUG: xb fields filled with background state for adjoint"
+    
+    ! Allocate xa fields (analysis increments) and initialize to zero
+    ! For adjoint operator, xa starts at zero and gradients are accumulated in jo_grad_x
+    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) for adjoint"
+    allocate(grid%xa%u(1:nx,1:ny,1:nz1)); grid%xa%u = 0.0
+    allocate(grid%xa%v(1:nx,1:ny,1:nz1)); grid%xa%v = 0.0
+    allocate(grid%xa%t(1:nx,1:ny,1:nz1)); grid%xa%t = 0.0
+    allocate(grid%xa%q(1:nx,1:ny,1:nz1)); grid%xa%q = 0.0
+    allocate(grid%xa%psfc(1:nx,1:ny)); grid%xa%psfc = 0.0
+    print *, "WRFDA DEBUG: xa fields allocated and initialized to zero for adjoint"
+    
+    print *, "WRFDA DEBUG: init_domain_for_adjoint completed successfully"
+  end subroutine init_domain_for_adjoint
+
   ! New function to properly handle background state for forward operator
   subroutine init_domain_from_background_state(grid, nx, ny, nz, u, v, t, q, psfc)
     type(domain), intent(inout) :: grid
@@ -755,12 +928,14 @@ contains
     print *, "WRFDA DEBUG: init_domain_from_background_state completed successfully"
   end subroutine init_domain_from_background_state
 
-  ! New function to properly separate total state into background and increments
-  subroutine init_domain_with_separation(grid, nx, ny, nz, u_total, v_total, t_total, q_total, psfc_total, u_bg, v_bg, t_bg, q_bg, psfc_bg)
+  ! Initialize domain with proper incremental 3D-Var formulation
+  ! This function sets up grid%xb (background state) and grid%xa (analysis increments)
+  ! The total state is computed as xb + xa internally by WRFDA
+  subroutine init_domain_with_separation(grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg, u_inc, v_inc, t_inc, q_inc, psfc_inc)
     type(domain), intent(inout) :: grid
     integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: u_total(*), v_total(*), t_total(*), q_total(*), psfc_total(*)
     real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
+    real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
     integer :: i,j,k, nz1
     nz1 = max(1, nz)
     
@@ -802,7 +977,7 @@ contains
     allocate(grid%xb%psfc(1:nx,1:ny))
     print *, "WRFDA DEBUG: xb fields allocated"
     
-    ! Fill xb fields with background state data
+    ! Fill xb fields with background state data (constant throughout outer loop)
     print *, "WRFDA DEBUG: Filling xb fields with background state data"
     do k=1,nz1; do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
@@ -826,23 +1001,182 @@ contains
     allocate(grid%xa%psfc(1:nx,1:ny))
     print *, "WRFDA DEBUG: xa fields allocated"
     
-    ! Fill xa fields with analysis increments (δx = total - background)
-    print *, "WRFDA DEBUG: Filling xa fields with analysis increments (total - background)"
+    ! Fill xa fields with analysis increments (updated by each iteration)
+    print *, "WRFDA DEBUG: Filling xa fields with analysis increments"
     do k=1,nz1; do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      grid%xa%u(i,j,k) = real(u_total(i + (j-1)*nx + (k-1)*nx*ny) - u_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%v(i,j,k) = real(v_total(i + (j-1)*nx + (k-1)*nx*ny) - v_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%t(i,j,k) = real(t_total(i + (j-1)*nx + (k-1)*nx*ny) - t_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%q(i,j,k) = real(q_total(i + (j-1)*nx + (k-1)*nx*ny) - q_bg(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny))
     end do; end do; end do
     do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j] -> i + j*nx
-      grid%xa%psfc(i,j) = real(psfc_total(i + (j-1)*nx) - psfc_bg(i + (j-1)*nx))
+      grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx))
     end do; end do
     print *, "WRFDA DEBUG: xa fields filled with analysis increments"
     
     print *, "WRFDA DEBUG: init_domain_with_separation completed successfully"
   end subroutine init_domain_with_separation
+
+  ! Enhanced function to construct iv_type with detailed observation information
+  subroutine init_iv_from_enhanced_obs(family, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets)
+    integer, intent(in) :: family
+    type(iv_type), intent(inout) :: iv
+    integer, intent(in) :: nx, ny, nz
+    real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
+    integer, intent(in) :: num_obs
+    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
+    real(c_double), intent(in) :: obs_values(*), obs_errors(*)
+    character(c_char), intent(in) :: obs_types(*), obs_station_ids(*)
+    real(c_double), intent(in) :: obs_elevations(*), obs_pressures(*), obs_heights(*)
+    integer(c_int), intent(in) :: obs_qc_flags(*), obs_usage_flags(*)
+    real(c_double), intent(in) :: obs_time_offsets(*)
+    
+    integer :: n, i, j, k
+    real(c_double) :: xfloat, yfloat, zkfloat
+    integer :: valid_obs_count
+    
+    ! Suppress unused argument warnings for parameters not currently used
+    if (obs_types(1) == c_null_char .and. obs_station_ids(1) == c_null_char .and. obs_time_offsets(1) < 0.0) then
+      ! This will never execute but prevents unused argument warnings
+      continue
+    end if
+    
+    print *, "WRFDA DEBUG: init_iv_from_enhanced_obs: family=", family, " num_obs=", num_obs, " nz=", nz
+    
+    ! Initialize ALL observation families to prevent memory issues
+    print *, "WRFDA DEBUG: Initializing ALL observation families..."
+    iv%info(:)%nlocal = 0
+    iv%info(:)%ntotal = 0
+    iv%info(:)%max_lev = 1
+    
+    ! Initialize instrument-related fields
+    iv%num_inst = 0
+    iv%total_rad_pixel = 0
+    iv%total_rad_channel = 0
+    nullify(iv%instid)
+    
+    ! Count valid observations (those within domain and with good QC)
+    valid_obs_count = 0
+    do n = 1, num_obs
+      call find_fractional_ij(nx, ny, lats2d, lons2d, obs_lats(n), obs_lons(n), i, j, xfloat, yfloat)
+      if (i /= -1 .and. j /= -1 .and. obs_qc_flags(n) >= 0 .and. obs_usage_flags(n) > 0) then
+        valid_obs_count = valid_obs_count + 1
+      end if
+    end do
+    
+    print *, "WRFDA DEBUG: Found", valid_obs_count, "valid observations out of", num_obs
+    
+    ! Set the actual family we want to use
+    iv%info(family)%nlocal = valid_obs_count
+    iv%info(family)%ntotal = valid_obs_count
+    iv%info(family)%max_lev = nz
+    
+    ! Allocate arrays using WRFDA's routine
+    print *, "WRFDA DEBUG: Calling da_allocate_obs_info for enhanced observations"
+    call da_allocate_obs_info(iv, family)
+    print *, "WRFDA DEBUG: da_allocate_obs_info completed"
+    
+    ! Set levels array
+    iv%info(family)%levels = 1
+    
+    ! Initialize grid indices and observation data
+    valid_obs_count = 0
+    do n = 1, num_obs
+      ! Find grid indices
+      call find_fractional_ij(nx, ny, lats2d, lons2d, obs_lats(n), obs_lons(n), i, j, xfloat, yfloat)
+      
+      ! Check for valid observations
+      if (i == -1 .or. j == -1) then
+        print *, "WRFDA DEBUG: Observation", n, " is out of domain - skipping"
+        cycle
+      end if
+      
+      if (obs_qc_flags(n) < 0) then
+        print *, "WRFDA DEBUG: Observation", n, " failed QC - skipping"
+        cycle
+      end if
+      
+      if (obs_usage_flags(n) <= 0) then
+        print *, "WRFDA DEBUG: Observation", n, " not used - skipping"
+        cycle
+      end if
+      
+      valid_obs_count = valid_obs_count + 1
+      
+      print *, "WRFDA DEBUG: Processing valid observation", valid_obs_count
+      print *, "WRFDA DEBUG:   Lat:", obs_lats(n), " Lon:", obs_lons(n)
+      print *, "WRFDA DEBUG:   Elevation:", obs_elevations(n), " Pressure:", obs_pressures(n), " Height:", obs_heights(n)
+      print *, "WRFDA DEBUG:   QC Flag:", obs_qc_flags(n), " Usage Flag:", obs_usage_flags(n)
+      print *, "WRFDA DEBUG:   Value:", obs_values(n), " Error:", obs_errors(n)
+      
+      ! Set grid indices for all levels (surface observations)
+      do k = 1, nz
+        iv%info(family)%i(k, valid_obs_count) = i
+        iv%info(family)%j(k, valid_obs_count) = j
+        iv%info(family)%x(k, valid_obs_count) = real(xfloat)
+        iv%info(family)%y(k, valid_obs_count) = real(yfloat)
+        
+        ! Set interpolation weights (exact grid point for surface obs)
+        iv%info(family)%dx(k, valid_obs_count) = 0.0
+        iv%info(family)%dxm(k, valid_obs_count) = 1.0
+        iv%info(family)%dy(k, valid_obs_count) = 0.0
+        iv%info(family)%dym(k, valid_obs_count) = 1.0
+      end do
+      
+      ! Set vertical interpolation
+      if (nz > 1) then
+        call find_fractional_k(nz, levels, obs_levels(n), k, zkfloat)
+        do k = 1, nz
+          iv%info(family)%k(k, valid_obs_count) = k
+          iv%info(family)%zk(k, valid_obs_count) = real(zkfloat)
+          iv%info(family)%dz(k, valid_obs_count) = zkfloat - real(k, c_double)
+        end do
+      else
+        iv%info(family)%k(1, valid_obs_count) = 1
+        iv%info(family)%zk(1, valid_obs_count) = 1.0
+        iv%info(family)%dz(1, valid_obs_count) = 0.0
+      end if
+      
+      ! Note: The infa_type structure in WRFDA only contains grid interpolation fields
+      ! Observation-specific data (values, errors, QC flags, etc.) are stored in
+      ! separate structures (like synop_type, metar_type, etc.) that are accessed
+      ! by the specific observation operator routines (da_transform_xtoy_synop, etc.)
+      ! 
+      ! The iv%info structure is primarily for grid interpolation information,
+      ! not for storing observation values or metadata.
+      !
+      ! For now, we'll just set the basic grid interpolation fields that are
+      ! actually available in the infa_type structure.
+      !
+      ! The enhanced observation data (values, errors, QC flags, station info)
+      ! would need to be stored in the appropriate observation-specific structures
+      ! (iv%synop, iv%metar, etc.) which are allocated and managed by WRFDA's
+      ! da_allocate_y routine and the specific observation operator routines.
+    end do
+    
+    print *, "WRFDA DEBUG: init_iv_from_enhanced_obs completed with", valid_obs_count, "valid observations"
+  end subroutine init_iv_from_enhanced_obs
+
+  ! Helper function to extract C string from array
+  subroutine extract_c_string(c_strings, index, fortran_string)
+    character(c_char), intent(in) :: c_strings(*)
+    integer, intent(in) :: index
+    character(len=*), intent(out) :: fortran_string
+    integer :: i, start_pos, end_pos
+    
+    ! Calculate start position (assuming fixed-length strings)
+    start_pos = (index - 1) * len(fortran_string) + 1
+    end_pos = start_pos + len(fortran_string) - 1
+    
+    ! Extract string
+    fortran_string = ""
+    do i = start_pos, end_pos
+      if (c_strings(i) == c_null_char) exit
+      fortran_string(i-start_pos+1:i-start_pos+1) = achar(iachar(c_strings(i)))
+    end do
+  end subroutine extract_c_string
 
   subroutine init_domain_from_arrays_refs(grid, nx, ny, nz, u, v, t, q, psfc)
     type(domain), intent(inout) :: grid
@@ -1545,12 +1879,19 @@ contains
     print *, "WRFDA DEBUG: parse_family_variable completed: fam_id=", fam_id, " var_code='", var_code, "'"
   end subroutine parse_family_variable
 
+  ! Copy gradient from jo_grad_x to state arrays (gradient accumulation)
+  ! This function accumulates the adjoint gradients into the state space arrays
+  ! For incremental 3D-Var, this represents the gradient of the cost function with respect to state
   subroutine copy_x_to_state(jo_grad_x, u, v, t, q, psfc, nx, ny, nz)
     type(x_type), intent(in) :: jo_grad_x
     real(c_double), intent(inout) :: u(*), v(*), t(*), q(*), psfc(*)
     integer, intent(in) :: nx, ny, nz
     integer :: i,j,k, nz1
     nz1 = max(1, nz)
+    
+    print *, "WRFDA DEBUG: copy_x_to_state: accumulating gradients into state arrays"
+    
+    ! Accumulate gradients into state arrays (gradient accumulation)
     do k=1,nz1; do j=1,ny; do i=1,nx
       u(i + (j-1)*nx + (k-1)*nx*ny) = u(i + (j-1)*nx + (k-1)*nx*ny) + real(jo_grad_x%u(i,j,k), kind=c_double)
       v(i + (j-1)*nx + (k-1)*nx*ny) = v(i + (j-1)*nx + (k-1)*nx*ny) + real(jo_grad_x%v(i,j,k), kind=c_double)
@@ -1560,6 +1901,8 @@ contains
     do j=1,ny; do i=1,nx
       psfc(i + (j-1)*nx) = psfc(i + (j-1)*nx) + real(jo_grad_x%psfc(i,j), kind=c_double)
     end do; end do
+    
+    print *, "WRFDA DEBUG: copy_x_to_state: gradient accumulation completed"
   end subroutine copy_x_to_state
 
   subroutine zero_x_like(x, nx, ny, nz)
@@ -1904,6 +2247,63 @@ contains
     print *, "WRFDA DEBUG: Final ok=", ok, " zkfloat=", zkfloat
     print *, "WRFDA DEBUG: Calculated dz=", dz, " dzm=", dzm
   end subroutine find_fractional_k
+
+  ! Initialize persistent background state for incremental 3D-Var
+  ! This function should be called once at the beginning of the outer loop
+  ! to set up the constant background state (xb)
+  integer(c_int) function wrfda_initialize_background_state(nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg) bind(C, name="wrfda_initialize_background_state")
+    implicit none
+    integer(c_int), value :: nx, ny, nz
+    real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
+    
+    print *, "WRFDA DEBUG: Initializing persistent background state"
+    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz
+    
+    ! Store grid dimensions
+    background_nx = nx
+    background_ny = ny
+    background_nz = nz
+    
+    ! Initialize persistent grid with background state
+    call init_domain_for_adjoint(persistent_grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg)
+    
+    ! Mark background state as initialized
+    background_state_initialized = .true.
+    
+    print *, "WRFDA DEBUG: Persistent background state initialized successfully"
+    wrfda_initialize_background_state = 0_c_int
+  end function wrfda_initialize_background_state
+
+  ! Update only analysis increments (xa) for incremental 3D-Var
+  ! This subroutine updates the analysis increments while keeping background state constant
+  subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc)
+    implicit none
+    real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
+    integer :: i,j,k, nz1
+    
+    if (.not. background_state_initialized) then
+      print *, "WRFDA ERROR: Background state not initialized. Call wrfda_initialize_background_state first."
+      return
+    end if
+    
+    nz1 = max(1, background_nz)
+    print *, "WRFDA DEBUG: Updating analysis increments for grid size:", background_nx, "x", background_ny, "x", nz1
+    
+    ! Update only the xa fields (analysis increments)
+    do k=1,nz1; do j=1,background_ny; do i=1,background_nx
+      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+      persistent_grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
+      persistent_grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
+      persistent_grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
+      persistent_grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
+    end do; end do; end do
+    do j=1,background_ny; do i=1,background_nx
+      ! C++ row-major indexing: [i][j] -> i + j*nx
+      persistent_grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*background_nx))
+    end do; end do
+    
+    print *, "WRFDA DEBUG: Analysis increments updated successfully"
+  end subroutine wrfda_update_analysis_increments
 
   ! CRITICAL FIX: Add subroutine to update only data arrays without reconstructing grid structure
   subroutine update_domain_data(grid, nx, ny, nz, u, v, t, q, psfc)

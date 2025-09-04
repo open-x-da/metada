@@ -981,6 +981,40 @@ class PrepBUFRObservation {
 
     // Observation errors (for cost function weighting)
     std::vector<double> errors;
+
+    // Enhanced fields for WRFDA iv_type construction
+    struct ObservationDetails {
+      // Station information
+      std::string station_id;
+      std::string station_name;
+
+      // Observation metadata
+      double elevation;  // Station elevation (m)
+      double pressure;   // Observation pressure (Pa)
+      double height;     // Observation height (m)
+
+      // Quality control flags
+      int qc_flag;     // Quality control flag
+      int usage_flag;  // Usage flag for assimilation
+
+      // Time information
+      double time_offset;  // Time offset from analysis time (seconds)
+
+      // Variable-specific data
+      struct VariableData {
+        double value;    // Observed value
+        double error;    // Observation error
+        double bias;     // Bias correction
+        int qc;          // Quality control flag
+        bool available;  // Whether this variable is available
+      };
+
+      VariableData u, v, t, q, p, slp, pw,
+          ref;  // Wind, temp, humidity, pressure, etc.
+      VariableData td2m, rh2m, t2m, u10m, v10m;  // 2m/10m variables
+    };
+
+    std::vector<ObservationDetails> details;
   };
 
   ObsOperatorData getObsOperatorData() const {

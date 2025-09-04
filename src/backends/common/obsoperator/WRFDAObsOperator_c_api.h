@@ -89,6 +89,23 @@ int wrfda_xtoy_adjoint_profiles(
     const double* obs_lons, const double* obs_levels_flat, double* inout_u,
     double* inout_v, double* inout_t, double* inout_q, double* inout_psfc);
 
+// Enhanced function for constructing iv_type with detailed observation
+// information
+int wrfda_construct_iv_from_observations(
+    const char* operator_family, int nx, int ny, int nz, const double* lats2d,
+    const double* lons2d, const double* levels,  // size nx*ny, nz
+    int num_obs, const double* obs_lats, const double* obs_lons,
+    const double* obs_levels, const double* obs_values,
+    const double* obs_errors,  // size num_obs
+    const char* obs_types,
+    const char* obs_station_ids,  // size num_obs * string_length
+    const double* obs_elevations, const double* obs_pressures,
+    const double* obs_heights,                            // size num_obs
+    const int* obs_qc_flags, const int* obs_usage_flags,  // size num_obs
+    const double* obs_time_offsets,                       // size num_obs
+    void* iv_ptr  // pointer to iv_type structure
+);
+
 #ifdef __cplusplus
 }
 #endif
