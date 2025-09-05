@@ -121,6 +121,11 @@ int wrfda_construct_domain_from_arrays(const int* nx, const int* ny,
                                        const double* lons2d,
                                        const double* levels, void** domain_ptr);
 
+// Construct y_type from observation data
+void* wrfda_construct_y_type(int* num_obs, const double* obs_values,
+                             const double* obs_errors, const char* obs_types,
+                             const char* family);
+
 #ifdef __cplusplus
 }
 #endif
