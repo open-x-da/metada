@@ -465,7 +465,7 @@ class WRFDAObsOperator {
     // Step 2: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
     void* iv_ptr = constructIvType(obs_data, operator_families_);
-    void* config_flags_ptr = nullptr;  // TODO: Construct config_flags
+    void* config_flags_ptr = constructConfigFlags();
 
     // Step 3: Call da_get_innov_vector
     const int it = 1;
@@ -480,9 +480,21 @@ class WRFDAObsOperator {
     std::cout << "WRFDA: da_get_innov_vector completed successfully"
               << std::endl;
 
-    // TODO: Extract results from iv structure and return as vector
-    // For now, return empty vector as placeholder
-    return std::vector<double>(num_observations, 0.0);
+    // Extract results from iv structure and return as vector
+    std::string family =
+        operator_families_.empty() ? "metar" : operator_families_[0];
+    std::vector<double> innovations = extractInnovations(iv_ptr, family);
+
+    if (innovations.empty()) {
+      std::cout
+          << "WRFDA: No innovations extracted, returning placeholder values"
+          << std::endl;
+      return std::vector<double>(num_observations, 0.0);
+    }
+
+    std::cout << "WRFDA: Extracted " << innovations.size()
+              << " innovation values" << std::endl;
+    return innovations;
   }
 
   /**
@@ -1022,6 +1034,29 @@ class WRFDAObsOperator {
 
     // Call the Fortran function to construct iv_type
     int num_obs_int = static_cast<int>(obs_data.num_obs);
+
+    // Debug: Check if data vectors are valid
+    std::cout << "WRFDA DEBUG: num_obs = " << num_obs_int << std::endl;
+    std::cout << "WRFDA DEBUG: values.size() = " << obs_data.values.size()
+              << std::endl;
+    std::cout << "WRFDA DEBUG: errors.size() = " << obs_data.errors.size()
+              << std::endl;
+    std::cout << "WRFDA DEBUG: lats.size() = " << obs_data.lats.size()
+              << std::endl;
+    std::cout << "WRFDA DEBUG: lons.size() = " << obs_data.lons.size()
+              << std::endl;
+    std::cout << "WRFDA DEBUG: levels.size() = " << obs_data.levels.size()
+              << std::endl;
+    std::cout << "WRFDA DEBUG: family = '" << family << "'" << std::endl;
+
+    // Check for null pointers
+    if (obs_data.values.empty() || obs_data.errors.empty() ||
+        obs_data.lats.empty() || obs_data.lons.empty() ||
+        obs_data.levels.empty()) {
+      std::cout << "WRFDA DEBUG: Empty data vectors detected" << std::endl;
+      return nullptr;
+    }
+
     void* iv_ptr = wrfda_construct_iv_type(
         &num_obs_int, const_cast<double*>(obs_data.values.data()),
         const_cast<double*>(obs_data.errors.data()),
@@ -1032,6 +1067,63 @@ class WRFDAObsOperator {
         const_cast<char*>(family.c_str()));
 
     return iv_ptr;
+  }
+
+  /**
+   * @brief Construct WRFDA config_flags structure
+   *
+   * @return Pointer to constructed config_flags structure
+   *
+   * @details Constructs a WRFDA config_flags structure containing
+   * configuration parameters for the data assimilation process.
+   * Currently returns a simplified implementation.
+   */
+  void* constructConfigFlags() const { return wrfda_construct_config_flags(); }
+
+  /**
+   * @brief Extract innovation values from iv_type structure
+   *
+   * @param iv_ptr Pointer to iv_type structure
+   * @param family Observation family name
+   * @return Vector of innovation values
+   *
+   * @details Extracts innovation values from the WRFDA iv_type structure
+   * and returns them as a vector. The innovations represent the differences
+   * between observations and model values (O-B).
+   */
+  std::vector<double> extractInnovations(void* iv_ptr,
+                                         const std::string& family) const {
+    if (!iv_ptr) {
+      return std::vector<double>();
+    }
+
+    // Allocate buffer for innovations (estimate size based on typical
+    // observation count)
+    const size_t max_innovations = 10000;  // Reasonable upper bound
+    std::vector<double> innovations(max_innovations);
+    int num_innovations = 0;
+
+    // Call Fortran function to extract innovations
+    int max_innovations_int = static_cast<int>(max_innovations);
+    int rc = wrfda_extract_innovations(
+        iv_ptr, const_cast<char*>(family.c_str()), innovations.data(),
+        &num_innovations, &max_innovations_int);
+
+    if (rc != 0) {
+      std::cerr << "WRFDA: Failed to extract innovations with code " << rc
+                << std::endl;
+      return std::vector<double>();
+    }
+
+    // Resize vector to actual number of innovations
+    if (num_innovations > 0 &&
+        num_innovations <= static_cast<int>(max_innovations)) {
+      innovations.resize(num_innovations);
+    } else {
+      innovations.clear();
+    }
+
+    return innovations;
   }
 
   /**

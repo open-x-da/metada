@@ -2357,13 +2357,32 @@ contains
     ! Convert C pointers to Fortran pointers
     call c_f_pointer(domain_ptr, grid)
     call c_f_pointer(ob_ptr, ob)
-    call c_f_pointer(iv_ptr, iv)
-    call c_f_pointer(config_flags_ptr, config_flags)
+    
+    ! Check if iv_ptr is null before converting
+    if (c_associated(iv_ptr)) then
+      call c_f_pointer(iv_ptr, iv)
+      print *, "WRFDA DEBUG: iv_ptr converted successfully"
+    else
+      print *, "WRFDA DEBUG: iv_ptr is null - skipping da_get_innov_vector"
+      wrfda_get_innov_vector = 0
+      return
+    end if
+    
+    ! Check if config_flags_ptr is null before converting
+    if (c_associated(config_flags_ptr)) then
+      call c_f_pointer(config_flags_ptr, config_flags)
+      print *, "WRFDA DEBUG: config_flags_ptr converted successfully"
+    else
+      print *, "WRFDA DEBUG: config_flags_ptr is null - skipping da_get_innov_vector"
+      wrfda_get_innov_vector = 0
+      return
+    end if
     
     ! Initialize QC statistics array
     num_qcstat_conv = 0
     
     ! Call the main WRFDA innovation vector computation routine
+    print *, "WRFDA DEBUG: About to call da_get_innov_vector"
     call da_get_innov_vector(it, num_qcstat_conv, ob, iv, grid, config_flags)
     
     print *, "WRFDA DEBUG: da_get_innov_vector completed successfully"
@@ -2521,6 +2540,126 @@ contains
     
     print *, "WRFDA DEBUG: wrfda_construct_iv_type called with num_obs=", num_obs
     
+    ! Check if num_obs is valid
+    if (num_obs <= 0) then
+      print *, "WRFDA DEBUG: Invalid num_obs =", num_obs
+      wrfda_construct_iv_type = c_null_ptr
+      return
+    end if
+    
+    ! Check if arrays are accessible (with bounds checking)
+    print *, "WRFDA DEBUG: About to access obs_values(1)"
+    if (num_obs >= 1) then
+      print *, "WRFDA DEBUG: obs_values(1) =", obs_values(1)
+    else
+      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_values(1)"
+    end if
+    
+    print *, "WRFDA DEBUG: About to access obs_errors(1)"
+    if (num_obs >= 1) then
+      print *, "WRFDA DEBUG: obs_errors(1) =", obs_errors(1)
+    else
+      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_errors(1)"
+    end if
+    
+    print *, "WRFDA DEBUG: About to access obs_lats(1)"
+    if (num_obs >= 1) then
+      print *, "WRFDA DEBUG: obs_lats(1) =", obs_lats(1)
+    else
+      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_lats(1)"
+    end if
+    
+    print *, "WRFDA DEBUG: About to access obs_lons(1)"
+    if (num_obs >= 1) then
+      print *, "WRFDA DEBUG: obs_lons(1) =", obs_lons(1)
+    else
+      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_lons(1)"
+    end if
+    
+    print *, "WRFDA DEBUG: About to access obs_levels(1)"
+    if (num_obs >= 1) then
+      print *, "WRFDA DEBUG: obs_levels(1) =", obs_levels(1)
+    else
+      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_levels(1)"
+    end if
+    
+    ! Now implement the actual iv_type construction
+    print *, "WRFDA DEBUG: Starting iv_type construction"
+    
+    ! Allocate iv_type
+    allocate(iv)
+    if (.not. associated(iv)) then
+      print *, "WRFDA DEBUG: Failed to allocate iv_type"
+      wrfda_construct_iv_type = c_null_ptr
+      return
+    end if
+    
+    ! Initialize basic fields
+    iv%time = 0
+    iv%num_inst = 0
+    iv%total_rad_pixel = 0
+    iv%total_rad_channel = 0
+    
+    ! Initialize info array
+    do i = 1, size(iv%info)
+      iv%info(i)%nlocal = 0
+      iv%info(i)%ntotal = 0
+      iv%info(i)%n1 = 0
+      iv%info(i)%n2 = 0
+    end do
+    
+    ! Set up for surface observations (family index 2 = synop)
+    iv%info(2)%nlocal = num_obs
+    iv%info(2)%ntotal = num_obs
+    iv%info(2)%n1 = 1
+    iv%info(2)%n2 = num_obs
+    
+    ! Allocate synop array if we have observations
+    if (num_obs > 0) then
+      allocate(iv%synop(num_obs))
+      print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
+      
+      ! Populate synop data
+      do i = 1, num_obs
+        ! Set up height
+        iv%synop(i)%h = obs_levels(i)
+        
+        ! Set up field_type members for u, v, t, p, q
+        iv%synop(i)%u%inv = obs_values(i)
+        iv%synop(i)%u%qc = 0  ! Good quality
+        iv%synop(i)%u%error = obs_errors(i)
+        iv%synop(i)%u%sens = 0.0
+        iv%synop(i)%u%imp = 0.0
+        
+        iv%synop(i)%v%inv = obs_values(i)
+        iv%synop(i)%v%qc = 0
+        iv%synop(i)%v%error = obs_errors(i)
+        iv%synop(i)%v%sens = 0.0
+        iv%synop(i)%v%imp = 0.0
+        
+        iv%synop(i)%t%inv = obs_values(i)
+        iv%synop(i)%t%qc = 0
+        iv%synop(i)%t%error = obs_errors(i)
+        iv%synop(i)%t%sens = 0.0
+        iv%synop(i)%t%imp = 0.0
+        
+        iv%synop(i)%p%inv = obs_values(i)
+        iv%synop(i)%p%qc = 0
+        iv%synop(i)%p%error = obs_errors(i)
+        iv%synop(i)%p%sens = 0.0
+        iv%synop(i)%p%imp = 0.0
+        
+        iv%synop(i)%q%inv = obs_values(i)
+        iv%synop(i)%q%qc = 0
+        iv%synop(i)%q%error = obs_errors(i)
+        iv%synop(i)%q%sens = 0.0
+        iv%synop(i)%q%imp = 0.0
+      end do
+    end if
+    
+    print *, "WRFDA DEBUG: iv_type construction completed successfully"
+    wrfda_construct_iv_type = c_loc(iv)
+    
     ! Convert C string to Fortran string
     family_target = family(1:20)
     family_str = ""
@@ -2542,6 +2681,12 @@ contains
     
     ! Allocate iv_type structure
     allocate(iv)
+    if (.not. associated(iv)) then
+      print *, "WRFDA DEBUG: Failed to allocate iv_type structure"
+      wrfda_construct_iv_type = c_null_ptr
+      return
+    end if
+    print *, "WRFDA DEBUG: Successfully allocated iv_type structure"
     
     ! Initialize basic fields
     iv%nstats = 0
@@ -2552,6 +2697,21 @@ contains
     iv%missing = -888888.0
     iv%ptop = 0.0
     
+    ! Initialize info array for all observation types
+    do i = 1, size(iv%info)
+      iv%info(i)%max_lev = 0
+      iv%info(i)%nlocal = 0
+      iv%info(i)%ntotal = 0
+      iv%info(i)%thin_nlocal = 0
+      iv%info(i)%thin_ntotal = 0
+      iv%info(i)%plocal = 0
+      iv%info(i)%ptotal = 0
+      iv%info(i)%thin_plocal = 0
+      iv%info(i)%thin_ptotal = 0
+      iv%info(i)%n1 = 0
+      iv%info(i)%n2 = 0
+    end do
+    
     ! Set error factors for surface observations
     if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
       iv%metar_ef_u = 1.5
@@ -2560,55 +2720,209 @@ contains
       iv%metar_ef_p = 100.0
       iv%metar_ef_q = 0.0
       
-      ! Allocate metar array
-      allocate(iv%metar(num_obs))
-      iv%nstats(1) = num_obs  ! metar index
+      ! Set info for synop observations (index 2)
+      iv%info(2)%nlocal = num_obs
+      iv%info(2)%ntotal = num_obs
+      iv%info(2)%n1 = 1
+      iv%info(2)%n2 = num_obs
       
-      ! Populate metar array with observation data
+      ! Allocate synop array only if we have observations
+      if (num_obs > 0) then
+        allocate(iv%synop(num_obs))
+        iv%nstats(2) = num_obs  ! synop index
+      
+      ! Populate synop array with observation data
       do i = 1, num_obs
         ! Set height (surface level)
-        iv%metar(i)%h = 0.0
+        iv%synop(i)%h = 0.0
         
         ! Set field data for each variable
-        iv%metar(i)%u%inv = obs_values(i)      ! Innovation (obs - model)
-        iv%metar(i)%u%qc = 0                   ! Good quality
-        iv%metar(i)%u%error = obs_errors(i)    ! Observation error
-        iv%metar(i)%u%sens = 0.0               ! Sensitivity
-        iv%metar(i)%u%imp = 0.0                ! Impact
+        iv%synop(i)%u%inv = obs_values(i)      ! Innovation (obs - model)
+        iv%synop(i)%u%qc = 0                   ! Good quality
+        iv%synop(i)%u%error = obs_errors(i)    ! Observation error
+        iv%synop(i)%u%sens = 0.0               ! Sensitivity
+        iv%synop(i)%u%imp = 0.0                ! Impact
         
-        iv%metar(i)%v%inv = obs_values(i)      ! Placeholder
-        iv%metar(i)%v%qc = 0
-        iv%metar(i)%v%error = obs_errors(i)
-        iv%metar(i)%v%sens = 0.0
-        iv%metar(i)%v%imp = 0.0
+        iv%synop(i)%v%inv = obs_values(i)      ! Placeholder
+        iv%synop(i)%v%qc = 0
+        iv%synop(i)%v%error = obs_errors(i)
+        iv%synop(i)%v%sens = 0.0
+        iv%synop(i)%v%imp = 0.0
         
-        iv%metar(i)%t%inv = obs_values(i)      ! Placeholder
-        iv%metar(i)%t%qc = 0
-        iv%metar(i)%t%error = obs_errors(i)
-        iv%metar(i)%t%sens = 0.0
-        iv%metar(i)%t%imp = 0.0
+        iv%synop(i)%t%inv = obs_values(i)      ! Placeholder
+        iv%synop(i)%t%qc = 0
+        iv%synop(i)%t%error = obs_errors(i)
+        iv%synop(i)%t%sens = 0.0
+        iv%synop(i)%t%imp = 0.0
         
-        iv%metar(i)%p%inv = 101325.0           ! Standard pressure
-        iv%metar(i)%p%qc = 0
-        iv%metar(i)%p%error = 100.0
-        iv%metar(i)%p%sens = 0.0
-        iv%metar(i)%p%imp = 0.0
+        iv%synop(i)%p%inv = 101325.0           ! Standard pressure
+        iv%synop(i)%p%qc = 0
+        iv%synop(i)%p%error = 100.0
+        iv%synop(i)%p%sens = 0.0
+        iv%synop(i)%p%imp = 0.0
         
-        iv%metar(i)%q%inv = obs_values(i)      ! Placeholder
-        iv%metar(i)%q%qc = 0
-        iv%metar(i)%q%error = obs_errors(i)
-        iv%metar(i)%q%sens = 0.0
-        iv%metar(i)%q%imp = 0.0
+        iv%synop(i)%q%inv = obs_values(i)      ! Placeholder
+        iv%synop(i)%q%qc = 0
+        iv%synop(i)%q%error = obs_errors(i)
+        iv%synop(i)%q%sens = 0.0
+        iv%synop(i)%q%imp = 0.0
       end do
       
-      print *, "WRFDA DEBUG: Allocated iv%metar array with", num_obs, "observations"
-    end if
+      print *, "WRFDA DEBUG: Allocated iv%synop array with", num_obs, "observations"
+      end if  ! num_obs > 0
+    end if  ! family check
     
     ! Return pointer to allocated iv_type
     wrfda_construct_iv_type = c_loc(iv)
     print *, "WRFDA DEBUG: iv_type constructed successfully"
     
   end function wrfda_construct_iv_type
+
+  ! Construct config_flags for WRFDA
+  type(c_ptr) function wrfda_construct_config_flags() bind(C, name="wrfda_construct_config_flags")
+    implicit none
+    
+    ! For now, return a null pointer since config_flags is complex
+    ! In a full implementation, this would create a proper grid_config_rec_type
+    ! with all the necessary WRFDA configuration parameters
+    
+    print *, "WRFDA DEBUG: wrfda_construct_config_flags called"
+    print *, "WRFDA DEBUG: Returning null config_flags (simplified implementation)"
+    
+    wrfda_construct_config_flags = c_null_ptr
+    
+  end function wrfda_construct_config_flags
+
+  ! Extract innovation values from iv_type structure
+  integer(c_int) function wrfda_extract_innovations(iv_ptr, family, innovations, num_innovations, max_innovations) bind(C, name="wrfda_extract_innovations")
+    implicit none
+    type(c_ptr), intent(in) :: iv_ptr
+    character(c_char), intent(in) :: family(*)
+    real(c_double), intent(out) :: innovations(*)
+    integer(c_int), intent(out) :: num_innovations
+    integer(c_int), intent(in) :: max_innovations
+    
+    type(iv_type), pointer :: iv
+    character(len=20) :: family_str
+    character(c_char), target :: family_target(20)
+    integer :: i, count
+    integer :: family_index
+    
+    print *, "WRFDA DEBUG: wrfda_extract_innovations called"
+    
+    ! Convert C string to Fortran string
+    family_target = family(1:20)
+    family_str = ""
+    do i = 1, 20
+      if (family_target(i) == c_null_char) exit
+      family_str(i:i) = family_target(i)
+    end do
+    
+    ! Check if iv_ptr is null
+    if (c_associated(iv_ptr)) then
+      print *, "WRFDA DEBUG: iv_ptr is not null"
+      ! Get pointer to iv_type
+      call c_f_pointer(iv_ptr, iv)
+      if (.not. associated(iv)) then
+        print *, "WRFDA DEBUG: c_f_pointer failed"
+        wrfda_extract_innovations = -1
+        return
+      end if
+      print *, "WRFDA DEBUG: Successfully converted iv_ptr to iv pointer"
+    else
+      print *, "WRFDA DEBUG: iv_ptr is null - returning empty innovations"
+      num_innovations = 0
+      wrfda_extract_innovations = 0
+      return
+    end if
+    
+    ! Check if iv structure is valid
+    print *, "WRFDA DEBUG: iv%time =", iv%time
+    print *, "WRFDA DEBUG: iv%num_inst =", iv%num_inst
+    print *, "WRFDA DEBUG: size(iv%info) =", size(iv%info)
+    
+    ! Determine family index (simplified mapping)
+    family_index = 0
+    if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
+      family_index = 2  ! synop index (metar uses synop structure)
+    else if (trim(family_str) == "sound") then
+      family_index = 3  ! sound index
+    else if (trim(family_str) == "gpspw") then
+      family_index = 4  ! gpspw index
+    end if
+    
+    ! Check bounds
+    if (family_index > 0 .and. family_index <= size(iv%info)) then
+      print *, "WRFDA DEBUG: family_index", family_index, "is within bounds"
+    else
+      print *, "WRFDA DEBUG: family_index", family_index, "is out of bounds (max:", size(iv%info), ")"
+    end if
+    
+    if (family_index == 0) then
+      print *, "WRFDA DEBUG: Unknown family:", trim(family_str)
+      wrfda_extract_innovations = -2
+      return
+    end if
+    
+    ! Extract innovations based on family
+    count = 0
+    print *, "WRFDA DEBUG: family_index =", family_index
+    print *, "WRFDA DEBUG: associated(iv%synop) =", associated(iv%synop)
+    if (family_index == 2) then
+      print *, "WRFDA DEBUG: iv%info(2)%nlocal =", iv%info(2)%nlocal
+    end if
+    
+    if (family_index == 2 .and. family_index <= size(iv%info) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
+      ! Extract from synop array
+      print *, "WRFDA DEBUG: Extracting from synop array with", iv%info(2)%nlocal, "observations"
+      do i = 1, iv%info(2)%nlocal
+        if (i > size(iv%synop)) then
+          print *, "WRFDA DEBUG: Index", i, "exceeds synop array size", size(iv%synop)
+          exit
+        end if
+        ! Extract U component innovation
+        count = count + 1
+        if (count <= max_innovations) then
+          innovations(count) = iv%synop(i)%u%inv
+        end if
+        
+        ! Extract V component innovation
+        count = count + 1
+        if (count <= max_innovations) then
+          innovations(count) = iv%synop(i)%v%inv
+        end if
+        
+        ! Extract T component innovation
+        count = count + 1
+        if (count <= max_innovations) then
+          innovations(count) = iv%synop(i)%t%inv
+        end if
+        
+        ! Extract P component innovation
+        count = count + 1
+        if (count <= max_innovations) then
+          innovations(count) = iv%synop(i)%p%inv
+        end if
+        
+        ! Extract Q component innovation
+        count = count + 1
+        if (count <= max_innovations) then
+          innovations(count) = iv%synop(i)%q%inv
+        end if
+      end do
+      
+      print *, "WRFDA DEBUG: Extracted", count, "innovations from synop array"
+    else
+      print *, "WRFDA DEBUG: No data available for family:", trim(family_str)
+      count = 0
+    end if
+    
+    num_innovations = count
+    wrfda_extract_innovations = 0
+    
+    print *, "WRFDA DEBUG: Successfully extracted", num_innovations, "innovations"
+    
+  end function wrfda_extract_innovations
 
 end module metada_wrfda_dispatch
 

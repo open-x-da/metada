@@ -132,6 +132,14 @@ void* wrfda_construct_iv_type(int* num_obs, const double* obs_values,
                               const double* obs_lats, const double* obs_lons,
                               const double* obs_levels, const char* family);
 
+// Construct config_flags for WRFDA
+void* wrfda_construct_config_flags();
+
+// Extract innovation values from iv_type structure
+int wrfda_extract_innovations(void* iv_ptr, const char* family,
+                              double* innovations, int* num_innovations,
+                              int* max_innovations);
+
 #ifdef __cplusplus
 }
 #endif
