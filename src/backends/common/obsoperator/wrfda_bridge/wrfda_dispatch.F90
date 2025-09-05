@@ -26,6 +26,8 @@ module metada_wrfda_dispatch
                        da_transform_xtoy_sonde_sfc, da_transform_xtoy_sonde_sfc_adj
   use da_par_util, only: da_copy_dims, da_copy_tile_dims
   use da_tools, only: da_togrid
+  use module_configure, only: grid_config_rec_type
+  use da_minimisation, only: da_get_innov_vector
   
   implicit none
   
@@ -2335,6 +2337,110 @@ contains
     
     print *, "WRFDA DEBUG: update_domain_data completed"
   end subroutine update_domain_data
+
+  ! New function to call da_get_innov_vector directly
+  integer(c_int) function wrfda_get_innov_vector(it, domain_ptr, ob_ptr, iv_ptr, config_flags_ptr) bind(C, name="wrfda_get_innov_vector")
+    implicit none
+    integer(c_int), intent(in) :: it
+    type(c_ptr), value :: domain_ptr, ob_ptr, iv_ptr, config_flags_ptr
+    type(domain), pointer :: grid
+    type(y_type), pointer :: ob
+    type(iv_type), pointer :: iv
+    type(grid_config_rec_type), pointer :: config_flags
+    
+    ! Quality control statistics array (simplified for now)
+    integer, dimension(1,1,1,1) :: num_qcstat_conv
+    
+    ! Initialize return code
+    wrfda_get_innov_vector = 0
+    
+    ! Convert C pointers to Fortran pointers
+    call c_f_pointer(domain_ptr, grid)
+    call c_f_pointer(ob_ptr, ob)
+    call c_f_pointer(iv_ptr, iv)
+    call c_f_pointer(config_flags_ptr, config_flags)
+    
+    ! Initialize QC statistics array
+    num_qcstat_conv = 0
+    
+    ! Call the main WRFDA innovation vector computation routine
+    call da_get_innov_vector(it, num_qcstat_conv, ob, iv, grid, config_flags)
+    
+    print *, "WRFDA DEBUG: da_get_innov_vector completed successfully"
+    
+  end function wrfda_get_innov_vector
+
+  ! Helper function to construct WRFDA domain structure from flat arrays
+  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
+    implicit none
+    integer(c_int), intent(in) :: nx, ny, nz
+    real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
+    real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
+    type(c_ptr), intent(out) :: domain_ptr
+    
+    type(domain), pointer :: grid
+    integer :: i, j, k, idx
+    
+    ! Allocate new domain structure
+    allocate(grid)
+    
+    ! Set up basic domain dimensions
+    grid%id = 1
+    ! Note: WRFDA domain structure uses different member names
+    ! Store dimensions in the xb structure which has the proper arrays
+    ! The domain dimensions are implicit in the array sizes
+    
+    ! Allocate and populate xb (background state) arrays
+    allocate(grid%xb%u(1:nx, 1:ny, 1:nz))
+    allocate(grid%xb%v(1:nx, 1:ny, 1:nz))
+    allocate(grid%xb%t(1:nx, 1:ny, 1:nz))
+    allocate(grid%xb%q(1:nx, 1:ny, 1:nz))
+    allocate(grid%xb%psfc(1:nx, 1:ny))
+    
+    ! Copy data from flat arrays to WRFDA structure
+    ! Note: Fortran arrays are 1-based, and we assume input arrays are in [Z,Y,X] order
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          idx = (k-1)*nx*ny + (j-1)*nx + i
+          grid%xb%u(i,j,k) = u(idx)
+          grid%xb%v(i,j,k) = v(idx)
+          grid%xb%t(i,j,k) = t(idx)
+          grid%xb%q(i,j,k) = q(idx)
+        end do
+      end do
+    end do
+    
+    do j = 1, ny
+      do i = 1, nx
+        idx = (j-1)*nx + i
+        grid%xb%psfc(i,j) = psfc(idx)
+      end do
+    end do
+    
+    ! Set up grid metadata
+    allocate(grid%xb%lat(1:nx, 1:ny))
+    allocate(grid%xb%lon(1:nx, 1:ny))
+    allocate(grid%xb%h(1:nx, 1:ny, 1:nz))
+    
+    do j = 1, ny
+      do i = 1, nx
+        idx = (j-1)*nx + i
+        grid%xb%lat(i,j) = lats2d(idx)
+        grid%xb%lon(i,j) = lons2d(idx)
+        do k = 1, nz
+          grid%xb%h(i,j,k) = levels(k)
+        end do
+      end do
+    end do
+    
+    ! Return pointer to allocated domain
+    domain_ptr = c_loc(grid)
+    wrfda_construct_domain_from_arrays = 0
+    
+    print *, "WRFDA DEBUG: Domain structure constructed successfully"
+    
+  end function wrfda_construct_domain_from_arrays
 
 end module metada_wrfda_dispatch
 

@@ -370,9 +370,6 @@ class WRFState {
     };
 
     VariableDims u_dims, v_dims, t_dims, q_dims, psfc_dims;
-
-    // Zero-filled fallback storage (when variables are missing)
-    std::vector<double> u_zero, v_zero, t_zero, q_zero, psfc_zero;
   };
 
   ObsOperatorData getObsOperatorData() const;
@@ -1792,29 +1789,26 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   set_dims("QVAPOR", data.q_dims);
   set_dims("PSFC", data.psfc_dims);
 
-  // Create zero-filled fallbacks for missing variables
-  const size_t grid_size = static_cast<size_t>(data.nx * data.ny * data.nz);
-  const size_t surface_size = static_cast<size_t>(data.nx * data.ny);
-
+  // Validate required variables are present - fail fast if missing
   if (!data.u) {
-    data.u_zero.assign(grid_size, 0.0);
-    data.u = data.u_zero.data();
+    throw std::runtime_error(
+        "Required variable 'U' (U-wind) not found in WRF state");
   }
   if (!data.v) {
-    data.v_zero.assign(grid_size, 0.0);
-    data.v = data.v_zero.data();
+    throw std::runtime_error(
+        "Required variable 'V' (V-wind) not found in WRF state");
   }
   if (!data.t) {
-    data.t_zero.assign(grid_size, 0.0);
-    data.t = data.t_zero.data();
+    throw std::runtime_error(
+        "Required variable 'T' (Temperature) not found in WRF state");
   }
   if (!data.q) {
-    data.q_zero.assign(grid_size, 0.0);
-    data.q = data.q_zero.data();
+    throw std::runtime_error(
+        "Required variable 'QVAPOR' (Water vapor) not found in WRF state");
   }
   if (!data.psfc) {
-    data.psfc_zero.assign(surface_size, 0.0);
-    data.psfc = data.psfc_zero.data();
+    throw std::runtime_error(
+        "Required variable 'PSFC' (Surface pressure) not found in WRF state");
   }
 
   return data;

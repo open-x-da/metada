@@ -52,8 +52,9 @@ target_link_libraries(incremental_variational
       metada::backends::wrf
 )
 
-# If WRFDA is enabled, use linker group to resolve circular deps between wrfda_bridge and libwrfvar
-if(WITH_WRFDA AND WRFDA_VAR_LIB)
+# If WRFDA is enabled and we have a complete build environment, use linker group to resolve circular deps
+# Only link WRFDA libraries if we're not using the stub implementation
+if(WITH_WRFDA AND WRFDA_VAR_LIB AND WRFDA_COMPLETE_BUILD)
   if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     # Explicitly add da_control.o if present and not archived in libwrfvar
     set(WRFDA_DA_CONTROL_OBJ "${WRFDA_MOD_DIR}/da_control.o")
@@ -61,6 +62,21 @@ if(WITH_WRFDA AND WRFDA_VAR_LIB)
       target_link_libraries(variational PRIVATE ${WRFDA_DA_CONTROL_OBJ})
       target_link_libraries(incremental_variational PRIVATE ${WRFDA_DA_CONTROL_OBJ})
     endif()
+    
+    # Link NetCDF Fortran library (required by WRFDA)
+    find_library(NETCDF_FORTRAN_LIBRARY NAMES netcdff)
+    if(NETCDF_FORTRAN_LIBRARY)
+      target_link_libraries(variational PRIVATE ${NETCDF_FORTRAN_LIBRARY})
+      target_link_libraries(incremental_variational PRIVATE ${NETCDF_FORTRAN_LIBRARY})
+    endif()
+    
+    # Link CRTM library (required by WRFDA)
+    set(CRTM_LIBRARY_PATH "${WRFDA_MOD_DIR}/../external/crtm_2.3.0/libsrc/libCRTM.a")
+    if(EXISTS ${CRTM_LIBRARY_PATH})
+      target_link_libraries(variational PRIVATE ${CRTM_LIBRARY_PATH})
+      target_link_libraries(incremental_variational PRIVATE ${CRTM_LIBRARY_PATH})
+    endif()
+    
     target_link_options(variational PRIVATE -Wl,--start-group)
     target_link_libraries(variational PRIVATE ${WRFDA_VAR_LIB})
     target_link_options(variational PRIVATE -Wl,--end-group)
@@ -68,6 +84,8 @@ if(WITH_WRFDA AND WRFDA_VAR_LIB)
     target_link_libraries(incremental_variational PRIVATE ${WRFDA_VAR_LIB})
     target_link_options(incremental_variational PRIVATE -Wl,--end-group)
   endif()
+elseif(WITH_WRFDA)
+  message(STATUS "Variational application: Using WRFDA stub implementation (complete WRFDA environment not available)")
 endif()
 
 # Set output directory
