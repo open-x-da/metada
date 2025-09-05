@@ -194,6 +194,11 @@ class WRFDAObsOperator {
     // WRFDA-specific initialization complete
     // No delegation needed - this operator directly implements WRFDA logic
 
+    // Initialize WRFDA variables for 3D-Var analysis
+    // This sets var4d_run = .false., num_fgat_time = 1, and sfc_assi_options =
+    // sfc_assi_options_1
+    initialize_wrfda_3dvar();
+
     initialized_ = true;
   }
 

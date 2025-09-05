@@ -140,6 +140,9 @@ int wrfda_extract_innovations(void* iv_ptr, const char* family,
                               double* innovations, int* num_innovations,
                               int* max_innovations);
 
+// Initialize WRFDA variables for 3D-Var analysis
+void initialize_wrfda_3dvar();
+
 #ifdef __cplusplus
 }
 #endif

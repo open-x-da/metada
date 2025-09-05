@@ -15,7 +15,8 @@ module metada_wrfda_dispatch
   use module_domain,        only: domain, x_type
   use da_define_structures, only: iv_type, y_type, da_allocate_y, da_allocate_obs_info
   use da_control, only: metar, synop, ships, buoy, airep, pilot, sound, sonde_sfc, &
-                        sfc_assi_options, sfc_assi_options_1, trace_use_dull
+                        sfc_assi_options, sfc_assi_options_1, trace_use_dull, &
+                        var4d_run, num_fgat_time
   use da_metar,  only: da_transform_xtoy_metar,  da_transform_xtoy_metar_adj
   use da_synop,  only: da_transform_xtoy_synop,  da_transform_xtoy_synop_adj
   use da_buoy,   only: da_transform_xtoy_buoy,   da_transform_xtoy_buoy_adj
@@ -1120,11 +1121,11 @@ contains
         iv%info(family)%x(k, valid_obs_count) = real(xfloat)
         iv%info(family)%y(k, valid_obs_count) = real(yfloat)
         
-        ! Set interpolation weights (exact grid point for surface obs)
-        iv%info(family)%dx(k, valid_obs_count) = 0.0
-        iv%info(family)%dxm(k, valid_obs_count) = 1.0
-        iv%info(family)%dy(k, valid_obs_count) = 0.0
-        iv%info(family)%dym(k, valid_obs_count) = 1.0
+        ! Compute proper interpolation weights for bilinear interpolation
+        iv%info(family)%dx(k, valid_obs_count) = real(xfloat - int(xfloat))  ! Fractional part of x
+        iv%info(family)%dxm(k, valid_obs_count) = 1.0 - iv%info(family)%dx(k, valid_obs_count)  ! 1.0 - dx
+        iv%info(family)%dy(k, valid_obs_count) = real(yfloat - int(yfloat))  ! Fractional part of y  
+        iv%info(family)%dym(k, valid_obs_count) = 1.0 - iv%info(family)%dy(k, valid_obs_count)  ! 1.0 - dy
       end do
       
       ! Set vertical interpolation
@@ -1255,7 +1256,7 @@ contains
     print *, "WRFDA DEBUG: init_domain_from_arrays_refs completed successfully"
   end subroutine init_domain_from_arrays_refs
 
-     subroutine init_iv_from_obs(family, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, kms, kme)
+  subroutine init_iv_from_obs(family, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, kms, kme)
      integer, intent(in) :: family
      type(iv_type), intent(inout) :: iv
      integer, intent(in) :: nx, ny, nz
@@ -1312,8 +1313,17 @@ contains
     iv%info(family)%j = 1  ! Default to grid point 1 (1-based)
     iv%info(family)%k = 1  ! Default to surface level (1-based)
     print *, "WRFDA DEBUG: Grid indices initialized"
-     
-           iv%info(family)%n1 = 1; iv%info(family)%n2 = num_obs
+    
+    ! Set up plocal array for proper time slot indexing
+    ! For 3D-Var (num_fgat_time = 1), we have:
+    ! plocal(0) = 0 (no observations before time slot 1)
+    ! plocal(1) = num_obs (cumulative count at time slot 1)
+    iv%info(family)%plocal(0) = 0
+    iv%info(family)%plocal(1) = num_obs
+    
+    ! Set n1 and n2 based on plocal array (WRFDA standard pattern)
+    iv%info(family)%n1 = iv%info(family)%plocal(0) + 1  ! = 1
+    iv%info(family)%n2 = iv%info(family)%plocal(1)      ! = num_obs
       do n = 1, num_obs
         call find_fractional_ij(nx, ny, lats2d, lons2d, obs_lats(n), obs_lons(n), i, j, xfloat, yfloat)
         print *, "WRFDA DEBUG: Observation", n, " - calculated grid indices: i=", i, " j=", j, " xfloat=", xfloat, " yfloat=", yfloat
@@ -1345,13 +1355,14 @@ contains
         iv%info(family)%x(k,n) = real(xfloat)  ! Keep 1-based
         iv%info(family)%y(k,n) = real(yfloat)  ! Keep 1-based
         
-        ! CRITICAL FIX: For surface observations, always use exact grid point interpolation
-        ! This ensures 3D variables (U,V,T,Q) get proper values instead of zeros
-        ! Since we're setting i=xfloat and j=yfloat for surface obs, dx and dy should be 0.0
-        iv%info(family)%dx(k,n) = 0.0  ! No horizontal interpolation - exact grid point
-        iv%info(family)%dxm(k,n) = 1.0 ! Full weight on grid point
-        iv%info(family)%dy(k,n) = 0.0  ! No horizontal interpolation - exact grid point
-        iv%info(family)%dym(k,n) = 1.0 ! Full weight on grid point
+        ! Compute proper interpolation weights for bilinear interpolation
+        ! xfloat and yfloat are fractional coordinates (e.g., 1.5 means halfway between grid points 1 and 2)
+        ! dx = fractional part of x-coordinate, dxm = 1.0 - dx
+        ! dy = fractional part of y-coordinate, dym = 1.0 - dy
+        iv%info(family)%dx(k,n) = real(xfloat - int(xfloat))  ! Fractional part of x
+        iv%info(family)%dxm(k,n) = 1.0 - iv%info(family)%dx(k,n)  ! 1.0 - dx
+        iv%info(family)%dy(k,n) = real(yfloat - int(yfloat))  ! Fractional part of y  
+        iv%info(family)%dym(k,n) = 1.0 - iv%info(family)%dy(k,n)  ! 1.0 - dy
         
         ! Set remaining levels to the same surface level to prevent WRFDA from processing them
         ! This ensures all levels point to the same valid surface location
@@ -1360,10 +1371,11 @@ contains
           iv%info(family)%j(k,n) = j  ! Same horizontal position
           iv%info(family)%x(k,n) = real(xfloat)  ! Same horizontal position
           iv%info(family)%y(k,n) = real(yfloat)  ! Same horizontal position
-          iv%info(family)%dx(k,n) = 0.0  ! No horizontal interpolation
-          iv%info(family)%dxm(k,n) = 1.0 ! Full weight on grid point
-          iv%info(family)%dy(k,n) = 0.0  ! No horizontal interpolation
-          iv%info(family)%dym(k,n) = 1.0 ! Full weight on grid point
+          ! Use same interpolation weights as the first level
+          iv%info(family)%dx(k,n) = iv%info(family)%dx(1,n)  ! Same as first level
+          iv%info(family)%dxm(k,n) = iv%info(family)%dxm(1,n) ! Same as first level
+          iv%info(family)%dy(k,n) = iv%info(family)%dy(1,n)  ! Same as first level
+          iv%info(family)%dym(k,n) = iv%info(family)%dym(1,n) ! Same as first level
         end do
        if (nz > 1) then
          ! For surface observations, find_fractional_k will return k=1
@@ -1416,7 +1428,17 @@ contains
     allocate(iv%info(family)%dxm(max_lev,num_obs), iv%info(family)%dym(max_lev,num_obs), iv%info(family)%dzm(max_lev,num_obs))
     allocate(iv%info(family)%levels(num_obs))
     allocate(iv%info(family)%proc_domain(max_lev,num_obs)); iv%info(family)%proc_domain = .true.
-    iv%info(family)%n1 = 1; iv%info(family)%n2 = num_obs
+    
+    ! Set up plocal array for proper time slot indexing
+    ! For 3D-Var (num_fgat_time = 1), we have:
+    ! plocal(0) = 0 (no observations before time slot 1)
+    ! plocal(1) = num_obs (cumulative count at time slot 1)
+    iv%info(family)%plocal(0) = 0
+    iv%info(family)%plocal(1) = num_obs
+    
+    ! Set n1 and n2 based on plocal array (WRFDA standard pattern)
+    iv%info(family)%n1 = iv%info(family)%plocal(0) + 1  ! = 1
+    iv%info(family)%n2 = iv%info(family)%plocal(1)      ! = num_obs
     idx = 0
          do n = 1, num_obs
        nlev = obs_counts(n)
@@ -2369,14 +2391,14 @@ contains
     end if
     
     ! Check if config_flags_ptr is null before converting
-    if (c_associated(config_flags_ptr)) then
-      call c_f_pointer(config_flags_ptr, config_flags)
-      print *, "WRFDA DEBUG: config_flags_ptr converted successfully"
-    else
-      print *, "WRFDA DEBUG: config_flags_ptr is null - skipping da_get_innov_vector"
-      wrfda_get_innov_vector = 0
-      return
-    end if
+    !if (c_associated(config_flags_ptr)) then
+    !  call c_f_pointer(config_flags_ptr, config_flags)
+    !  print *, "WRFDA DEBUG: config_flags_ptr converted successfully"
+    !else
+    !  print *, "WRFDA DEBUG: config_flags_ptr is null - skipping da_get_innov_vector"
+    !  wrfda_get_innov_vector = 0
+    !  return
+    !end if
     
     ! Initialize QC statistics array
     num_qcstat_conv = 0
@@ -2611,8 +2633,17 @@ contains
     ! Set up for surface observations (family index 2 = synop)
     iv%info(2)%nlocal = num_obs
     iv%info(2)%ntotal = num_obs
-    iv%info(2)%n1 = 1
-    iv%info(2)%n2 = num_obs
+    
+    ! Set up plocal array for proper time slot indexing
+    ! For 3D-Var (num_fgat_time = 1), we have:
+    ! plocal(0) = 0 (no observations before time slot 1)
+    ! plocal(1) = num_obs (cumulative count at time slot 1)
+    iv%info(2)%plocal(0) = 0
+    iv%info(2)%plocal(1) = num_obs
+    
+    ! Set n1 and n2 based on plocal array (WRFDA standard pattern)
+    iv%info(2)%n1 = iv%info(2)%plocal(0) + 1  ! = 1
+    iv%info(2)%n2 = iv%info(2)%plocal(1)      ! = num_obs
     
     ! Allocate synop array if we have observations
     if (num_obs > 0) then
@@ -2723,8 +2754,17 @@ contains
       ! Set info for synop observations (index 2)
       iv%info(2)%nlocal = num_obs
       iv%info(2)%ntotal = num_obs
-      iv%info(2)%n1 = 1
-      iv%info(2)%n2 = num_obs
+      
+      ! Set up plocal array for proper time slot indexing
+      ! For 3D-Var (num_fgat_time = 1), we have:
+      ! plocal(0) = 0 (no observations before time slot 1)
+      ! plocal(1) = num_obs (cumulative count at time slot 1)
+      iv%info(2)%plocal(0) = 0
+      iv%info(2)%plocal(1) = num_obs
+      
+      ! Set n1 and n2 based on plocal array (WRFDA standard pattern)
+      iv%info(2)%n1 = iv%info(2)%plocal(0) + 1  ! = 1
+      iv%info(2)%n2 = iv%info(2)%plocal(1)      ! = num_obs
       
       ! Allocate synop array only if we have observations
       if (num_obs > 0) then
@@ -2923,6 +2963,25 @@ contains
     print *, "WRFDA DEBUG: Successfully extracted", num_innovations, "innovations"
     
   end function wrfda_extract_innovations
+
+  ! Initialize WRFDA variables for 3D-Var analysis
+  subroutine initialize_wrfda_3dvar() bind(C, name="initialize_wrfda_3dvar")
+    implicit none
+    
+    ! Set variables for 3D-Var analysis
+    ! var4d_run = .false. indicates 3D-Var (not 4D-Var)
+    ! num_fgat_time = 1 indicates single time slot for 3D-Var
+    ! sfc_assi_options = sfc_assi_options_1 sets surface assimilation options
+    var4d_run = .false.
+    num_fgat_time = 1
+    sfc_assi_options = sfc_assi_options_1
+    
+    print *, "WRFDA DEBUG: Initialized for 3D-Var analysis"
+    print *, "WRFDA DEBUG: var4d_run = ", var4d_run
+    print *, "WRFDA DEBUG: num_fgat_time = ", num_fgat_time
+    print *, "WRFDA DEBUG: sfc_assi_options = ", sfc_assi_options
+    
+  end subroutine initialize_wrfda_3dvar
 
 end module metada_wrfda_dispatch
 
