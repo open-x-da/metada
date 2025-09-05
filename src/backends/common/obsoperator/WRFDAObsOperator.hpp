@@ -450,26 +450,8 @@ class WRFDAObsOperator {
           "variables");
     }
 
-    // Debug output for troubleshooting
-    std::cout << "WRFDA: Calling da_get_innov_vector with:" << std::endl;
-    std::cout << "  Grid dimensions: " << nx << "x" << ny << "x" << nz
-              << std::endl;
-    std::cout << "  Variables: U=" << (u ? "present" : "null")
-              << ", V=" << (v ? "present" : "null")
-              << ", T=" << (t ? "present" : "null")
-              << ", Q=" << (q ? "present" : "null")
-              << ", PSFC=" << (psfc ? "present" : "null") << std::endl;
-    std::cout << "  Observations: " << num_observations << std::endl;
-
-    // NEW APPROACH: Use da_get_innov_vector directly
-    // This calls the main WRFDA driver routine that handles all observation
-    // types
-
     // Construct WRFDA domain structure from flat arrays
     void* domain_ptr = nullptr;
-    std::cout << "WRFDA C++: About to call wrfda_construct_domain_from_arrays "
-                 "with nx="
-              << nx << ", ny=" << ny << ", nz=" << nz << std::endl;
     int rc = wrfda_construct_domain_from_arrays(&nx, &ny, &nz, u_final, v_final,
                                                 t, q, psfc, lats_2d, lons_2d,
                                                 levels, &domain_ptr);
@@ -488,8 +470,9 @@ class WRFDAObsOperator {
     void* config_flags_ptr = nullptr;  // TODO: Construct config_flags
 
     // Step 3: Call da_get_innov_vector
-    rc =
-        wrfda_get_innov_vector(1, domain_ptr, ob_ptr, iv_ptr, config_flags_ptr);
+    const int it = 1;
+    rc = wrfda_get_innov_vector(&it, domain_ptr, ob_ptr, iv_ptr,
+                                config_flags_ptr);
 
     if (rc != 0) {
       throw std::runtime_error("da_get_innov_vector failed with code " +

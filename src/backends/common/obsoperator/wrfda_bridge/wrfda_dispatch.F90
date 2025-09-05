@@ -2380,14 +2380,6 @@ contains
     
     type(domain), pointer :: grid
     integer :: i, j, k, idx
-    
-    print *, "WRFDA DEBUG: wrfda_construct_domain_from_arrays called with dimensions:", nx, ny, nz
-    ! Check if dimensions are valid
-    if (nx <= 0 .or. ny <= 0 .or. nz <= 0) then
-      print *, "ERROR: Invalid dimensions - nx=", nx, ", ny=", ny, ", nz=", nz
-      wrfda_construct_domain_from_arrays = -1
-      return
-    end if
 
     ! Allocate new domain structure
     allocate(grid)
@@ -2444,10 +2436,7 @@ contains
 
     ! Return pointer to allocated domain
     domain_ptr = c_loc(grid)
-    print *, "WRFDA DEBUG: wrfda_construct_domain_from_arrays completed successfully"
     wrfda_construct_domain_from_arrays = 0
-    ! 
-    print *, "WRFDA DEBUG: Domain structure constructed successfully"
     
   end function wrfda_construct_domain_from_arrays
 
