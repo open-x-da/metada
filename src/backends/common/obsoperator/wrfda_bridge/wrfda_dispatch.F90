@@ -2381,28 +2381,34 @@ contains
     type(domain), pointer :: grid
     integer :: i, j, k, idx
     
+    print *, "WRFDA DEBUG: wrfda_construct_domain_from_arrays called with dimensions:", nx, ny, nz
+    ! Check if dimensions are valid
+    if (nx <= 0 .or. ny <= 0 .or. nz <= 0) then
+      print *, "ERROR: Invalid dimensions - nx=", nx, ", ny=", ny, ", nz=", nz
+      wrfda_construct_domain_from_arrays = -1
+      return
+    end if
+
     ! Allocate new domain structure
     allocate(grid)
-    
+
     ! Set up basic domain dimensions
     grid%id = 1
-    ! Note: WRFDA domain structure uses different member names
-    ! Store dimensions in the xb structure which has the proper arrays
-    ! The domain dimensions are implicit in the array sizes
-    
+
     ! Allocate and populate xb (background state) arrays
     allocate(grid%xb%u(1:nx, 1:ny, 1:nz))
     allocate(grid%xb%v(1:nx, 1:ny, 1:nz))
     allocate(grid%xb%t(1:nx, 1:ny, 1:nz))
     allocate(grid%xb%q(1:nx, 1:ny, 1:nz))
     allocate(grid%xb%psfc(1:nx, 1:ny))
-    
+
     ! Copy data from flat arrays to WRFDA structure
-    ! Note: Fortran arrays are 1-based, and we assume input arrays are in [Z,Y,X] order
+    ! Note: C++ arrays are in [X,Y,Z] order (row-major), Fortran arrays are [Z,Y,X] (column-major)
     do k = 1, nz
       do j = 1, ny
         do i = 1, nx
-          idx = (k-1)*nx*ny + (j-1)*nx + i
+          ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
+          idx = (i-1)*ny*nz + (j-1)*nz + k
           grid%xb%u(i,j,k) = u(idx)
           grid%xb%v(i,j,k) = v(idx)
           grid%xb%t(i,j,k) = t(idx)
@@ -2410,22 +2416,24 @@ contains
         end do
       end do
     end do
-    
+
     do j = 1, ny
       do i = 1, nx
-        idx = (j-1)*nx + i
+        ! Convert from C++ [X,Y] indexing to Fortran [Y,X] indexing
+        idx = (i-1)*ny + j
         grid%xb%psfc(i,j) = psfc(idx)
       end do
     end do
-    
+
     ! Set up grid metadata
     allocate(grid%xb%lat(1:nx, 1:ny))
     allocate(grid%xb%lon(1:nx, 1:ny))
     allocate(grid%xb%h(1:nx, 1:ny, 1:nz))
-    
+
     do j = 1, ny
       do i = 1, nx
-        idx = (j-1)*nx + i
+        ! Convert from C++ [X,Y] indexing to Fortran [Y,X] indexing
+        idx = (i-1)*ny + j
         grid%xb%lat(i,j) = lats2d(idx)
         grid%xb%lon(i,j) = lons2d(idx)
         do k = 1, nz
@@ -2433,11 +2441,12 @@ contains
         end do
       end do
     end do
-    
+
     ! Return pointer to allocated domain
     domain_ptr = c_loc(grid)
+    print *, "WRFDA DEBUG: wrfda_construct_domain_from_arrays completed successfully"
     wrfda_construct_domain_from_arrays = 0
-    
+    ! 
     print *, "WRFDA DEBUG: Domain structure constructed successfully"
     
   end function wrfda_construct_domain_from_arrays

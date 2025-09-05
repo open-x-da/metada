@@ -112,7 +112,8 @@ int wrfda_get_innov_vector(int it, const void* domain_ptr, const void* ob_ptr,
                            const void* iv_ptr, const void* config_flags_ptr);
 
 // Helper function to construct WRFDA domain structure from flat arrays
-int wrfda_construct_domain_from_arrays(int nx, int ny, int nz, const double* u,
+int wrfda_construct_domain_from_arrays(const int* nx, const int* ny,
+                                       const int* nz, const double* u,
                                        const double* v, const double* t,
                                        const double* q, const double* psfc,
                                        const double* lats2d,

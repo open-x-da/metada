@@ -465,10 +465,13 @@ class WRFDAObsOperator {
     // This calls the main WRFDA driver routine that handles all observation
     // types
 
-    // Step 1: Construct WRFDA domain structure from flat arrays
+    // Construct WRFDA domain structure from flat arrays
     void* domain_ptr = nullptr;
-    int rc = wrfda_construct_domain_from_arrays(nx, ny, nz, u_final, v_final, t,
-                                                q, psfc, lats_2d, lons_2d,
+    std::cout << "WRFDA C++: About to call wrfda_construct_domain_from_arrays "
+                 "with nx="
+              << nx << ", ny=" << ny << ", nz=" << nz << std::endl;
+    int rc = wrfda_construct_domain_from_arrays(&nx, &ny, &nz, u_final, v_final,
+                                                t, q, psfc, lats_2d, lons_2d,
                                                 levels, &domain_ptr);
 
     if (rc != 0) {
