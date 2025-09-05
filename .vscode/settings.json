@@ -27,6 +27,11 @@
         "MSYSTEM": "MINGW64",
         "CHERE_INVOKING": "1"
     },
+    "fortran.fortls.path": "C:/msys64/usr/bin/fortls.exe",
+    "fortran.fortls.includePaths": [
+        "D:/linux/WRF/frame",
+        "D:/linux/WRF/var/da"
+    ],
     "cmake.buildDirectory": "${workspaceFolder}/build",
     "files.associations": {
         "any": "cpp",
