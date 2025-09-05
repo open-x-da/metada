@@ -126,6 +126,12 @@ void* wrfda_construct_y_type(int* num_obs, const double* obs_values,
                              const double* obs_errors, const char* obs_types,
                              const char* family);
 
+// Construct iv_type from observation data
+void* wrfda_construct_iv_type(int* num_obs, const double* obs_values,
+                              const double* obs_errors, const char* obs_types,
+                              const double* obs_lats, const double* obs_lons,
+                              const double* obs_levels, const char* family);
+
 #ifdef __cplusplus
 }
 #endif

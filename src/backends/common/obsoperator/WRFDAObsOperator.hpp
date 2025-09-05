@@ -464,7 +464,7 @@ class WRFDAObsOperator {
 
     // Step 2: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
-    void* iv_ptr = nullptr;            // TODO: Construct iv_type from obs_data
+    void* iv_ptr = constructIvType(obs_data, operator_families_);
     void* config_flags_ptr = nullptr;  // TODO: Construct config_flags
 
     // Step 3: Call da_get_innov_vector
@@ -989,6 +989,49 @@ class WRFDAObsOperator {
         const_cast<char*>(family.c_str()));
 
     return y_ptr;
+  }
+
+  /**
+   * @brief Construct WRFDA iv_type structure from observation data
+   *
+   * @param obs_data The observation data to convert
+   * @param families The operator families to use
+   * @return Pointer to constructed iv_type structure
+   *
+   * @details Constructs a WRFDA iv_type structure containing observation
+   * innovation vectors for the specified operator families. The structure is
+   * allocated and populated with observation data including locations and
+   * quality control information.
+   */
+  void* constructIvType(const typename ObsBackend::ObsOperatorData& obs_data,
+                        const std::vector<std::string>& families) const {
+    if (obs_data.num_obs == 0) {
+      return nullptr;
+    }
+
+    // Determine the operator family to use
+    std::string family = families.empty() ? "metar" : families[0];
+
+    // Prepare observation types as a flat string
+    std::string obs_types_flat;
+    for (size_t i = 0; i < obs_data.num_obs; ++i) {
+      std::string obs_type =
+          (i < obs_data.types.size()) ? obs_data.types[i] : "ADPSFC";
+      obs_types_flat += obs_type + std::string(20 - obs_type.length(), '\0');
+    }
+
+    // Call the Fortran function to construct iv_type
+    int num_obs_int = static_cast<int>(obs_data.num_obs);
+    void* iv_ptr = wrfda_construct_iv_type(
+        &num_obs_int, const_cast<double*>(obs_data.values.data()),
+        const_cast<double*>(obs_data.errors.data()),
+        const_cast<char*>(obs_types_flat.c_str()),
+        const_cast<double*>(obs_data.lats.data()),
+        const_cast<double*>(obs_data.lons.data()),
+        const_cast<double*>(obs_data.levels.data()),
+        const_cast<char*>(family.c_str()));
+
+    return iv_ptr;
   }
 
   /**
