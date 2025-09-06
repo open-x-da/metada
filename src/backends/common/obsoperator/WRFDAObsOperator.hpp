@@ -997,11 +997,65 @@ class WRFDAObsOperator {
       obs_types_flat += obs_type + std::string(20 - obs_type.length(), '\0');
     }
 
+    // Extract structured data for WRFDA
+    std::vector<double> u_values, v_values, t_values, p_values, q_values;
+    std::vector<double> u_errors, v_errors, t_errors, p_errors, q_errors;
+    std::vector<double> lats, lons, levels;
+    std::vector<int> u_available, v_available, t_available, p_available,
+        q_available;
+
+    // Extract data from the hierarchical structure
+    for (size_t station = 0; station < obs_data.num_obs; ++station) {
+      lats.push_back(obs_data.lats[station]);
+      lons.push_back(obs_data.lons[station]);
+
+      // Process each level for this station
+      for (const auto& level : obs_data.levels[station]) {
+        levels.push_back(level.level);
+
+        // Extract variable data
+        u_values.push_back(level.u.available ? level.u.value : 0.0);
+        v_values.push_back(level.v.available ? level.v.value : 0.0);
+        t_values.push_back(level.t.available ? level.t.value : 0.0);
+        p_values.push_back(level.p.available ? level.p.value : 0.0);
+        q_values.push_back(level.q.available ? level.q.value : 0.0);
+
+        u_errors.push_back(level.u.available ? level.u.error : 1.0);
+        v_errors.push_back(level.v.available ? level.v.error : 1.0);
+        t_errors.push_back(level.t.available ? level.t.error : 1.0);
+        p_errors.push_back(level.p.available ? level.p.error : 1.0);
+        q_errors.push_back(level.q.available ? level.q.error : 1.0);
+
+        // Extract availability flags
+        u_available.push_back(level.u.available ? 1 : 0);
+        v_available.push_back(level.v.available ? 1 : 0);
+        t_available.push_back(level.t.available ? 1 : 0);
+        p_available.push_back(level.p.available ? 1 : 0);
+        q_available.push_back(level.q.available ? 1 : 0);
+      }
+    }
+
     // Call the Fortran function to construct y_type
     int num_obs_int = static_cast<int>(obs_data.num_obs);
+    int num_levels_int = static_cast<int>(levels.size());
+
     void* y_ptr = wrfda_construct_y_type(
-        &num_obs_int, const_cast<double*>(obs_data.values.data()),
-        const_cast<double*>(obs_data.errors.data()),
+        &num_obs_int, &num_levels_int, const_cast<double*>(u_values.data()),
+        const_cast<double*>(v_values.data()),
+        const_cast<double*>(t_values.data()),
+        const_cast<double*>(p_values.data()),
+        const_cast<double*>(q_values.data()),
+        const_cast<double*>(u_errors.data()),
+        const_cast<double*>(v_errors.data()),
+        const_cast<double*>(t_errors.data()),
+        const_cast<double*>(p_errors.data()),
+        const_cast<double*>(q_errors.data()),
+        const_cast<int*>(u_available.data()),
+        const_cast<int*>(v_available.data()),
+        const_cast<int*>(t_available.data()),
+        const_cast<int*>(p_available.data()),
+        const_cast<int*>(q_available.data()), const_cast<double*>(lats.data()),
+        const_cast<double*>(lons.data()), const_cast<double*>(levels.data()),
         const_cast<char*>(obs_types_flat.c_str()),
         const_cast<char*>(family.c_str()));
 
@@ -1037,38 +1091,75 @@ class WRFDAObsOperator {
       obs_types_flat += obs_type + std::string(20 - obs_type.length(), '\0');
     }
 
-    // Call the Fortran function to construct iv_type
-    int num_obs_int = static_cast<int>(obs_data.num_obs);
+    // Extract structured data for WRFDA
+    std::vector<double> u_values, v_values, t_values, p_values, q_values;
+    std::vector<double> u_errors, v_errors, t_errors, p_errors, q_errors;
+    std::vector<double> lats, lons, levels;
+    std::vector<int> u_qc, v_qc, t_qc, p_qc, q_qc;
+    std::vector<int> u_available, v_available, t_available, p_available,
+        q_available;
 
-    // Debug: Check if data vectors are valid
-    std::cout << "WRFDA DEBUG: num_obs = " << num_obs_int << std::endl;
-    std::cout << "WRFDA DEBUG: values.size() = " << obs_data.values.size()
-              << std::endl;
-    std::cout << "WRFDA DEBUG: errors.size() = " << obs_data.errors.size()
-              << std::endl;
-    std::cout << "WRFDA DEBUG: lats.size() = " << obs_data.lats.size()
-              << std::endl;
-    std::cout << "WRFDA DEBUG: lons.size() = " << obs_data.lons.size()
-              << std::endl;
-    std::cout << "WRFDA DEBUG: levels.size() = " << obs_data.levels.size()
-              << std::endl;
-    std::cout << "WRFDA DEBUG: family = '" << family << "'" << std::endl;
+    // Extract data from the hierarchical structure
+    for (size_t station = 0; station < obs_data.num_obs; ++station) {
+      lats.push_back(obs_data.lats[station]);
+      lons.push_back(obs_data.lons[station]);
 
-    // Check for null pointers
-    if (obs_data.values.empty() || obs_data.errors.empty() ||
-        obs_data.lats.empty() || obs_data.lons.empty() ||
-        obs_data.levels.empty()) {
-      std::cout << "WRFDA DEBUG: Empty data vectors detected" << std::endl;
-      return nullptr;
+      // Process each level for this station
+      for (const auto& level : obs_data.levels[station]) {
+        levels.push_back(level.level);
+
+        // Extract variable data
+        u_values.push_back(level.u.available ? level.u.value : 0.0);
+        v_values.push_back(level.v.available ? level.v.value : 0.0);
+        t_values.push_back(level.t.available ? level.t.value : 0.0);
+        p_values.push_back(level.p.available ? level.p.value : 0.0);
+        q_values.push_back(level.q.available ? level.q.value : 0.0);
+
+        u_errors.push_back(level.u.available ? level.u.error : 1.0);
+        v_errors.push_back(level.v.available ? level.v.error : 1.0);
+        t_errors.push_back(level.t.available ? level.t.error : 1.0);
+        p_errors.push_back(level.p.available ? level.p.error : 1.0);
+        q_errors.push_back(level.q.available ? level.q.error : 1.0);
+
+        u_qc.push_back(level.u.available ? level.u.qc : 1);
+        v_qc.push_back(level.v.available ? level.v.qc : 1);
+        t_qc.push_back(level.t.available ? level.t.qc : 1);
+        p_qc.push_back(level.p.available ? level.p.qc : 1);
+        q_qc.push_back(level.q.available ? level.q.qc : 1);
+
+        // Extract availability flags
+        u_available.push_back(level.u.available ? 1 : 0);
+        v_available.push_back(level.v.available ? 1 : 0);
+        t_available.push_back(level.t.available ? 1 : 0);
+        p_available.push_back(level.p.available ? 1 : 0);
+        q_available.push_back(level.q.available ? 1 : 0);
+      }
     }
 
+    // Call the Fortran function to construct iv_type
+    int num_obs_int = static_cast<int>(obs_data.num_obs);
+    int num_levels_int = static_cast<int>(levels.size());
+
     void* iv_ptr = wrfda_construct_iv_type(
-        &num_obs_int, const_cast<double*>(obs_data.values.data()),
-        const_cast<double*>(obs_data.errors.data()),
+        &num_obs_int, &num_levels_int, const_cast<double*>(u_values.data()),
+        const_cast<double*>(v_values.data()),
+        const_cast<double*>(t_values.data()),
+        const_cast<double*>(p_values.data()),
+        const_cast<double*>(q_values.data()),
+        const_cast<double*>(u_errors.data()),
+        const_cast<double*>(v_errors.data()),
+        const_cast<double*>(t_errors.data()),
+        const_cast<double*>(p_errors.data()),
+        const_cast<double*>(q_errors.data()), const_cast<int*>(u_qc.data()),
+        const_cast<int*>(v_qc.data()), const_cast<int*>(t_qc.data()),
+        const_cast<int*>(p_qc.data()), const_cast<int*>(q_qc.data()),
+        const_cast<int*>(u_available.data()),
+        const_cast<int*>(v_available.data()),
+        const_cast<int*>(t_available.data()),
+        const_cast<int*>(p_available.data()),
+        const_cast<int*>(q_available.data()), const_cast<double*>(lats.data()),
+        const_cast<double*>(lons.data()), const_cast<double*>(levels.data()),
         const_cast<char*>(obs_types_flat.c_str()),
-        const_cast<double*>(obs_data.lats.data()),
-        const_cast<double*>(obs_data.lons.data()),
-        const_cast<double*>(obs_data.levels.data()),
         const_cast<char*>(family.c_str()));
 
     return iv_ptr;

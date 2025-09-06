@@ -122,15 +122,29 @@ int wrfda_construct_domain_from_arrays(const int* nx, const int* ny,
                                        const double* levels, void** domain_ptr);
 
 // Construct y_type from observation data
-void* wrfda_construct_y_type(int* num_obs, const double* obs_values,
-                             const double* obs_errors, const char* obs_types,
-                             const char* family);
+void* wrfda_construct_y_type(int* num_obs, int* num_levels,
+                             const double* u_values, const double* v_values,
+                             const double* t_values, const double* p_values,
+                             const double* q_values, const double* u_errors,
+                             const double* v_errors, const double* t_errors,
+                             const double* p_errors, const double* q_errors,
+                             const int* u_available, const int* v_available,
+                             const int* t_available, const int* p_available,
+                             const int* q_available, const double* lats,
+                             const double* lons, const double* levels,
+                             const char* obs_types, const char* family);
 
 // Construct iv_type from observation data
-void* wrfda_construct_iv_type(int* num_obs, const double* obs_values,
-                              const double* obs_errors, const char* obs_types,
-                              const double* obs_lats, const double* obs_lons,
-                              const double* obs_levels, const char* family);
+void* wrfda_construct_iv_type(
+    int* num_obs, int* num_levels, const double* u_values,
+    const double* v_values, const double* t_values, const double* p_values,
+    const double* q_values, const double* u_errors, const double* v_errors,
+    const double* t_errors, const double* p_errors, const double* q_errors,
+    const int* u_qc, const int* v_qc, const int* t_qc, const int* p_qc,
+    const int* q_qc, const int* u_available, const int* v_available,
+    const int* t_available, const int* p_available, const int* q_available,
+    const double* lats, const double* lons, const double* levels,
+    const char* obs_types, const char* family);
 
 // Construct config_flags for WRFDA
 void* wrfda_construct_config_flags();

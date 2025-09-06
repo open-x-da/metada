@@ -2482,10 +2482,13 @@ contains
   end function wrfda_construct_domain_from_arrays
 
   ! Construct y_type from observation data
-  type(c_ptr) function wrfda_construct_y_type(num_obs, obs_values, obs_errors, obs_types, family) bind(C, name="wrfda_construct_y_type")
+  type(c_ptr) function wrfda_construct_y_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, obs_types, family) bind(C, name="wrfda_construct_y_type")
     implicit none
-    integer(c_int), intent(in) :: num_obs
-    real(c_double), intent(in) :: obs_values(*), obs_errors(*)
+    integer(c_int), intent(in) :: num_obs, num_levels
+    real(c_double), intent(in) :: u_values(*), v_values(*), t_values(*), p_values(*), q_values(*)
+    real(c_double), intent(in) :: u_errors(*), v_errors(*), t_errors(*), p_errors(*), q_errors(*)
+    integer(c_int), intent(in) :: u_available(*), v_available(*), t_available(*), p_available(*), q_available(*)
+    real(c_double), intent(in) :: lats(*), lons(*), levels(*)
     character(c_char), intent(in) :: obs_types(*), family(*)
     
     type(y_type), pointer :: y
@@ -2493,21 +2496,22 @@ contains
     character(len=20) :: family_str
     character(c_char), target :: family_target(20)
     
-    print *, "WRFDA DEBUG: wrfda_construct_y_type called with num_obs=", num_obs
+    print *, "WRFDA DEBUG: wrfda_construct_y_type called with num_obs=", num_obs, "num_levels=", num_levels
+    
+    ! Check if num_obs is valid
+    if (num_obs <= 0 .or. num_levels <= 0) then
+      print *, "WRFDA DEBUG: Invalid num_obs or num_levels =", num_obs, num_levels
+      wrfda_construct_y_type = c_null_ptr
+      return
+    end if
     
     ! Convert C string to Fortran string
     family_target = family(1:20)
-    ! Simple string conversion without c_f_string_ptr
     family_str = ""
     do i = 1, 20
       if (family_target(i) == c_null_char) exit
       family_str(i:i) = family_target(i)
     end do
-    
-    ! Use obs_types to suppress warning (could be used for type-specific handling)
-    if (obs_types(1) /= c_null_char) then
-      ! Observation types available - could be used for type-specific processing
-    end if
     
     ! Allocate y_type structure
     allocate(y)
@@ -2517,28 +2521,50 @@ contains
     y%ntotal = 0
     y%num_inst = 0
     
-    ! For surface observations (metar, synop, adpsfc), allocate metar array
+    ! For surface observations (metar, synop, adpsfc), allocate synop array
     if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
-      allocate(y%metar(num_obs))
-      y%nlocal(1) = num_obs  ! metar index
+      allocate(y%synop(num_obs))
+      y%nlocal(1) = num_obs  ! synop index
       y%ntotal(1) = num_obs
       
-      ! Populate metar array with observation data
+      ! Populate synop array with observation data
       do i = 1, num_obs
-        ! For now, set all values to the observation values
-        ! In a full implementation, these would be residuals (obs - model)
-        y%metar(i)%u = obs_values(i)
-        y%metar(i)%v = obs_values(i)  ! Placeholder - would need separate U/V values
-        y%metar(i)%t = obs_values(i)  ! Placeholder - would need separate T values
-        y%metar(i)%p = 101325.0       ! Standard pressure
-        y%metar(i)%q = obs_values(i)  ! Placeholder - would need separate Q values
-        ! Use obs_errors to suppress warning (could be used for error weighting)
-        if (obs_errors(i) > 0.0) then
-          ! Error information available - could be used for weighting
+        ! Set values from the structured data only if available
+        if (u_available(i) == 1) then
+          y%synop(i)%u = u_values(i)
+        else
+          y%synop(i)%u = 0.0  ! Default value for unavailable data
         end if
+        
+        if (v_available(i) == 1) then
+          y%synop(i)%v = v_values(i)
+        else
+          y%synop(i)%v = 0.0
+        end if
+        
+        if (t_available(i) == 1) then
+          y%synop(i)%t = t_values(i)
+        else
+          y%synop(i)%t = 0.0
+        end if
+        
+        if (p_available(i) == 1) then
+          y%synop(i)%p = p_values(i)
+        else
+          y%synop(i)%p = 0.0
+        end if
+        
+        if (q_available(i) == 1) then
+          y%synop(i)%q = q_values(i)
+        else
+          y%synop(i)%q = 0.0
+        end if
+        
+        ! Note: height field may not be available in y_type structure
+        ! y%synop(i)%h = levels(i)  ! Commented out if h field doesn't exist
       end do
       
-      print *, "WRFDA DEBUG: Allocated metar array with", num_obs, "observations"
+      print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
     end if
     
     ! Return pointer to allocated y_type
@@ -2548,11 +2574,14 @@ contains
   end function wrfda_construct_y_type
 
   ! Construct iv_type from observation data
-  type(c_ptr) function wrfda_construct_iv_type(num_obs, obs_values, obs_errors, obs_types, obs_lats, obs_lons, obs_levels, family) bind(C, name="wrfda_construct_iv_type")
+  type(c_ptr) function wrfda_construct_iv_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_qc, v_qc, t_qc, p_qc, q_qc, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, obs_types, family) bind(C, name="wrfda_construct_iv_type")
     implicit none
-    integer(c_int), intent(in) :: num_obs
-    real(c_double), intent(in) :: obs_values(*), obs_errors(*)
-    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
+    integer(c_int), intent(in) :: num_obs, num_levels
+    real(c_double), intent(in) :: u_values(*), v_values(*), t_values(*), p_values(*), q_values(*)
+    real(c_double), intent(in) :: u_errors(*), v_errors(*), t_errors(*), p_errors(*), q_errors(*)
+    integer(c_int), intent(in) :: u_qc(*), v_qc(*), t_qc(*), p_qc(*), q_qc(*)
+    integer(c_int), intent(in) :: u_available(*), v_available(*), t_available(*), p_available(*), q_available(*)
+    real(c_double), intent(in) :: lats(*), lons(*), levels(*)
     character(c_char), intent(in) :: obs_types(*), family(*)
     
     type(iv_type), pointer :: iv
@@ -2560,49 +2589,13 @@ contains
     character(len=20) :: family_str
     character(c_char), target :: family_target(20)
     
-    print *, "WRFDA DEBUG: wrfda_construct_iv_type called with num_obs=", num_obs
+    print *, "WRFDA DEBUG: wrfda_construct_iv_type called with num_obs=", num_obs, "num_levels=", num_levels
     
     ! Check if num_obs is valid
-    if (num_obs <= 0) then
-      print *, "WRFDA DEBUG: Invalid num_obs =", num_obs
+    if (num_obs <= 0 .or. num_levels <= 0) then
+      print *, "WRFDA DEBUG: Invalid num_obs or num_levels =", num_obs, num_levels
       wrfda_construct_iv_type = c_null_ptr
       return
-    end if
-    
-    ! Check if arrays are accessible (with bounds checking)
-    print *, "WRFDA DEBUG: About to access obs_values(1)"
-    if (num_obs >= 1) then
-      print *, "WRFDA DEBUG: obs_values(1) =", obs_values(1)
-    else
-      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_values(1)"
-    end if
-    
-    print *, "WRFDA DEBUG: About to access obs_errors(1)"
-    if (num_obs >= 1) then
-      print *, "WRFDA DEBUG: obs_errors(1) =", obs_errors(1)
-    else
-      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_errors(1)"
-    end if
-    
-    print *, "WRFDA DEBUG: About to access obs_lats(1)"
-    if (num_obs >= 1) then
-      print *, "WRFDA DEBUG: obs_lats(1) =", obs_lats(1)
-    else
-      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_lats(1)"
-    end if
-    
-    print *, "WRFDA DEBUG: About to access obs_lons(1)"
-    if (num_obs >= 1) then
-      print *, "WRFDA DEBUG: obs_lons(1) =", obs_lons(1)
-    else
-      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_lons(1)"
-    end if
-    
-    print *, "WRFDA DEBUG: About to access obs_levels(1)"
-    if (num_obs >= 1) then
-      print *, "WRFDA DEBUG: obs_levels(1) =", obs_levels(1)
-    else
-      print *, "WRFDA DEBUG: num_obs < 1, cannot access obs_levels(1)"
     end if
     
     ! Now implement the actual iv_type construction
@@ -2650,42 +2643,113 @@ contains
       allocate(iv%synop(num_obs))
       print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
       
+      ! Allocate interpolation arrays for synop observations
+      allocate(iv%info(2)%i(1, num_obs))
+      allocate(iv%info(2)%j(1, num_obs))
+      allocate(iv%info(2)%dx(1, num_obs))
+      allocate(iv%info(2)%dy(1, num_obs))
+      allocate(iv%info(2)%dxm(1, num_obs))
+      allocate(iv%info(2)%dym(1, num_obs))
+      allocate(iv%info(2)%k(1, num_obs))
+      allocate(iv%info(2)%zk(1, num_obs))
+      allocate(iv%info(2)%levels(num_obs))
+      allocate(iv%info(2)%proc_domain(1, num_obs))
+      
+      print *, "WRFDA DEBUG: Allocated interpolation arrays for", num_obs, "observations"
+      
       ! Populate synop data
       do i = 1, num_obs
         ! Set up height
-        iv%synop(i)%h = obs_levels(i)
+        iv%synop(i)%h = levels(i)
         
-        ! Set up field_type members for u, v, t, p, q
-        iv%synop(i)%u%inv = obs_values(i)
-        iv%synop(i)%u%qc = 0  ! Good quality
-        iv%synop(i)%u%error = obs_errors(i)
+        ! Set up field_type members for u, v, t, p, q only if available
+        if (u_available(i) == 1) then
+          iv%synop(i)%u%inv = u_values(i)
+          iv%synop(i)%u%qc = u_qc(i)
+          iv%synop(i)%u%error = u_errors(i)
+        else
+          iv%synop(i)%u%inv = 0.0
+          iv%synop(i)%u%qc = 1  ! Bad quality for unavailable data
+          iv%synop(i)%u%error = 1.0
+        end if
         iv%synop(i)%u%sens = 0.0
         iv%synop(i)%u%imp = 0.0
         
-        iv%synop(i)%v%inv = obs_values(i)
-        iv%synop(i)%v%qc = 0
-        iv%synop(i)%v%error = obs_errors(i)
+        if (v_available(i) == 1) then
+          iv%synop(i)%v%inv = v_values(i)
+          iv%synop(i)%v%qc = v_qc(i)
+          iv%synop(i)%v%error = v_errors(i)
+        else
+          iv%synop(i)%v%inv = 0.0
+          iv%synop(i)%v%qc = 1
+          iv%synop(i)%v%error = 1.0
+        end if
         iv%synop(i)%v%sens = 0.0
         iv%synop(i)%v%imp = 0.0
         
-        iv%synop(i)%t%inv = obs_values(i)
-        iv%synop(i)%t%qc = 0
-        iv%synop(i)%t%error = obs_errors(i)
+        if (t_available(i) == 1) then
+          iv%synop(i)%t%inv = t_values(i)
+          iv%synop(i)%t%qc = t_qc(i)
+          iv%synop(i)%t%error = t_errors(i)
+        else
+          iv%synop(i)%t%inv = 0.0
+          iv%synop(i)%t%qc = 1
+          iv%synop(i)%t%error = 1.0
+        end if
         iv%synop(i)%t%sens = 0.0
         iv%synop(i)%t%imp = 0.0
         
-        iv%synop(i)%p%inv = obs_values(i)
-        iv%synop(i)%p%qc = 0
-        iv%synop(i)%p%error = obs_errors(i)
+        if (p_available(i) == 1) then
+          iv%synop(i)%p%inv = p_values(i)
+          iv%synop(i)%p%qc = p_qc(i)
+          iv%synop(i)%p%error = p_errors(i)
+        else
+          iv%synop(i)%p%inv = 0.0
+          iv%synop(i)%p%qc = 1
+          iv%synop(i)%p%error = 1.0
+        end if
         iv%synop(i)%p%sens = 0.0
         iv%synop(i)%p%imp = 0.0
         
-        iv%synop(i)%q%inv = obs_values(i)
-        iv%synop(i)%q%qc = 0
-        iv%synop(i)%q%error = obs_errors(i)
+        if (q_available(i) == 1) then
+          iv%synop(i)%q%inv = q_values(i)
+          iv%synop(i)%q%qc = q_qc(i)
+          iv%synop(i)%q%error = q_errors(i)
+        else
+          iv%synop(i)%q%inv = 0.0
+          iv%synop(i)%q%qc = 1
+          iv%synop(i)%q%error = 1.0
+        end if
         iv%synop(i)%q%sens = 0.0
         iv%synop(i)%q%imp = 0.0
       end do
+      
+      ! Compute horizontal interpolation indices and weights
+      do i = 1, num_obs
+        ! For now, use simple grid mapping (assuming 1x1 grid for simplicity)
+        ! In a full implementation, this would use WRFDA's grid mapping routines
+        
+        ! Set grid indices (assuming single grid point for simplicity)
+        iv%info(2)%i(1, i) = 1
+        iv%info(2)%j(1, i) = 1
+        
+        ! Set interpolation weights (bilinear interpolation)
+        ! For single grid point, weights are 1.0
+        iv%info(2)%dx(1, i) = 0.0
+        iv%info(2)%dy(1, i) = 0.0
+        iv%info(2)%dxm(1, i) = 1.0
+        iv%info(2)%dym(1, i) = 1.0
+        
+        ! Set vertical level information
+        iv%info(2)%k(1, i) = 1
+        iv%info(2)%zk(1, i) = 1.0
+        iv%info(2)%levels(i) = 1
+        
+        ! Set processor domain (assume all observations are in domain)
+        iv%info(2)%proc_domain(1, i) = .true.
+      end do
+      
+      print *, "WRFDA DEBUG: Computed interpolation indices and weights"
     end if
     
     print *, "WRFDA DEBUG: iv_type construction completed successfully"
@@ -2704,117 +2768,11 @@ contains
       ! Observation types available
     end if
     
-    ! Use obs_lats, obs_lons, obs_levels to suppress warnings
+    ! Use lats, lons, levels to suppress warnings
     ! These could be used for location-specific processing in the future
-    if (obs_lats(1) /= 0.0 .or. obs_lons(1) /= 0.0 .or. obs_levels(1) /= 0.0) then
+    if (lats(1) /= 0.0 .or. lons(1) /= 0.0 .or. levels(1) /= 0.0) then
       ! Location data available - could be used for spatial processing
     end if
-    
-    ! Allocate iv_type structure
-    allocate(iv)
-    if (.not. associated(iv)) then
-      print *, "WRFDA DEBUG: Failed to allocate iv_type structure"
-      wrfda_construct_iv_type = c_null_ptr
-      return
-    end if
-    print *, "WRFDA DEBUG: Successfully allocated iv_type structure"
-    
-    ! Initialize basic fields
-    iv%nstats = 0
-    iv%time = 0
-    iv%num_inst = 0
-    iv%total_rad_pixel = 0
-    iv%total_rad_channel = 0
-    iv%missing = -888888.0
-    iv%ptop = 0.0
-    
-    ! Initialize info array for all observation types
-    do i = 1, size(iv%info)
-      iv%info(i)%max_lev = 0
-      iv%info(i)%nlocal = 0
-      iv%info(i)%ntotal = 0
-      iv%info(i)%thin_nlocal = 0
-      iv%info(i)%thin_ntotal = 0
-      iv%info(i)%plocal = 0
-      iv%info(i)%ptotal = 0
-      iv%info(i)%thin_plocal = 0
-      iv%info(i)%thin_ptotal = 0
-      iv%info(i)%n1 = 0
-      iv%info(i)%n2 = 0
-    end do
-    
-    ! Set error factors for surface observations
-    if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
-      iv%metar_ef_u = 1.5
-      iv%metar_ef_v = 1.5
-      iv%metar_ef_t = 1.0
-      iv%metar_ef_p = 100.0
-      iv%metar_ef_q = 0.0
-      
-      ! Set info for synop observations (index 2)
-      iv%info(2)%nlocal = num_obs
-      iv%info(2)%ntotal = num_obs
-      
-      ! Set up plocal array for proper time slot indexing
-      ! For 3D-Var (num_fgat_time = 1), we have:
-      ! plocal(0) = 0 (no observations before time slot 1)
-      ! plocal(1) = num_obs (cumulative count at time slot 1)
-      iv%info(2)%plocal(0) = 0
-      iv%info(2)%plocal(1) = num_obs
-      
-      ! Set n1 and n2 based on plocal array (WRFDA standard pattern)
-      iv%info(2)%n1 = iv%info(2)%plocal(0) + 1  ! = 1
-      iv%info(2)%n2 = iv%info(2)%plocal(1)      ! = num_obs
-      
-      ! Allocate synop array only if we have observations
-      if (num_obs > 0) then
-        allocate(iv%synop(num_obs))
-        iv%nstats(2) = num_obs  ! synop index
-      
-      ! Populate synop array with observation data
-      do i = 1, num_obs
-        ! Set height (surface level)
-        iv%synop(i)%h = 0.0
-        
-        ! Set field data for each variable
-        iv%synop(i)%u%inv = obs_values(i)      ! Innovation (obs - model)
-        iv%synop(i)%u%qc = 0                   ! Good quality
-        iv%synop(i)%u%error = obs_errors(i)    ! Observation error
-        iv%synop(i)%u%sens = 0.0               ! Sensitivity
-        iv%synop(i)%u%imp = 0.0                ! Impact
-        
-        iv%synop(i)%v%inv = obs_values(i)      ! Placeholder
-        iv%synop(i)%v%qc = 0
-        iv%synop(i)%v%error = obs_errors(i)
-        iv%synop(i)%v%sens = 0.0
-        iv%synop(i)%v%imp = 0.0
-        
-        iv%synop(i)%t%inv = obs_values(i)      ! Placeholder
-        iv%synop(i)%t%qc = 0
-        iv%synop(i)%t%error = obs_errors(i)
-        iv%synop(i)%t%sens = 0.0
-        iv%synop(i)%t%imp = 0.0
-        
-        iv%synop(i)%p%inv = 101325.0           ! Standard pressure
-        iv%synop(i)%p%qc = 0
-        iv%synop(i)%p%error = 100.0
-        iv%synop(i)%p%sens = 0.0
-        iv%synop(i)%p%imp = 0.0
-        
-        iv%synop(i)%q%inv = obs_values(i)      ! Placeholder
-        iv%synop(i)%q%qc = 0
-        iv%synop(i)%q%error = obs_errors(i)
-        iv%synop(i)%q%sens = 0.0
-        iv%synop(i)%q%imp = 0.0
-      end do
-      
-      print *, "WRFDA DEBUG: Allocated iv%synop array with", num_obs, "observations"
-      end if  ! num_obs > 0
-    end if  ! family check
-    
-    ! Return pointer to allocated iv_type
-    wrfda_construct_iv_type = c_loc(iv)
-    print *, "WRFDA DEBUG: iv_type constructed successfully"
     
   end function wrfda_construct_iv_type
 

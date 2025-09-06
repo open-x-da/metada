@@ -964,83 +964,158 @@ class PrepBUFRObservation {
    *
    * @return Structure containing observation operator data
    */
-  struct ObsOperatorData {
-    // Number of observations
-    size_t num_obs;
+  // Forward declarations
+  enum class ObsType {
+    SURFACE,  // Single-level: SYNOP, METAR, ADPSFC
+    PROFILE   // Multi-level: SOUND, AIREP, PILOT
+  };
 
-    // Observation coordinates
-    std::vector<double> lats;
-    std::vector<double> lons;
-    std::vector<double> levels;
+  // Level-specific data structure
+  struct LevelData {
+    // Vertical level information
+    double level;     // Vertical level (pressure, height, or model level)
+    double pressure;  // Pressure at this level (Pa)
+    double height;    // Height at this level (m)
 
-    // Observation types (for operator family selection)
-    std::vector<std::string> types;
-
-    // Observation values (for innovation computation)
-    std::vector<double> values;
-
-    // Observation errors (for cost function weighting)
-    std::vector<double> errors;
-
-    // Enhanced fields for WRFDA iv_type construction
-    struct ObservationDetails {
-      // Station information
-      std::string station_id;
-      std::string station_name;
-
-      // Observation metadata
-      double elevation;  // Station elevation (m)
-      double pressure;   // Observation pressure (Pa)
-      double height;     // Observation height (m)
-
-      // Quality control flags
-      int qc_flag;     // Quality control flag
-      int usage_flag;  // Usage flag for assimilation
-
-      // Time information
-      double time_offset;  // Time offset from analysis time (seconds)
-
-      // Variable-specific data
-      struct VariableData {
-        double value;    // Observed value
-        double error;    // Observation error
-        double bias;     // Bias correction
-        int qc;          // Quality control flag
-        bool available;  // Whether this variable is available
-      };
-
-      VariableData u, v, t, q, p, slp, pw,
-          ref;  // Wind, temp, humidity, pressure, etc.
-      VariableData td2m, rh2m, t2m, u10m, v10m;  // 2m/10m variables
+    // Variable-specific data
+    struct VariableData {
+      double value;    // Observed value
+      double error;    // Observation error
+      double bias;     // Bias correction
+      int qc;          // Quality control flag
+      bool available;  // Whether this variable is available
     };
 
-    std::vector<ObservationDetails> details;
+    // All possible variables at this level
+    VariableData u, v, t, q, p, slp, pw, ref;  // Standard variables
+    VariableData td2m, rh2m, t2m, u10m, v10m;  // 2m/10m variables
+  };
+
+  struct ObsOperatorData {
+    // Number of stations (not levels)
+    size_t num_obs;
+
+    // Station-level data (one per station - no duplication)
+    std::vector<double> lats;                // Station latitudes
+    std::vector<double> lons;                // Station longitudes
+    std::vector<double> elevations;          // Station elevations
+    std::vector<std::string> station_ids;    // Station identifiers
+    std::vector<std::string> station_names;  // Station names
+    std::vector<std::string> types;          // Station observation types
+
+    // Station-level metadata
+    std::vector<int> qc_flags;         // Station quality flags
+    std::vector<int> usage_flags;      // Usage flags
+    std::vector<double> time_offsets;  // Time offsets
+    std::vector<ObsType> obs_types;    // Observation type classification
+
+    // Level-specific data (per station)
+    std::vector<std::vector<LevelData>> levels;  // levels[station][level]
+
+    // Compatibility methods for WRFDAObsOperator
+    std::vector<double> getValues() const {
+      std::vector<double> values;
+      for (const auto& station_levels : levels) {
+        for (const auto& level : station_levels) {
+          if (level.u.available) {
+            values.push_back(level.u.value);
+          }
+        }
+      }
+      return values;
+    }
+
+    std::vector<double> getErrors() const {
+      std::vector<double> errors;
+      for (const auto& station_levels : levels) {
+        for (const auto& level : station_levels) {
+          if (level.u.available) {
+            errors.push_back(level.u.error);
+          }
+        }
+      }
+      return errors;
+    }
+
+    // Legacy compatibility members (computed on demand)
+    std::vector<double> values() const { return getValues(); }
+    std::vector<double> errors() const { return getErrors(); }
   };
 
   ObsOperatorData getObsOperatorData() const {
     ObsOperatorData data;
-    data.num_obs = observations_.size();
 
-    // Reserve space for efficiency
+    // For now, treat each observation as a separate station
+    // In a real implementation, you would group by station ID if available
+    data.num_obs = observations_.size();  // Number of observations (stations)
     data.lats.reserve(data.num_obs);
     data.lons.reserve(data.num_obs);
+    data.elevations.reserve(data.num_obs);
+    data.station_ids.reserve(data.num_obs);
+    data.station_names.reserve(data.num_obs);
+    data.types.reserve(data.num_obs);
+    data.qc_flags.reserve(data.num_obs);
+    data.usage_flags.reserve(data.num_obs);
+    data.time_offsets.reserve(data.num_obs);
+    data.obs_types.reserve(data.num_obs);
     data.levels.reserve(data.num_obs);
-    data.values.reserve(data.num_obs);
-    data.errors.reserve(data.num_obs);
 
-    // Extract data from observations
-    for (const auto& obs : observations_) {
-      auto [lat, lon, level] = obs.location.getGeographicCoords();
-      data.lats.push_back(lat);
-      data.lons.push_back(lon);
-      data.levels.push_back(level);
-      data.values.push_back(obs.value);
-      data.errors.push_back(obs.error);
+    // Process each observation as a single-level station
+    for (size_t i = 0; i < observations_.size(); ++i) {
+      const auto& obs = observations_[i];
+
+      // Store station-level data (one per station)
+      data.station_ids.push_back("OBS_" + std::to_string(i));
+      data.station_names.push_back("Observation_" + std::to_string(i));
+      auto [obs_lat, obs_lon, obs_level] = obs.location.getGeographicCoords();
+      data.lats.push_back(obs_lat);
+      data.lons.push_back(obs_lon);
+      data.elevations.push_back(
+          0.0);  // Default - could be extracted from station data
+      data.qc_flags.push_back(obs.is_valid ? 0 : 1);  // Good quality if valid
+      data.usage_flags.push_back(1);                  // Use in assimilation
+      data.time_offsets.push_back(0.0);               // At analysis time
+
+      // All observations are treated as surface observations for now
+      data.obs_types.push_back(ObsType::SURFACE);
+      data.types.push_back("ADPSFC");
+
+      // Process single level for this station
+      std::vector<LevelData> station_levels;
+      station_levels.reserve(1);
+
+      // Create level data
+      LevelData level_data;
+      level_data.level = obs_level;
+      level_data.pressure =
+          101325.0;             // Default - could be calculated from level
+      level_data.height = 0.0;  // Default - could be calculated from level
+
+      // Initialize variable data - put the observation value in temperature
+      level_data.u.value = obs.value;
+      level_data.u.error = obs.error;
+      level_data.u.qc = obs.is_valid ? 0 : 1;  // Good quality if valid
+      level_data.u.available = obs.is_valid;
+
+      // Initialize other variables as unavailable
+      level_data.v.available = false;
+      level_data.v.available = false;
+      level_data.t.available = false;
+      level_data.t.available = false;
+      level_data.q.available = false;
+      level_data.p.available = false;
+      level_data.slp.available = false;
+      level_data.pw.available = false;
+      level_data.ref.available = false;
+      level_data.td2m.available = false;
+      level_data.rh2m.available = false;
+      level_data.t2m.available = false;
+      level_data.u10m.available = false;
+      level_data.v10m.available = false;
+
+      station_levels.push_back(level_data);
+      data.levels.push_back(station_levels);
     }
-
-    // For now, we'll use a default type - this could be enhanced to extract
-    // actual observation types from the type_variable_map_
-    data.types.assign(data.num_obs, "ADPSFC");  // Default to surface obs
 
     return data;
   }
