@@ -144,7 +144,7 @@ void* wrfda_construct_iv_type(
     const int* q_qc, const int* u_available, const int* v_available,
     const int* t_available, const int* p_available, const int* q_available,
     const double* lats, const double* lons, const double* levels,
-    const char* obs_types, const char* family);
+    const double* elevations, const char* obs_types, const char* family);
 
 // Construct config_flags for WRFDA
 void* wrfda_construct_config_flags();
@@ -156,6 +156,11 @@ int wrfda_extract_innovations(void* iv_ptr, const char* family,
 
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();
+
+// Initialize map projection with grid parameters
+void initialize_map_projection_c(int map_proj, double cen_lat, double cen_lon,
+                                 double dx, double stand_lon, double truelat1,
+                                 double truelat2);
 
 #ifdef __cplusplus
 }

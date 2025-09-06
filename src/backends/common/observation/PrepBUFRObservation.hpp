@@ -449,6 +449,10 @@ class PrepBUFRObservation {
               // set later)
               obs_index = observations_.size();
               observations_.emplace_back(location, 0.0, 0.0);
+
+              // Store station elevation from BUFR data
+              station_elevations_.push_back(rec.shared.elevation);
+
               unique_location_map[location_key] = obs_index;
               type_obs_count++;
             } else {
@@ -535,6 +539,7 @@ class PrepBUFRObservation {
   // Move semantics
   PrepBUFRObservation(PrepBUFRObservation&& other) noexcept
       : observations_(std::move(other.observations_)),
+        station_elevations_(std::move(other.station_elevations_)),
         type_variable_map_(std::move(other.type_variable_map_)),
         covariance_(std::move(other.covariance_)),
         bufr_subset_counts_(std::move(other.bufr_subset_counts_)),
@@ -544,6 +549,7 @@ class PrepBUFRObservation {
   PrepBUFRObservation& operator=(PrepBUFRObservation&& other) noexcept {
     if (this != &other) {
       observations_ = std::move(other.observations_);
+      station_elevations_ = std::move(other.station_elevations_);
       type_variable_map_ = std::move(other.type_variable_map_);
       covariance_ = std::move(other.covariance_);
       bufr_subset_counts_ = std::move(other.bufr_subset_counts_);
@@ -1070,8 +1076,12 @@ class PrepBUFRObservation {
       auto [obs_lat, obs_lon, obs_level] = obs.location.getGeographicCoords();
       data.lats.push_back(obs_lat);
       data.lons.push_back(obs_lon);
-      data.elevations.push_back(
-          0.0);  // Default - could be extracted from station data
+      // Extract elevation from stored BUFR data
+      double elevation = 0.0;
+      if (i < station_elevations_.size()) {
+        elevation = station_elevations_[i];
+      }
+      data.elevations.push_back(elevation);
       data.qc_flags.push_back(obs.is_valid ? 0 : 1);  // Good quality if valid
       data.usage_flags.push_back(1);                  // Use in assimilation
       data.time_offsets.push_back(0.0);               // At analysis time
@@ -1513,6 +1523,8 @@ class PrepBUFRObservation {
 
   // Data members
   std::vector<framework::ObservationPoint> observations_;
+  std::vector<double>
+      station_elevations_;  // Store station elevations from BUFR
   std::unordered_map<std::string,
                      std::unordered_map<std::string, std::vector<size_t>>>
       type_variable_map_;
