@@ -2489,11 +2489,11 @@ contains
   end function initialize_wrfda_module_variables
 
   ! Helper function to construct WRFDA domain structure from flat arrays
-  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
+  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
     implicit none
     integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
-    real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*)
+    real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*), p(*), pb(*)
     real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
     type(c_ptr), intent(out) :: domain_ptr
     
@@ -2579,9 +2579,8 @@ contains
           grid%xb%v(i,j,k) = v(idx)
           grid%xb%t(i,j,k) = t(idx)
           grid%xb%q(i,j,k) = q(idx)
-          ! Calculate pressure from geopotential (simplified)
-          ! This is a temporary calculation - should be improved with proper pressure calculation
-          grid%xb%p(i,j,k) = 100000.0  ! Temporary constant pressure
+          ! Calculate pressure from P and PB: grid%xb%p = pb + p
+          grid%xb%p(i,j,k) = pb(idx) + p(idx)
         end do
       end do
     end do

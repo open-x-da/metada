@@ -32,6 +32,8 @@ background:
     - T
     - QVAPOR
     - PSFC
+    - P
+    - PB
     - PH
     - PHB
     - HGT
@@ -92,7 +94,7 @@ observation:
 # Observation operator configuration
 obs_operator:
   type: "WRFDA"
-  required_state_vars: [U, V, T, QVAPOR, PSFC, PH, PHB, HGT]
+  required_state_vars: [U, V, T, QVAPOR, PSFC, P, PB, PH, PHB, HGT]
   operator_families: ["synop"]  # SYNOP surface observations
   interpolation_method: "bilinear"
   vertical_interpolation: "pressure"

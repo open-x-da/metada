@@ -410,6 +410,8 @@ class WRFDAObsOperator {
     const double* phb = state_data.phb;
     const double* hf = state_data.hf;
     const double* hgt = state_data.hgt;
+    const double* p = state_data.p;
+    const double* pb = state_data.pb;
 
     // Get grid metadata (already extracted)
     const double* lats_2d = state_data.lats_2d;
@@ -478,12 +480,20 @@ class WRFDAObsOperator {
       throw std::runtime_error(
           "WRFDA observation operator requires HGT (terrain height)");
     }
+    if (!p) {
+      throw std::runtime_error(
+          "WRFDA observation operator requires P (pressure perturbation)");
+    }
+    if (!pb) {
+      throw std::runtime_error(
+          "WRFDA observation operator requires PB (base state pressure)");
+    }
 
     // Construct WRFDA domain structure from flat arrays
     void* domain_ptr = nullptr;
     int rc = wrfda_construct_domain_from_arrays(
-        &nx, &ny, &nz, u_final, v_final, t, q, psfc, ph, phb, hf, hgt, lats_2d,
-        lons_2d, levels, &domain_ptr);
+        &nx, &ny, &nz, u_final, v_final, t, q, psfc, ph, phb, hf, hgt, p, pb,
+        lats_2d, lons_2d, levels, &domain_ptr);
 
     if (rc != 0) {
       throw std::runtime_error(
@@ -532,7 +542,7 @@ class WRFDAObsOperator {
 
     // Extract results from iv structure and return as vector
     std::string family =
-        operator_families_.empty() ? "metar" : operator_families_[0];
+        operator_families_.empty() ? "synop" : operator_families_[0];
     std::vector<double> innovations = extractInnovations(iv_ptr, family);
 
     if (innovations.empty()) {
