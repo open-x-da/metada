@@ -357,6 +357,9 @@ class WRFState {
     const double* t = nullptr;
     const double* q = nullptr;
     const double* psfc = nullptr;
+    const double* ph = nullptr;   // Geopotential perturbation
+    const double* phb = nullptr;  // Base state geopotential
+    const double* hf = nullptr;   // Height field (calculated from PH and PHB)
 
     // Grid metadata
     const double* lats_2d = nullptr;
@@ -369,7 +372,8 @@ class WRFState {
       bool is_staggered = false;
     };
 
-    VariableDims u_dims, v_dims, t_dims, q_dims, psfc_dims;
+    VariableDims u_dims, v_dims, t_dims, q_dims, psfc_dims, ph_dims, phb_dims,
+        hf_dims;
   };
 
   ObsOperatorData getObsOperatorData() const;
@@ -1748,6 +1752,8 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   data.t = static_cast<const double*>(getData("T"));
   data.q = static_cast<const double*>(getData("QVAPOR"));
   data.psfc = static_cast<const double*>(getData("PSFC"));
+  data.ph = static_cast<const double*>(getData("PH"));
+  data.phb = static_cast<const double*>(getData("PHB"));
 
   // Get grid metadata
   const auto& gi = geometry_.unstaggered_info();
@@ -1788,6 +1794,8 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   set_dims("T", data.t_dims);
   set_dims("QVAPOR", data.q_dims);
   set_dims("PSFC", data.psfc_dims);
+  set_dims("PH", data.ph_dims);
+  set_dims("PHB", data.phb_dims);
 
   // Validate required variables are present - fail fast if missing
   if (!data.u) {
@@ -1810,6 +1818,39 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
     throw std::runtime_error(
         "Required variable 'PSFC' (Surface pressure) not found in WRF state");
   }
+  if (!data.ph) {
+    throw std::runtime_error(
+        "Required variable 'PH' (Geopotential perturbation) not found in WRF "
+        "state");
+  }
+  if (!data.phb) {
+    throw std::runtime_error(
+        "Required variable 'PHB' (Base state geopotential) not found in WRF "
+        "state");
+  }
+
+  // Calculate height field: hf = (ph + phb) / gravity
+  // WRF gravity constant is typically 9.81 m/s²
+  constexpr double gravity = 9.81;  // m/s²
+
+  // Allocate memory for height field calculation
+  static thread_local std::vector<double> height_field_storage;
+  const size_t total_size = static_cast<size_t>(data.nx) * data.ny * data.nz;
+  height_field_storage.resize(total_size);
+
+  // Calculate height field for each grid point
+  for (size_t k = 0; k < static_cast<size_t>(data.nz); ++k) {
+    for (size_t j = 0; j < static_cast<size_t>(data.ny); ++j) {
+      for (size_t i = 0; i < static_cast<size_t>(data.nx); ++i) {
+        const size_t idx = k * data.ny * data.nx + j * data.nx + i;
+        height_field_storage[idx] = (data.ph[idx] + data.phb[idx]) / gravity;
+      }
+    }
+  }
+
+  // Set height field pointer and dimensions
+  data.hf = height_field_storage.data();
+  data.hf_dims = data.ph_dims;  // Height field has same dimensions as PH/PHB
 
   return data;
 }

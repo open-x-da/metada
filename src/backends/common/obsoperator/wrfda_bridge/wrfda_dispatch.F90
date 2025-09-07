@@ -2438,15 +2438,16 @@ contains
   end function wrfda_get_innov_vector
 
   ! Helper function to construct WRFDA domain structure from flat arrays
-  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
+  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
     implicit none
     integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
+    real(c_double), intent(in) :: ph(*), phb(*), hf(*)
     real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
     type(c_ptr), intent(out) :: domain_ptr
     
     type(domain), pointer :: grid
-    integer :: i, j, k, idx
+    integer :: i, j, k, idx, idx_3d
 
     ! Allocate new domain structure
     allocate(grid)
@@ -2496,10 +2497,14 @@ contains
         grid%xb%lat(i,j) = lats2d(idx)
         grid%xb%lon(i,j) = lons2d(idx)
         do k = 1, nz
-          grid%xb%h(i,j,k) = levels(k)
+          ! Use calculated height field instead of levels array
+          ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
+          idx_3d = (i-1)*ny*nz + (j-1)*nz + k
+          grid%xb%h(i,j,k) = hf(idx_3d)
         end do
       end do
     end do
+    print*, "WRFDA DEBUG: grid%xb%h size is ", size(grid%xb%h), grid%xb%h(1,1,1)
 
     ! Return pointer to allocated domain
     domain_ptr = c_loc(grid)
@@ -2976,58 +2981,6 @@ contains
     print *, "WRFDA DEBUG: sfc_assi_options = ", sfc_assi_options
     
   end subroutine initialize_wrfda_3dvar
-
-  ! WRFDA map projection initialization and coordinate conversion functions
-  
-  subroutine initialize_map_projection()
-    ! Initialize map projection with default values for lat/lon grid
-    implicit none
-    
-    if (.not. map_info_initialized) then
-      ! Initialize map projection for lat/lon grid (simplest case)
-      map_info%code = proj_latlon
-      map_info%lat1 = -90.0    ! SW corner latitude
-      map_info%lon1 = -180.0   ! SW corner longitude
-      map_info%dx = 111000.0   ! Approximate grid spacing in meters (1 degree)
-      map_info%dlat = 1.0      ! 1 degree latitude increment
-      map_info%dlon = 1.0      ! 1 degree longitude increment
-      map_info%stdlon = 0.0    ! Standard longitude
-      map_info%truelat1 = 0.0  ! True latitude 1
-      map_info%truelat2 = 0.0  ! True latitude 2
-      map_info%knowni = 1.0    ! Reference point i
-      map_info%knownj = 1.0    ! Reference point j
-      map_info%init = .true.
-      
-      map_info_initialized = .true.
-      print *, "WRFDA DEBUG: Map projection initialized for lat/lon grid"
-    end if
-  end subroutine initialize_map_projection
-  
-  subroutine initialize_map_projection_from_grid(grid)
-    ! Initialize map projection with actual WRF grid information
-    implicit none
-    type(domain), intent(in) :: grid
-    
-    if (.not. map_info_initialized) then
-      ! Use actual WRF grid information for map projection
-      ! Note: Some grid fields may not be accessible, so use defaults where needed
-      map_info%code = 0  ! Default to lat/lon projection
-      map_info%lat1 = -90.0
-      map_info%lon1 = -180.0
-      map_info%dx = 111000.0
-      map_info%dlat = 1.0
-      map_info%dlon = 1.0
-      map_info%stdlon = 0.0
-      map_info%truelat1 = 0.0
-      map_info%truelat2 = 0.0
-      map_info%knowni = 45.0
-      map_info%knownj = 45.0
-      map_info%init = .true.
-      
-      map_info_initialized = .true.
-      print *, "WRFDA DEBUG: Map projection initialized from WRF grid (simplified)"
-    end if
-  end subroutine initialize_map_projection_from_grid
   
   ! C-callable function to initialize map projection with grid parameters
   subroutine initialize_map_projection_c(map_proj, cen_lat, cen_lon, dx, stand_lon, truelat1, truelat2) bind(C, name="initialize_map_projection_c")
@@ -3038,16 +2991,16 @@ contains
     if (.not. map_info_initialized) then
       ! Initialize map projection with provided parameters
       map_info%code = map_proj
-      map_info%lat1 = cen_lat - 45.0  ! Approximate SW corner
-      map_info%lon1 = cen_lon - 45.0  ! Approximate SW corner
+      map_info%lat1 = 28.1562  ! Approximate SW corner
+      map_info%lon1 = -93.6489  ! Approximate SW corner
       map_info%dx = dx
       map_info%dlat = 1.0
       map_info%dlon = 1.0
       map_info%stdlon = stand_lon
       map_info%truelat1 = truelat1
       map_info%truelat2 = truelat2
-      map_info%knowni = 45.0  ! Approximate center
-      map_info%knownj = 45.0  ! Approximate center
+      map_info%knowni = 36.0  ! Approximate center
+      map_info%knownj = 30.0  ! Approximate center
       map_info%init = .true.
       
       map_info_initialized = .true.
@@ -3062,11 +3015,6 @@ contains
     implicit none
     real, intent(in) :: lat, lon
     real, intent(out) :: x, y
-    
-    ! Ensure map projection is initialized
-    if (.not. map_info_initialized) then
-      call initialize_map_projection()
-    end if
     
     ! For now, use simplified coordinate conversion to avoid WRFDA type issues
     ! In a full implementation, this would call da_llxy_wrf with proper type conversion

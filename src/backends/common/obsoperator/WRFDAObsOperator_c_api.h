@@ -113,13 +113,11 @@ int wrfda_get_innov_vector(const int* it, const void* domain_ptr,
                            const void* config_flags_ptr);
 
 // Helper function to construct WRFDA domain structure from flat arrays
-int wrfda_construct_domain_from_arrays(const int* nx, const int* ny,
-                                       const int* nz, const double* u,
-                                       const double* v, const double* t,
-                                       const double* q, const double* psfc,
-                                       const double* lats2d,
-                                       const double* lons2d,
-                                       const double* levels, void** domain_ptr);
+int wrfda_construct_domain_from_arrays(
+    const int* nx, const int* ny, const int* nz, const double* u,
+    const double* v, const double* t, const double* q, const double* psfc,
+    const double* ph, const double* phb, const double* hf, const double* lats2d,
+    const double* lons2d, const double* levels, void** domain_ptr);
 
 // Construct y_type from observation data
 void* wrfda_construct_y_type(int* num_obs, int* num_levels,
@@ -158,9 +156,11 @@ int wrfda_extract_innovations(void* iv_ptr, const char* family,
 void initialize_wrfda_3dvar();
 
 // Initialize map projection with grid parameters
-void initialize_map_projection_c(int map_proj, double cen_lat, double cen_lon,
-                                 double dx, double stand_lon, double truelat1,
-                                 double truelat2);
+void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
+                                 const double* cen_lon, const double* dx,
+                                 const double* stand_lon,
+                                 const double* truelat1,
+                                 const double* truelat2);
 
 #ifdef __cplusplus
 }

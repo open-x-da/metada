@@ -406,11 +406,28 @@ class WRFDAObsOperator {
     const double* t = state_data.t;
     const double* q = state_data.q;
     const double* psfc = state_data.psfc;
+    const double* ph = state_data.ph;
+    const double* phb = state_data.phb;
+    const double* hf = state_data.hf;
 
     // Get grid metadata (already extracted)
     const double* lats_2d = state_data.lats_2d;
     const double* lons_2d = state_data.lons_2d;
     const double* levels = state_data.levels;
+
+    // Initialize map projection for WRFDA coordinate conversion
+    // TODO: Extract actual map projection parameters from WRF configuration
+    // For now, use default values for lat/lon grid
+    int map_proj = 1;           // Lambert Conformal (default)
+    double cen_lat = 34.83002;  // center latitude
+    double cen_lon = -81.03;    // center longitude
+    double dx = 0.2690;         // grid spacing in degrees
+    double stand_lon = -98.0;   // standard longitude
+    double truelat1 = 30.0;     // first true latitude
+    double truelat2 = 60.0;     // second true latitude
+
+    initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
+                                &truelat1, &truelat2);
 
     std::vector<double> out_y(num_observations, 0.0);
 
@@ -454,12 +471,24 @@ class WRFDAObsOperator {
           "WRFDA observation operator requires at least one of U, V, or T "
           "variables");
     }
+    if (!ph) {
+      throw std::runtime_error(
+          "WRFDA observation operator requires PH (geopotential perturbation)");
+    }
+    if (!phb) {
+      throw std::runtime_error(
+          "WRFDA observation operator requires PHB (base state geopotential)");
+    }
+    if (!hf) {
+      throw std::runtime_error(
+          "WRFDA observation operator requires HF (height field)");
+    }
 
     // Construct WRFDA domain structure from flat arrays
     void* domain_ptr = nullptr;
-    int rc = wrfda_construct_domain_from_arrays(&nx, &ny, &nz, u_final, v_final,
-                                                t, q, psfc, lats_2d, lons_2d,
-                                                levels, &domain_ptr);
+    int rc = wrfda_construct_domain_from_arrays(
+        &nx, &ny, &nz, u_final, v_final, t, q, psfc, ph, phb, hf, lats_2d,
+        lons_2d, levels, &domain_ptr);
 
     if (rc != 0) {
       throw std::runtime_error(
@@ -748,6 +777,20 @@ class WRFDAObsOperator {
         state_values[i] += psfc[i];
       }
     }
+
+    // Initialize map projection for WRFDA coordinate conversion
+    // TODO: Extract actual map projection parameters from WRF configuration
+    // For now, use default values for lat/lon grid
+    int map_proj = 1;           // Lambert Conformal (default)
+    double cen_lat = 34.83002;  // center latitude
+    double cen_lon = -81.03;    // center longitude
+    double dx = 0.2690;         // grid spacing in degrees
+    double stand_lon = -98.0;   // standard longitude
+    double truelat1 = 30.0;     // first true latitude
+    double truelat2 = 60.0;     // second true latitude
+
+    initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
+                                &truelat1, &truelat2);
 
     const int rc = wrfda_xtoy_adjoint_grid(
         family_cstr, nx, ny, nz,
