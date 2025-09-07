@@ -501,10 +501,10 @@ class WRFDAObsOperator {
     }
 
     // Step 2: Initialize map projection for coordinate conversion
-    int map_proj = 1;           // Lambert conformal conic projection
+    int map_proj = 3;           // Lambert conformal conic projection
     double cen_lat = 34.83002;  // center latitude
     double cen_lon = -81.03;    // center longitude
-    double dx = 0.2690;         // grid spacing in degrees
+    double dx = 30000.0;        // grid spacing in m
     double stand_lon = -98.0;   // standard longitude
     double truelat1 = 30.0;     // first true latitude
     double truelat2 = 60.0;     // second true latitude

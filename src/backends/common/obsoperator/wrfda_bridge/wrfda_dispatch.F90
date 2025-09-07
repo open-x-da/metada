@@ -2565,6 +2565,7 @@ contains
     allocate(grid%xb%v(1:nx, 1:ny, 1:nz))
     allocate(grid%xb%t(1:nx, 1:ny, 1:nz))
     allocate(grid%xb%q(1:nx, 1:ny, 1:nz))
+    allocate(grid%xb%p(1:nx, 1:ny, 1:nz))
     allocate(grid%xb%psfc(1:nx, 1:ny))
 
     ! Copy data from flat arrays to WRFDA structure
@@ -2578,6 +2579,9 @@ contains
           grid%xb%v(i,j,k) = v(idx)
           grid%xb%t(i,j,k) = t(idx)
           grid%xb%q(i,j,k) = q(idx)
+          ! Calculate pressure from geopotential (simplified)
+          ! This is a temporary calculation - should be improved with proper pressure calculation
+          grid%xb%p(i,j,k) = 100000.0  ! Temporary constant pressure
         end do
       end do
     end do
@@ -2598,6 +2602,8 @@ contains
     ! Terrain height fields (HGT) - 2D surface fields
     allocate(grid%ht(1:nx, 1:ny))
     allocate(grid%xb%terr(1:nx, 1:ny))
+    ! Surface roughness length - temporary constant value
+    allocate(grid%xb%rough(1:nx, 1:ny))
 
     do j = 1, ny
       do i = 1, nx
@@ -2608,6 +2614,8 @@ contains
         ! Assign terrain height from HGT field
         grid%ht(i,j) = hgt(idx)
         grid%xb%terr(i,j) = hgt(idx)
+        ! Assign temporary constant roughness length
+        grid%xb%rough(i,j) = 0.5
         do k = 1, staggered_nz
           ! Use calculated height field instead of levels array
           ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
@@ -3130,7 +3138,7 @@ contains
     
     if (.not. map_info_initialized) then
       ! Initialize map projection using WRFDA's da_map_set function
-      call da_map_set(map_proj, 28.1562d0, -93.6489d0, dx, stand_lon, truelat1, truelat2, 1.0d0, 1.0d0, 0.26290d0, 0.26290d0, map_info)
+      call da_map_set(map_proj, 28.1562d0, -93.6489d0,1.0d0, 1.0d0, dx, stand_lon, truelat1, truelat2, 0.26290d0, 0.26290d0, map_info)
       map_info_initialized = .true.
       print *, "WRFDA DEBUG: Map projection initialized using da_map_set"
       print *, "WRFDA DEBUG: Projection code = ", map_info%code
