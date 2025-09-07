@@ -2489,11 +2489,11 @@ contains
   end function initialize_wrfda_module_variables
 
   ! Helper function to construct WRFDA domain structure from flat arrays
-  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
+  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
     implicit none
     integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
-    real(c_double), intent(in) :: ph(*), phb(*), hf(*)
+    real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*)
     real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
     type(c_ptr), intent(out) :: domain_ptr
     
@@ -2595,6 +2595,9 @@ contains
     allocate(grid%xb%lon(1:nx, 1:ny))
     ! Height field (HF) is vertically staggered with nz+1 levels
     allocate(grid%xb%h(1:nx, 1:ny, 1:staggered_nz))
+    ! Terrain height fields (HGT) - 2D surface fields
+    allocate(grid%ht(1:nx, 1:ny))
+    allocate(grid%xb%terr(1:nx, 1:ny))
 
     do j = 1, ny
       do i = 1, nx
@@ -2602,6 +2605,9 @@ contains
         idx = (i-1)*ny + j
         grid%xb%lat(i,j) = lats2d(idx)
         grid%xb%lon(i,j) = lons2d(idx)
+        ! Assign terrain height from HGT field
+        grid%ht(i,j) = hgt(idx)
+        grid%xb%terr(i,j) = hgt(idx)
         do k = 1, staggered_nz
           ! Use calculated height field instead of levels array
           ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
@@ -2886,6 +2892,7 @@ contains
         ! Note: We need to use the map projection information that was initialized
         ! in the C++ code before calling this function
         call da_llxy_wrf(map_info, obs_lat, obs_lon, grid_x, grid_y)
+        print *, "WRFDA DEBUG: obs_lat, obs_lon, grid_x, grid_y =", obs_lat, obs_lon, grid_x, grid_y
         
         ! Convert grid coordinates to fractional indices using WRFDA's da_togrid
         ! da_togrid(x, ib, ie, i, dx, dxm) - converts x coordinate to grid index i
@@ -3123,7 +3130,7 @@ contains
     
     if (.not. map_info_initialized) then
       ! Initialize map projection using WRFDA's da_map_set function
-      call da_map_set(map_proj, 28.1562d0, -93.6489d0, 1.0d0, 1.0d0, dx, stand_lon, truelat1, truelat2, 1.0d0, 1.0d0, map_info)
+      call da_map_set(map_proj, 28.1562d0, -93.6489d0, dx, stand_lon, truelat1, truelat2, 1.0d0, 1.0d0, 0.26290d0, 0.26290d0, map_info)
       map_info_initialized = .true.
       print *, "WRFDA DEBUG: Map projection initialized using da_map_set"
       print *, "WRFDA DEBUG: Projection code = ", map_info%code

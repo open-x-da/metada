@@ -360,6 +360,7 @@ class WRFState {
     const double* ph = nullptr;   // Geopotential perturbation
     const double* phb = nullptr;  // Base state geopotential
     const double* hf = nullptr;   // Height field (calculated from PH and PHB)
+    const double* hgt = nullptr;  // Terrain height (from HGT variable)
 
     // Grid metadata
     const double* lats_2d = nullptr;
@@ -373,7 +374,7 @@ class WRFState {
     };
 
     VariableDims u_dims, v_dims, t_dims, q_dims, psfc_dims, ph_dims, phb_dims,
-        hf_dims;
+        hf_dims, hgt_dims;
   };
 
   ObsOperatorData getObsOperatorData() const;
@@ -1754,6 +1755,7 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   data.psfc = static_cast<const double*>(getData("PSFC"));
   data.ph = static_cast<const double*>(getData("PH"));
   data.phb = static_cast<const double*>(getData("PHB"));
+  data.hgt = static_cast<const double*>(getData("HGT"));
 
   // Get grid metadata
   const auto& gi = geometry_.unstaggered_info();
@@ -1796,6 +1798,7 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   set_dims("PSFC", data.psfc_dims);
   set_dims("PH", data.ph_dims);
   set_dims("PHB", data.phb_dims);
+  set_dims("HGT", data.hgt_dims);
 
   // Validate required variables are present - fail fast if missing
   if (!data.u) {
@@ -1827,6 +1830,10 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
     throw std::runtime_error(
         "Required variable 'PHB' (Base state geopotential) not found in WRF "
         "state");
+  }
+  if (!data.hgt) {
+    throw std::runtime_error(
+        "Required variable 'HGT' (Terrain height) not found in WRF state");
   }
 
   // Calculate height field: hf = (ph + phb) / gravity

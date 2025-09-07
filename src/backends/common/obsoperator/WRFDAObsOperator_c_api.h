@@ -116,8 +116,9 @@ int wrfda_get_innov_vector(const int* it, const void* domain_ptr,
 int wrfda_construct_domain_from_arrays(
     const int* nx, const int* ny, const int* nz, const double* u,
     const double* v, const double* t, const double* q, const double* psfc,
-    const double* ph, const double* phb, const double* hf, const double* lats2d,
-    const double* lons2d, const double* levels, void** domain_ptr);
+    const double* ph, const double* phb, const double* hf, const double* hgt,
+    const double* lats2d, const double* lons2d, const double* levels,
+    void** domain_ptr);
 
 // Construct y_type from observation data
 void* wrfda_construct_y_type(int* num_obs, int* num_levels,

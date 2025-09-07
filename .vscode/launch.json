@@ -218,7 +218,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/incremental_variational",
             "args": ["${workspaceFolder}/src/backends/wrf/tutorial/incremental_var3d.yaml"],
-            "stopAtEntry": true,
+            "stopAtEntry": false
             "cwd": "${workspaceFolder}/build",
             "environment": [
                 {

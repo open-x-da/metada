@@ -409,6 +409,7 @@ class WRFDAObsOperator {
     const double* ph = state_data.ph;
     const double* phb = state_data.phb;
     const double* hf = state_data.hf;
+    const double* hgt = state_data.hgt;
 
     // Get grid metadata (already extracted)
     const double* lats_2d = state_data.lats_2d;
@@ -473,11 +474,15 @@ class WRFDAObsOperator {
       throw std::runtime_error(
           "WRFDA observation operator requires HF (height field)");
     }
+    if (!hgt) {
+      throw std::runtime_error(
+          "WRFDA observation operator requires HGT (terrain height)");
+    }
 
     // Construct WRFDA domain structure from flat arrays
     void* domain_ptr = nullptr;
     int rc = wrfda_construct_domain_from_arrays(
-        &nx, &ny, &nz, u_final, v_final, t, q, psfc, ph, phb, hf, lats_2d,
+        &nx, &ny, &nz, u_final, v_final, t, q, psfc, ph, phb, hf, hgt, lats_2d,
         lons_2d, levels, &domain_ptr);
 
     if (rc != 0) {
