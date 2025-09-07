@@ -162,6 +162,9 @@ void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
                                  const double* truelat1,
                                  const double* truelat2);
 
+// Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
+int initialize_wrfda_module_variables(void* domain_ptr);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1833,13 +1833,17 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   // WRF gravity constant is typically 9.81 m/s²
   constexpr double gravity = 9.81;  // m/s²
 
+  // PH, PB, and HF are vertically staggered variables with nz+1 levels
+  const int staggered_nz = data.nz + 1;
+
   // Allocate memory for height field calculation
   static thread_local std::vector<double> height_field_storage;
-  const size_t total_size = static_cast<size_t>(data.nx) * data.ny * data.nz;
+  const size_t total_size =
+      static_cast<size_t>(data.nx) * data.ny * staggered_nz;
   height_field_storage.resize(total_size);
 
-  // Calculate height field for each grid point
-  for (size_t k = 0; k < static_cast<size_t>(data.nz); ++k) {
+  // Calculate height field for each grid point (including staggered levels)
+  for (size_t k = 0; k < static_cast<size_t>(staggered_nz); ++k) {
     for (size_t j = 0; j < static_cast<size_t>(data.ny); ++j) {
       for (size_t i = 0; i < static_cast<size_t>(data.nx); ++i) {
         const size_t idx = k * data.ny * data.nx + j * data.nx + i;
@@ -1851,6 +1855,8 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   // Set height field pointer and dimensions
   data.hf = height_field_storage.data();
   data.hf_dims = data.ph_dims;  // Height field has same dimensions as PH/PHB
+  data.hf_dims.nz =
+      staggered_nz;  // Override with correct staggered vertical dimension
 
   return data;
 }

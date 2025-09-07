@@ -496,6 +496,15 @@ class WRFDAObsOperator {
           std::to_string(rc));
     }
 
+    // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options,
+    // etc.)
+    rc = initialize_wrfda_module_variables(domain_ptr);
+    if (rc != 0) {
+      throw std::runtime_error(
+          "Failed to initialize WRFDA module variables with code " +
+          std::to_string(rc));
+    }
+
     // Step 2: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
     void* iv_ptr = constructIvType(obs_data, operator_families_);
