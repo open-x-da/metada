@@ -18,6 +18,7 @@ module metada_wrfda_dispatch
                         sfc_assi_options, sfc_assi_options_1, trace_use_dull, &
                         var4d_run, num_fgat_time, missing_r, num_ob_indexes, &
                         kts, kte, its, ite, jts, jte, Max_StHeight_Diff
+  use da_tools, only: proj_info, da_map_set, da_llxy_wrf, da_togrid
   use da_metar,  only: da_transform_xtoy_metar,  da_transform_xtoy_metar_adj
   use da_synop,  only: da_transform_xtoy_synop,  da_transform_xtoy_synop_adj
   use da_buoy,   only: da_transform_xtoy_buoy,   da_transform_xtoy_buoy_adj
@@ -46,20 +47,7 @@ module metada_wrfda_dispatch
   integer, parameter :: PROJ_LC = 3
   
   ! Define proj_info type (simplified version of WRFDA's proj_info)
-  type proj_info
-    integer :: code        ! Projection type
-    real    :: lat1        ! SW latitude (1,1) in degrees
-    real    :: lon1        ! SW longitude (1,1) in degrees  
-    real    :: dx          ! Grid spacing in meters
-    real    :: dlat        ! Lat increment for lat/lon grids
-    real    :: dlon        ! Lon increment for lat/lon grids
-    real    :: stdlon      ! Longitude parallel to y-axis
-    real    :: truelat1    ! First true latitude
-    real    :: truelat2    ! Second true latitude (LC only)
-    real    :: knowni      ! X-location of known lat/lon
-    real    :: knownj      ! Y-location of known lat/lon
-    logical :: init        ! Flag indicating structure is ready
-  end type proj_info
+  ! Use WRFDA's proj_info type from da_tools module
   
   type(proj_info), save :: map_info
   logical, save :: map_info_initialized = .false.
@@ -2727,7 +2715,7 @@ contains
   end function wrfda_construct_y_type
 
   ! Construct iv_type from observation data
-  type(c_ptr) function wrfda_construct_iv_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_qc, v_qc, t_qc, p_qc, q_qc, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, elevations, obs_types, family) bind(C, name="wrfda_construct_iv_type")
+  type(c_ptr) function wrfda_construct_iv_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_qc, v_qc, t_qc, p_qc, q_qc, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, elevations, obs_types, family, domain_ptr) bind(C, name="wrfda_construct_iv_type")
     implicit none
     integer(c_int), intent(in) :: num_obs, num_levels
     real(c_double), intent(in) :: u_values(*), v_values(*), t_values(*), p_values(*), q_values(*)
@@ -2736,15 +2724,20 @@ contains
     integer(c_int), intent(in) :: u_available(*), v_available(*), t_available(*), p_available(*), q_available(*)
     real(c_double), intent(in) :: lats(*), lons(*), levels(*), elevations(*)
     character(c_char), intent(in) :: obs_types(*), family(*)
+    type(c_ptr), value :: domain_ptr
     
     type(iv_type), pointer :: iv
+    type(domain), pointer :: grid
     integer :: i, lev
     character(len=20) :: family_str
     character(c_char), target :: family_target(20)
-    real :: obs_lat, obs_lon, grid_x, grid_y, x_frac, y_frac, x_frac_m, y_frac_m
+    real(8) :: obs_lat, obs_lon, grid_x, grid_y, x_frac, y_frac, x_frac_m, y_frac_m
     integer :: grid_i, grid_j
     
     print *, "WRFDA DEBUG: wrfda_construct_iv_type called with num_obs=", num_obs, "num_levels=", num_levels
+    
+    ! Convert domain pointer to grid pointer
+    call c_f_pointer(domain_ptr, grid)
     
     ! Check if num_obs is valid
     if (num_obs <= 0 .or. num_levels <= 0) then
@@ -2883,27 +2876,36 @@ contains
         iv%synop(i)%q%imp = 0.0
       end do
       
-      ! Compute horizontal interpolation indices and weights using existing find_fractional_ij function
+      ! Compute horizontal interpolation indices and weights using WRFDA coordinate conversion
       do i = 1, num_obs
-        ! Use the existing find_fractional_ij function which handles coordinate conversion correctly
-        ! This function expects a 2D lat/lon grid, so we need to create dummy arrays
-        ! For now, use simplified grid indices (this is a placeholder - in a real implementation,
-        ! we would need proper lat/lon grid arrays)
+        ! Get observation lat/lon coordinates
+        obs_lat = lats(i)
+        obs_lon = lons(i)
         
-        ! Simple grid index calculation (placeholder)
-        grid_i = min(max(1, int(real(i))), 73-1)  ! Ensure within bounds for interpolation
-        grid_j = min(max(1, int(real(i))), 60-1)  ! Ensure within bounds for interpolation
+        ! Convert lat/lon to grid coordinates using WRFDA's coordinate conversion
+        ! Note: We need to use the map projection information that was initialized
+        ! in the C++ code before calling this function
+        call da_llxy_wrf(map_info, obs_lat, obs_lon, grid_x, grid_y)
+        
+        ! Convert grid coordinates to fractional indices using WRFDA's da_togrid
+        ! da_togrid(x, ib, ie, i, dx, dxm) - converts x coordinate to grid index i
+        call da_togrid(grid_x, 1, grid%xp%ide-1, grid_i, x_frac, x_frac_m)
+        call da_togrid(grid_y, 1, grid%xp%jde-1, grid_j, y_frac, y_frac_m)
+        
+        ! Ensure indices are within bounds for interpolation
+        grid_i = max(1, min(grid_i, grid%xp%ide-1))
+        grid_j = max(1, min(grid_j, grid%xp%jde-1))
         
         ! Set grid indices for all vertical levels
         do lev = 1, iv%info(2)%max_lev
           iv%info(2)%i(lev, i) = grid_i
           iv%info(2)%j(lev, i) = grid_j
           
-          ! Set interpolation weights (simple approach)
-          iv%info(2)%dx(lev, i) = 0.5  ! Simple interpolation weights
-          iv%info(2)%dy(lev, i) = 0.5
-          iv%info(2)%dxm(lev, i) = 0.5
-          iv%info(2)%dym(lev, i) = 0.5
+          ! Set interpolation weights using actual fractional values
+          iv%info(2)%dx(lev, i) = x_frac
+          iv%info(2)%dy(lev, i) = y_frac
+          iv%info(2)%dxm(lev, i) = x_frac_m
+          iv%info(2)%dym(lev, i) = y_frac_m
           
           ! Set vertical level information
           iv%info(2)%k(lev, i) = 1  ! Surface level
@@ -3120,60 +3122,14 @@ contains
     real(c_double), intent(in) :: cen_lat, cen_lon, dx, stand_lon, truelat1, truelat2
     
     if (.not. map_info_initialized) then
-      ! Initialize map projection with provided parameters
-      map_info%code = map_proj
-      map_info%lat1 = 28.1562  ! Approximate SW corner
-      map_info%lon1 = -93.6489  ! Approximate SW corner
-      map_info%dx = dx
-      map_info%dlat = 1.0
-      map_info%dlon = 1.0
-      map_info%stdlon = stand_lon
-      map_info%truelat1 = truelat1
-      map_info%truelat2 = truelat2
-      map_info%knowni = 36.0  ! Approximate center
-      map_info%knownj = 30.0  ! Approximate center
-      map_info%init = .true.
-      
+      ! Initialize map projection using WRFDA's da_map_set function
+      call da_map_set(map_proj, 28.1562d0, -93.6489d0, 1.0d0, 1.0d0, dx, stand_lon, truelat1, truelat2, 1.0d0, 1.0d0, map_info)
       map_info_initialized = .true.
-      print *, "WRFDA DEBUG: Map projection initialized from C parameters"
+      print *, "WRFDA DEBUG: Map projection initialized using da_map_set"
       print *, "WRFDA DEBUG: Projection code = ", map_info%code
       print *, "WRFDA DEBUG: Center lat/lon = ", cen_lat, cen_lon
     end if
   end subroutine initialize_map_projection_c
-  
-  subroutine simplified_llxy_wrf(lat, lon, x, y)
-    ! Use WRFDA's da_llxy_wrf with initialized map projection
-    implicit none
-    real, intent(in) :: lat, lon
-    real, intent(out) :: x, y
-    
-    ! For now, use simplified coordinate conversion to avoid WRFDA type issues
-    ! In a full implementation, this would call da_llxy_wrf with proper type conversion
-    x = (lon - map_info%lon1) / map_info%dlon + 1.0
-    y = (lat - map_info%lat1) / map_info%dlat + 1.0
-  end subroutine simplified_llxy_wrf
-  
-  subroutine da_togrid_simplified(x, ib, ie, i, dx, dxm)
-    ! Simplified version of WRFDA's da_togrid function
-    ! This follows the exact same logic as da_togrid.inc
-    implicit none
-    real, intent(in) :: x
-    integer, intent(in) :: ib, ie
-    real, intent(out) :: dx, dxm
-    integer, intent(out) :: i
-    
-    ! Follow WRFDA's da_togrid.inc logic exactly
-    i = int(x)
-    
-    if (i < ib) then
-      i = ib
-    else if (i >= ie) then
-      i = ie - 1
-    end if
-    
-    dx = x - real(i)
-    dxm = 1.0 - dx
-  end subroutine da_togrid_simplified
 
 end module metada_wrfda_dispatch
 

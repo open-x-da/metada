@@ -417,18 +417,8 @@ class WRFDAObsOperator {
 
     // Initialize map projection for WRFDA coordinate conversion
     // TODO: Extract actual map projection parameters from WRF configuration
-    // For now, use default values for lat/lon grid
-    int map_proj = 1;           // Lambert Conformal (default)
-    double cen_lat = 34.83002;  // center latitude
-    double cen_lon = -81.03;    // center longitude
-    double dx = 0.2690;         // grid spacing in degrees
-    double stand_lon = -98.0;   // standard longitude
-    double truelat1 = 30.0;     // first true latitude
-    double truelat2 = 60.0;     // second true latitude
-
-    initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
-                                &truelat1, &truelat2);
-
+    // Map projection is initialized in applyObservationOperator before this
+    // call
     std::vector<double> out_y(num_observations, 0.0);
 
     // Validate required data
@@ -505,12 +495,24 @@ class WRFDAObsOperator {
           std::to_string(rc));
     }
 
-    // Step 2: Construct observation and innovation vector structures
+    // Step 2: Initialize map projection for coordinate conversion
+    int map_proj = 1;           // Lambert conformal conic projection
+    double cen_lat = 34.83002;  // center latitude
+    double cen_lon = -81.03;    // center longitude
+    double dx = 0.2690;         // grid spacing in degrees
+    double stand_lon = -98.0;   // standard longitude
+    double truelat1 = 30.0;     // first true latitude
+    double truelat2 = 60.0;     // second true latitude
+
+    initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
+                                &truelat1, &truelat2);
+
+    // Step 3: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
-    void* iv_ptr = constructIvType(obs_data, operator_families_);
+    void* iv_ptr = constructIvType(obs_data, operator_families_, domain_ptr);
     void* config_flags_ptr = constructConfigFlags();
 
-    // Step 3: Call da_get_innov_vector
+    // Step 4: Call da_get_innov_vector
     const int it = 1;
     rc = wrfda_get_innov_vector(&it, domain_ptr, ob_ptr, iv_ptr,
                                 config_flags_ptr);
@@ -1127,7 +1129,8 @@ class WRFDAObsOperator {
    * quality control information.
    */
   void* constructIvType(const typename ObsBackend::ObsOperatorData& obs_data,
-                        const std::vector<std::string>& families) const {
+                        const std::vector<std::string>& families,
+                        void* domain_ptr) const {
     if (obs_data.num_obs == 0) {
       return nullptr;
     }
@@ -1213,7 +1216,7 @@ class WRFDAObsOperator {
         const_cast<double*>(lons.data()), const_cast<double*>(levels.data()),
         const_cast<double*>(obs_data.elevations.data()),
         const_cast<char*>(obs_types_flat.c_str()),
-        const_cast<char*>(family.c_str()));
+        const_cast<char*>(family.c_str()), domain_ptr);
 
     return iv_ptr;
   }

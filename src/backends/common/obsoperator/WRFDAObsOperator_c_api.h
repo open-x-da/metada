@@ -142,7 +142,8 @@ void* wrfda_construct_iv_type(
     const int* q_qc, const int* u_available, const int* v_available,
     const int* t_available, const int* p_available, const int* q_available,
     const double* lats, const double* lons, const double* levels,
-    const double* elevations, const char* obs_types, const char* family);
+    const double* elevations, const char* obs_types, const char* family,
+    void* domain_ptr);
 
 // Construct config_flags for WRFDA
 void* wrfda_construct_config_flags();
