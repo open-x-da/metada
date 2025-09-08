@@ -525,12 +525,10 @@ class WRFDAObsOperator {
     // Step 3: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
     void* iv_ptr = constructIvType(obs_data, operator_families_, domain_ptr);
-    void* config_flags_ptr = constructConfigFlags();
 
     // Step 4: Call da_get_innov_vector
     const int it = 1;
-    rc = wrfda_get_innov_vector(&it, domain_ptr, ob_ptr, iv_ptr,
-                                config_flags_ptr);
+    rc = wrfda_get_innov_vector(&it, domain_ptr, ob_ptr, iv_ptr);
 
     if (rc != 0) {
       throw std::runtime_error("da_get_innov_vector failed with code " +
@@ -1083,11 +1081,14 @@ class WRFDAObsOperator {
         levels.push_back(level.level);
 
         // Extract variable data
-        u_values.push_back(level.u.available ? level.u.value : 0.0);
-        v_values.push_back(level.v.available ? level.v.value : 0.0);
-        t_values.push_back(level.t.available ? level.t.value : 0.0);
-        p_values.push_back(level.p.available ? level.p.value : 0.0);
-        q_values.push_back(level.q.available ? level.q.value : 0.0);
+        // Use WRFDA standard missing value (-888888.0) for unavailable
+        // observations
+        const double missing_r = -888888.0;
+        u_values.push_back(level.u.available ? level.u.value : missing_r);
+        v_values.push_back(level.v.available ? level.v.value : missing_r);
+        t_values.push_back(level.t.available ? level.t.value : missing_r);
+        p_values.push_back(level.p.available ? level.p.value : missing_r);
+        q_values.push_back(level.q.available ? level.q.value : missing_r);
 
         u_errors.push_back(level.u.available ? level.u.error : 1.0);
         v_errors.push_back(level.v.available ? level.v.error : 1.0);
@@ -1179,11 +1180,14 @@ class WRFDAObsOperator {
         levels.push_back(level.level);
 
         // Extract variable data
-        u_values.push_back(level.u.available ? level.u.value : 0.0);
-        v_values.push_back(level.v.available ? level.v.value : 0.0);
-        t_values.push_back(level.t.available ? level.t.value : 0.0);
-        p_values.push_back(level.p.available ? level.p.value : 0.0);
-        q_values.push_back(level.q.available ? level.q.value : 0.0);
+        // Use WRFDA standard missing value (-888888.0) for unavailable
+        // observations
+        const double missing_r = -888888.0;
+        u_values.push_back(level.u.available ? level.u.value : missing_r);
+        v_values.push_back(level.v.available ? level.v.value : missing_r);
+        t_values.push_back(level.t.available ? level.t.value : missing_r);
+        p_values.push_back(level.p.available ? level.p.value : missing_r);
+        q_values.push_back(level.q.available ? level.q.value : missing_r);
 
         u_errors.push_back(level.u.available ? level.u.error : 1.0);
         v_errors.push_back(level.v.available ? level.v.error : 1.0);
@@ -1191,11 +1195,12 @@ class WRFDAObsOperator {
         p_errors.push_back(level.p.available ? level.p.error : 1.0);
         q_errors.push_back(level.q.available ? level.q.error : 1.0);
 
-        u_qc.push_back(level.u.available ? level.u.qc : 1);
-        v_qc.push_back(level.v.available ? level.v.qc : 1);
-        t_qc.push_back(level.t.available ? level.t.qc : 1);
-        p_qc.push_back(level.p.available ? level.p.qc : 1);
-        q_qc.push_back(level.q.available ? level.q.qc : 1);
+        const int missing_data = -88;
+        u_qc.push_back(level.u.available ? level.u.qc : missing_data);
+        v_qc.push_back(level.v.available ? level.v.qc : missing_data);
+        t_qc.push_back(level.t.available ? level.t.qc : missing_data);
+        p_qc.push_back(level.p.available ? level.p.qc : missing_data);
+        q_qc.push_back(level.q.available ? level.q.qc : missing_data);
 
         // Extract availability flags
         u_available.push_back(level.u.available ? 1 : 0);

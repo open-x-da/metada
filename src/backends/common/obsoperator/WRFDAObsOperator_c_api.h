@@ -109,8 +109,7 @@ int wrfda_construct_iv_from_observations(
 // Main WRFDA innovation vector computation (calls da_get_innov_vector)
 // This is the comprehensive driver routine that handles all observation types
 int wrfda_get_innov_vector(const int* it, const void* domain_ptr,
-                           const void* ob_ptr, const void* iv_ptr,
-                           const void* config_flags_ptr);
+                           const void* ob_ptr, const void* iv_ptr);
 
 // Helper function to construct WRFDA domain structure from flat arrays
 int wrfda_construct_domain_from_arrays(
