@@ -2407,9 +2407,8 @@ contains
     call c_f_pointer(ob_ptr, ob)
     call c_f_pointer(iv_ptr, iv)
     
-    ! config_flags is required by WRFDA interface but unused here
-    nullify(config_flags)
-    config_flags => null()
+    ! config_flags is required by WRFDA interface - allocate it
+    allocate(config_flags)
     
     ! Initialize QC statistics array
     num_qcstat_conv = 0
@@ -2419,6 +2418,9 @@ contains
     call da_get_innov_vector(it, num_qcstat_conv, ob, iv, grid, config_flags)
     
     print *, "WRFDA DEBUG: da_get_innov_vector completed successfully"
+
+    ! Clean up allocated config_flags
+    deallocate(config_flags)
 
     wrfda_get_innov_vector = 0
     

@@ -5,6 +5,7 @@
         "CMAKE_BUILD_TYPE": "Debug"
     },
     "cmake.configureArgs": [
+        "-DCMAKE_VERBOSE_MAKEFILE=OFF",
         "-DLOGGER_BACKEND=NGLOG",
         "-DCONFIG_BACKEND=YAML",
         "-DWITH_WRFDA=ON",
