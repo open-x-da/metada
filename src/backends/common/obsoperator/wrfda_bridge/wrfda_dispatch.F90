@@ -2402,26 +2402,14 @@ contains
     ! Quality control statistics array (simplified for now)
     integer, dimension(1,1,1,1) :: num_qcstat_conv
     
-    ! Initialize return code
-    wrfda_get_innov_vector = 0
-    
     ! Convert C pointers to Fortran pointers
     call c_f_pointer(domain_ptr, grid)
     call c_f_pointer(ob_ptr, ob)
+    call c_f_pointer(iv_ptr, iv)
     
-    ! Initialize config_flags to null to prevent uninitialized warning
+    ! config_flags is required by WRFDA interface but unused here
+    nullify(config_flags)
     config_flags => null()
-    
-    ! Check if iv_ptr is null before converting
-    if (c_associated(iv_ptr)) then
-      call c_f_pointer(iv_ptr, iv)
-      print *, "WRFDA DEBUG: iv_ptr converted successfully"
-    else
-      print *, "WRFDA DEBUG: iv_ptr is null - skipping da_get_innov_vector"
-      wrfda_get_innov_vector = 0
-      return
-    end if
-    
     
     ! Initialize QC statistics array
     num_qcstat_conv = 0
@@ -2431,6 +2419,8 @@ contains
     call da_get_innov_vector(it, num_qcstat_conv, ob, iv, grid, config_flags)
     
     print *, "WRFDA DEBUG: da_get_innov_vector completed successfully"
+
+    wrfda_get_innov_vector = 0
     
   end function wrfda_get_innov_vector
 
@@ -2547,16 +2537,6 @@ contains
     grid%sp31 = 1; grid%ep31 = nx
     grid%sp32 = 1; grid%ep32 = ny
     grid%sp33 = 1; grid%ep33 = nz
-    
-    ! Debug: Print domain construction values
-    print *, "WRFDA DEBUG: Domain construction values:"
-    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz
-    print *, "WRFDA DEBUG: grid%xp%kds=", grid%xp%kds, " grid%xp%kde=", grid%xp%kde
-    print *, "WRFDA DEBUG: grid%xp%ids=", grid%xp%ids, " grid%xp%ide=", grid%xp%ide
-    print *, "WRFDA DEBUG: grid%xp%jds=", grid%xp%jds, " grid%xp%jde=", grid%xp%jde
-    print *, "WRFDA DEBUG: grid%sd31=", grid%sd31, " grid%ed31=", grid%ed31
-    print *, "WRFDA DEBUG: grid%sd32=", grid%sd32, " grid%ed32=", grid%ed32
-    print *, "WRFDA DEBUG: grid%sd33=", grid%sd33, " grid%ed33=", grid%ed33
 
     ! Allocate and populate xb (background state) arrays
     allocate(grid%xb%u(1:nx, 1:ny, 1:nz))
@@ -2572,7 +2552,7 @@ contains
       do j = 1, ny
         do i = 1, nx
           ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
-          idx = (i-1)*ny*nz + (j-1)*nz + k
+          idx = (k-1)*nx*ny + (j-1)*nx + i
           grid%xb%u(i,j,k) = u(idx)
           grid%xb%v(i,j,k) = v(idx)
           grid%xb%t(i,j,k) = t(idx)
@@ -2588,7 +2568,7 @@ contains
       do j = 1, ny
         do i = 1, nx
           ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
-          idx_3d = (i-1)*ny*staggered_nz + (j-1)*staggered_nz + k
+          idx_3d = (k-1)*nx*ny + (j-1)*nx + i
           grid%ph_2(i,j,k) = ph(idx_3d)
           grid%phb(i,j,k) = phb(idx_3d)
         end do
@@ -2635,9 +2615,6 @@ contains
         end do
       end do
     end do
-    print*, "WRFDA DEBUG: grid%xb%h size is ", size(grid%xb%h), grid%xb%h(1,1,1)
-    print*, "WRFDA DEBUG: grid%xb%h bounds: ", lbound(grid%xb%h), " to ", ubound(grid%xb%h)
-    print*, "WRFDA DEBUG: grid%xb%h shape: ", shape(grid%xb%h)
 
     ! Return pointer to allocated domain
     domain_ptr = c_loc(grid)
