@@ -2090,7 +2090,7 @@ contains
     end if
     
     ! Observation is inside domain - proceed with normal processing
-    bestd = 1.0d99; oi = 1; oj = 1
+    bestd = 1.0e99; oi = 1; oj = 1
     do j=1,ny
       do i=1,nx
         lat = lats2d(i + (j-1)*nx)
@@ -3188,7 +3188,7 @@ contains
     
     if (.not. map_info_initialized) then
       ! Initialize map projection using WRFDA's da_map_set function
-      call da_map_set(map_proj, 28.1562d0, -93.6489d0,1.0d0, 1.0d0, dx, stand_lon, truelat1, truelat2, 0.26290d0, 0.26290d0, map_info)
+      call da_map_set(map_proj, 28.1562, -93.6489, 1.0, 1.0, dx, stand_lon, truelat1, truelat2, 0.26290, 0.26290, map_info)
       map_info_initialized = .true.
       print *, "WRFDA DEBUG: Map projection initialized using da_map_set"
       print *, "WRFDA DEBUG: Projection code = ", map_info%code

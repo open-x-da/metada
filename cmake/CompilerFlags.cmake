@@ -41,9 +41,9 @@ function(configure_compiler_flags)
     # Configure debug-specific Fortran compiler flags
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-            set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -ggdb -O0 -fconvert=big-endian -frecord-marker=4 -fbacktrace -fcheck=bounds,do,mem,pointer -ffpe-trap=invalid,zero,overflow"
+            set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -ggdb -O0 -fdefault-real-8 -fconvert=big-endian -frecord-marker=4 -fbacktrace -fcheck=bounds,do,mem,pointer -ffpe-trap=invalid,zero,overflow"
                 CACHE STRING "Fortran debug compiler flags" FORCE)
-            message(STATUS "Added debug Fortran flags: -ggdb -O0 -fconvert=big-endian -frecord-marker=4 -fbacktrace -fcheck=bounds,do,mem,pointer -ffpe-trap=invalid,zero,overflow")
+            message(STATUS "Added debug Fortran flags: -ggdb -O0 -fdefault-real-8 -fconvert=big-endian -frecord-marker=4 -fbacktrace -fcheck=bounds,do,mem,pointer -ffpe-trap=invalid,zero,overflow")
         endif()
     endif()
     

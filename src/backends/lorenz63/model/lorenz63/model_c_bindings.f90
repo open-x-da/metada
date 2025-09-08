@@ -26,9 +26,15 @@ contains
     real(c_float), value, intent(in) :: sigma, rho, beta, dt
     type(c_ptr) :: ptr_result
     type(lorenz63_model_type), pointer :: f_ptr
+    real(c_double) :: sigma_d, rho_d, beta_d, dt_d
     
     allocate(f_ptr)
-    call f_ptr%init(sigma, rho, beta, dt)
+    ! Convert from REAL(4) to REAL(8)
+    sigma_d = real(sigma, c_double)
+    rho_d = real(rho, c_double)
+    beta_d = real(beta, c_double)
+    dt_d = real(dt, c_double)
+    call f_ptr%init(sigma_d, rho_d, beta_d, dt_d)
     ptr_result = c_loc(f_ptr)
   end function c_lorenz63_model_create
   
@@ -46,12 +52,18 @@ contains
     type(c_ptr), value, intent(in) :: model_ptr
     real(c_float), intent(out) :: sigma, rho, beta, dt
     type(lorenz63_model_type), pointer :: f_ptr
+    real(c_double) :: sigma_d, rho_d, beta_d, dt_d
     
     call c_f_pointer(model_ptr, f_ptr)
-    sigma = f_ptr%get_sigma()
-    rho = f_ptr%get_rho()
-    beta = f_ptr%get_beta()
-    dt = f_ptr%get_time_step()
+    sigma_d = f_ptr%get_sigma()
+    rho_d = f_ptr%get_rho()
+    beta_d = f_ptr%get_beta()
+    dt_d = f_ptr%get_time_step()
+    ! Convert from REAL(8) to REAL(4)
+    sigma = real(sigma_d, c_float)
+    rho = real(rho_d, c_float)
+    beta = real(beta_d, c_float)
+    dt = real(dt_d, c_float)
   end subroutine c_lorenz63_model_get_params
   
   ! Set the parameters of a lorenz63 model
@@ -59,9 +71,15 @@ contains
     type(c_ptr), value, intent(in) :: model_ptr
     real(c_float), value, intent(in) :: sigma, rho, beta, dt
     type(lorenz63_model_type), pointer :: f_ptr
+    real(c_double) :: sigma_d, rho_d, beta_d, dt_d
     
     call c_f_pointer(model_ptr, f_ptr)
-    call f_ptr%init(sigma, rho, beta, dt)
+    ! Convert from REAL(4) to REAL(8)
+    sigma_d = real(sigma, c_double)
+    rho_d = real(rho, c_double)
+    beta_d = real(beta, c_double)
+    dt_d = real(dt, c_double)
+    call f_ptr%init(sigma_d, rho_d, beta_d, dt_d)
   end subroutine c_lorenz63_model_set_params
   
   ! Create and return a C pointer to a new rk4 integrator

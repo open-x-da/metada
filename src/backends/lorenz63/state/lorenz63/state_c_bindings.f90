@@ -24,9 +24,13 @@ contains
     real(c_float), value, intent(in) :: x, y, z
     type(c_ptr) :: ptr_result
     type(state_type), pointer :: f_ptr
+    real(c_double) :: x_d, y_d, z_d
     
     allocate(f_ptr)
-    call f_ptr%init(x, y, z)
+    x_d = real(x, c_double)
+    y_d = real(y, c_double)
+    z_d = real(z, c_double)
+    call f_ptr%init(x_d, y_d, z_d)
     ptr_result = c_loc(f_ptr)
   end function c_state_create
   
@@ -44,9 +48,11 @@ contains
     type(c_ptr), value, intent(in) :: state_ptr
     real(c_float) :: x
     type(state_type), pointer :: f_ptr
+    real(c_double) :: x_d
     
     call c_f_pointer(state_ptr, f_ptr)
-    x = f_ptr%get_x()
+    x_d = f_ptr%get_x()
+    x = real(x_d, c_float)
   end function c_state_get_x
   
   ! Get the y component of a state
@@ -54,9 +60,11 @@ contains
     type(c_ptr), value, intent(in) :: state_ptr
     real(c_float) :: y
     type(state_type), pointer :: f_ptr
+    real(c_double) :: y_d
     
     call c_f_pointer(state_ptr, f_ptr)
-    y = f_ptr%get_y()
+    y_d = f_ptr%get_y()
+    y = real(y_d, c_float)
   end function c_state_get_y
   
   ! Get the z component of a state
@@ -64,9 +72,11 @@ contains
     type(c_ptr), value, intent(in) :: state_ptr
     real(c_float) :: z
     type(state_type), pointer :: f_ptr
+    real(c_double) :: z_d
     
     call c_f_pointer(state_ptr, f_ptr)
-    z = f_ptr%get_z()
+    z_d = f_ptr%get_z()
+    z = real(z_d, c_float)
   end function c_state_get_z
   
   ! Set the x component of a state
@@ -74,9 +84,11 @@ contains
     type(c_ptr), value, intent(in) :: state_ptr
     real(c_float), value, intent(in) :: x
     type(state_type), pointer :: f_ptr
+    real(c_double) :: x_d
     
     call c_f_pointer(state_ptr, f_ptr)
-    call f_ptr%set_x(x)
+    x_d = real(x, c_double)
+    call f_ptr%set_x(x_d)
   end subroutine c_state_set_x
   
   ! Set the y component of a state
@@ -84,9 +96,11 @@ contains
     type(c_ptr), value, intent(in) :: state_ptr
     real(c_float), value, intent(in) :: y
     type(state_type), pointer :: f_ptr
+    real(c_double) :: y_d
     
     call c_f_pointer(state_ptr, f_ptr)
-    call f_ptr%set_y(y)
+    y_d = real(y, c_double)
+    call f_ptr%set_y(y_d)
   end subroutine c_state_set_y
   
   ! Set the z component of a state
@@ -94,9 +108,11 @@ contains
     type(c_ptr), value, intent(in) :: state_ptr
     real(c_float), value, intent(in) :: z
     type(state_type), pointer :: f_ptr
+    real(c_double) :: z_d
     
     call c_f_pointer(state_ptr, f_ptr)
-    call f_ptr%set_z(z)
+    z_d = real(z, c_double)
+    call f_ptr%set_z(z_d)
   end subroutine c_state_set_z
   
   ! Compute distance between two states
@@ -104,10 +120,12 @@ contains
     type(c_ptr), value, intent(in) :: state_ptr1, state_ptr2
     real(c_float) :: dist
     type(state_type), pointer :: f_ptr1, f_ptr2
+    real(c_double) :: dist_d
     
     call c_f_pointer(state_ptr1, f_ptr1)
     call c_f_pointer(state_ptr2, f_ptr2)
-    dist = f_ptr1%distance(f_ptr2)
+    dist_d = f_ptr1%distance(f_ptr2)
+    dist = real(dist_d, c_float)
   end function c_state_distance
   
 end module state_c_bindings 
