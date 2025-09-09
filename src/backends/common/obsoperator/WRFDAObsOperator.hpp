@@ -1277,9 +1277,9 @@ class WRFDAObsOperator {
 
     // Call Fortran function to extract innovations
     int max_innovations_int = static_cast<int>(max_innovations);
-    int rc = wrfda_extract_innovations(
-        iv_ptr, const_cast<char*>(family.c_str()), innovations.data(),
-        &num_innovations, &max_innovations_int);
+    int rc = wrfda_extract_innovations(const_cast<char*>(family.c_str()),
+                                       innovations.data(), &num_innovations,
+                                       &max_innovations_int);
 
     if (rc != 0) {
       std::cerr << "WRFDA: Failed to extract innovations with code " << rc

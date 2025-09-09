@@ -149,9 +149,8 @@ void* wrfda_construct_iv_type(
 void* wrfda_construct_config_flags();
 
 // Extract innovation values from iv_type structure
-int wrfda_extract_innovations(void* iv_ptr, const char* family,
-                              double* innovations, int* num_innovations,
-                              int* max_innovations);
+int wrfda_extract_innovations(const char* family, double* innovations,
+                              int* num_innovations, int* max_innovations);
 
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();
