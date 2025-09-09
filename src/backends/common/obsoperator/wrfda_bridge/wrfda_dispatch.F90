@@ -14,10 +14,12 @@ module metada_wrfda_dispatch
   use iso_c_binding
   use module_domain,        only: domain, x_type
   use da_define_structures, only: iv_type, y_type, da_allocate_y, da_allocate_obs_info
+  use module_symbols_util,  only: wrfu_initialize, wrfu_finalize, wrfu_cal_gregorian
+  use module_symbols_util, only: WRFU_ClockCreate, WRFU_TimeIntervalSet, WRFU_SUCCESS, WRFU_Time, WRFU_TimeInterval, WRFU_INITIALIZE, WRFU_CAL_GREGORIAN
   use da_control, only: metar, synop, ships, buoy, airep, pilot, sound, sonde_sfc, &
                         sfc_assi_options, sfc_assi_options_1, trace_use_dull, &
                         var4d_run, num_fgat_time, missing_r, missing_data, num_ob_indexes, &
-                        kts, kte, its, ite, jts, jte, Max_StHeight_Diff
+                        kts, kte, its, ite, jts, jte, Max_StHeight_Diff, kms, kme
   use da_tools, only: proj_info, da_map_set, da_llxy_wrf, da_togrid
   use da_metar,  only: da_transform_xtoy_metar,  da_transform_xtoy_metar_adj
   use da_synop,  only: da_transform_xtoy_synop,  da_transform_xtoy_synop_adj
@@ -1083,6 +1085,7 @@ contains
     iv%info(:)%nlocal = 0
     iv%info(:)%ntotal = 0
     iv%info(:)%max_lev = 1
+    iv%time = 1
     
     ! Initialize instrument-related fields
     iv%num_inst = 0
@@ -1111,8 +1114,8 @@ contains
     call da_allocate_obs_info(iv, family)
     print *, "WRFDA DEBUG: da_allocate_obs_info completed"
     
-    ! Set levels array
-    iv%info(family)%levels = 1
+    ! Set levels array - REMOVED: This conflicts with individual observation level setting
+    ! iv%info(family)%levels = 1
     
     ! Initialize grid indices and observation data
     valid_obs_count = 0
@@ -1310,6 +1313,7 @@ contains
     iv%info(:)%nlocal = 0
     iv%info(:)%ntotal = 0
     iv%info(:)%max_lev = 1
+    iv%time = 1
     
     ! Initialize instrument-related fields for conventional observations only
     print *, "WRFDA DEBUG: Initializing instrument fields for conventional observations..."
@@ -1321,7 +1325,7 @@ contains
          ! Now set the actual family we want to use
      iv%info(family)%nlocal = num_obs
      iv%info(family)%ntotal = num_obs
-     iv%info(family)%max_lev = nz  ! Use actual number of vertical levels
+     iv%info(family)%max_lev = 1  ! Use actual number of vertical levels
     
     ! CRITICAL FIX: Use WRFDA's own allocation routine instead of manual allocation
     ! This ensures the arrays have the correct bounds that WRFDA expects
@@ -1335,8 +1339,8 @@ contains
     print *, "WRFDA DEBUG:   iv%info(family)%dym bounds:", lbound(iv%info(family)%dym), ":", ubound(iv%info(family)%dym)
     print *, "WRFDA DEBUG:   iv%info(family)%k bounds:", lbound(iv%info(family)%k), ":", ubound(iv%info(family)%k)
     
-    ! Set the levels array after WRFDA allocation
-    iv%info(family)%levels = 1
+    ! Set the levels array after WRFDA allocation - REMOVED: This conflicts with individual observation level setting
+    ! iv%info(family)%levels = 1
     
     ! Initialize grid indices - for surface observations, use surface level indices
     iv%info(family)%i = 1  ! Default to grid point 1 (1-based)
@@ -1452,12 +1456,12 @@ contains
     iv%info(family)%nlocal = num_obs
     iv%info(family)%ntotal = num_obs
     iv%info(family)%max_lev = max_lev
-    allocate(iv%info(family)%i(max_lev,num_obs), iv%info(family)%j(max_lev,num_obs), iv%info(family)%k(max_lev,num_obs))
-    allocate(iv%info(family)%x(max_lev,num_obs), iv%info(family)%y(max_lev,num_obs), iv%info(family)%zk(max_lev,num_obs))
-    allocate(iv%info(family)%dx(max_lev,num_obs), iv%info(family)%dy(max_lev,num_obs), iv%info(family)%dz(max_lev,num_obs))
-    allocate(iv%info(family)%dxm(max_lev,num_obs), iv%info(family)%dym(max_lev,num_obs), iv%info(family)%dzm(max_lev,num_obs))
+    allocate(iv%info(family)%i(kms:kme,num_obs), iv%info(family)%j(kms:kme,num_obs), iv%info(family)%k(kms:kme,num_obs))
+    allocate(iv%info(family)%x(kms:kme,num_obs), iv%info(family)%y(kms:kme,num_obs), iv%info(family)%zk(kms:kme,num_obs))
+    allocate(iv%info(family)%dx(kms:kme,num_obs), iv%info(family)%dy(kms:kme,num_obs), iv%info(family)%dz(kms:kme,num_obs))
+    allocate(iv%info(family)%dxm(kms:kme,num_obs), iv%info(family)%dym(kms:kme,num_obs), iv%info(family)%dzm(kms:kme,num_obs))
     allocate(iv%info(family)%levels(num_obs))
-    allocate(iv%info(family)%proc_domain(max_lev,num_obs)); iv%info(family)%proc_domain = .true.
+    allocate(iv%info(family)%proc_domain(kms:kme,num_obs)); iv%info(family)%proc_domain = .true.
     
     ! Set up plocal array for proper time slot indexing
     ! For 3D-Var (num_fgat_time = 1), we have:
@@ -1480,7 +1484,7 @@ contains
          print *, "WRFDA DEBUG: Profile observation", n, " is out of domain - skipping processing"
          ! Skip this observation by setting invalid indices and continuing
          ! This follows WRFDA's pattern of graceful handling for out-of-domain observations
-         do lev = 1, max_lev
+         do lev = kms, kme
            iv%info(family)%i(lev,n) = -1  ! Mark as invalid
            iv%info(family)%j(lev,n) = -1  ! Mark as invalid
            iv%info(family)%k(lev,n) = -1  ! Mark as invalid
@@ -2487,6 +2491,10 @@ contains
     ! Set up basic domain dimensions
     grid%id = 1
     
+    ! Initialize domain clock (required for WRFDA time management)
+    ! Set domain_clock_created to false initially
+    grid%domain_clock_created = .false.
+    
     ! Height field is vertically staggered with nz+1 levels
     staggered_nz = nz + 1
     
@@ -2527,6 +2535,9 @@ contains
     grid%sm31x = 1; grid%em31x = nx
     grid%sm32x = 1; grid%em32x = ny
     grid%sm33x = 1; grid%em33x = nz
+    
+    ! Initialize domain clock for WRFDA time management
+    call initialize_domain_clock(grid)
     grid%sm31y = 1; grid%em31y = nx
     grid%sm32y = 1; grid%em32y = ny
     grid%sm33y = 1; grid%em33y = nz
@@ -2787,7 +2798,7 @@ contains
     end if
     
     ! Initialize basic fields
-    iv%time = 0
+    iv%time = 1
     iv%num_inst = 0
     iv%total_rad_pixel = 0
     iv%total_rad_channel = 0
@@ -2820,21 +2831,21 @@ contains
       allocate(iv%synop(num_obs))
       print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
       
-      ! Allocate interpolation arrays for synop observations
-      ! Use max_lev for vertical dimension to match WRFDA expectations
-      iv%info(2)%max_lev = 27  ! Use nz levels for vertical dimension
-      allocate(iv%info(2)%i(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%j(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%dx(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%dy(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%dxm(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%dym(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%k(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%zk(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%dz(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%dzm(iv%info(2)%max_lev, num_obs))
-      allocate(iv%info(2)%levels(num_obs))
-      allocate(iv%info(2)%proc_domain(iv%info(2)%max_lev, num_obs))
+    ! Allocate interpolation arrays for synop observations
+    ! Use kms:kme for vertical dimension to match WRFDA expectations
+    iv%info(2)%max_lev = 1  ! Surface observations have max_lev = 1
+    allocate(iv%info(2)%i(kms:kme, num_obs))
+    allocate(iv%info(2)%j(kms:kme, num_obs))
+    allocate(iv%info(2)%dx(kms:kme, num_obs))
+    allocate(iv%info(2)%dy(kms:kme, num_obs))
+    allocate(iv%info(2)%dxm(kms:kme, num_obs))
+    allocate(iv%info(2)%dym(kms:kme, num_obs))
+    allocate(iv%info(2)%k(kms:kme, num_obs))
+    allocate(iv%info(2)%zk(kms:kme, num_obs))
+    allocate(iv%info(2)%dz(kms:kme, num_obs))
+    allocate(iv%info(2)%dzm(kms:kme, num_obs))
+    allocate(iv%info(2)%levels(num_obs))
+    allocate(iv%info(2)%proc_domain(kms:kme, num_obs))
       
       ! Allocate observation metadata arrays
       allocate(iv%info(2)%platform(num_obs))
@@ -2973,7 +2984,7 @@ contains
         grid_j = max(1, min(grid_j, grid%xp%jde-1))
         
         ! Set grid indices for all vertical levels
-        do lev = 1, iv%info(2)%max_lev
+        do lev = kms, kme
           iv%info(2)%i(lev, i) = grid_i
           iv%info(2)%j(lev, i) = grid_j
           
@@ -3195,6 +3206,51 @@ contains
       print *, "WRFDA DEBUG: Center lat/lon = ", cen_lat, cen_lon
     end if
   end subroutine initialize_map_projection_c
+
+  ! Initialize domain clock for WRFDA time management
+  subroutine initialize_domain_clock(grid)
+    implicit none
+    type(domain), intent(inout) :: grid
+    character(len=256) :: timestr
+    logical, save :: wrfu_initialized = .false.
+    type(WRFU_Time) :: start_time, stop_time
+    type(WRFU_TimeInterval) :: time_step
+    integer :: rc
+    
+    ! Initialize WRFU (required for domain_clock_set calls)
+    if (.not. wrfu_initialized) then
+      call wrfu_initialize(defaultCalKind=wrfu_cal_gregorian)
+      wrfu_initialized = .true.
+      print *, "WRFDA DEBUG: WRFU initialized for domain clock"
+    end if
+    
+    ! Set a default analysis time for the domain clock
+    timestr = '2000-01-24_12:00:00'  ! Default analysis time
+    
+    ! Convert time string to WRFU_Time using WRF's wrf_atotime function
+    call wrf_atotime(timestr, start_time)
+    call wrf_atotime(timestr, stop_time)
+    
+    ! Create time step interval (0 seconds for analysis)
+    call WRFU_TimeIntervalSet(time_step, S=0, rc=rc)
+    if (rc /= WRFU_SUCCESS) then
+      print *, "WRFDA ERROR: Failed to create time step interval"
+      return
+    end if
+    
+    ! Create the domain clock using WRFU_ClockCreate
+    allocate(grid%domain_clock)
+    grid%domain_clock = WRFU_ClockCreate(TimeStep=time_step, StartTime=start_time, StopTime=stop_time, rc=rc)
+    if (rc /= WRFU_SUCCESS) then
+      print *, "WRFDA ERROR: Failed to create domain clock"
+      return
+    end if
+    
+    ! Set the domain_clock_created flag to true
+    grid%domain_clock_created = .true.
+    
+    print *, "WRFDA DEBUG: Domain clock initialized with time = ", trim(timestr)
+  end subroutine initialize_domain_clock
 
 end module metada_wrfda_dispatch
 
