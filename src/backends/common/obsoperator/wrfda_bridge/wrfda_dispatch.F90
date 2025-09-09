@@ -2844,34 +2844,49 @@ contains
     
     ! Allocate synop array if we have observations
     if (num_obs > 0) then
-      allocate(iv%synop(num_obs))
-      print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
+      ! Check if synop array is already associated
+      if (.not. associated(iv%synop)) then
+        allocate(iv%synop(num_obs))
+        print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
+      else
+        print *, "WRFDA DEBUG: synop array already associated, size =", size(iv%synop)
+      end if
       
     ! Allocate interpolation arrays for synop observations
     ! Use kms:kme for vertical dimension to match WRFDA expectations
     iv%info(2)%max_lev = 1  ! Surface observations have max_lev = 1
-    allocate(iv%info(2)%i(kms:kme, num_obs))
-    allocate(iv%info(2)%j(kms:kme, num_obs))
-    allocate(iv%info(2)%dx(kms:kme, num_obs))
-    allocate(iv%info(2)%dy(kms:kme, num_obs))
-    allocate(iv%info(2)%dxm(kms:kme, num_obs))
-    allocate(iv%info(2)%dym(kms:kme, num_obs))
-    allocate(iv%info(2)%k(kms:kme, num_obs))
-    allocate(iv%info(2)%zk(kms:kme, num_obs))
-    allocate(iv%info(2)%dz(kms:kme, num_obs))
-    allocate(iv%info(2)%dzm(kms:kme, num_obs))
-    allocate(iv%info(2)%levels(num_obs))
-    allocate(iv%info(2)%proc_domain(kms:kme, num_obs))
+    
+    ! Check if arrays are already allocated before allocating
+    if (.not. allocated(iv%info(2)%i)) then
+      allocate(iv%info(2)%i(kms:kme, num_obs))
+      allocate(iv%info(2)%j(kms:kme, num_obs))
+      allocate(iv%info(2)%dx(kms:kme, num_obs))
+      allocate(iv%info(2)%dy(kms:kme, num_obs))
+      allocate(iv%info(2)%dxm(kms:kme, num_obs))
+      allocate(iv%info(2)%dym(kms:kme, num_obs))
+      allocate(iv%info(2)%k(kms:kme, num_obs))
+      allocate(iv%info(2)%zk(kms:kme, num_obs))
+      allocate(iv%info(2)%dz(kms:kme, num_obs))
+      allocate(iv%info(2)%dzm(kms:kme, num_obs))
+      allocate(iv%info(2)%levels(num_obs))
+      allocate(iv%info(2)%proc_domain(kms:kme, num_obs))
+      print *, "WRFDA DEBUG: Allocated interpolation arrays for", num_obs, "observations"
+    else
+      print *, "WRFDA DEBUG: Interpolation arrays already allocated"
+    end if
       
       ! Allocate observation metadata arrays
-      allocate(iv%info(2)%platform(num_obs))
-      allocate(iv%info(2)%id(num_obs))
-      allocate(iv%info(2)%name(num_obs))
-      allocate(iv%info(2)%date_char(num_obs))
-      allocate(iv%info(2)%lat(1, num_obs))
-      allocate(iv%info(2)%lon(1, num_obs))
-      
-      print *, "WRFDA DEBUG: Allocated interpolation arrays for", num_obs, "observations"
+      if (.not. allocated(iv%info(2)%platform)) then
+        allocate(iv%info(2)%platform(num_obs))
+        allocate(iv%info(2)%id(num_obs))
+        allocate(iv%info(2)%name(num_obs))
+        allocate(iv%info(2)%date_char(num_obs))
+        allocate(iv%info(2)%lat(1, num_obs))
+        allocate(iv%info(2)%lon(1, num_obs))
+        print *, "WRFDA DEBUG: Allocated metadata arrays for", num_obs, "observations"
+      else
+        print *, "WRFDA DEBUG: Metadata arrays already allocated"
+      end if
       
       ! Populate synop data
       do i = 1, num_obs
