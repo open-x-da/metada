@@ -2849,7 +2849,15 @@ contains
         allocate(iv%synop(num_obs))
         print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
       else
-        print *, "WRFDA DEBUG: synop array already associated, size =", size(iv%synop)
+        ! Check if the existing array has the right size
+        if (size(iv%synop) /= num_obs) then
+          print *, "WRFDA DEBUG: Reallocating synop array from size", size(iv%synop), "to", num_obs
+          deallocate(iv%synop)
+          allocate(iv%synop(num_obs))
+          print *, "WRFDA DEBUG: Reallocated synop array with", num_obs, "observations"
+        else
+          print *, "WRFDA DEBUG: synop array already associated with correct size =", size(iv%synop)
+        end if
       end if
       
     ! Allocate interpolation arrays for synop observations
