@@ -41,6 +41,10 @@ module metada_wrfda_dispatch
   type(domain), save, target :: persistent_grid
   logical, save :: grid_initialized = .false.
   
+  ! CRITICAL FIX: Add persistent iv structure to avoid deallocation issues
+  type(iv_type), pointer, save :: persistent_iv
+  logical, save :: iv_allocated = .false.
+  
   ! Map projection information for WRFDA coordinate conversion
   ! Define projection constants
   integer, parameter :: PROJ_LATLON = 0
@@ -2774,6 +2778,8 @@ contains
     real(8) :: obs_lat, obs_lon, grid_x, grid_y, x_frac, y_frac, x_frac_m, y_frac_m
     integer :: grid_i, grid_j
     
+    ! Use global persistent iv structure
+    
     print *, "WRFDA DEBUG: wrfda_construct_iv_type called with num_obs=", num_obs, "num_levels=", num_levels
     
     ! Convert domain pointer to grid pointer
@@ -2790,9 +2796,19 @@ contains
     print *, "WRFDA DEBUG: Starting iv_type construction"
     
     ! Allocate iv_type
-    allocate(iv)
+    ! Allocate persistent iv structure if not already allocated
+    if (.not. iv_allocated) then
+      allocate(persistent_iv)
+      iv_allocated = .true.
+      print *, "WRFDA DEBUG: persistent iv structure allocated"
+    else
+      print *, "WRFDA DEBUG: using existing persistent iv structure"
+    end if
+    
+    ! Point local iv to persistent structure
+    iv => persistent_iv
     if (.not. associated(iv)) then
-      print *, "WRFDA DEBUG: Failed to allocate iv_type"
+      print *, "WRFDA DEBUG: Failed to associate iv pointer"
       wrfda_construct_iv_type = c_null_ptr
       return
     end if
@@ -3014,7 +3030,7 @@ contains
     end if
     
     print *, "WRFDA DEBUG: iv_type construction completed successfully"
-    wrfda_construct_iv_type = c_loc(iv)
+    wrfda_construct_iv_type = c_loc(persistent_iv)
     
     ! Convert C string to Fortran string
     family_target = family(1:20)
@@ -3042,9 +3058,8 @@ contains
   end function wrfda_construct_config_flags
 
   ! Extract innovation values from iv_type structure
-  integer(c_int) function wrfda_extract_innovations(iv_ptr, family, innovations, num_innovations, max_innovations) bind(C, name="wrfda_extract_innovations")
+  integer(c_int) function wrfda_extract_innovations(family, innovations, num_innovations, max_innovations) bind(C, name="wrfda_extract_innovations")
     implicit none
-    type(c_ptr), intent(in) :: iv_ptr
     character(c_char), intent(in) :: family(*)
     real(c_double), intent(out) :: innovations(*)
     integer(c_int), intent(out) :: num_innovations
@@ -3052,51 +3067,84 @@ contains
     
     type(iv_type), pointer :: iv
     character(len=20) :: family_str
-    character(c_char), target :: family_target(20)
     integer :: i, count
     integer :: family_index
     
     print *, "WRFDA DEBUG: wrfda_extract_innovations called"
     
-    ! Convert C string to Fortran string
-    family_target = family(1:20)
-    family_str = ""
+    ! Debug: Print raw C string characters
+    print *, "WRFDA DEBUG: Raw family string characters:"
     do i = 1, 20
-      if (family_target(i) == c_null_char) exit
-      family_str(i:i) = family_target(i)
+      if (family(i) == c_null_char) then
+        print *, "  char", i, "= NULL"
+        exit
+      else
+        print *, "  char", i, "='", family(i), "' (ASCII:", ichar(family(i)), ")"
+      end if
     end do
     
-    ! Check if iv_ptr is null
-    if (c_associated(iv_ptr)) then
-      print *, "WRFDA DEBUG: iv_ptr is not null"
-      ! Get pointer to iv_type
-      call c_f_pointer(iv_ptr, iv)
-      if (.not. associated(iv)) then
-        print *, "WRFDA DEBUG: c_f_pointer failed"
-        wrfda_extract_innovations = -1
-        return
-      end if
-      print *, "WRFDA DEBUG: Successfully converted iv_ptr to iv pointer"
-    else
-      print *, "WRFDA DEBUG: iv_ptr is null - returning empty innovations"
+    ! Convert C string to Fortran string
+    family_str = ""
+    do i = 1, 20
+      if (family(i) == c_null_char) exit
+      family_str(i:i) = family(i)
+    end do
+    print *, "WRFDA DEBUG: Converted family string: '", trim(family_str), "'"
+    
+    ! Use global persistent iv structure instead of converting iv_ptr
+    if (.not. iv_allocated) then
+      print *, "WRFDA DEBUG: iv structure not allocated - returning empty innovations"
       num_innovations = 0
       wrfda_extract_innovations = 0
       return
     end if
     
-    ! Check if iv structure is valid
+    if (.not. associated(persistent_iv)) then
+      print *, "WRFDA DEBUG: persistent_iv not associated - returning empty innovations"
+      num_innovations = 0
+      wrfda_extract_innovations = 0
+      return
+    end if
+    
+    ! Point local iv to global persistent structure
+    iv => persistent_iv
+    print *, "WRFDA DEBUG: Using global persistent iv structure"
     print *, "WRFDA DEBUG: iv%time =", iv%time
+    
+    ! Check if iv structure is valid
     print *, "WRFDA DEBUG: iv%num_inst =", iv%num_inst
     print *, "WRFDA DEBUG: size(iv%info) =", size(iv%info)
     
+    ! Check if synop array is allocated and has data
+    if (associated(iv%synop)) then
+      print *, "WRFDA DEBUG: iv%synop is associated, size =", size(iv%synop)
+      if (size(iv%synop) > 0) then
+        print *, "WRFDA DEBUG: First synop observation:"
+        print *, "  u%inv =", iv%synop(1)%u%inv
+        print *, "  v%inv =", iv%synop(1)%v%inv
+        print *, "  t%inv =", iv%synop(1)%t%inv
+        print *, "  p%inv =", iv%synop(1)%p%inv
+        print *, "  q%inv =", iv%synop(1)%q%inv
+      end if
+    else
+      print *, "WRFDA DEBUG: iv%synop is not associated"
+    end if
+    
     ! Determine family index (simplified mapping)
     family_index = 0
+    print *, "WRFDA DEBUG: Determining family index for: '", trim(family_str), "'"
+    
     if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
       family_index = 2  ! synop index (metar uses synop structure)
+      print *, "WRFDA DEBUG: Matched synop family, family_index =", family_index
     else if (trim(family_str) == "sound") then
       family_index = 3  ! sound index
+      print *, "WRFDA DEBUG: Matched sound family, family_index =", family_index
     else if (trim(family_str) == "gpspw") then
       family_index = 4  ! gpspw index
+      print *, "WRFDA DEBUG: Matched gpspw family, family_index =", family_index
+    else
+      print *, "WRFDA DEBUG: No family match found for: '", trim(family_str), "'"
     end if
     
     ! Check bounds
@@ -3171,6 +3219,19 @@ contains
     print *, "WRFDA DEBUG: Successfully extracted", num_innovations, "innovations"
     
   end function wrfda_extract_innovations
+
+  ! Clean up persistent iv structure
+  subroutine wrfda_cleanup_iv_type() bind(C, name="wrfda_cleanup_iv_type")
+    implicit none
+    
+    if (iv_allocated) then
+      if (associated(persistent_iv)) then
+        deallocate(persistent_iv)
+        print *, "WRFDA DEBUG: Persistent iv structure deallocated"
+      end if
+      iv_allocated = .false.
+    end if
+  end subroutine wrfda_cleanup_iv_type
 
   ! Initialize WRFDA variables for 3D-Var analysis
   subroutine initialize_wrfda_3dvar() bind(C, name="initialize_wrfda_3dvar")
