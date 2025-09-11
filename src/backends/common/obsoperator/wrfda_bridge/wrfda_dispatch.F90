@@ -200,15 +200,12 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(operator_family, nx, ny, nz, u, v, t, q, psfc, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, out_y) bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid(operator_family, nx, ny, nz, u, v, t, q, psfc, num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
     integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
-    real(c_double), intent(in) :: lats2d(*), lons2d(*)
-    real(c_double), intent(in) :: levels(*)
     integer(c_int), intent(in) :: num_obs
-    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
     real(c_double), intent(out) :: out_y(*)
 
     type(domain), target, save :: grid
@@ -252,13 +249,25 @@ contains
     op_str = trim(fambuf(1:max(famlen,1)))
     print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
      
-    print *, "WRFDA DEBUG: Calling parse_family_variable"
-    call parse_family_variable(op_str, fam_str, var_str, fam_id, var_code)
-    print *, "WRFDA DEBUG: Family='", trim(fam_str), "' Variable='", trim(var_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+    ! Direct family determination without parse_family_variable call
+    ! This follows the incremental variational algorithm approach
+    fam_str = trim(op_str)
+    var_str = ' '
+    var_code = 't'  ! Default variable code
+    
+    ! Determine family ID directly from operator family string
+    select case (trim(fam_str))
+    case ('metar'); fam_id = metar
+    case ('synop', 'adpsfc'); fam_id = synop
+    case ('ships'); fam_id = ships
+    case ('buoy'); fam_id = buoy
+    case default; fam_id = metar
+    end select
+    
+    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
      
-    print *, "WRFDA DEBUG: Calling init_iv_from_obs with grid bounds sm33=", persistent_grid%sm33, " em33=", persistent_grid%em33
-    call init_iv_from_obs(fam_id, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, persistent_grid%sm33, persistent_grid%em33)
-    print *, "WRFDA DEBUG: init_iv_from_obs completed"
+    ! iv structure is already set up before calling this function
+    ! No need to reinitialize it here
     
     print *, "WRFDA DEBUG: Calling da_allocate_y"
     call da_allocate_y(iv, y)
@@ -321,16 +330,13 @@ contains
   ! - u_inc, v_inc, t_inc, q_inc, psfc_inc: analysis increments (xa) - updated by each iteration
   ! - Total state: x_total = xb + xa
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid_with_background(operator_family, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg, u_inc, v_inc, t_inc, q_inc, psfc_inc, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, out_y) bind(C, name="wrfda_xtoy_apply_grid_with_background")
+  integer(c_int) function wrfda_xtoy_apply_grid_with_background(operator_family, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg, u_inc, v_inc, t_inc, q_inc, psfc_inc, num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid_with_background")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
     integer(c_int), value :: nx, ny, nz
     real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
     real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
-    real(c_double), intent(in) :: lats2d(*), lons2d(*)
-    real(c_double), intent(in) :: levels(*)
     integer(c_int), value :: num_obs
-    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
     real(c_double), intent(out) :: out_y(*)
 
     type(domain), target, save :: grid
@@ -352,12 +358,12 @@ contains
      
     ! CRITICAL FIX: Call da_copy_dims to set up module-level grid bounds
     print *, "WRFDA DEBUG: Calling da_copy_dims to set up module-level grid bounds"
-    call da_copy_dims(persistent_grid)
+    call da_copy_dims(grid)
     print *, "WRFDA DEBUG: da_copy_dims completed"
      
     ! CRITICAL FIX: Call da_copy_tile_dims to set up module-level tile bounds
     print *, "WRFDA DEBUG: Calling da_copy_tile_dims to set up module-level tile bounds"
-    call da_copy_tile_dims(persistent_grid)
+    call da_copy_tile_dims(grid)
     print *, "WRFDA DEBUG: da_copy_tile_dims completed"
      
     print *, "WRFDA DEBUG: Setting sfc_assi_options"
@@ -375,13 +381,25 @@ contains
     op_str = trim(fambuf(1:max(famlen,1)))
     print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
      
-    print *, "WRFDA DEBUG: Calling parse_family_variable"
-    call parse_family_variable(op_str, fam_str, var_str, fam_id, var_code)
-    print *, "WRFDA DEBUG: Family='", trim(fam_str), "' Variable='", trim(var_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+    ! Direct family determination without parse_family_variable call
+    ! This follows the incremental variational algorithm approach
+    fam_str = trim(op_str)
+    var_str = ' '
+    var_code = 't'  ! Default variable code
+    
+    ! Determine family ID directly from operator family string
+    select case (trim(fam_str))
+    case ('metar'); fam_id = metar
+    case ('synop', 'adpsfc'); fam_id = synop
+    case ('ships'); fam_id = ships
+    case ('buoy'); fam_id = buoy
+    case default; fam_id = metar
+    end select
+    
+    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
      
-    print *, "WRFDA DEBUG: Calling init_iv_from_obs with grid bounds sm33=", persistent_grid%sm33, " em33=", persistent_grid%em33
-    call init_iv_from_obs(fam_id, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, persistent_grid%sm33, persistent_grid%em33)
-    print *, "WRFDA DEBUG: init_iv_from_obs completed"
+    ! iv structure is already set up before calling this function
+    ! No need to reinitialize it here
     
     print *, "WRFDA DEBUG: Calling da_allocate_y"
     call da_allocate_y(iv, y)
@@ -484,8 +502,22 @@ contains
     op_str = trim(fambuf(1:max(famlen,1)))
     print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
      
-    call parse_family_variable(op_str, fam_str, var_str, fam_id, var_code)
-    print *, "WRFDA DEBUG: Family='", trim(fam_str), "' Variable='", trim(var_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+    ! Direct family determination without parse_family_variable call
+    ! This follows the incremental variational algorithm approach
+    fam_str = trim(op_str)
+    var_str = ' '
+    var_code = 't'  ! Default variable code
+    
+    ! Determine family ID directly from operator family string
+    select case (trim(fam_str))
+    case ('metar'); fam_id = metar
+    case ('synop', 'adpsfc'); fam_id = synop
+    case ('ships'); fam_id = ships
+    case ('buoy'); fam_id = buoy
+    case default; fam_id = metar
+    end select
+    
+    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
 
     ! Initialize iv_type with enhanced observation information
     call init_iv_from_enhanced_obs(fam_id, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets)
@@ -499,15 +531,12 @@ contains
   ! - delta_y: gradient in observation space
   ! - inout_u, inout_v, inout_t, inout_q, inout_psfc: gradient in state space (accumulated)
   ! - The adjoint operator accumulates gradients into the state space arrays
-  integer(c_int) function wrfda_xtoy_adjoint_grid(operator_family, nx, ny, nz, delta_y, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, inout_u, inout_v, inout_t, inout_q, inout_psfc) bind(C, name="wrfda_xtoy_adjoint_grid")
+  integer(c_int) function wrfda_xtoy_adjoint_grid(operator_family, nx, ny, nz, delta_y, num_obs, inout_u, inout_v, inout_t, inout_q, inout_psfc) bind(C, name="wrfda_xtoy_adjoint_grid")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
     integer(c_int), value :: nx, ny, nz
     real(c_double), intent(in) :: delta_y(*)
-    real(c_double), intent(in) :: lats2d(*), lons2d(*)
-    real(c_double), intent(in) :: levels(*)
     integer(c_int), value :: num_obs
-    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
     real(c_double), intent(inout) :: inout_u(*), inout_v(*), inout_t(*), inout_q(*), inout_psfc(*)
 
     type(domain), target, save :: grid
@@ -540,20 +569,8 @@ contains
     grid%xa%q = 0.0
     grid%xa%psfc = 0.0
     
-         ! CRITICAL FIX: Call da_copy_dims to set up module-level grid bounds
-     ! This is required for WRFDA interpolation routines to work properly
-     print *, "WRFDA DEBUG: Calling da_copy_dims in adjoint function"
-     call da_copy_dims(grid)
-     print *, "WRFDA DEBUG: da_copy_dims completed in adjoint function"
-     
-     ! CRITICAL FIX: Call da_copy_tile_dims to set up module-level tile bounds
-     ! This ensures that kts, kte, its, ite, jts, jte are properly set
-     print *, "WRFDA DEBUG: Calling da_copy_tile_dims in adjoint function"
-     call da_copy_tile_dims(grid)
-     print *, "WRFDA DEBUG: da_copy_tile_dims completed in adjoint function"
-     print *, "WRFDA DEBUG: Module-level kts=", kts, " kte=", kte, " its=", its, " ite=", ite, " jts=", jts, " jte=", jte
-     
-     print *, "WRFDA DEBUG: Grid bounds from grid structure: sm33=", grid%sm33, " em33=", grid%em33
+    ! Grid structure and module-level variables are already set up
+    ! No need to call da_copy_dims and da_copy_tile_dims again
     
     call zero_x_like(jo_grad_x, nx, ny, nz)
     sfc_assi_options = sfc_assi_options_1
@@ -566,9 +583,24 @@ contains
       fambuf(famlen:famlen) = achar(iachar(operator_family(n)))
     end do
     op_str = trim(fambuf(1:max(famlen,1)))
-    call parse_family_variable(op_str, fam_str, var_str, fam_id, var_code)
-         print *, "WRFDA DEBUG: Calling init_iv_from_obs in adjoint function with grid bounds sm33=", grid%sm33, " em33=", grid%em33
-     call init_iv_from_obs(fam_id, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, grid%sm33, grid%em33)
+    ! Direct family determination without parse_family_variable call
+    ! This follows the incremental variational algorithm approach
+    fam_str = trim(op_str)
+    var_str = ' '
+    var_code = 't'  ! Default variable code
+    
+    ! Determine family ID directly from operator family string
+    select case (trim(fam_str))
+    case ('metar'); fam_id = metar
+    case ('synop', 'adpsfc'); fam_id = synop
+    case ('ships'); fam_id = ships
+    case ('buoy'); fam_id = buoy
+    case default; fam_id = metar
+    end select
+    
+    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+    ! iv structure is already set up before calling this function
+    ! No need to reinitialize it here
     call da_allocate_y(iv, jo_grad_y)
     call init_y_from_delta(fam_id, var_code, jo_grad_y, delta_y, num_obs)
 
@@ -1875,71 +1907,6 @@ contains
     end do
   end subroutine init_y_from_delta_profiles
 
-  subroutine parse_family_variable(op_str, fam_str, var_str, fam_id, var_code)
-    character(len=*), intent(in) :: op_str
-    character(len=256), intent(out) :: fam_str, var_str
-    integer, intent(out) :: fam_id
-    character(len=1), intent(out) :: var_code
-    integer :: pos
-    
-    print *, "WRFDA DEBUG: parse_family_variable: input op_str='", trim(op_str), "'"
-    
-    fam_str = trim(op_str)
-    var_str = ' '
-    pos = index(op_str, ':')
-    if (pos > 0) then
-      fam_str = trim(op_str(:pos-1))
-      var_str = trim(op_str(pos+1:))
-      print *, "WRFDA DEBUG: Found separator at pos=", pos, " fam_str='", trim(fam_str), "' var_str='", trim(var_str), "'"
-    else
-      print *, "WRFDA DEBUG: No separator found, using full string as family"
-    end if
-    
-    print *, "WRFDA DEBUG: Before select case, fam_str='", trim(fam_str), "'"
-    select case (fam_str)
-    case ('metar'); 
-      fam_id = metar
-      print *, "WRFDA DEBUG: Selected metar family, fam_id=", fam_id
-    case ('synop'); 
-      fam_id = synop
-      print *, "WRFDA DEBUG: Selected synop family, fam_id=", fam_id
-    case ('adpsfc'); 
-      fam_id = synop
-      print *, "WRFDA DEBUG: Mapped ADPSFC to synop family, fam_id=", fam_id
-    case ('ships'); 
-      fam_id = ships
-      print *, "WRFDA DEBUG: Selected ships family, fam_id=", fam_id
-    case ('buoy');  
-      fam_id = buoy
-      print *, "WRFDA DEBUG: Selected buoy family, fam_id=", fam_id
-    case default;   
-      fam_id = metar
-      print *, "WRFDA DEBUG: Default case, using metar family, fam_id=", fam_id
-    end select
-    
-    if (len_trim(var_str) == 0) then
-      var_code = 't'
-      print *, "WRFDA DEBUG: No variable specified, defaulting to 't'"
-    else
-      select case (var_str(1:1))
-      case ('u','U')
-        var_code = 'u'
-      case ('v','V')
-        var_code = 'v'
-      case ('t','T')
-        var_code = 't'
-      case ('q','Q')
-        var_code = 'q'
-      case ('p','P')
-        var_code = 'p'
-      case default
-        var_code = 't'
-      end select
-      print *, "WRFDA DEBUG: Variable code set to '", var_code, "'"
-    end if
-    
-    print *, "WRFDA DEBUG: parse_family_variable completed: fam_id=", fam_id, " var_code='", var_code, "'"
-  end subroutine parse_family_variable
 
   ! Copy gradient from jo_grad_x to state arrays (gradient accumulation)
   ! This function accumulates the adjoint gradients into the state space arrays

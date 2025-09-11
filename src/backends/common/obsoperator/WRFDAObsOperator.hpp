@@ -712,10 +712,9 @@ class WRFDAObsOperator {
               << num_observations << " observations" << std::endl;
 
     const int num_obs_int = static_cast<int>(num_observations);
-    int rc = wrfda_xtoy_apply_grid(family.c_str(), &nx, &ny, &nz, u_final,
-                                   v_final, t, q, psfc, lats_2d, lons_2d,
-                                   levels, &num_obs_int, obs_lats, obs_lons,
-                                   obs_levels, out_y.data());
+    int rc =
+        wrfda_xtoy_apply_grid(family.c_str(), &nx, &ny, &nz, u_final, v_final,
+                              t, q, psfc, &num_obs_int, out_y.data());
 
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
@@ -924,29 +923,12 @@ class WRFDAObsOperator {
       }
     }
 
-    // Initialize map projection for WRFDA coordinate conversion
-    // TODO: Extract actual map projection parameters from WRF configuration
-    // For now, use default values for lat/lon grid
-    int map_proj = 1;           // Lambert Conformal (default)
-    double cen_lat = 34.83002;  // center latitude
-    double cen_lon = -81.03;    // center longitude
-    double dx = 0.2690;         // grid spacing in degrees
-    double stand_lon = -98.0;   // standard longitude
-    double truelat1 = 30.0;     // first true latitude
-    double truelat2 = 60.0;     // second true latitude
-
-    initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
-                                &truelat1, &truelat2);
-
     int num_obs_int = static_cast<int>(num_observations);
     const int rc = wrfda_xtoy_adjoint_grid(
         family_cstr, nx, ny, nz,
         obs_increment.data(),  // delta_y
-        gi.latitude_2d.data(), gi.longitude_2d.data(),
-        gi.vertical_coords.data(),  // lats2d, lons2d, levels
-        &num_obs_int, obs_lats.data(), obs_lons.data(), obs_levels.data(),
-        state_values.data(), state_values.data(), state_values.data(),
-        state_values.data(),
+        num_obs_int, state_values.data(), state_values.data(),
+        state_values.data(), state_values.data(),
         state_values.data());  // inout_u, inout_v, inout_t, inout_q, inout_psfc
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_adjoint_grid failed with code " +

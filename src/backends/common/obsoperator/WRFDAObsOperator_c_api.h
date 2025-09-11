@@ -31,40 +31,28 @@ int wrfda_xtoy_adjoint_handles(const char* operator_family,
                                const void* domain_ptr, const void* iv_ptr,
                                const void* jo_grad_y_ptr, void* jo_grad_x_ptr);
 
-// Array-based (grid) API for real WRFDA call with per-variable fields and grid
-// metadata
+// Array-based (grid) API for real WRFDA call with per-variable fields
+// Grid and observation location metadata is handled internally via iv structure
 int wrfda_xtoy_apply_grid(const char* operator_family, const int* nx,
                           const int* ny, const int* nz, const double* u,
                           const double* v, const double* t, const double* q,
                           const double* psfc,  // size nx*ny
-                          const double* lats2d,
-                          const double* lons2d,  // size nx*ny
-                          const double* levels,  // size nz
-                          const int* num_obs, const double* obs_lats,
-                          const double* obs_lons, const double* obs_levels,
-                          double* out_y);
+                          const int* num_obs, double* out_y);
 
 // New function that properly separates total state into background and
 // increments
 int wrfda_xtoy_apply_grid_with_background(
-    const char* operator_family, int nx, int ny, int nz, const double* u_total,
-    const double* v_total, const double* t_total, const double* q_total,
-    const double* psfc_total,  // total state (xb + δx)
-    const double* u_bg, const double* v_bg, const double* t_bg,
-    const double* q_bg, const double* psfc_bg,   // background state (xb)
-    const double* lats2d, const double* lons2d,  // size nx*ny
-    const double* levels,                        // size nz
-    const int* num_obs, const double* obs_lats, const double* obs_lons,
-    const double* obs_levels, double* out_y);
+    const char* operator_family, int nx, int ny, int nz, const double* u_bg,
+    const double* v_bg, const double* t_bg, const double* q_bg,
+    const double* psfc_bg,  // background state (xb)
+    const double* u_inc, const double* v_inc, const double* t_inc,
+    const double* q_inc, const double* psfc_inc,  // analysis increments (δx)
+    int num_obs, double* out_y);
 
 int wrfda_xtoy_adjoint_grid(const char* operator_family, int nx, int ny, int nz,
                             const double* delta_y,  // size num_obs
-                            const double* lats2d, const double* lons2d,
-                            const double* levels,  // size nz
-                            const int* num_obs, const double* obs_lats,
-                            const double* obs_lons, const double* obs_levels,
-                            double* inout_u, double* inout_v, double* inout_t,
-                            double* inout_q,
+                            int num_obs, double* inout_u, double* inout_v,
+                            double* inout_t, double* inout_q,
                             double* inout_psfc  // size nx*ny
 );
 
