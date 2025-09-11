@@ -264,15 +264,13 @@ class IncrementalCostFunction : public NonCopyable {
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
-    // Compute state: xb + δx
-    auto state = background_.clone();
-    state += increment.state();
+    // For incremental 3D-Var, we only need H'(δx) where δx is the increment
+    // The innovation vector d = H(xb) - y is already pre-computed
+    auto simulated_increment =
+        obs_op.applyTangentLinear(increment, background_, obs);
 
-    // Compute H(xb + δx)
-    auto simulated_obs = obs_op.apply(state, obs);
-
-    // Compute d - H(xb + δx) where d is pre-computed innovation
-    auto residual = computeInnovation(innovations_[0], simulated_obs);
+    // Compute d - H'(δx) where d is pre-computed innovation
+    auto residual = computeInnovation(innovations_[0], simulated_increment);
 
     return 0.5 * obs.quadraticForm(residual);
   }
@@ -284,22 +282,18 @@ class IncrementalCostFunction : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     // FGAT: Observations at proper times but single forward trajectory
     double total_cost = 0.0;
-    auto current_state = background_.clone();
-    current_state += increment.state();
 
     for (size_t i = 0; i < observations_.size(); ++i) {
       const auto& obs = observations_[i];
       const auto& obs_op = obs_operators_[i];
 
-      // Propagate state to observation time (if needed)
-      if (i > 0) {
-        auto next_state = current_state.clone();
-        model_.run(current_state, next_state);
-        current_state = std::move(next_state);
-      }
-
-      auto simulated_obs = obs_op.apply(current_state, obs);
-      auto residual = computeInnovation(innovations_[i], simulated_obs);
+      // For incremental FGAT, we only need H'(δx) at each observation time
+      // The innovation vectors d = H(xb) - y are already pre-computed
+      // Note: For FGAT, we use the same increment at all times (no model
+      // propagation)
+      auto simulated_increment =
+          obs_op.applyTangentLinear(increment, background_, obs);
+      auto residual = computeInnovation(innovations_[i], simulated_increment);
       total_cost += 0.5 * obs.quadraticForm(residual);
     }
 
@@ -323,19 +317,19 @@ class IncrementalCostFunction : public NonCopyable {
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
-    // Compute state: xb + δx
-    auto state = background_.clone();
-    state += increment.state();
+    // For incremental 3D-Var, we only need H'(δx) where δx is the increment
+    // The innovation vector d = H(xb) - y is already pre-computed
+    auto simulated_increment =
+        obs_op.applyTangentLinear(increment, background_, obs);
 
-    // Compute H(xb + δx)
-    auto simulated_obs = obs_op.apply(state, obs);
-
-    // Compute d - H(xb + δx) where d is pre-computed innovation
-    auto residual = computeInnovation(innovations_[0], simulated_obs);
+    // Compute d - H'(δx) where d is pre-computed innovation
+    auto residual = computeInnovation(innovations_[0], simulated_increment);
     auto weighted_residual = obs.applyInverseCovariance(residual);
 
-    // H^T R^-1 (d - H(xb + δx))
-    auto obs_gradient = obs_op.applyAdjoint(weighted_residual, state, obs);
+    // H'^T R^-1 (d - H'(δx)) where H'^T is the adjoint of the tangent linear
+    // operator
+    auto obs_gradient =
+        obs_op.applyAdjoint(weighted_residual, background_, obs);
     gradient += obs_gradient;
   }
 
@@ -344,26 +338,22 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void computeObservationGradientFGAT(const Increment<BackendTag>& increment,
                                       Increment<BackendTag>& gradient) const {
-    // For FGAT, we need to accumulate gradients but don't use full adjoint
-    // model
-    auto current_state = background_.clone();
-    current_state += increment.state();
+    // For incremental FGAT, we only need H'(δx) at each observation time
+    // The innovation vectors d = H(xb) - y are already pre-computed
 
     for (size_t i = 0; i < observations_.size(); ++i) {
       const auto& obs = observations_[i];
       const auto& obs_op = obs_operators_[i];
 
-      if (i > 0) {
-        auto next_state = current_state.clone();
-        model_.run(current_state, next_state);
-        current_state = std::move(next_state);
-      }
-
-      auto simulated_obs = obs_op.apply(current_state, obs);
-      auto residual = computeInnovation(innovations_[i], simulated_obs);
+      // For incremental FGAT, we only need H'(δx) at each observation time
+      // Note: For FGAT, we use the same increment at all times (no model
+      // propagation)
+      auto simulated_increment =
+          obs_op.applyTangentLinear(increment, background_, obs);
+      auto residual = computeInnovation(innovations_[i], simulated_increment);
       auto weighted_residual = obs.applyInverseCovariance(residual);
       auto obs_gradient =
-          obs_op.applyAdjoint(weighted_residual, current_state, obs);
+          obs_op.applyAdjoint(weighted_residual, background_, obs);
 
       // For FGAT, we approximate by not using model adjoint
       gradient += obs_gradient;
@@ -428,6 +418,14 @@ class IncrementalCostFunction : public NonCopyable {
   std::vector<double> computeInnovation(
       const std::vector<double>& innovation,
       const std::vector<double>& simulated_obs) const {
+    // Debug: Check vector sizes before accessing
+    if (innovation.size() != simulated_obs.size()) {
+      throw std::runtime_error(
+          "computeInnovation: Size mismatch - innovation.size() = " +
+          std::to_string(innovation.size()) +
+          ", simulated_obs.size() = " + std::to_string(simulated_obs.size()));
+    }
+
     std::vector<double> residual(innovation.size());
 
     for (size_t i = 0; i < residual.size(); ++i) {

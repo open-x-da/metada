@@ -604,9 +604,117 @@ class WRFDAObsOperator {
       const StateBackend& state_increment,
       [[maybe_unused]] const StateBackend& reference_state,
       const ObsBackend& obs) const {
-    // For linearized operator, use same array-based call on increment
+    // For tangent linear operator, use da_transform_xtoy_* functions
+    // which compute H'(δx) where δx is the analysis increment
     ensureInitialized();
-    return apply(state_increment, obs);
+
+    // Extract optimized data from backends
+    const auto state_data = state_increment.getObsOperatorData();
+    const auto obs_data = obs.getObsOperatorData();
+
+    const size_t num_observations = obs_data.num_obs;
+
+    // Use pre-extracted state data
+    const int nx = state_data.nx;
+    const int ny = state_data.ny;
+    const int nz = state_data.nz;
+
+    // Get state variables (these are the analysis increments δx)
+    const double* u = state_data.u;
+    const double* v = state_data.v;
+    const double* t = state_data.t;
+    const double* q = state_data.q;
+    const double* psfc = state_data.psfc;
+
+    // Get grid metadata
+    const double* lats_2d = state_data.lats_2d;
+    const double* lons_2d = state_data.lons_2d;
+    const double* levels = state_data.levels;
+
+    // Get observation locations
+    const double* obs_lats = obs_data.lats.data();
+    const double* obs_lons = obs_data.lons.data();
+
+    // Convert LevelData to double array for observation levels
+    // For surface observations, each station has one level
+    std::vector<double> obs_levels_vec(num_observations);
+
+    // Debug: Check bounds before accessing
+    if (obs_data.levels.size() != num_observations) {
+      throw std::runtime_error("WRFDAObsOperator: Mismatch between num_obs (" +
+                               std::to_string(num_observations) +
+                               ") and levels.size() (" +
+                               std::to_string(obs_data.levels.size()) + ")");
+    }
+
+    for (size_t i = 0; i < num_observations; ++i) {
+      if (!obs_data.levels[i].empty()) {
+        obs_levels_vec[i] =
+            obs_data.levels[i][0]
+                .pressure;  // First (and only) level for surface obs
+      } else {
+        obs_levels_vec[i] = 0.0;  // Default value if no levels
+      }
+    }
+    const double* obs_levels = obs_levels_vec.data();
+
+    // Validate required data
+    if (!lats_2d || !lons_2d || !levels) {
+      throw std::runtime_error(
+          "WRFDAObsOperator: Missing required grid metadata (lat/lon/levels)");
+    }
+
+    if (!obs_lats || !obs_lons || !obs_levels) {
+      throw std::runtime_error(
+          "WRFDAObsOperator: Missing required observation location data");
+    }
+
+    // Convert staggered U and V to unstaggered grids if needed
+    std::vector<double> u_unstaggered, v_unstaggered;
+    const double *u_final = u, *v_final = v;
+
+    if (u && state_data.u_dims.is_staggered) {
+      u_unstaggered.resize(nx * ny * nz);
+      std::vector<double> u_staggered_vec(u, u + nx * ny * nz);
+      convertStaggeredUToUnstaggered(u_staggered_vec, u_unstaggered, nx, ny,
+                                     nz);
+      u_final = u_unstaggered.data();
+    }
+
+    if (v && state_data.v_dims.is_staggered) {
+      v_unstaggered.resize(nx * ny * nz);
+      std::vector<double> v_staggered_vec(v, v + nx * ny * nz);
+      convertStaggeredVToUnstaggered(v_staggered_vec, v_unstaggered, nx, ny,
+                                     nz);
+      v_final = v_unstaggered.data();
+    }
+
+    // Prepare output vector
+    std::vector<double> out_y(num_observations, 0.0);
+
+    // Call WRFDA tangent linear operator
+    std::string family =
+        operator_families_.empty() ? "synop" : operator_families_[0];
+    std::cout << "WRFDAObsOperator: Calling tangent linear operator for "
+              << num_observations << " observations" << std::endl;
+
+    int rc = wrfda_xtoy_apply_grid(family.c_str(), nx, ny, nz, u_final, v_final,
+                                   t, q, psfc, lats_2d, lons_2d, levels,
+                                   static_cast<int>(num_observations), obs_lats,
+                                   obs_lons, obs_levels, out_y.data());
+
+    if (rc != 0) {
+      throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
+                               std::to_string(rc));
+    }
+
+    std::cout << "WRFDAObsOperator: Tangent linear operator returned "
+              << out_y.size() << " values" << std::endl;
+    for (size_t i = 0; i < std::min(out_y.size(), size_t(10)); ++i) {
+      std::cout << "  out_y[" << i << "] = " << out_y[i] << std::endl;
+    }
+
+    return out_y;
   }
 
   /**
@@ -1269,30 +1377,35 @@ class WRFDAObsOperator {
       return std::vector<double>();
     }
 
-    // Allocate buffer for innovations (estimate size based on typical
-    // observation count)
-    const size_t max_innovations = 10000;  // Reasonable upper bound
-    std::vector<double> innovations(max_innovations);
+    // First call to count the number of innovations
     int num_innovations = 0;
+    int rc = wrfda_count_innovations(const_cast<char*>(family.c_str()),
+                                     &num_innovations);
 
-    // Call Fortran function to extract innovations
-    int max_innovations_int = static_cast<int>(max_innovations);
-    int rc = wrfda_extract_innovations(const_cast<char*>(family.c_str()),
-                                       innovations.data(), &num_innovations,
-                                       &max_innovations_int);
+    std::cout << "WRFDAObsOperator: Count call returned rc = " << rc
+              << ", num_innovations = " << num_innovations << std::endl;
+
+    if (rc != 0 || num_innovations <= 0) {
+      std::cerr << "WRFDA: Failed to count innovations with code " << rc
+                << std::endl;
+      return std::vector<double>();
+    }
+
+    // Allocate vector with exact size needed
+    std::vector<double> innovations(num_innovations);
+
+    // Second call to extract the actual innovations
+    rc = wrfda_extract_innovations(const_cast<char*>(family.c_str()),
+                                   innovations.data(), &num_innovations);
+
+    std::cout << "WRFDAObsOperator: Extract call returned rc = " << rc
+              << ", extracted " << num_innovations << " innovations"
+              << std::endl;
 
     if (rc != 0) {
       std::cerr << "WRFDA: Failed to extract innovations with code " << rc
                 << std::endl;
       return std::vector<double>();
-    }
-
-    // Resize vector to actual number of innovations
-    if (num_innovations > 0 &&
-        num_innovations <= static_cast<int>(max_innovations)) {
-      innovations.resize(num_innovations);
-    } else {
-      innovations.clear();
     }
 
     return innovations;

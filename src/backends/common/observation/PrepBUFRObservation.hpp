@@ -339,10 +339,8 @@ class PrepBUFRObservation {
                     << std::endl;
         }
 
-        // NEW: Track unique observation locations for this type
-        std::map<std::string, size_t>
-            unique_location_map;  // location_key -> obs_index
-        size_t type_obs_count = 0;
+        // Process observations and create separate observation points for each
+        // variable
         size_t records_processed = 0;
         size_t records_filtered = 0;
         size_t levels_processed = 0;
@@ -421,64 +419,38 @@ class PrepBUFRObservation {
                         << ", setting to default level 0.99" << std::endl;
             }
 
-            // Create a unique location key for this observation point
-            std::ostringstream location_key_stream;
-            location_key_stream << std::fixed << std::setprecision(6) << lat
-                                << "_" << lon << "_" << level_coord;
-            std::string location_key = location_key_stream.str();
-
-            // Check if we already have an observation at this location
-            auto location_it = unique_location_map.find(location_key);
-            size_t obs_index;
-
-            if (location_it == unique_location_map.end()) {
-              // This is a new location - create a new observation point
-              framework::Location location(0, 0, 0);
-              if (coordinate_system == "grid") {
-                // No grid indices in BUFR; fallback to geographic
-                location = framework::Location(
-                    lat, lon, level_coord,
-                    framework::CoordinateSystem::GEOGRAPHIC);
-              } else {
-                location = framework::Location(
-                    lat, lon, level_coord,
-                    framework::CoordinateSystem::GEOGRAPHIC);
-              }
-
-              // Create a placeholder observation point (value and error will be
-              // set later)
-              obs_index = observations_.size();
-              observations_.emplace_back(location, 0.0, 0.0);
-
-              // Store station elevation from BUFR data
-              station_elevations_.push_back(rec.shared.elevation);
-
-              unique_location_map[location_key] = obs_index;
-              type_obs_count++;
-            } else {
-              // We already have an observation at this location
-              obs_index = location_it->second;
-            }
-
-            // Now process variables at this location
+            // Process variables at this location - create separate observation
+            // points
             for (const auto& [user_var, sel] : enabled_vars) {
               // Find the requested BUFR variable in this level
               for (const auto& v : lvl) {
                 if (v.type == sel.bufr_name) {
                   variables_found++;
 
-                  // Store the variable value and error in the observation point
-                  // We'll use the first variable's value/error as
-                  // representative
-                  if (type_variable_map_[type_name][user_var].empty()) {
-                    // This is the first variable for this location, update the
-                    // observation point
-                    observations_[obs_index].value = v.value;
-                    observations_[obs_index].error = sel.error;
+                  // Create a new observation point for this variable at this
+                  // location This allows multiple variables per location
+                  framework::Location location(0, 0, 0);
+                  if (coordinate_system == "grid") {
+                    // No grid indices in BUFR; fallback to geographic
+                    location = framework::Location(
+                        lat, lon, level_coord,
+                        framework::CoordinateSystem::GEOGRAPHIC);
+                  } else {
+                    location = framework::Location(
+                        lat, lon, level_coord,
+                        framework::CoordinateSystem::GEOGRAPHIC);
                   }
 
-                  // Map this variable to the observation location
-                  type_variable_map_[type_name][user_var].push_back(obs_index);
+                  // Create observation point for this specific variable
+                  size_t var_obs_index = observations_.size();
+                  observations_.emplace_back(location, v.value, sel.error);
+
+                  // Store station elevation for this variable observation
+                  station_elevations_.push_back(rec.shared.elevation);
+
+                  // Map this variable to the observation index
+                  type_variable_map_[type_name][user_var].push_back(
+                      var_obs_index);
                   break;
                 }
               }
@@ -492,7 +464,23 @@ class PrepBUFRObservation {
                   << ", Levels processed: " << levels_processed
                   << ", Variables found: " << variables_found << std::endl;
 
-        std::cout << "Added " << type_obs_count
+        // Count unique locations by grouping observations by location
+        std::set<std::string> unique_locations;
+        for (const auto& [var_name, var_indices] :
+             type_variable_map_[type_name]) {
+          for (size_t obs_idx : var_indices) {
+            if (obs_idx < observations_.size()) {
+              const auto& obs = observations_[obs_idx];
+              auto [lat, lon, level] = obs.location.getGeographicCoords();
+              std::ostringstream location_key_stream;
+              location_key_stream << std::fixed << std::setprecision(6) << lat
+                                  << "_" << lon << "_" << level;
+              unique_locations.insert(location_key_stream.str());
+            }
+          }
+        }
+
+        std::cout << "Added " << unique_locations.size()
                   << " unique observation locations for type " << type_name
                   << " (with " << enabled_vars.size()
                   << " variables per location)" << std::endl;
@@ -1051,9 +1039,25 @@ class PrepBUFRObservation {
   ObsOperatorData getObsOperatorData() const {
     ObsOperatorData data;
 
-    // For now, treat each observation as a separate station
-    // In a real implementation, you would group by station ID if available
-    data.num_obs = observations_.size();  // Number of observations (stations)
+    // Group observations by location to handle multiple variables per location
+    std::map<std::string, std::vector<size_t>> location_groups;
+
+    // Create location key and group observations
+    for (size_t i = 0; i < observations_.size(); ++i) {
+      const auto& obs = observations_[i];
+      auto [lat, lon, level] = obs.location.getGeographicCoords();
+
+      // Create unique location key
+      std::ostringstream location_key_stream;
+      location_key_stream << std::fixed << std::setprecision(6) << lat << "_"
+                          << lon << "_" << level;
+      std::string location_key = location_key_stream.str();
+
+      location_groups[location_key].push_back(i);
+    }
+
+    // Number of unique locations (stations)
+    data.num_obs = location_groups.size();
     data.lats.reserve(data.num_obs);
     data.lons.reserve(data.num_obs);
     data.elevations.reserve(data.num_obs);
@@ -1066,51 +1070,45 @@ class PrepBUFRObservation {
     data.obs_types.reserve(data.num_obs);
     data.levels.reserve(data.num_obs);
 
-    // Process each observation as a single-level station
-    for (size_t i = 0; i < observations_.size(); ++i) {
-      const auto& obs = observations_[i];
+    // Process each unique location (station)
+    size_t station_index = 0;
+    for (const auto& [location_key, obs_indices] : location_groups) {
+      // Get the first observation for this location to extract station info
+      const auto& first_obs = observations_[obs_indices[0]];
+      auto [obs_lat, obs_lon, obs_level] =
+          first_obs.location.getGeographicCoords();
 
       // Store station-level data (one per station)
-      data.station_ids.push_back("OBS_" + std::to_string(i));
-      data.station_names.push_back("Observation_" + std::to_string(i));
-      auto [obs_lat, obs_lon, obs_level] = obs.location.getGeographicCoords();
+      data.station_ids.push_back("STATION_" + std::to_string(station_index));
+      data.station_names.push_back("Station_" + std::to_string(station_index));
       data.lats.push_back(obs_lat);
       data.lons.push_back(obs_lon);
+
       // Extract elevation from stored BUFR data
       double elevation = 0.0;
-      if (i < station_elevations_.size()) {
-        elevation = station_elevations_[i];
+      if (obs_indices[0] < station_elevations_.size()) {
+        elevation = station_elevations_[obs_indices[0]];
       }
       data.elevations.push_back(elevation);
-      data.qc_flags.push_back(obs.is_valid ? 0 : 1);  // Good quality if valid
-      data.usage_flags.push_back(1);                  // Use in assimilation
-      data.time_offsets.push_back(0.0);               // At analysis time
-
-      // All observations are treated as surface observations for now
+      data.qc_flags.push_back(0);        // Good quality
+      data.usage_flags.push_back(1);     // Use in assimilation
+      data.time_offsets.push_back(0.0);  // At analysis time
       data.obs_types.push_back(ObsType::SURFACE);
       data.types.push_back("ADPSFC");
 
-      // Process single level for this station
+      // Process single level for this station with all available variables
       std::vector<LevelData> station_levels;
       station_levels.reserve(1);
 
       // Create level data
       LevelData level_data;
       level_data.level = obs_level;
-      level_data.pressure =
-          101325.0;             // Default - could be calculated from level
-      level_data.height = 0.0;  // Default - could be calculated from level
+      level_data.pressure = 101325.0;  // Default surface pressure
+      level_data.height = 0.0;         // Surface level
 
-      // Initialize variable data - put the observation value in temperature
-      level_data.u.value = obs.value;
-      level_data.u.error = obs.error;
-      level_data.u.qc = obs.is_valid ? 0 : 1;  // Good quality if valid
-      level_data.u.available = obs.is_valid;
-
-      // Initialize other variables as unavailable
+      // Initialize all variables as unavailable
+      level_data.u.available = false;
       level_data.v.available = false;
-      level_data.v.available = false;
-      level_data.t.available = false;
       level_data.t.available = false;
       level_data.q.available = false;
       level_data.p.available = false;
@@ -1123,8 +1121,53 @@ class PrepBUFRObservation {
       level_data.u10m.available = false;
       level_data.v10m.available = false;
 
+      // Find which variables are available at this location by checking
+      // type_variable_map_
+      for (const auto& [type_name, var_map] : type_variable_map_) {
+        for (const auto& [var_name, var_indices] : var_map) {
+          // Check if any of the observations at this location match this
+          // variable
+          for (size_t obs_idx : obs_indices) {
+            if (std::find(var_indices.begin(), var_indices.end(), obs_idx) !=
+                var_indices.end()) {
+              const auto& obs = observations_[obs_idx];
+
+              // Map variable name to level data
+              if (var_name == "U" || var_name == "u") {
+                level_data.u.value = obs.value;
+                level_data.u.error = obs.error;
+                level_data.u.qc = obs.is_valid ? 0 : 1;
+                level_data.u.available = obs.is_valid;
+              } else if (var_name == "V" || var_name == "v") {
+                level_data.v.value = obs.value;
+                level_data.v.error = obs.error;
+                level_data.v.qc = obs.is_valid ? 0 : 1;
+                level_data.v.available = obs.is_valid;
+              } else if (var_name == "T" || var_name == "t") {
+                level_data.t.value = obs.value;
+                level_data.t.error = obs.error;
+                level_data.t.qc = obs.is_valid ? 0 : 1;
+                level_data.t.available = obs.is_valid;
+              } else if (var_name == "Q" || var_name == "q") {
+                level_data.q.value = obs.value;
+                level_data.q.error = obs.error;
+                level_data.q.qc = obs.is_valid ? 0 : 1;
+                level_data.q.available = obs.is_valid;
+              } else if (var_name == "P" || var_name == "p") {
+                level_data.p.value = obs.value;
+                level_data.p.error = obs.error;
+                level_data.p.qc = obs.is_valid ? 0 : 1;
+                level_data.p.available = obs.is_valid;
+              }
+              break;  // Found the variable, move to next variable
+            }
+          }
+        }
+      }
+
       station_levels.push_back(level_data);
       data.levels.push_back(station_levels);
+      station_index++;
     }
 
     return data;

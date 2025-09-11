@@ -2423,8 +2423,16 @@ contains
     
     ! Call the main WRFDA innovation vector computation routine
     print *, "WRFDA DEBUG: About to call da_get_innov_vector"
+    print *, "WRFDA DEBUG: Before da_get_innov_vector - U inv =", iv%synop(1)%u%inv
+    print *, "WRFDA DEBUG: Before da_get_innov_vector - V inv =", iv%synop(1)%v%inv
+    print *, "WRFDA DEBUG: Before da_get_innov_vector - U QC =", iv%synop(1)%u%qc
+    print *, "WRFDA DEBUG: Before da_get_innov_vector - V QC =", iv%synop(1)%v%qc
+    print *, "WRFDA DEBUG: Before da_get_innov_vector - ob%synop(1)%u =", ob%synop(1)%u
+    print *, "WRFDA DEBUG: Before da_get_innov_vector - ob%synop(1)%v =", ob%synop(1)%v
+    print *, "WRFDA DEBUG: missing_r =", missing_r
     call da_get_innov_vector(it, num_qcstat_conv, ob, iv, grid, config_flags)
-    
+    print *, "WRFDA DEBUG: After da_get_innov_vector - U inv =", iv%synop(1)%u%inv
+    print *, "WRFDA DEBUG: After da_get_innov_vector - V inv =", iv%synop(1)%v%inv
     print *, "WRFDA DEBUG: da_get_innov_vector completed successfully"
 
     ! Clean up allocated config_flags
@@ -2902,10 +2910,12 @@ contains
         
         ! Set up field_type members for u, v, t, p, q only if available
         if (u_available(i) == 1) then
+          print *, "WRFDA DEBUG: Observed U value for obs", i, "=", u_values(i)
           iv%synop(i)%u%inv = u_values(i)
           iv%synop(i)%u%qc = u_qc(i)
           iv%synop(i)%u%error = u_errors(i)
         else
+          print *, "WRFDA DEBUG: U not available for obs", i
           iv%synop(i)%u%inv = missing_r  ! WRFDA standard missing value
           iv%synop(i)%u%qc = missing_data  ! WRFDA standard missing data QC flag
           iv%synop(i)%u%error = 1.0
@@ -2914,10 +2924,12 @@ contains
         iv%synop(i)%u%imp = 0.0
         
         if (v_available(i) == 1) then
+          print *, "WRFDA DEBUG: Observed V value for obs", i, "=", v_values(i)
           iv%synop(i)%v%inv = v_values(i)
           iv%synop(i)%v%qc = v_qc(i)
           iv%synop(i)%v%error = v_errors(i)
         else
+          print *, "WRFDA DEBUG: V not available for obs", i
           iv%synop(i)%v%inv = missing_r  ! WRFDA standard missing value
           iv%synop(i)%v%qc = missing_data  ! WRFDA standard missing data QC flag
           iv%synop(i)%v%error = 1.0
@@ -3079,13 +3091,98 @@ contains
     
   end function wrfda_construct_config_flags
 
+  ! Count innovation values from iv_type structure
+  integer(c_int) function wrfda_count_innovations(family, num_innovations) bind(C, name="wrfda_count_innovations")
+    implicit none
+    character(c_char), intent(in) :: family(*)
+    integer(c_int), intent(out) :: num_innovations
+    
+    type(iv_type), pointer :: iv
+    character(len=20) :: family_str
+    integer :: i, count
+    integer :: family_index
+    
+    print *, "WRFDA DEBUG: wrfda_count_innovations called"
+    
+    ! Convert C string to Fortran string
+    family_str = ""
+    do i = 1, 20
+      if (family(i) == c_null_char) exit
+      family_str(i:i) = family(i)
+    end do
+    print *, "WRFDA DEBUG: Converted family string: '", trim(family_str), "'"
+    
+    ! Use global persistent iv structure
+    if (.not. iv_allocated) then
+      print *, "WRFDA DEBUG: iv structure not allocated - returning 0 innovations"
+      num_innovations = 0
+      wrfda_count_innovations = 0
+      return
+    end if
+    
+    if (.not. associated(persistent_iv)) then
+      print *, "WRFDA DEBUG: persistent_iv not associated - returning 0 innovations"
+      num_innovations = 0
+      wrfda_count_innovations = 0
+      return
+    end if
+    
+    ! Point local iv to global persistent structure
+    iv => persistent_iv
+    print *, "WRFDA DEBUG: Using global persistent iv structure"
+    
+    ! Determine family index
+    family_index = 0
+    if (trim(family_str) == "synop" .or. trim(family_str) == "adpsfc" .or. trim(family_str) == "metar") then
+      family_index = 2  ! synop index (adpsfc and metar use synop structure)
+    end if
+    
+    count = 0
+    
+    if (family_index == 2 .and. family_index <= size(iv%info) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
+      ! Count innovations from synop array based on QC flags and non-zero innovations
+      count = 0
+      do i = 1, iv%info(2)%nlocal
+        ! Count U innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%u%qc >= 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+        end if
+        ! Count V innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%v%qc >= 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+        end if
+        ! Count T innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%t%qc >= 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+        end if
+        ! Count P innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%p%qc >= 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+        end if
+        ! Count Q innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%q%qc >= 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+        end if
+      end do
+      print *, "WRFDA DEBUG: Counted", count, "innovations from synop array (all variables with good QC)"
+    else
+      print *, "WRFDA DEBUG: No data available for family:", trim(family_str)
+      count = 0
+    end if
+    
+    num_innovations = count
+    wrfda_count_innovations = 0
+    
+    print *, "WRFDA DEBUG: Successfully counted", num_innovations, "innovations"
+    
+  end function wrfda_count_innovations
+
   ! Extract innovation values from iv_type structure
-  integer(c_int) function wrfda_extract_innovations(family, innovations, num_innovations, max_innovations) bind(C, name="wrfda_extract_innovations")
+  integer(c_int) function wrfda_extract_innovations(family, innovations, num_innovations) bind(C, name="wrfda_extract_innovations")
     implicit none
     character(c_char), intent(in) :: family(*)
     real(c_double), intent(out) :: innovations(*)
     integer(c_int), intent(out) :: num_innovations
-    integer(c_int), intent(in) :: max_innovations
     
     type(iv_type), pointer :: iv
     character(len=20) :: family_str
@@ -3093,17 +3190,6 @@ contains
     integer :: family_index
     
     print *, "WRFDA DEBUG: wrfda_extract_innovations called"
-    
-    ! Debug: Print raw C string characters
-    print *, "WRFDA DEBUG: Raw family string characters:"
-    do i = 1, 20
-      if (family(i) == c_null_char) then
-        print *, "  char", i, "= NULL"
-        exit
-      else
-        print *, "  char", i, "='", family(i), "' (ASCII:", ichar(family(i)), ")"
-      end if
-    end do
     
     ! Convert C string to Fortran string
     family_str = ""
@@ -3191,45 +3277,53 @@ contains
     end if
     
     if (family_index == 2 .and. family_index <= size(iv%info) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
-      ! Extract from synop array
-      print *, "WRFDA DEBUG: Extracting from synop array with", iv%info(2)%nlocal, "observations"
+      ! Extract from synop array (all variables with good QC only)
+      print *, "WRFDA DEBUG: Extracting from synop array with", iv%info(2)%nlocal, "observations (all variables with good QC)"
       do i = 1, iv%info(2)%nlocal
+        print *, "WRFDA DEBUG: Processing observation", i, "of", iv%info(2)%nlocal
         if (i > size(iv%synop)) then
           print *, "WRFDA DEBUG: Index", i, "exceeds synop array size", size(iv%synop)
           exit
         end if
-        ! Extract U component innovation
-        count = count + 1
-        if (count <= max_innovations) then
+        
+        ! Extract U component innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%u%qc >= 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
+          count = count + 1
           innovations(count) = iv%synop(i)%u%inv
+          print *, "WRFDA DEBUG: Extracted U innovation:", innovations(count)
         end if
         
-        ! Extract V component innovation
-        count = count + 1
-        if (count <= max_innovations) then
+        ! Extract V component innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%v%qc >= 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
+          count = count + 1
           innovations(count) = iv%synop(i)%v%inv
+          print *, "WRFDA DEBUG: Extracted V innovation:", innovations(count)
         end if
         
-        ! Extract T component innovation
-        count = count + 1
-        if (count <= max_innovations) then
+        ! Extract T component innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%t%qc >= 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
+          count = count + 1
           innovations(count) = iv%synop(i)%t%inv
+          print *, "WRFDA DEBUG: Extracted T innovation:", innovations(count)
         end if
         
-        ! Extract P component innovation
-        count = count + 1
-        if (count <= max_innovations) then
+        ! Extract P component innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%p%qc >= 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
+          count = count + 1
           innovations(count) = iv%synop(i)%p%inv
+          print *, "WRFDA DEBUG: Extracted P innovation:", innovations(count)
         end if
         
-        ! Extract Q component innovation
-        count = count + 1
-        if (count <= max_innovations) then
+        ! Extract Q component innovation if QC is good and innovation is non-zero
+        if (iv%synop(i)%q%qc >= 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
+          count = count + 1
           innovations(count) = iv%synop(i)%q%inv
+          print *, "WRFDA DEBUG: Extracted Q innovation:", innovations(count)
         end if
+        
       end do
       
-      print *, "WRFDA DEBUG: Extracted", count, "innovations from synop array"
+      print *, "WRFDA DEBUG: Extracted", count, "innovations from synop array (all variables with good QC)"
     else
       print *, "WRFDA DEBUG: No data available for family:", trim(family_str)
       count = 0
