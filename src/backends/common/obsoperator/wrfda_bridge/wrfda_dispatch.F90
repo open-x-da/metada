@@ -203,11 +203,11 @@ contains
   integer(c_int) function wrfda_xtoy_apply_grid(operator_family, nx, ny, nz, u, v, t, q, psfc, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, out_y) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
-    integer(c_int), value :: nx, ny, nz
+    integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
     real(c_double), intent(in) :: lats2d(*), lons2d(*)
     real(c_double), intent(in) :: levels(*)
-    integer(c_int), value :: num_obs
+    integer(c_int), intent(in) :: num_obs
     real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
     real(c_double), intent(out) :: out_y(*)
 

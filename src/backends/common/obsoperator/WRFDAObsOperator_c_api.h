@@ -33,9 +33,9 @@ int wrfda_xtoy_adjoint_handles(const char* operator_family,
 
 // Array-based (grid) API for real WRFDA call with per-variable fields and grid
 // metadata
-int wrfda_xtoy_apply_grid(const char* operator_family, int nx, int ny, int nz,
-                          const double* u, const double* v, const double* t,
-                          const double* q,
+int wrfda_xtoy_apply_grid(const char* operator_family, const int* nx,
+                          const int* ny, const int* nz, const double* u,
+                          const double* v, const double* t, const double* q,
                           const double* psfc,  // size nx*ny
                           const double* lats2d,
                           const double* lons2d,  // size nx*ny

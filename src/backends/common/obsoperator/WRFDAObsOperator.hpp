@@ -711,11 +711,11 @@ class WRFDAObsOperator {
     std::cout << "WRFDAObsOperator: Calling tangent linear operator for "
               << num_observations << " observations" << std::endl;
 
-    int num_obs_int = static_cast<int>(num_observations);
-    int rc =
-        wrfda_xtoy_apply_grid(family.c_str(), nx, ny, nz, u_final, v_final, t,
-                              q, psfc, lats_2d, lons_2d, levels, &num_obs_int,
-                              obs_lats, obs_lons, obs_levels, out_y.data());
+    const int num_obs_int = static_cast<int>(num_observations);
+    int rc = wrfda_xtoy_apply_grid(family.c_str(), &nx, &ny, &nz, u_final,
+                                   v_final, t, q, psfc, lats_2d, lons_2d,
+                                   levels, &num_obs_int, obs_lats, obs_lons,
+                                   obs_levels, out_y.data());
 
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
