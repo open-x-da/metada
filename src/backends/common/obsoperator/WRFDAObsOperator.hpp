@@ -522,11 +522,20 @@ class WRFDAObsOperator {
     initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
                                 &truelat1, &truelat2);
 
-    // Step 3: Construct observation and innovation vector structures
+    // Step 3: Initialize background state for WRFDA
+    rc = wrfda_initialize_background_state(nx, ny, nz, u_final, v_final, t, q,
+                                           psfc);
+    if (rc != 0) {
+      throw std::runtime_error(
+          "Failed to initialize WRFDA background state with code " +
+          std::to_string(rc));
+    }
+
+    // Step 4: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
     void* iv_ptr = constructIvType(obs_data, operator_families_, domain_ptr);
 
-    // Step 4: Call da_get_innov_vector
+    // Step 5: Call da_get_innov_vector to compute innovations y - H(xb)
     const int it = 1;
     rc = wrfda_get_innov_vector(&it, domain_ptr, ob_ptr, iv_ptr);
 

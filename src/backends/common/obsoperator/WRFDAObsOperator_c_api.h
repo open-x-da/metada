@@ -168,6 +168,11 @@ void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
 // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
 int initialize_wrfda_module_variables(void* domain_ptr);
 
+// Initialize background state for WRFDA forward operator
+int wrfda_initialize_background_state(int nx, int ny, int nz, const double* u,
+                                      const double* v, const double* t,
+                                      const double* q, const double* psfc);
+
 #ifdef __cplusplus
 }
 #endif
