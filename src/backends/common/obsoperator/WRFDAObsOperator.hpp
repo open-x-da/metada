@@ -684,7 +684,9 @@ class WRFDAObsOperator {
 
     if (u && state_data.u_dims.is_staggered) {
       u_unstaggered.resize(nx * ny * nz);
-      std::vector<double> u_staggered_vec(u, u + nx * ny * nz);
+      // U staggered field has dimensions (nx+1) x ny x nz
+      int u_staggered_size = (nx + 1) * ny * nz;
+      std::vector<double> u_staggered_vec(u, u + u_staggered_size);
       convertStaggeredUToUnstaggered(u_staggered_vec, u_unstaggered, nx, ny,
                                      nz);
       u_final = u_unstaggered.data();
@@ -692,7 +694,9 @@ class WRFDAObsOperator {
 
     if (v && state_data.v_dims.is_staggered) {
       v_unstaggered.resize(nx * ny * nz);
-      std::vector<double> v_staggered_vec(v, v + nx * ny * nz);
+      // V staggered field has dimensions nx x (ny+1) x nz
+      int v_staggered_size = nx * (ny + 1) * nz;
+      std::vector<double> v_staggered_vec(v, v + v_staggered_size);
       convertStaggeredVToUnstaggered(v_staggered_vec, v_unstaggered, nx, ny,
                                      nz);
       v_final = v_unstaggered.data();
@@ -707,10 +711,11 @@ class WRFDAObsOperator {
     std::cout << "WRFDAObsOperator: Calling tangent linear operator for "
               << num_observations << " observations" << std::endl;
 
-    int rc = wrfda_xtoy_apply_grid(family.c_str(), nx, ny, nz, u_final, v_final,
-                                   t, q, psfc, lats_2d, lons_2d, levels,
-                                   static_cast<int>(num_observations), obs_lats,
-                                   obs_lons, obs_levels, out_y.data());
+    int num_obs_int = static_cast<int>(num_observations);
+    int rc =
+        wrfda_xtoy_apply_grid(family.c_str(), nx, ny, nz, u_final, v_final, t,
+                              q, psfc, lats_2d, lons_2d, levels, &num_obs_int,
+                              obs_lats, obs_lons, obs_levels, out_y.data());
 
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
@@ -933,14 +938,15 @@ class WRFDAObsOperator {
     initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
                                 &truelat1, &truelat2);
 
+    int num_obs_int = static_cast<int>(num_observations);
     const int rc = wrfda_xtoy_adjoint_grid(
         family_cstr, nx, ny, nz,
         obs_increment.data(),  // delta_y
         gi.latitude_2d.data(), gi.longitude_2d.data(),
         gi.vertical_coords.data(),  // lats2d, lons2d, levels
-        static_cast<int>(num_observations), obs_lats.data(), obs_lons.data(),
-        obs_levels.data(), state_values.data(), state_values.data(),
-        state_values.data(), state_values.data(),
+        &num_obs_int, obs_lats.data(), obs_lons.data(), obs_levels.data(),
+        state_values.data(), state_values.data(), state_values.data(),
+        state_values.data(),
         state_values.data());  // inout_u, inout_v, inout_t, inout_q, inout_psfc
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_adjoint_grid failed with code " +

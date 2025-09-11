@@ -40,7 +40,7 @@ int wrfda_xtoy_apply_grid(const char* operator_family, int nx, int ny, int nz,
                           const double* lats2d,
                           const double* lons2d,  // size nx*ny
                           const double* levels,  // size nz
-                          int num_obs, const double* obs_lats,
+                          const int* num_obs, const double* obs_lats,
                           const double* obs_lons, const double* obs_levels,
                           double* out_y);
 
@@ -54,14 +54,14 @@ int wrfda_xtoy_apply_grid_with_background(
     const double* q_bg, const double* psfc_bg,   // background state (xb)
     const double* lats2d, const double* lons2d,  // size nx*ny
     const double* levels,                        // size nz
-    int num_obs, const double* obs_lats, const double* obs_lons,
+    const int* num_obs, const double* obs_lats, const double* obs_lons,
     const double* obs_levels, double* out_y);
 
 int wrfda_xtoy_adjoint_grid(const char* operator_family, int nx, int ny, int nz,
                             const double* delta_y,  // size num_obs
                             const double* lats2d, const double* lons2d,
                             const double* levels,  // size nz
-                            int num_obs, const double* obs_lats,
+                            const int* num_obs, const double* obs_lats,
                             const double* obs_lons, const double* obs_levels,
                             double* inout_u, double* inout_v, double* inout_t,
                             double* inout_q,
@@ -73,7 +73,7 @@ int wrfda_xtoy_apply_profiles(
     const char* operator_family,  // e.g., "airep:u", "pilot:u", "sound:t"
     int nx, int ny, int nz, const double* u, const double* v, const double* t,
     const double* q, const double* psfc, const double* lats2d,
-    const double* lons2d, const double* levels, int num_obs,
+    const double* lons2d, const double* levels, const int* num_obs,
     const int* obs_counts,          // length num_obs; levels per obs
     const double* obs_lats,         // length num_obs
     const double* obs_lons,         // length num_obs
@@ -85,7 +85,7 @@ int wrfda_xtoy_adjoint_profiles(
     const char* operator_family, int nx, int ny, int nz,
     const double* delta_y_flat,  // length sum(obs_counts)
     const double* lats2d, const double* lons2d, const double* levels,
-    int num_obs, const int* obs_counts, const double* obs_lats,
+    const int* num_obs, const int* obs_counts, const double* obs_lats,
     const double* obs_lons, const double* obs_levels_flat, double* inout_u,
     double* inout_v, double* inout_t, double* inout_q, double* inout_psfc);
 
@@ -94,7 +94,7 @@ int wrfda_xtoy_adjoint_profiles(
 int wrfda_construct_iv_from_observations(
     const char* operator_family, int nx, int ny, int nz, const double* lats2d,
     const double* lons2d, const double* levels,  // size nx*ny, nz
-    int num_obs, const double* obs_lats, const double* obs_lons,
+    const int* num_obs, const double* obs_lats, const double* obs_lons,
     const double* obs_levels, const double* obs_values,
     const double* obs_errors,  // size num_obs
     const char* obs_types,
