@@ -86,12 +86,11 @@ contains
     type(domain), target, save :: grid
     type(iv_type), pointer :: iv
     type(y_type), pointer :: y
-    integer :: n
+    integer :: n, num_innovations
     character(len=256) :: fambuf
     integer :: famlen
     character(len=256) :: op_str, fam_str, var_str
     integer :: fam_id
-    character(len=1) :: var_code
 
     ! DEBUG: Print entry point
     print *, "WRFDA DEBUG: Entering wrfda_xtoy_apply_grid"
@@ -159,7 +158,6 @@ contains
     ! This follows the incremental variational algorithm approach
     fam_str = trim(op_str)
     var_str = ' '
-    var_code = 't'  ! Default variable code
     
     ! Determine family ID directly from operator family string
     select case (trim(fam_str))
@@ -170,7 +168,7 @@ contains
     case default; fam_id = metar
     end select
     
-    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, "'"
      
     ! iv structure is already set up before calling this function
     ! No need to reinitialize it here
@@ -273,7 +271,25 @@ contains
     end select
 
     print *, "WRFDA DEBUG: About to call copy_y_to_out"
-    call copy_y_to_out(fam_id, var_code, y, out_y, num_obs)
+    ! Calculate number of innovations from observations
+    ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
+    ! But we need to get the actual number of innovations from the iv structure
+    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
+      ! Count actual innovations from the iv structure
+      num_innovations = 0
+      do n = 1, persistent_iv%info(2)%nlocal
+        if (persistent_iv%synop(n)%u%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%v%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%t%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%q%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
+      end do
+    else
+      ! Fallback: assume all variables are available
+      num_innovations = num_obs * 5
+    end if
+    print *, "WRFDA DEBUG: Calculated num_innovations =", num_innovations
+    call copy_y_to_out(fam_id, y, out_y, num_innovations)
     print *, "WRFDA DEBUG: copy_y_to_out completed"
     print *, "WRFDA DEBUG: Function completed successfully, returning 0"
     wrfda_xtoy_apply_grid = 0_c_int
@@ -300,7 +316,6 @@ contains
     integer :: famlen
     character(len=256) :: op_str, fam_str, var_str
     integer :: fam_id
-    character(len=1) :: var_code
     
     ! Suppress unused argument warnings for parameters not currently used
     if (obs_types(1) == c_null_char .and. obs_station_ids(1) == c_null_char .and. obs_time_offsets(1) < 0.0) then
@@ -329,7 +344,6 @@ contains
     ! This follows the incremental variational algorithm approach
     fam_str = trim(op_str)
     var_str = ' '
-    var_code = 't'  ! Default variable code
     
     ! Determine family ID directly from operator family string
     select case (trim(fam_str))
@@ -340,7 +354,7 @@ contains
     case default; fam_id = metar
     end select
     
-    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, "'"
 
     ! Initialize iv_type with enhanced observation information
     call init_iv_from_enhanced_obs(fam_id, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets)
@@ -363,41 +377,65 @@ contains
     real(c_double), intent(inout) :: inout_u(*), inout_v(*), inout_t(*), inout_q(*), inout_psfc(*)
 
     type(domain), target, save :: grid
-    type(iv_type), target, save :: iv
+    type(iv_type), pointer :: iv
     type(y_type), target :: jo_grad_y
     type(x_type), target :: jo_grad_x
-    integer :: n
+    integer :: n, num_innovations
     character(len=256) :: fambuf
     integer :: famlen
     character(len=256) :: op_str, fam_str, var_str
     integer :: fam_id
-    character(len=1) :: var_code
+
+    ! DEBUG: Print entry point
+    print *, "WRFDA DEBUG: Entering wrfda_xtoy_adjoint_grid"
+    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
+    print *, "WRFDA DEBUG: delta_y(1)=", delta_y(1), " delta_y(2)=", delta_y(2)
 
     ! For adjoint operator, we use the persistent background state (xb) and zero xa initially
     ! The adjoint operator accumulates gradients into jo_grad_x, which we then add to inout arrays
+    print *, "WRFDA DEBUG: Checking background state initialization"
     if (.not. background_state_initialized) then
       print *, "WRFDA ERROR: Background state not initialized. Call wrfda_initialize_background_state first."
       wrfda_xtoy_adjoint_grid = 1_c_int
       return
     end if
+    print *, "WRFDA DEBUG: Background state is initialized"
+    
+    ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
+    if (.not. associated(persistent_iv)) then
+      print *, "WRFDA ERROR: persistent_iv not associated - cannot proceed"
+      wrfda_xtoy_adjoint_grid = 1_c_int
+      return
+    end if
+    
+    ! Point local iv to global persistent structure
+    iv => persistent_iv
+    print *, "WRFDA DEBUG: Using global persistent iv structure for adjoint"
     
     ! Use persistent grid with background state and zero analysis increments
     print *, "WRFDA DEBUG: Using persistent background state for adjoint operator"
     grid = persistent_grid
+    print *, "WRFDA DEBUG: Grid copied from persistent_grid"
     
     ! Zero out analysis increments for adjoint computation
+    print *, "WRFDA DEBUG: Zeroing out analysis increments"
     grid%xa%u = 0.0
     grid%xa%v = 0.0
     grid%xa%t = 0.0
     grid%xa%q = 0.0
     grid%xa%psfc = 0.0
+    print *, "WRFDA DEBUG: Analysis increments zeroed"
     
     ! Grid structure and module-level variables are already set up
     ! No need to call da_copy_dims and da_copy_tile_dims again
     
+    print *, "WRFDA DEBUG: Calling zero_x_like for jo_grad_x"
     call zero_x_like(jo_grad_x, nx, ny, nz)
+    print *, "WRFDA DEBUG: zero_x_like completed"
     sfc_assi_options = sfc_assi_options_1
+    print *, "WRFDA DEBUG: sfc_assi_options set"
 
+    print *, "WRFDA DEBUG: Starting string parsing"
     fambuf = '' ; famlen = 0
     ! CRITICAL FIX: Properly parse C-style null-terminated string
     do n = 1, 256  ! Use fixed maximum instead of len(fambuf)
@@ -406,12 +444,14 @@ contains
       fambuf(famlen:famlen) = achar(iachar(operator_family(n)))
     end do
     op_str = trim(fambuf(1:max(famlen,1)))
+    print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
+    
     ! Direct family determination without parse_family_variable call
     ! This follows the incremental variational algorithm approach
     fam_str = trim(op_str)
     var_str = ' '
-    var_code = 't'  ! Default variable code
     
+    print *, "WRFDA DEBUG: Determining family ID"
     ! Determine family ID directly from operator family string
     select case (trim(fam_str))
     case ('metar'); fam_id = metar
@@ -421,26 +461,79 @@ contains
     case default; fam_id = metar
     end select
     
-    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, " VarCode='", var_code, "'"
+    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, "'"
     ! iv structure is already set up before calling this function
     ! No need to reinitialize it here
     ! jo_grad_y structure is already allocated before calling this function
     ! No need to reallocate it here
-    call init_y_from_delta(fam_id, var_code, jo_grad_y, delta_y, num_obs)
+    print *, "WRFDA DEBUG: Starting innovation counting"
+    ! Calculate number of innovations from observations
+    ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
+    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
+      print *, "WRFDA DEBUG: persistent_iv and synop are associated"
+      ! Count actual innovations from the iv structure
+      num_innovations = 0
+      do n = 1, persistent_iv%info(2)%nlocal
+        if (persistent_iv%synop(n)%u%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%v%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%t%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%q%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
+      end do
+    else
+      print *, "WRFDA DEBUG: persistent_iv or synop not associated, using fallback"
+      ! Fallback: assume all variables are available
+      num_innovations = num_obs * 5
+    end if
+    print *, "WRFDA DEBUG: Adjoint - Calculated num_innovations =", num_innovations
+    
+    print *, "WRFDA DEBUG: About to call init_y_from_delta"
+    call init_y_from_delta(fam_id, jo_grad_y, delta_y, num_innovations)
+    print *, "WRFDA DEBUG: init_y_from_delta completed"
 
+    print *, "WRFDA DEBUG: About to call adjoint transform for family: '", trim(fam_str), "'"
     select case (trim(fam_str))
-    case ('metar'); call da_transform_xtoy_metar_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('synop'); call da_transform_xtoy_synop_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('buoy');  call da_transform_xtoy_buoy_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('ships'); call da_transform_xtoy_ships_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('airep'); call da_transform_xtoy_airep_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('pilot'); call da_transform_xtoy_pilot_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('sound'); call da_transform_xtoy_sound_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('sonde_sfc'); call da_transform_xtoy_sonde_sfc_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case default; wrfda_xtoy_adjoint_grid = 1_c_int; return
+    case ('metar'); 
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_metar_adj"
+      call da_transform_xtoy_metar_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_metar_adj completed"
+    case ('synop', 'adpsfc'); 
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_synop_adj for family '", trim(fam_str), "'"
+      call da_transform_xtoy_synop_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_synop_adj completed"
+    case ('buoy');  
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_buoy_adj"
+      call da_transform_xtoy_buoy_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_buoy_adj completed"
+    case ('ships'); 
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_ships_adj"
+      call da_transform_xtoy_ships_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_ships_adj completed"
+    case ('airep'); 
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_airep_adj"
+      call da_transform_xtoy_airep_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_airep_adj completed"
+    case ('pilot'); 
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_pilot_adj"
+      call da_transform_xtoy_pilot_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_pilot_adj completed"
+    case ('sound'); 
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_sound_adj"
+      call da_transform_xtoy_sound_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_sound_adj completed"
+    case ('sonde_sfc'); 
+      print *, "WRFDA DEBUG: Calling da_transform_xtoy_sonde_sfc_adj"
+      call da_transform_xtoy_sonde_sfc_adj(grid, iv, jo_grad_y, jo_grad_x)
+      print *, "WRFDA DEBUG: da_transform_xtoy_sonde_sfc_adj completed"
+    case default; 
+      print *, "WRFDA ERROR: Unknown family '", trim(fam_str), "' in adjoint operator"
+      wrfda_xtoy_adjoint_grid = 1_c_int; return
     end select
 
+    print *, "WRFDA DEBUG: About to call copy_x_to_state"
     call copy_x_to_state(jo_grad_x, inout_u, inout_v, inout_t, inout_q, inout_psfc, nx, ny, nz)
+    print *, "WRFDA DEBUG: copy_x_to_state completed"
+    print *, "WRFDA DEBUG: Adjoint operator completed successfully, returning 0"
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
 
@@ -942,211 +1035,171 @@ contains
     end do
   end subroutine extract_c_string
 
-  subroutine init_y_from_delta(family, var_code, jo_grad_y, delta_y, num_obs)
+  subroutine init_y_from_delta(family, jo_grad_y, delta_y, num_innovations)
     integer, intent(in) :: family
-    character(len=1), intent(in) :: var_code  ! 't','q','u','v','p'
     type(y_type), intent(inout) :: jo_grad_y
     real(c_double), intent(in) :: delta_y(*)
-    integer, intent(in) :: num_obs
-    integer :: n, k
+    integer, intent(in) :: num_innovations
+    integer :: n, var_idx, num_obs
+    real(c_double), parameter :: missing_r = -888888.0_c_double
+    
+    ! Calculate number of observations from innovations
+    ! For synop observations, we need to get the actual number of observations from persistent_iv
+    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
+      num_obs = persistent_iv%info(2)%nlocal
+    else
+      ! Fallback: assume we have 1 observation per 5 innovations
+      num_obs = max(1, num_innovations / 5)
+    end if
     select case (family)
     case (metar)
       allocate(jo_grad_y%metar(num_obs))
       do n=1,num_obs
-        jo_grad_y%metar(n)%u = 0.0; jo_grad_y%metar(n)%v = 0.0
-        jo_grad_y%metar(n)%t = 0.0; jo_grad_y%metar(n)%q = 0.0; jo_grad_y%metar(n)%p = 0.0
-        select case (var_code)
-        case('u'); jo_grad_y%metar(n)%u = real(delta_y(n))
-        case('v'); jo_grad_y%metar(n)%v = real(delta_y(n))
-        case('t'); jo_grad_y%metar(n)%t = real(delta_y(n))
-        case('q'); jo_grad_y%metar(n)%q = real(delta_y(n))
-        case('p'); jo_grad_y%metar(n)%p = real(delta_y(n))
-        case default; jo_grad_y%metar(n)%t = real(delta_y(n))
-        end select
+        ! Initialize all variables to missing
+        jo_grad_y%metar(n)%u = missing_r
+        jo_grad_y%metar(n)%v = missing_r
+        jo_grad_y%metar(n)%t = missing_r
+        jo_grad_y%metar(n)%q = missing_r
+        jo_grad_y%metar(n)%p = missing_r
+        
+        ! Process all variables in order: U, V, T, Q, P
+        var_idx = (n-1) * 5  ! Start index for this observation's variables
+        
+        ! U component (if available)
+        if (var_idx + 1 <= num_innovations) then
+          jo_grad_y%metar(n)%u = real(delta_y(var_idx + 1))
+        end if
+        
+        ! V component (if available)
+        if (var_idx + 2 <= num_innovations) then
+          jo_grad_y%metar(n)%v = real(delta_y(var_idx + 2))
+        end if
+        
+        ! T component (if available)
+        if (var_idx + 3 <= num_innovations) then
+          jo_grad_y%metar(n)%t = real(delta_y(var_idx + 3))
+        end if
+        
+        ! Q component (if available)
+        if (var_idx + 4 <= num_innovations) then
+          jo_grad_y%metar(n)%q = real(delta_y(var_idx + 4))
+        end if
+        
+        ! P component (if available)
+        if (var_idx + 5 <= num_innovations) then
+          jo_grad_y%metar(n)%p = real(delta_y(var_idx + 5))
+        end if
       end do
     case (synop)
       allocate(jo_grad_y%synop(num_obs))
       do n=1,num_obs
-        jo_grad_y%synop(n)%u = 0.0; jo_grad_y%synop(n)%v = 0.0
-        jo_grad_y%synop(n)%t = 0.0; jo_grad_y%synop(n)%q = 0.0; jo_grad_y%synop(n)%p = 0.0
-        select case (var_code)
-        case('u'); jo_grad_y%synop(n)%u = real(delta_y(n))
-        case('v'); jo_grad_y%synop(n)%v = real(delta_y(n))
-        case('t'); jo_grad_y%synop(n)%t = real(delta_y(n))
-        case('q'); jo_grad_y%synop(n)%q = real(delta_y(n))
-        case('p'); jo_grad_y%synop(n)%p = real(delta_y(n))
-        case default; jo_grad_y%synop(n)%t = real(delta_y(n))
-        end select
+        ! Initialize all variables to missing
+        jo_grad_y%synop(n)%u = missing_r
+        jo_grad_y%synop(n)%v = missing_r
+        jo_grad_y%synop(n)%t = missing_r
+        jo_grad_y%synop(n)%q = missing_r
+        jo_grad_y%synop(n)%p = missing_r
+        
+        ! Process all variables in order: U, V, T, Q, P
+        ! delta_y array contains innovations for all variables for all observations
+        ! For each observation, we have up to 5 variables (U, V, T, Q, P)
+        var_idx = (n-1) * 5  ! Start index for this observation's variables
+        
+        ! U component (if available)
+        if (var_idx + 1 <= num_innovations) then
+          jo_grad_y%synop(n)%u = real(delta_y(var_idx + 1))
+        end if
+        
+        ! V component (if available)
+        if (var_idx + 2 <= num_innovations) then
+          jo_grad_y%synop(n)%v = real(delta_y(var_idx + 2))
+        end if
+        
+        ! T component (if available)
+        if (var_idx + 3 <= num_innovations) then
+          jo_grad_y%synop(n)%t = real(delta_y(var_idx + 3))
+        end if
+        
+        ! Q component (if available)
+        if (var_idx + 4 <= num_innovations) then
+          jo_grad_y%synop(n)%q = real(delta_y(var_idx + 4))
+        end if
+        
+        ! P component (if available)
+        if (var_idx + 5 <= num_innovations) then
+          jo_grad_y%synop(n)%p = real(delta_y(var_idx + 5))
+        end if
       end do
-    case (ships)
-      allocate(jo_grad_y%ships(num_obs))
-      do n=1,num_obs
-        jo_grad_y%ships(n)%u = 0.0; jo_grad_y%ships(n)%v = 0.0
-        jo_grad_y%ships(n)%t = 0.0; jo_grad_y%ships(n)%q = 0.0; jo_grad_y%ships(n)%p = 0.0
-        select case (var_code)
-        case('u'); jo_grad_y%ships(n)%u = real(delta_y(n))
-        case('v'); jo_grad_y%ships(n)%v = real(delta_y(n))
-        case('t'); jo_grad_y%ships(n)%t = real(delta_y(n))
-        case('q'); jo_grad_y%ships(n)%q = real(delta_y(n))
-        case('p'); jo_grad_y%ships(n)%p = real(delta_y(n))
-        case default; jo_grad_y%ships(n)%t = real(delta_y(n))
-        end select
-      end do
-    case (buoy)
-      allocate(jo_grad_y%buoy(num_obs))
-      do n=1,num_obs
-        jo_grad_y%buoy(n)%u = 0.0; jo_grad_y%buoy(n)%v = 0.0
-        jo_grad_y%buoy(n)%t = 0.0; jo_grad_y%buoy(n)%q = 0.0; jo_grad_y%buoy(n)%p = 0.0
-        select case (var_code)
-        case('u'); jo_grad_y%buoy(n)%u = real(delta_y(n))
-        case('v'); jo_grad_y%buoy(n)%v = real(delta_y(n))
-        case('t'); jo_grad_y%buoy(n)%t = real(delta_y(n))
-        case('q'); jo_grad_y%buoy(n)%q = real(delta_y(n))
-        case('p'); jo_grad_y%buoy(n)%p = real(delta_y(n))
-        case default; jo_grad_y%buoy(n)%t = real(delta_y(n))
-        end select
-      end do
-    case (sonde_sfc)
-      allocate(jo_grad_y%sonde_sfc(num_obs))
-      do n=1,num_obs
-        jo_grad_y%sonde_sfc(n)%u = 0.0; jo_grad_y%sonde_sfc(n)%v = 0.0
-        jo_grad_y%sonde_sfc(n)%t = 0.0; jo_grad_y%sonde_sfc(n)%q = 0.0; jo_grad_y%sonde_sfc(n)%p = 0.0
-        select case (var_code)
-        case('u'); jo_grad_y%sonde_sfc(n)%u = real(delta_y(n))
-        case('v'); jo_grad_y%sonde_sfc(n)%v = real(delta_y(n))
-        case('t'); jo_grad_y%sonde_sfc(n)%t = real(delta_y(n))
-        case('q'); jo_grad_y%sonde_sfc(n)%q = real(delta_y(n))
-        case('p'); jo_grad_y%sonde_sfc(n)%p = real(delta_y(n))
-        case default; jo_grad_y%sonde_sfc(n)%t = real(delta_y(n))
-        end select
-      end do
-    case (airep)
-      do n=1,num_obs
-        k = 1
-        select case (var_code)
-        case('u'); jo_grad_y%airep(n)%u(k) = real(delta_y(n))
-        case('v'); jo_grad_y%airep(n)%v(k) = real(delta_y(n))
-        case('t'); jo_grad_y%airep(n)%t(k) = real(delta_y(n))
-        case('q'); jo_grad_y%airep(n)%q(k) = real(delta_y(n))
-        case default; jo_grad_y%airep(n)%t(k) = real(delta_y(n))
-        end select
-      end do
-    case (pilot)
-      do n=1,num_obs
-        k = 1
-        select case (var_code)
-        case('u'); jo_grad_y%pilot(n)%u(k) = real(delta_y(n))
-        case('v'); jo_grad_y%pilot(n)%v(k) = real(delta_y(n))
-        case default; jo_grad_y%pilot(n)%u(k) = real(delta_y(n))
-        end select
-      end do
-    case (sound)
-      do n=1,num_obs
-        k = 1
-        select case (var_code)
-        case('u'); jo_grad_y%sound(n)%u(k) = real(delta_y(n))
-        case('v'); jo_grad_y%sound(n)%v(k) = real(delta_y(n))
-        case('t'); jo_grad_y%sound(n)%t(k) = real(delta_y(n))
-        case('q'); jo_grad_y%sound(n)%q(k) = real(delta_y(n))
-        case default; jo_grad_y%sound(n)%t(k) = real(delta_y(n))
-        end select
-      end do
+
     end select
   end subroutine init_y_from_delta
 
-  subroutine copy_y_to_out(family, var_code, y, out_y, num_obs)
+  subroutine copy_y_to_out(family, y, out_y, num_innovations)
     integer, intent(in) :: family
-    character(len=1), intent(in) :: var_code  ! 't','q','u','v','p'
     type(y_type), intent(in) :: y
     real(c_double), intent(out) :: out_y(*)
-    integer, intent(in) :: num_obs
-    integer :: n, k
+    integer, intent(in) :: num_innovations
+    integer :: n, var_idx, num_obs
+    real(c_double), parameter :: missing_r = -888888.0_c_double
+    
+    ! Calculate number of observations from innovations
+    ! For synop observations, we need to get the actual number of observations from persistent_iv
+    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
+      num_obs = persistent_iv%info(2)%nlocal
+    else
+      ! Fallback: assume we have 1 observation per 5 innovations
+      num_obs = max(1, num_innovations / 5)
+    end if
     select case (family)
-    case (metar)
-      do n=1,num_obs
-        select case (var_code)
-        case('u'); out_y(n) = real(y%metar(n)%u, kind=c_double)
-        case('v'); out_y(n) = real(y%metar(n)%v, kind=c_double)
-        case('t'); out_y(n) = real(y%metar(n)%t, kind=c_double)
-        case('q'); out_y(n) = real(y%metar(n)%q, kind=c_double)
-        case('p'); out_y(n) = real(y%metar(n)%p, kind=c_double)
-        case default; out_y(n) = real(y%metar(n)%t, kind=c_double)
-        end select
-      end do
     case (synop)
       do n=1,num_obs
-        select case (var_code)
-        case('u'); out_y(n) = real(y%synop(n)%u, kind=c_double)
-        case('v'); out_y(n) = real(y%synop(n)%v, kind=c_double)
-        case('t'); out_y(n) = real(y%synop(n)%t, kind=c_double)
-        case('q'); out_y(n) = real(y%synop(n)%q, kind=c_double)
-        case('p'); out_y(n) = real(y%synop(n)%p, kind=c_double)
-        case default; out_y(n) = real(y%synop(n)%t, kind=c_double)
-        end select
-      end do
-    case (ships)
-      do n=1,num_obs
-        select case (var_code)
-        case('u'); out_y(n) = real(y%ships(n)%u, kind=c_double)
-        case('v'); out_y(n) = real(y%ships(n)%v, kind=c_double)
-        case('t'); out_y(n) = real(y%ships(n)%t, kind=c_double)
-        case('q'); out_y(n) = real(y%ships(n)%q, kind=c_double)
-        case('p'); out_y(n) = real(y%ships(n)%p, kind=c_double)
-        case default; out_y(n) = real(y%ships(n)%t, kind=c_double)
-        end select
-      end do
-    case (buoy)
-      do n=1,num_obs
-        select case (var_code)
-        case('u'); out_y(n) = real(y%buoy(n)%u, kind=c_double)
-        case('v'); out_y(n) = real(y%buoy(n)%v, kind=c_double)
-        case('t'); out_y(n) = real(y%buoy(n)%t, kind=c_double)
-        case('q'); out_y(n) = real(y%buoy(n)%q, kind=c_double)
-        case('p'); out_y(n) = real(y%buoy(n)%p, kind=c_double)
-        case default; out_y(n) = real(y%buoy(n)%t, kind=c_double)
-        end select
-      end do
-    case (sonde_sfc)
-      do n=1,num_obs
-        select case (var_code)
-        case('u'); out_y(n) = real(y%sonde_sfc(n)%u, kind=c_double)
-        case('v'); out_y(n) = real(y%sonde_sfc(n)%v, kind=c_double)
-        case('t'); out_y(n) = real(y%sonde_sfc(n)%t, kind=c_double)
-        case('q'); out_y(n) = real(y%sonde_sfc(n)%q, kind=c_double)
-        case('p'); out_y(n) = real(y%sonde_sfc(n)%p, kind=c_double)
-        case default; out_y(n) = real(y%sonde_sfc(n)%t, kind=c_double)
-        end select
-      end do
-    case (airep)
-      do n=1,num_obs
-        k = 1
-        select case (var_code)
-        case('u'); out_y(n) = real(y%airep(n)%u(k), kind=c_double)
-        case('v'); out_y(n) = real(y%airep(n)%v(k), kind=c_double)
-        case('t'); out_y(n) = real(y%airep(n)%t(k), kind=c_double)
-        case('q'); out_y(n) = real(y%airep(n)%q(k), kind=c_double)
-        case default; out_y(n) = real(y%airep(n)%t(k), kind=c_double)
-        end select
-      end do
-    case (pilot)
-      do n=1,num_obs
-        k = 1
-        select case (var_code)
-        case('u'); out_y(n) = real(y%pilot(n)%u(k), kind=c_double)
-        case('v'); out_y(n) = real(y%pilot(n)%v(k), kind=c_double)
-        case default; out_y(n) = real(y%pilot(n)%u(k), kind=c_double)
-        end select
-      end do
-    case (sound)
-      do n=1,num_obs
-        k = 1
-        select case (var_code)
-        case('u'); out_y(n) = real(y%sound(n)%u(k), kind=c_double)
-        case('v'); out_y(n) = real(y%sound(n)%v(k), kind=c_double)
-        case('t'); out_y(n) = real(y%sound(n)%t(k), kind=c_double)
-        case('q'); out_y(n) = real(y%sound(n)%q(k), kind=c_double)
-        case default; out_y(n) = real(y%sound(n)%t(k), kind=c_double)
-        end select
+        ! Process all variables in order: U, V, T, Q, P
+        var_idx = (n-1) * 5  ! Start index for this observation's variables
+        
+        ! U component (if not missing)
+        if (var_idx + 1 <= num_innovations) then
+          if (y%synop(n)%u /= missing_r) then
+            out_y(var_idx + 1) = real(y%synop(n)%u, kind=c_double)
+          else
+            out_y(var_idx + 1) = 0.0_c_double
+          end if
+        end if
+        
+        ! V component (if not missing)
+        if (var_idx + 2 <= num_innovations) then
+          if (y%synop(n)%v /= missing_r) then
+            out_y(var_idx + 2) = real(y%synop(n)%v, kind=c_double)
+          else
+            out_y(var_idx + 2) = 0.0_c_double
+          end if
+        end if
+        
+        ! T component (if not missing)
+        if (var_idx + 3 <= num_innovations) then
+          if (y%synop(n)%t /= missing_r) then
+            out_y(var_idx + 3) = real(y%synop(n)%t, kind=c_double)
+          else
+            out_y(var_idx + 3) = 0.0_c_double
+          end if
+        end if
+        
+        ! Q component (if not missing)
+        if (var_idx + 4 <= num_innovations) then
+          if (y%synop(n)%q /= missing_r) then
+            out_y(var_idx + 4) = real(y%synop(n)%q, kind=c_double)
+          else
+            out_y(var_idx + 4) = 0.0_c_double
+          end if
+        end if
+        
+        ! P component (if not missing)
+        if (var_idx + 5 <= num_innovations) then
+          if (y%synop(n)%p /= missing_r) then
+            out_y(var_idx + 5) = real(y%synop(n)%p, kind=c_double)
+          else
+            out_y(var_idx + 5) = 0.0_c_double
+          end if
+        end if
       end do
     end select
   end subroutine copy_y_to_out
