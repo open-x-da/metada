@@ -19,10 +19,10 @@ extern "C" {
 
 // Array-based (grid) API for real WRFDA call with per-variable fields
 // Grid and observation location metadata is handled internally via iv structure
-int wrfda_xtoy_apply_grid(const char* operator_family, const int* num_obs,
-                          double* out_y);
+// Family is determined automatically from iv structure
+int wrfda_xtoy_apply_grid(const int* num_obs, double* out_y);
 
-int wrfda_xtoy_adjoint_grid(const char* operator_family, int nx, int ny, int nz,
+int wrfda_xtoy_adjoint_grid(int nx, int ny, int nz,
                             const double* delta_y,  // size num_obs
                             int num_obs, double* inout_u, double* inout_v,
                             double* inout_t, double* inout_q,
@@ -117,6 +117,9 @@ int wrfda_initialize_background_state(int nx, int ny, int nz, const double* u,
 void wrfda_update_analysis_increments(const double* u, const double* v,
                                       const double* t, const double* q,
                                       const double* psfc);
+
+// Get available observation families from iv structure
+int wrfda_get_available_families(char* families_buffer, int* buffer_size);
 
 #ifdef __cplusplus
 }

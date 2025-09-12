@@ -28,6 +28,7 @@
 #pragma once
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -578,8 +579,12 @@ class WRFDAObsOperator {
               << std::endl;
 
     // Get the correct number of innovations for proper sizing
-    std::string family =
-        operator_families_.empty() ? "synop" : operator_families_[0];
+    // Use default family since Fortran will determine actual family from iv
+    // structure
+    std::string family = "synop";  // Default family for innovation counting
+    std::cout
+        << "WRFDAObsOperator: Using default family for innovation counting: "
+        << family << std::endl;
 
     int num_innovations = 0;
     int count_rc = wrfda_count_innovations(const_cast<char*>(family.c_str()),
@@ -598,7 +603,7 @@ class WRFDAObsOperator {
               << " innovations" << std::endl;
 
     const int num_obs_int = static_cast<int>(num_observations);
-    int rc = wrfda_xtoy_apply_grid(family.c_str(), &num_obs_int, out_y.data());
+    int rc = wrfda_xtoy_apply_grid(&num_obs_int, out_y.data());
 
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
@@ -768,9 +773,6 @@ class WRFDAObsOperator {
     std::vector<double> dummy_levels(1, 0.0);
     if (levels_ptr == nullptr) levels_ptr = dummy_levels.data();
 
-    const char* family_cstr =
-        (operator_families_.empty() ? "" : operator_families_[0].c_str());
-
     // Flatten the state variables into a single array for the adjoint operator
     const size_t grid_size = static_cast<size_t>(nx * ny * nz);
     std::vector<double> state_values(grid_size, 0.0);
@@ -809,7 +811,7 @@ class WRFDAObsOperator {
 
     int num_obs_int = static_cast<int>(num_observations);
     const int rc = wrfda_xtoy_adjoint_grid(
-        family_cstr, nx, ny, nz,
+        nx, ny, nz,
         obs_increment.data(),  // delta_y
         num_obs_int, state_values.data(), state_values.data(),
         state_values.data(), state_values.data(),

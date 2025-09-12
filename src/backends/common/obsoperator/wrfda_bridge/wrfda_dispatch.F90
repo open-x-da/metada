@@ -75,19 +75,16 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(operator_family, num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid(num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
-    character(c_char), intent(in) :: operator_family(*)
     integer(c_int), intent(in) :: num_obs
-    real(c_double), intent(out) :: out_y(*)
+    real(c_double), intent(inout) :: out_y(*)
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
     type(y_type), pointer :: y
     integer :: n, num_innovations
-    character(len=256) :: fambuf
-    integer :: famlen
-    character(len=256) :: op_str, fam_str, var_str
+    character(len=256) :: fam_str
     integer :: fam_id
     
     ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
@@ -122,30 +119,39 @@ contains
     ! point grid to global persistent grid for processing
     grid => persistent_grid
 
-    print *, "WRFDA DEBUG: Parsing operator family string"
-    fambuf = '' ; famlen = 0
-    ! CRITICAL FIX: Properly parse C-style null-terminated string
-    do n = 1, 256  ! Use fixed maximum instead of len(fambuf)
-      if (operator_family(n) == c_null_char) exit
-      famlen = famlen + 1
-      fambuf(famlen:famlen) = achar(iachar(operator_family(n)))
-    end do
-    op_str = trim(fambuf(1:max(famlen,1)))
-    print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
-     
-    ! Direct family determination without parse_family_variable call
-    ! This follows the incremental variational algorithm approach
-    fam_str = trim(op_str)
-    var_str = ' '
+    print *, "WRFDA DEBUG: Determining available families from iv structure"
     
-    ! Determine family ID directly from operator family string
-    select case (trim(fam_str))
-    case ('metar'); fam_id = metar
-    case ('synop', 'adpsfc'); fam_id = synop
-    case ('ships'); fam_id = ships
-    case ('buoy'); fam_id = buoy
-    case default; fam_id = metar
+    ! Instead of parsing input string, determine family from iv structure
+    ! Find the first family that has observations available
+    fam_id = 0
+    do n = 1, size(persistent_iv%info)
+      if (persistent_iv%info(n)%nlocal > 0) then
+        fam_id = n
+        print *, "WRFDA DEBUG: Found family", n, "with", persistent_iv%info(n)%nlocal, "observations"
+        exit
+      end if
+    end do
+    
+    if (fam_id == 0) then
+      print *, "WRFDA ERROR: No observation families available in iv structure"
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
+    end if
+    
+    ! Map family ID to name for debugging
+    select case (fam_id)
+    case (1); fam_str = "metar"
+    case (2); fam_str = "synop"
+    case (3); fam_str = "sound"
+    case (4); fam_str = "gpspw"
+    case (5); fam_str = "airep"
+    case (6); fam_str = "pilot"
+    case (7); fam_str = "ships"
+    case (8); fam_str = "buoy"
+    case default; fam_str = "unknown"
     end select
+    
+    print *, "WRFDA DEBUG: Using family '", trim(fam_str), "' (ID=", fam_id, ")"
     
     select case (trim(fam_str))
     case ('metar'); 
@@ -189,9 +195,8 @@ contains
   ! - delta_y: gradient in observation space
   ! - inout_u, inout_v, inout_t, inout_q, inout_psfc: gradient in state space (accumulated)
   ! - The adjoint operator accumulates gradients into the state space arrays
-  integer(c_int) function wrfda_xtoy_adjoint_grid(operator_family, nx, ny, nz, delta_y, num_obs, inout_u, inout_v, inout_t, inout_q, inout_psfc) bind(C, name="wrfda_xtoy_adjoint_grid")
+  integer(c_int) function wrfda_xtoy_adjoint_grid(nx, ny, nz, delta_y, num_obs, inout_u, inout_v, inout_t, inout_q, inout_psfc) bind(C, name="wrfda_xtoy_adjoint_grid")
     implicit none
-    character(c_char), intent(in) :: operator_family(*)
     integer(c_int), value :: nx, ny, nz
     real(c_double), intent(in) :: delta_y(*)
     integer(c_int), value :: num_obs
@@ -202,9 +207,7 @@ contains
     type(y_type), target :: jo_grad_y
     type(x_type), target :: jo_grad_x
     integer :: n, num_innovations
-    character(len=256) :: fambuf
-    integer :: famlen
-    character(len=256) :: op_str, fam_str, var_str
+    character(len=256) :: fam_str
     integer :: fam_id
 
     ! DEBUG: Print entry point
@@ -256,33 +259,39 @@ contains
     sfc_assi_options = sfc_assi_options_1
     print *, "WRFDA DEBUG: sfc_assi_options set"
 
-    print *, "WRFDA DEBUG: Starting string parsing"
-    fambuf = '' ; famlen = 0
-    ! CRITICAL FIX: Properly parse C-style null-terminated string
-    do n = 1, 256  ! Use fixed maximum instead of len(fambuf)
-      if (operator_family(n) == c_null_char) exit
-      famlen = famlen + 1
-      fambuf(famlen:famlen) = achar(iachar(operator_family(n)))
+    print *, "WRFDA DEBUG: Determining available families from iv structure for adjoint"
+    
+    ! Instead of parsing input string, determine family from iv structure
+    ! Find the first family that has observations available
+    fam_id = 0
+    do n = 1, size(persistent_iv%info)
+      if (persistent_iv%info(n)%nlocal > 0) then
+        fam_id = n
+        print *, "WRFDA DEBUG: Found family", n, "with", persistent_iv%info(n)%nlocal, "observations"
+        exit
+      end if
     end do
-    op_str = trim(fambuf(1:max(famlen,1)))
-    print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
     
-    ! Direct family determination without parse_family_variable call
-    ! This follows the incremental variational algorithm approach
-    fam_str = trim(op_str)
-    var_str = ' '
+    if (fam_id == 0) then
+      print *, "WRFDA ERROR: No observation families available in iv structure for adjoint"
+      wrfda_xtoy_adjoint_grid = 1_c_int
+      return
+    end if
     
-    print *, "WRFDA DEBUG: Determining family ID"
-    ! Determine family ID directly from operator family string
-    select case (trim(fam_str))
-    case ('metar'); fam_id = metar
-    case ('synop', 'adpsfc'); fam_id = synop
-    case ('ships'); fam_id = ships
-    case ('buoy'); fam_id = buoy
-    case default; fam_id = metar
+    ! Map family ID to name for debugging
+    select case (fam_id)
+    case (1); fam_str = "metar"
+    case (2); fam_str = "synop"
+    case (3); fam_str = "sound"
+    case (4); fam_str = "gpspw"
+    case (5); fam_str = "airep"
+    case (6); fam_str = "pilot"
+    case (7); fam_str = "ships"
+    case (8); fam_str = "buoy"
+    case default; fam_str = "unknown"
     end select
     
-    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, "'"
+    print *, "WRFDA DEBUG: Using family '", trim(fam_str), "' (ID=", fam_id, ") for adjoint"
     ! iv structure is already set up before calling this function
     ! No need to reinitialize it here
     ! jo_grad_y structure is already allocated before calling this function
@@ -1145,6 +1154,79 @@ contains
     
     print *, "WRFDA DEBUG: Analysis increments updated successfully"
   end subroutine wrfda_update_analysis_increments
+
+  ! Get available observation families from iv structure
+  integer(c_int) function wrfda_get_available_families(families_buffer, buffer_size) bind(C, name="wrfda_get_available_families")
+    implicit none
+    character(c_char), intent(out) :: families_buffer(*)
+    integer(c_int), intent(inout) :: buffer_size
+    
+    integer :: i, family_index, current_pos
+    character(len=20) :: family_name
+    character(len=256) :: families_string
+    
+    print *, "WRFDA DEBUG: Getting available observation families from iv structure"
+    
+    ! Check if iv structure is available
+    if (.not. iv_allocated .or. .not. associated(persistent_iv)) then
+      print *, "WRFDA DEBUG: iv structure not available - no families found"
+      families_string = ""
+      buffer_size = 0
+      wrfda_get_available_families = 0
+      return
+    end if
+    
+    families_string = ""
+    current_pos = 1
+    
+    ! Check each observation family for available observations
+    do family_index = 1, size(persistent_iv%info)
+      if (persistent_iv%info(family_index)%nlocal > 0) then
+        ! Determine family name based on index
+        select case (family_index)
+        case (1)
+          family_name = "metar"
+        case (2)
+          family_name = "synop"
+        case (3)
+          family_name = "sound"
+        case (4)
+          family_name = "gpspw"
+        case (5)
+          family_name = "airep"
+        case (6)
+          family_name = "pilot"
+        case (7)
+          family_name = "ships"
+        case (8)
+          family_name = "buoy"
+        case default
+          family_name = "unknown"
+        end select
+        
+        print *, "WRFDA DEBUG: Found family '", trim(family_name), "' with", persistent_iv%info(family_index)%nlocal, "observations"
+        
+        ! Add family name to string (comma-separated)
+        if (len_trim(families_string) > 0) then
+          families_string = trim(families_string) // ","
+        end if
+        families_string = trim(families_string) // trim(family_name)
+      end if
+    end do
+    
+    print *, "WRFDA DEBUG: Available families: '", trim(families_string), "'"
+    
+    ! Copy to C buffer
+    do i = 1, min(len_trim(families_string), buffer_size - 1)
+      families_buffer(i) = families_string(i:i)
+    end do
+    families_buffer(min(len_trim(families_string) + 1, buffer_size)) = c_null_char
+    
+    buffer_size = len_trim(families_string) + 1
+    wrfda_get_available_families = 0
+    
+    print *, "WRFDA DEBUG: Successfully returned", buffer_size - 1, "characters of family data"
+  end function wrfda_get_available_families
 
   ! CRITICAL FIX: Add subroutine to update only data arrays without reconstructing grid structure
   subroutine update_domain_data(grid, nx, ny, nz, u, v, t, q, psfc)
