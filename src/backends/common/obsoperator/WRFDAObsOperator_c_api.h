@@ -19,10 +19,8 @@ extern "C" {
 
 // Array-based (grid) API for real WRFDA call with per-variable fields
 // Grid and observation location metadata is handled internally via iv structure
-int wrfda_xtoy_apply_grid(const char* operator_family, const double* u,
-                          const double* v, const double* t, const double* q,
-                          const double* psfc,  // size nx*ny
-                          const int* num_obs, double* out_y);
+int wrfda_xtoy_apply_grid(const char* operator_family, const int* num_obs,
+                          double* out_y);
 
 int wrfda_xtoy_adjoint_grid(const char* operator_family, int nx, int ny, int nz,
                             const double* delta_y,  // size num_obs
@@ -30,27 +28,6 @@ int wrfda_xtoy_adjoint_grid(const char* operator_family, int nx, int ny, int nz,
                             double* inout_t, double* inout_q,
                             double* inout_psfc  // size nx*ny
 );
-
-// Profile-capable array APIs (multi-level per obs, flattened per-obs levels)
-int wrfda_xtoy_apply_profiles(
-    const char* operator_family,  // e.g., "airep:u", "pilot:u", "sound:t"
-    int nx, int ny, int nz, const double* u, const double* v, const double* t,
-    const double* q, const double* psfc, const double* lats2d,
-    const double* lons2d, const double* levels, const int* num_obs,
-    const int* obs_counts,          // length num_obs; levels per obs
-    const double* obs_lats,         // length num_obs
-    const double* obs_lons,         // length num_obs
-    const double* obs_levels_flat,  // length sum(obs_counts)
-    double* out_y_flat              // length sum(obs_counts)
-);
-
-int wrfda_xtoy_adjoint_profiles(
-    const char* operator_family, int nx, int ny, int nz,
-    const double* delta_y_flat,  // length sum(obs_counts)
-    const double* lats2d, const double* lons2d, const double* levels,
-    const int* num_obs, const int* obs_counts, const double* obs_lats,
-    const double* obs_lons, const double* obs_levels_flat, double* inout_u,
-    double* inout_v, double* inout_t, double* inout_q, double* inout_psfc);
 
 // Enhanced function for constructing iv_type with detailed observation
 // information
@@ -135,6 +112,11 @@ int initialize_wrfda_module_variables(void* domain_ptr);
 int wrfda_initialize_background_state(int nx, int ny, int nz, const double* u,
                                       const double* v, const double* t,
                                       const double* q, const double* psfc);
+
+// Update analysis increments in WRFDA grid structure
+void wrfda_update_analysis_increments(const double* u, const double* v,
+                                      const double* t, const double* q,
+                                      const double* psfc);
 
 #ifdef __cplusplus
 }

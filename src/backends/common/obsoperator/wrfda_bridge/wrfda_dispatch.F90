@@ -75,14 +75,13 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(operator_family, u, v, t, q, psfc, num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid(operator_family, num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
-    real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
     integer(c_int), intent(in) :: num_obs
     real(c_double), intent(out) :: out_y(*)
 
-    type(domain), target, save :: grid
+    type(domain), pointer :: grid
     type(iv_type), pointer :: iv
     type(y_type), pointer :: y
     integer :: n, num_innovations
@@ -120,13 +119,8 @@ contains
       return
     end if
     
-    ! Use persistent grid with background state and update analysis increments
-    print *, "WRFDA DEBUG: Using persistent background state and updating analysis increments"
-    call wrfda_update_analysis_increments(u, v, t, q, psfc)
-    print *, "WRFDA DEBUG: Analysis increments updated"
-    
-    ! Copy persistent grid to local grid for processing
-    grid = persistent_grid
+    ! point grid to global persistent grid for processing
+    grid => persistent_grid
 
     print *, "WRFDA DEBUG: Parsing operator family string"
     fambuf = '' ; famlen = 0
@@ -159,7 +153,7 @@ contains
       !call da_transform_xtoy_metar(grid, iv, y)
       print *, "WRFDA DEBUG: da_transform_xtoy_metar completed"
     case ('synop', 'adpsfc'); 
-      call da_transform_xtoy_synop(persistent_grid, iv, y)
+      call da_transform_xtoy_synop(grid, iv, y)
     case default; 
       print *, "WRFDA DEBUG: Unknown family '", trim(fam_str), "', returning error"
       wrfda_xtoy_apply_grid = 1_c_int; return
@@ -190,70 +184,6 @@ contains
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
 
-  ! Enhanced function for constructing iv_type with detailed observation information
-  integer(c_int) function wrfda_construct_iv_from_observations(operator_family, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets, iv_ptr) bind(C, name="wrfda_construct_iv_from_observations")
-    implicit none
-    character(c_char), intent(in) :: operator_family(*)
-    integer(c_int), value :: nx, ny, nz
-    real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
-    integer(c_int), value :: num_obs
-    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
-    real(c_double), intent(in) :: obs_values(*), obs_errors(*)
-    character(c_char), intent(in) :: obs_types(*), obs_station_ids(*)
-    real(c_double), intent(in) :: obs_elevations(*), obs_pressures(*), obs_heights(*)
-    integer(c_int), intent(in) :: obs_qc_flags(*), obs_usage_flags(*)
-    real(c_double), intent(in) :: obs_time_offsets(*)
-    type(c_ptr), value :: iv_ptr
-
-    type(iv_type), pointer :: iv
-    integer :: n
-    character(len=256) :: fambuf
-    integer :: famlen
-    character(len=256) :: op_str, fam_str, var_str
-    integer :: fam_id
-    
-    ! Suppress unused argument warnings for parameters not currently used
-    if (obs_types(1) == c_null_char .and. obs_station_ids(1) == c_null_char .and. obs_time_offsets(1) < 0.0) then
-      ! This will never execute but prevents unused argument warnings
-      continue
-    end if
-
-    ! Get pointer to iv_type
-    call c_f_pointer(iv_ptr, iv)
-
-    ! Parse operator family string
-    fambuf = '' ; famlen = 0
-    do n = 1, 256
-      if (operator_family(n) == c_null_char) exit
-      famlen = famlen + 1
-      fambuf(famlen:famlen) = achar(iachar(operator_family(n)))
-    end do
-    op_str = trim(fambuf(1:max(famlen,1)))
-    print *, "WRFDA DEBUG: Parsed operator string: '", trim(op_str), "'"
-     
-    ! Direct family determination without parse_family_variable call
-    ! This follows the incremental variational algorithm approach
-    fam_str = trim(op_str)
-    var_str = ' '
-    
-    ! Determine family ID directly from operator family string
-    select case (trim(fam_str))
-    case ('metar'); fam_id = metar
-    case ('synop', 'adpsfc'); fam_id = synop
-    case ('ships'); fam_id = ships
-    case ('buoy'); fam_id = buoy
-    case default; fam_id = metar
-    end select
-    
-    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, "'"
-
-    ! Initialize iv_type with enhanced observation information
-    call init_iv_from_enhanced_obs(fam_id, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets)
-
-    print *, "WRFDA DEBUG: wrfda_construct_iv_from_observations completed successfully"
-    wrfda_construct_iv_from_observations = 0_c_int
-  end function wrfda_construct_iv_from_observations
-
   ! Adjoint operator: H^T * δy -> δx (gradient accumulation)
   ! This function computes the adjoint of the forward operator for incremental 3D-Var:
   ! - delta_y: gradient in observation space
@@ -267,7 +197,7 @@ contains
     integer(c_int), value :: num_obs
     real(c_double), intent(inout) :: inout_u(*), inout_v(*), inout_t(*), inout_q(*), inout_psfc(*)
 
-    type(domain), target, save :: grid
+    type(domain), pointer :: grid
     type(iv_type), pointer :: iv
     type(y_type), target :: jo_grad_y
     type(x_type), target :: jo_grad_x
@@ -305,7 +235,7 @@ contains
     
     ! Use persistent grid with background state and zero analysis increments
     print *, "WRFDA DEBUG: Using persistent background state for adjoint operator"
-    grid = persistent_grid
+    grid => persistent_grid
     print *, "WRFDA DEBUG: Grid copied from persistent_grid"
     
     ! Zero out analysis increments for adjoint computation
@@ -1187,7 +1117,7 @@ contains
 
   ! Update only analysis increments (xa) for incremental 3D-Var
   ! This subroutine updates the analysis increments while keeping background state constant
-  subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc)
+  subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc) bind(C, name="wrfda_update_analysis_increments")
     implicit none
     real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
     integer :: i,j,k, nz1
