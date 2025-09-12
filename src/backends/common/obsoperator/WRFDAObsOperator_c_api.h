@@ -17,20 +17,6 @@
 extern "C" {
 #endif
 
-// Handle-based API (preferred when WRFDA domain/iv/y are already allocated)
-// Opaque pointers are expected to point to WRFDA types:
-//   domain :: WRFDA domain/grid structure
-//   iv     :: iv_type containing per-family interpolation/index info
-//   y/x    :: y_type or x_type for outputs (see function)
-// Returns 0 on success
-int wrfda_xtoy_apply_handles(const char* operator_family,
-                             const void* domain_ptr, const void* iv_ptr,
-                             void* y_ptr);
-
-int wrfda_xtoy_adjoint_handles(const char* operator_family,
-                               const void* domain_ptr, const void* iv_ptr,
-                               const void* jo_grad_y_ptr, void* jo_grad_x_ptr);
-
 // Array-based (grid) API for real WRFDA call with per-variable fields
 // Grid and observation location metadata is handled internally via iv structure
 int wrfda_xtoy_apply_grid(const char* operator_family, const int* nx,
@@ -38,16 +24,6 @@ int wrfda_xtoy_apply_grid(const char* operator_family, const int* nx,
                           const double* v, const double* t, const double* q,
                           const double* psfc,  // size nx*ny
                           const int* num_obs, double* out_y);
-
-// New function that properly separates total state into background and
-// increments
-int wrfda_xtoy_apply_grid_with_background(
-    const char* operator_family, int nx, int ny, int nz, const double* u_bg,
-    const double* v_bg, const double* t_bg, const double* q_bg,
-    const double* psfc_bg,  // background state (xb)
-    const double* u_inc, const double* v_inc, const double* t_inc,
-    const double* q_inc, const double* psfc_inc,  // analysis increments (δx)
-    int num_obs, double* out_y);
 
 int wrfda_xtoy_adjoint_grid(const char* operator_family, int nx, int ny, int nz,
                             const double* delta_y,  // size num_obs
