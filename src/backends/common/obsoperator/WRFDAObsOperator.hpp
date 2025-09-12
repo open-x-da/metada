@@ -602,8 +602,7 @@ class WRFDAObsOperator {
               << num_observations << " observations with " << num_innovations
               << " innovations" << std::endl;
 
-    const int num_obs_int = static_cast<int>(num_observations);
-    int rc = wrfda_xtoy_apply_grid(&num_obs_int, out_y.data());
+    int rc = wrfda_xtoy_apply_grid(out_y.data());
 
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +

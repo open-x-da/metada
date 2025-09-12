@@ -75,9 +75,8 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid(out_y) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
-    integer(c_int), intent(in) :: num_obs
     real(c_double), intent(inout) :: out_y(*)
 
     type(domain), pointer :: grid
@@ -179,9 +178,6 @@ contains
         if (persistent_iv%synop(n)%q%qc >= 0) num_innovations = num_innovations + 1
         if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
       end do
-    else
-      ! Fallback: assume all variables are available
-      num_innovations = num_obs * 5
     end if
     print *, "WRFDA DEBUG: Calculated num_innovations =", num_innovations
     call copy_y_to_out(fam_id, y, out_y, num_innovations)
