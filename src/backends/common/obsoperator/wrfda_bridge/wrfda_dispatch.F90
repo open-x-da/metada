@@ -45,6 +45,10 @@ module metada_wrfda_dispatch
   type(iv_type), pointer, save :: persistent_iv
   logical, save :: iv_allocated = .false.
   
+  ! CRITICAL FIX: Add persistent y structure to avoid repeated allocation
+  type(y_type), pointer, save :: persistent_y
+  logical, save :: y_allocated = .false.
+  
   ! Map projection information for WRFDA coordinate conversion
   ! Define projection constants
   integer, parameter :: PROJ_LATLON = 0
@@ -80,8 +84,8 @@ contains
     real(c_double), intent(out) :: out_y(*)
 
     type(domain), target, save :: grid
-    type(iv_type), target, save :: iv
-    type(y_type), target :: y
+    type(iv_type), pointer :: iv
+    type(y_type), pointer :: y
     integer :: n
     character(len=256) :: fambuf
     integer :: famlen
@@ -92,6 +96,37 @@ contains
     ! DEBUG: Print entry point
     print *, "WRFDA DEBUG: Entering wrfda_xtoy_apply_grid"
     print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
+    print *, "WRFDA DEBUG: kms=", kms, " kme=", kme, " (from da_control)"
+    print *, "WRFDA DEBUG: kts=", kts, " kte=", kte, " (from da_control)"
+    
+    ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
+    if (.not. associated(persistent_iv)) then
+      print *, "WRFDA DEBUG: persistent_iv not associated - cannot proceed"
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
+    end if
+    
+    ! Point local iv to global persistent structure
+    iv => persistent_iv
+    print *, "WRFDA DEBUG: Using global persistent iv structure"
+    print *, "WRFDA DEBUG: persistent iv%info(2)%nlocal =", iv%info(2)%nlocal
+    print *, "WRFDA DEBUG: persistent iv%info(2)%ntotal =", iv%info(2)%ntotal
+    if (allocated(iv%info(2)%dym)) then
+      print *, "WRFDA DEBUG: persistent iv%info(2)%dym is allocated with bounds:", lbound(iv%info(2)%dym), ubound(iv%info(2)%dym)
+    else
+      print *, "WRFDA DEBUG: ERROR - persistent iv%info(2)%dym is NOT allocated!"
+    end if
+    
+    ! CRITICAL FIX: Use persistent y structure instead of allocating each time
+    if (.not. associated(persistent_y)) then
+      print *, "WRFDA DEBUG: persistent_y not associated - cannot proceed"
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
+    end if
+    
+    ! Point local y to global persistent structure
+    y => persistent_y
+    print *, "WRFDA DEBUG: Using global persistent y structure"
 
     ! For incremental 3D-Var, we assume the input arrays are analysis increments (xa)
     ! and we use the persistent background state (xb) that was initialized earlier
@@ -140,8 +175,13 @@ contains
     ! iv structure is already set up before calling this function
     ! No need to reinitialize it here
     
-    ! y structure is already allocated before calling this function
-    ! No need to reallocate it here
+    ! DEBUG: Verify persistent y structure allocation
+    if (associated(y%synop)) then
+      print *, "WRFDA DEBUG: persistent y%synop is associated, size =", size(y%synop)
+      print *, "WRFDA DEBUG: persistent y%synop bounds: lbound=", lbound(y%synop), " ubound=", ubound(y%synop)
+    else
+      print *, "WRFDA DEBUG: ERROR - persistent y%synop is NOT associated!"
+    end if
 
     print *, "WRFDA DEBUG: About to select case for family: '", trim(fam_str), "'"
     print *, "WRFDA DEBUG: fam_str='", trim(fam_str), "'"
@@ -155,6 +195,51 @@ contains
     case ('synop', 'adpsfc'); 
       print *, "WRFDA DEBUG: Calling da_transform_xtoy_synop for family '", trim(fam_str), "'"
       print *, "WRFDA DEBUG: About to call da_transform_xtoy_synop..."
+      
+      ! DEBUG: Check array bounds and allocation status before calling da_transform_xtoy_synop
+      print *, "WRFDA DEBUG: Checking iv%info(2) array bounds and allocation status..."
+      print *, "WRFDA DEBUG: iv%info(2)%nlocal =", iv%info(2)%nlocal
+      print *, "WRFDA DEBUG: iv%info(2)%ntotal =", iv%info(2)%ntotal
+      
+      ! Check if dym array is allocated
+      if (allocated(iv%info(2)%dym)) then
+        print *, "WRFDA DEBUG: iv%info(2)%dym is allocated"
+        print *, "WRFDA DEBUG: iv%info(2)%dym bounds: lbound=", lbound(iv%info(2)%dym), " ubound=", ubound(iv%info(2)%dym)
+        print *, "WRFDA DEBUG: iv%info(2)%dym shape: ", shape(iv%info(2)%dym)
+        
+        ! Check if we have any observations
+        if (iv%info(2)%nlocal > 0) then
+          print *, "WRFDA DEBUG: First observation dym values:"
+          print *, "WRFDA DEBUG: dym(1,1) =", iv%info(2)%dym(1,1)
+          if (size(iv%info(2)%dym, 2) > 1) then
+            print *, "WRFDA DEBUG: dym(1,2) =", iv%info(2)%dym(1,2)
+          end if
+        else
+          print *, "WRFDA DEBUG: WARNING - nlocal = 0, no observations to process"
+        end if
+      else
+        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dym is NOT allocated!"
+      end if
+      
+      ! Check other interpolation arrays
+      if (allocated(iv%info(2)%dx)) then
+        print *, "WRFDA DEBUG: iv%info(2)%dx bounds: lbound=", lbound(iv%info(2)%dx), " ubound=", ubound(iv%info(2)%dx)
+      else
+        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dx is NOT allocated!"
+      end if
+      
+      if (allocated(iv%info(2)%dy)) then
+        print *, "WRFDA DEBUG: iv%info(2)%dy bounds: lbound=", lbound(iv%info(2)%dy), " ubound=", ubound(iv%info(2)%dy)
+      else
+        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dy is NOT allocated!"
+      end if
+      
+      if (allocated(iv%info(2)%dxm)) then
+        print *, "WRFDA DEBUG: iv%info(2)%dxm bounds: lbound=", lbound(iv%info(2)%dxm), " ubound=", ubound(iv%info(2)%dxm)
+      else
+        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dxm is NOT allocated!"
+      end if
+      
       print *, "WRFDA DEBUG: About to call da_transform_xtoy_synop function"
       call da_transform_xtoy_synop(persistent_grid, iv, y)
       print *, "WRFDA DEBUG: da_transform_xtoy_synop completed successfully"
@@ -1886,8 +1971,17 @@ contains
       family_str(i:i) = family_target(i)
     end do
     
-    ! Allocate y_type structure
-    allocate(y)
+    ! Allocate persistent y_type if not already allocated
+    if (.not. y_allocated) then
+      allocate(persistent_y)
+      y_allocated = .true.
+      print *, "WRFDA DEBUG: persistent y structure allocated"
+    else
+      print *, "WRFDA DEBUG: persistent y structure already allocated"
+    end if
+    
+    ! Point local y to persistent structure
+    y => persistent_y
     
     ! Initialize counters
     y%nlocal = 0
@@ -1967,8 +2061,8 @@ contains
       print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
     end if
     
-    ! Return pointer to allocated y_type
-    wrfda_construct_y_type = c_loc(y)
+    ! Return pointer to persistent y_type
+    wrfda_construct_y_type = c_loc(persistent_y)
     print *, "WRFDA DEBUG: y_type constructed successfully"
     
   end function wrfda_construct_y_type
@@ -2079,7 +2173,12 @@ contains
     iv%info(2)%max_lev = 1  ! Surface observations have max_lev = 1
     
     ! Check if arrays are already allocated before allocating
+    print *, "WRFDA DEBUG: About to check/allocate interpolation arrays"
+    print *, "WRFDA DEBUG: kms=", kms, " kme=", kme, " num_obs=", num_obs
+    print *, "WRFDA DEBUG: Array bounds will be: (", kms, ":", kme, ", 1:", num_obs, ")"
+    
     if (.not. allocated(iv%info(2)%i)) then
+      print *, "WRFDA DEBUG: Allocating interpolation arrays..."
       allocate(iv%info(2)%i(kms:kme, num_obs))
       allocate(iv%info(2)%j(kms:kme, num_obs))
       allocate(iv%info(2)%dx(kms:kme, num_obs))
@@ -2093,8 +2192,10 @@ contains
       allocate(iv%info(2)%levels(num_obs))
       allocate(iv%info(2)%proc_domain(kms:kme, num_obs))
       print *, "WRFDA DEBUG: Allocated interpolation arrays for", num_obs, "observations"
+      print *, "WRFDA DEBUG: dym array allocated with bounds: lbound=", lbound(iv%info(2)%dym), " ubound=", ubound(iv%info(2)%dym)
     else
       print *, "WRFDA DEBUG: Interpolation arrays already allocated"
+      print *, "WRFDA DEBUG: Existing dym array bounds: lbound=", lbound(iv%info(2)%dym), " ubound=", ubound(iv%info(2)%dym)
     end if
       
       ! Allocate observation metadata arrays
@@ -2250,6 +2351,13 @@ contains
           iv%info(2)%dy(lev, i) = y_frac
           iv%info(2)%dxm(lev, i) = x_frac_m
           iv%info(2)%dym(lev, i) = y_frac_m
+          
+          ! DEBUG: Print interpolation weights for first few observations
+          if (i <= 3) then
+            print *, "WRFDA DEBUG: Obs", i, " lev=", lev, " x_frac=", x_frac, " y_frac=", y_frac
+            print *, "WRFDA DEBUG: Obs", i, " lev=", lev, " x_frac_m=", x_frac_m, " y_frac_m=", y_frac_m
+            print *, "WRFDA DEBUG: Obs", i, " lev=", lev, " dym(lev,i)=", iv%info(2)%dym(lev, i)
+          end if
           
           ! Set vertical level information
           iv%info(2)%k(lev, i) = 1  ! Surface level
@@ -2553,6 +2661,14 @@ contains
         print *, "WRFDA DEBUG: Persistent iv structure deallocated"
       end if
       iv_allocated = .false.
+    end if
+    
+    if (y_allocated) then
+      if (associated(persistent_y)) then
+        deallocate(persistent_y)
+        print *, "WRFDA DEBUG: Persistent y structure deallocated"
+      end if
+      y_allocated = .false.
     end if
   end subroutine wrfda_cleanup_iv_type
 
