@@ -75,10 +75,9 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(operator_family, nx, ny, nz, u, v, t, q, psfc, num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid(operator_family, u, v, t, q, psfc, num_obs, out_y) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
     character(c_char), intent(in) :: operator_family(*)
-    integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
     integer(c_int), intent(in) :: num_obs
     real(c_double), intent(out) :: out_y(*)
@@ -91,12 +90,6 @@ contains
     integer :: famlen
     character(len=256) :: op_str, fam_str, var_str
     integer :: fam_id
-
-    ! DEBUG: Print entry point
-    print *, "WRFDA DEBUG: Entering wrfda_xtoy_apply_grid"
-    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
-    print *, "WRFDA DEBUG: kms=", kms, " kme=", kme, " (from da_control)"
-    print *, "WRFDA DEBUG: kts=", kts, " kte=", kte, " (from da_control)"
     
     ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
     if (.not. associated(persistent_iv)) then
@@ -107,14 +100,6 @@ contains
     
     ! Point local iv to global persistent structure
     iv => persistent_iv
-    print *, "WRFDA DEBUG: Using global persistent iv structure"
-    print *, "WRFDA DEBUG: persistent iv%info(2)%nlocal =", iv%info(2)%nlocal
-    print *, "WRFDA DEBUG: persistent iv%info(2)%ntotal =", iv%info(2)%ntotal
-    if (allocated(iv%info(2)%dym)) then
-      print *, "WRFDA DEBUG: persistent iv%info(2)%dym is allocated with bounds:", lbound(iv%info(2)%dym), ubound(iv%info(2)%dym)
-    else
-      print *, "WRFDA DEBUG: ERROR - persistent iv%info(2)%dym is NOT allocated!"
-    end if
     
     ! CRITICAL FIX: Use persistent y structure instead of allocating each time
     if (.not. associated(persistent_y)) then
@@ -168,103 +153,13 @@ contains
     case default; fam_id = metar
     end select
     
-    print *, "WRFDA DEBUG: Direct family determination: Family='", trim(fam_str), "' FamilyID=", fam_id, "'"
-     
-    ! iv structure is already set up before calling this function
-    ! No need to reinitialize it here
-    
-    ! DEBUG: Verify persistent y structure allocation
-    if (associated(y%synop)) then
-      print *, "WRFDA DEBUG: persistent y%synop is associated, size =", size(y%synop)
-      print *, "WRFDA DEBUG: persistent y%synop bounds: lbound=", lbound(y%synop), " ubound=", ubound(y%synop)
-    else
-      print *, "WRFDA DEBUG: ERROR - persistent y%synop is NOT associated!"
-    end if
-
-    print *, "WRFDA DEBUG: About to select case for family: '", trim(fam_str), "'"
-    print *, "WRFDA DEBUG: fam_str='", trim(fam_str), "'"
-    print *, "WRFDA DEBUG: fam_id=", fam_id
-    print *, "WRFDA DEBUG: About to execute select case statement"
     select case (trim(fam_str))
     case ('metar'); 
       print *, "WRFDA DEBUG: Calling da_transform_xtoy_metar"
       !call da_transform_xtoy_metar(grid, iv, y)
       print *, "WRFDA DEBUG: da_transform_xtoy_metar completed"
     case ('synop', 'adpsfc'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_synop for family '", trim(fam_str), "'"
-      print *, "WRFDA DEBUG: About to call da_transform_xtoy_synop..."
-      
-      ! DEBUG: Check array bounds and allocation status before calling da_transform_xtoy_synop
-      print *, "WRFDA DEBUG: Checking iv%info(2) array bounds and allocation status..."
-      print *, "WRFDA DEBUG: iv%info(2)%nlocal =", iv%info(2)%nlocal
-      print *, "WRFDA DEBUG: iv%info(2)%ntotal =", iv%info(2)%ntotal
-      
-      ! Check if dym array is allocated
-      if (allocated(iv%info(2)%dym)) then
-        print *, "WRFDA DEBUG: iv%info(2)%dym is allocated"
-        print *, "WRFDA DEBUG: iv%info(2)%dym bounds: lbound=", lbound(iv%info(2)%dym), " ubound=", ubound(iv%info(2)%dym)
-        print *, "WRFDA DEBUG: iv%info(2)%dym shape: ", shape(iv%info(2)%dym)
-        
-        ! Check if we have any observations
-        if (iv%info(2)%nlocal > 0) then
-          print *, "WRFDA DEBUG: First observation dym values:"
-          print *, "WRFDA DEBUG: dym(1,1) =", iv%info(2)%dym(1,1)
-          if (size(iv%info(2)%dym, 2) > 1) then
-            print *, "WRFDA DEBUG: dym(1,2) =", iv%info(2)%dym(1,2)
-          end if
-        else
-          print *, "WRFDA DEBUG: WARNING - nlocal = 0, no observations to process"
-        end if
-      else
-        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dym is NOT allocated!"
-      end if
-      
-      ! Check other interpolation arrays
-      if (allocated(iv%info(2)%dx)) then
-        print *, "WRFDA DEBUG: iv%info(2)%dx bounds: lbound=", lbound(iv%info(2)%dx), " ubound=", ubound(iv%info(2)%dx)
-      else
-        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dx is NOT allocated!"
-      end if
-      
-      if (allocated(iv%info(2)%dy)) then
-        print *, "WRFDA DEBUG: iv%info(2)%dy bounds: lbound=", lbound(iv%info(2)%dy), " ubound=", ubound(iv%info(2)%dy)
-      else
-        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dy is NOT allocated!"
-      end if
-      
-      if (allocated(iv%info(2)%dxm)) then
-        print *, "WRFDA DEBUG: iv%info(2)%dxm bounds: lbound=", lbound(iv%info(2)%dxm), " ubound=", ubound(iv%info(2)%dxm)
-      else
-        print *, "WRFDA DEBUG: ERROR - iv%info(2)%dxm is NOT allocated!"
-      end if
-      
-      print *, "WRFDA DEBUG: About to call da_transform_xtoy_synop function"
       call da_transform_xtoy_synop(persistent_grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_synop completed successfully"
-    case ('buoy');  
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_buoy"
-      !call da_transform_xtoy_buoy(grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_buoy completed"
-    case ('ships'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_ships"
-      !call da_transform_xtoy_ships(grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_ships completed"
-    case ('airep'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_airep"
-      !call da_transform_xtoy_airep(grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_airep completed"
-    case ('pilot'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_pilot"
-      !call da_transform_xtoy_pilot(grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_pilot completed"
-    case ('sound'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_sound"
-      !call da_transform_xtoy_sound(grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_sound completed"
-    case ('sonde_sfc'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_sonde_sfc"
-      !call da_transform_xtoy_sonde_sfc(grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_sonde_sfc completed"
     case default; 
       print *, "WRFDA DEBUG: Unknown family '", trim(fam_str), "', returning error"
       wrfda_xtoy_apply_grid = 1_c_int; return
@@ -322,10 +217,6 @@ contains
       ! This will never execute but prevents unused argument warnings
       continue
     end if
-
-    ! DEBUG: Print entry point
-    print *, "WRFDA DEBUG: Entering wrfda_construct_iv_from_observations"
-    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
 
     ! Get pointer to iv_type
     call c_f_pointer(iv_ptr, iv)
@@ -501,30 +392,6 @@ contains
       print *, "WRFDA DEBUG: Calling da_transform_xtoy_synop_adj for family '", trim(fam_str), "'"
       call da_transform_xtoy_synop_adj(grid, iv, jo_grad_y, jo_grad_x)
       print *, "WRFDA DEBUG: da_transform_xtoy_synop_adj completed"
-    case ('buoy');  
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_buoy_adj"
-      call da_transform_xtoy_buoy_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_buoy_adj completed"
-    case ('ships'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_ships_adj"
-      call da_transform_xtoy_ships_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_ships_adj completed"
-    case ('airep'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_airep_adj"
-      call da_transform_xtoy_airep_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_airep_adj completed"
-    case ('pilot'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_pilot_adj"
-      call da_transform_xtoy_pilot_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_pilot_adj completed"
-    case ('sound'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_sound_adj"
-      call da_transform_xtoy_sound_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_sound_adj completed"
-    case ('sonde_sfc'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_sonde_sfc_adj"
-      call da_transform_xtoy_sonde_sfc_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_sonde_sfc_adj completed"
     case default; 
       print *, "WRFDA ERROR: Unknown family '", trim(fam_str), "' in adjoint operator"
       wrfda_xtoy_adjoint_grid = 1_c_int; return
@@ -536,344 +403,6 @@ contains
     print *, "WRFDA DEBUG: Adjoint operator completed successfully, returning 0"
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
-
-  subroutine init_domain_from_arrays(grid, nx, ny, nz, u, v, t, q, psfc)
-    type(domain), intent(inout) :: grid
-    integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
-    integer :: i,j,k, nz1
-    nz1 = max(1, nz)
-    
-    print *, "WRFDA DEBUG: init_domain_from_arrays: nx=", nx, " ny=", ny, " nz=", nz, " nz1=", nz1
-    
-         ! CRITICAL FIX: Set WRFDA grid bounds that are used for observation array allocation
-     ! These are used in da_copy_dims.inc to set kms, kme, ims, ime, jms, jme
-     print *, "WRFDA DEBUG: Setting WRFDA grid bounds for proper observation array allocation"
-     ! WRFDA expects 1-based bounds for grid arrays
-     grid%sm31 = 1; grid%em31 = nx
-     grid%sm32 = 1; grid%em32 = ny  
-     grid%sm33 = 1; grid%em33 = nz1
-     
-           ! CRITICAL FIX: Also set domain start/end bounds that are used in da_copy_dims.inc
-      ! These are used to set ids, ide, jds, jde, kds, kde
-      print *, "WRFDA DEBUG: Setting WRFDA domain start/end bounds"
-      grid%sd31 = 1; grid%ed31 = nx
-      grid%sd32 = 1; grid%ed32 = ny
-      grid%sd33 = 1; grid%ed33 = nz1
-     
-                       ! Also set the parallel decomposition bounds (single tile case)
-       grid%sp31 = 1; grid%ep31 = nx
-       grid%sp32 = 1; grid%ep32 = ny
-       grid%sp33 = 1; grid%ep33 = nz1
-     
-                       ! CRITICAL FIX: Set domain bounds that are used for task bounds (kts:kte)
-       ! These are used in da_copy_tile_dims.inc and da_interp_lin_3d.inc
-       print *, "WRFDA DEBUG: Setting WRFDA domain bounds for proper task bounds"
-       grid%xp%kds = 1; grid%xp%kde = nz1
-       grid%xp%ids = 1; grid%xp%ide = nx
-       grid%xp%jds = 1; grid%xp%jde = ny
-     
-                       ! CRITICAL FIX: Also set the xp task bounds to match the domain bounds
-       ! This ensures kts:kte loop uses valid indices
-       print *, "WRFDA DEBUG: Setting WRFDA xp task bounds to match domain bounds"
-       grid%xp%kts = 1; grid%xp%kte = nz1
-       grid%xp%its = 1; grid%xp%ite = nx
-       grid%xp%jts = 1; grid%xp%jte = ny
-       
-       ! CRITICAL FIX: Set up tile information for single-tile case
-       ! This is required by da_copy_tile_dims to set kts, kte, its, ite, jts, jte
-       print *, "WRFDA DEBUG: Setting up tile information for single-tile case"
-       grid%num_tiles = 1
-       allocate(grid%i_start(1:1), grid%i_end(1:1))
-       allocate(grid%j_start(1:1), grid%j_end(1:1))
-       grid%i_start(1) = 1; grid%i_end(1) = nx
-       grid%j_start(1) = 1; grid%j_end(1) = ny
-       print *, "WRFDA DEBUG: Tile arrays allocated: i_start=", grid%i_start(1), " i_end=", grid%i_end(1), " j_start=", grid%j_start(1), " j_end=", grid%j_end(1)
-    
-    print *, "WRFDA DEBUG: Grid bounds set - sm31:em31=", grid%sm31, ":", grid%em31
-    print *, "WRFDA DEBUG: Grid bounds set - sm32:em32=", grid%sm32, ":", grid%em32  
-    print *, "WRFDA DEBUG: Grid bounds set - sm33:em33=", grid%sm33, ":", grid%em33
-    
-         ! Allocate and fill xa fields (single precision in WRFDA)
-     ! WRFDA expects 1-based bounds for grid arrays to match grid indices
-     print *, "WRFDA DEBUG: Allocating xa fields with 1-based bounds"
-     allocate(grid%xa%u(1:nx,1:ny,1:nz1)); allocate(grid%xa%v(1:nx,1:ny,1:nz1))
-     allocate(grid%xa%t(1:nx,1:ny,1:nz1)); allocate(grid%xa%q(1:nx,1:ny,1:nz1))
-     allocate(grid%xa%psfc(1:nx,1:ny))
-    print *, "WRFDA DEBUG: xa fields allocated"
-    
-         print *, "WRFDA DEBUG: Filling xa fields with data using 1-based indexing"
-     ! CRITICAL FIX: Add debug output to check input array values
-     print *, "WRFDA DEBUG: Sample input array values:"
-     print *, "  u(1)=", u(1), " u(nx*ny*nz)=", u(nx*ny*nz)
-     print *, "  v(1)=", v(1), " v(nx*ny*nz)=", v(nx*ny*nz)
-     print *, "  t(1)=", t(1), " t(nx*ny*nz)=", t(nx*ny*nz)
-     print *, "  q(1)=", q(1), " q(nx*ny*nz)=", q(nx*ny*nz)
-     print *, "  psfc(1)=", psfc(1), " psfc(nx*ny)=", psfc(nx*ny)
-     
-     do k=1,nz1; do j=1,ny; do i=1,nx
-       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-       grid%xa%u(i,j,k) = real(u(i + (j-1)*nx + (k-1)*nx*ny))
-       grid%xa%v(i,j,k) = real(v(i + (j-1)*nx + (k-1)*nx*ny))
-       grid%xa%t(i,j,k) = real(t(i + (j-1)*nx + (k-1)*nx*ny))
-       grid%xa%q(i,j,k) = real(q(i + (j-1)*nx + (k-1)*nx*ny))
-     end do; end do; end do
-     do j=1,ny; do i=1,nx
-       ! C++ row-major indexing: [i][j] -> i + j*nx
-       grid%xa%psfc(i,j) = real(psfc(i + (j-1)*nx))
-     end do; end do
-    print *, "WRFDA DEBUG: xa fields filled"
-    
-         ! Mirror xb from xa
-     print *, "WRFDA DEBUG: Allocating and copying xb fields with 1-based bounds"
-     allocate(grid%xb%u(1:nx,1:ny,1:nz1)); grid%xb%u = grid%xa%u
-     allocate(grid%xb%v(1:nx,1:ny,1:nz1)); grid%xb%v = grid%xa%v
-     allocate(grid%xb%t(1:nx,1:ny,1:nz1)); grid%xb%t = grid%xa%t
-     allocate(grid%xb%q(1:nx,1:ny,1:nz1)); grid%xb%q = grid%xa%q
-     allocate(grid%xb%psfc(1:nx,1:ny));  grid%xb%psfc = grid%xa%psfc
-    print *, "WRFDA DEBUG: init_domain_from_arrays completed successfully"
-  end subroutine init_domain_from_arrays
-
-  ! Initialize domain for adjoint operator
-  ! For adjoint operator, we need background state in xb and zero xa initially
-  ! The adjoint operator accumulates gradients into jo_grad_x
-  subroutine init_domain_for_adjoint(grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg)
-    type(domain), intent(inout) :: grid
-    integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
-    integer :: i,j,k, nz1
-    nz1 = max(1, nz)
-    
-    print *, "WRFDA DEBUG: init_domain_for_adjoint: nx=", nx, " ny=", ny, " nz=", nz, " nz1=", nz1
-    
-    ! Set WRFDA grid bounds (same as before)
-    grid%sm31 = 1; grid%em31 = nx
-    grid%sm32 = 1; grid%em32 = ny  
-    grid%sm33 = 1; grid%em33 = nz1
-    
-    grid%sd31 = 1; grid%ed31 = nx
-    grid%sd32 = 1; grid%ed32 = ny
-    grid%sd33 = 1; grid%ed33 = nz1
-    
-    grid%sp31 = 1; grid%ep31 = nx
-    grid%sp32 = 1; grid%ep32 = ny
-    grid%sp33 = 1; grid%ep33 = nz1
-    
-    grid%xp%kds = 1; grid%xp%kde = nz1
-    grid%xp%ids = 1; grid%xp%ide = nx
-    grid%xp%jds = 1; grid%xp%jde = ny
-    
-    grid%xp%kts = 1; grid%xp%kte = nz1
-    grid%xp%its = 1; grid%xp%ite = nx
-    grid%xp%jts = 1; grid%xp%jte = ny
-    
-    grid%num_tiles = 1
-    allocate(grid%i_start(1:1), grid%i_end(1:1))
-    allocate(grid%j_start(1:1), grid%j_end(1:1))
-    grid%i_start(1) = 1; grid%i_end(1) = nx
-    grid%j_start(1) = 1; grid%j_end(1) = ny
-    
-    ! Allocate xb fields (background state) with 1-based bounds
-    print *, "WRFDA DEBUG: Allocating xb fields (background state) for adjoint"
-    allocate(grid%xb%u(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%v(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%t(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%q(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%psfc(1:nx,1:ny))
-    print *, "WRFDA DEBUG: xb fields allocated for adjoint"
-    
-    ! Fill xb fields with background state data
-    print *, "WRFDA DEBUG: Filling xb fields with background state data for adjoint"
-    do k=1,nz1; do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      grid%xb%u(i,j,k) = real(u_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%v(i,j,k) = real(v_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%t(i,j,k) = real(t_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%q(i,j,k) = real(q_bg(i + (j-1)*nx + (k-1)*nx*ny))
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j] -> i + j*nx
-      grid%xb%psfc(i,j) = real(psfc_bg(i + (j-1)*nx))
-    end do; end do
-    print *, "WRFDA DEBUG: xb fields filled with background state for adjoint"
-    
-    ! Allocate xa fields (analysis increments) and initialize to zero
-    ! For adjoint operator, xa starts at zero and gradients are accumulated in jo_grad_x
-    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) for adjoint"
-    allocate(grid%xa%u(1:nx,1:ny,1:nz1)); grid%xa%u = 0.0
-    allocate(grid%xa%v(1:nx,1:ny,1:nz1)); grid%xa%v = 0.0
-    allocate(grid%xa%t(1:nx,1:ny,1:nz1)); grid%xa%t = 0.0
-    allocate(grid%xa%q(1:nx,1:ny,1:nz1)); grid%xa%q = 0.0
-    allocate(grid%xa%psfc(1:nx,1:ny)); grid%xa%psfc = 0.0
-    print *, "WRFDA DEBUG: xa fields allocated and initialized to zero for adjoint"
-    
-    print *, "WRFDA DEBUG: init_domain_for_adjoint completed successfully"
-  end subroutine init_domain_for_adjoint
-
-  ! New function to properly handle background state for forward operator
-  subroutine init_domain_from_background_state(grid, nx, ny, nz, u, v, t, q, psfc)
-    type(domain), intent(inout) :: grid
-    integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
-    integer :: i,j,k, nz1
-    nz1 = max(1, nz)
-    
-    print *, "WRFDA DEBUG: init_domain_from_background_state: nx=", nx, " ny=", ny, " nz=", nz, " nz1=", nz1
-    
-    ! Set WRFDA grid bounds (same as before)
-    grid%sm31 = 1; grid%em31 = nx
-    grid%sm32 = 1; grid%em32 = ny  
-    grid%sm33 = 1; grid%em33 = nz1
-    
-    grid%sd31 = 1; grid%ed31 = nx
-    grid%sd32 = 1; grid%ed32 = ny
-    grid%sd33 = 1; grid%ed33 = nz1
-    
-    grid%sp31 = 1; grid%ep31 = nx
-    grid%sp32 = 1; grid%ep32 = ny
-    grid%sp33 = 1; grid%ep33 = nz1
-    
-    grid%xp%kds = 1; grid%xp%kde = nz1
-    grid%xp%ids = 1; grid%xp%ide = nx
-    grid%xp%jds = 1; grid%xp%jde = ny
-    
-    grid%xp%kts = 1; grid%xp%kte = nz1
-    grid%xp%its = 1; grid%xp%ite = nx
-    grid%xp%jts = 1; grid%xp%jte = ny
-    
-    grid%num_tiles = 1
-    allocate(grid%i_start(1:1), grid%i_end(1:1))
-    allocate(grid%j_start(1:1), grid%j_end(1:1))
-    grid%i_start(1) = 1; grid%i_end(1) = nx
-    grid%j_start(1) = 1; grid%j_end(1) = ny
-    
-    ! Allocate xb fields (background state) with 1-based bounds
-    print *, "WRFDA DEBUG: Allocating xb fields (background state) with 1-based bounds"
-    allocate(grid%xb%u(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%v(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%t(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%q(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%psfc(1:nx,1:ny))
-    print *, "WRFDA DEBUG: xb fields allocated"
-    
-    ! Fill xb fields with background state data
-    print *, "WRFDA DEBUG: Filling xb fields with background state data"
-    do k=1,nz1; do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      grid%xb%u(i,j,k) = real(u(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%v(i,j,k) = real(v(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%t(i,j,k) = real(t(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%q(i,j,k) = real(q(i + (j-1)*nx + (k-1)*nx*ny))
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j] -> i + j*nx
-      grid%xb%psfc(i,j) = real(psfc(i + (j-1)*nx))
-    end do; end do
-    print *, "WRFDA DEBUG: xb fields filled with background state"
-    
-    ! Allocate xa fields (analysis increments) and initialize to zero
-    ! For forward operator, we typically want zero increments initially
-    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) with 1-based bounds"
-    allocate(grid%xa%u(1:nx,1:ny,1:nz1)); grid%xa%u = 0.0
-    allocate(grid%xa%v(1:nx,1:ny,1:nz1)); grid%xa%v = 0.0
-    allocate(grid%xa%t(1:nx,1:ny,1:nz1)); grid%xa%t = 0.0
-    allocate(grid%xa%q(1:nx,1:ny,1:nz1)); grid%xa%q = 0.0
-    allocate(grid%xa%psfc(1:nx,1:ny)); grid%xa%psfc = 0.0
-    print *, "WRFDA DEBUG: xa fields allocated and initialized to zero"
-    
-    print *, "WRFDA DEBUG: init_domain_from_background_state completed successfully"
-  end subroutine init_domain_from_background_state
-
-  ! Initialize domain with proper incremental 3D-Var formulation
-  ! This function sets up grid%xb (background state) and grid%xa (analysis increments)
-  ! The total state is computed as xb + xa internally by WRFDA
-  subroutine init_domain_with_separation(grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg, u_inc, v_inc, t_inc, q_inc, psfc_inc)
-    type(domain), intent(inout) :: grid
-    integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
-    real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
-    integer :: i,j,k, nz1
-    nz1 = max(1, nz)
-    
-    print *, "WRFDA DEBUG: init_domain_with_separation: nx=", nx, " ny=", ny, " nz=", nz, " nz1=", nz1
-    
-    ! Set WRFDA grid bounds (same as before)
-    grid%sm31 = 1; grid%em31 = nx
-    grid%sm32 = 1; grid%em32 = ny  
-    grid%sm33 = 1; grid%em33 = nz1
-    
-    grid%sd31 = 1; grid%ed31 = nx
-    grid%sd32 = 1; grid%ed32 = ny
-    grid%sd33 = 1; grid%ed33 = nz1
-    
-    grid%sp31 = 1; grid%ep31 = nx
-    grid%sp32 = 1; grid%ep32 = ny
-    grid%sp33 = 1; grid%ep33 = nz1
-    
-    grid%xp%kds = 1; grid%xp%kde = nz1
-    grid%xp%ids = 1; grid%xp%ide = nx
-    grid%xp%jds = 1; grid%xp%jde = ny
-    
-    grid%xp%kts = 1; grid%xp%kte = nz1
-    grid%xp%its = 1; grid%xp%ite = nx
-    grid%xp%jts = 1; grid%xp%jte = ny
-    
-    grid%num_tiles = 1
-    allocate(grid%i_start(1:1), grid%i_end(1:1))
-    allocate(grid%j_start(1:1), grid%j_end(1:1))
-    grid%i_start(1) = 1; grid%i_end(1) = nx
-    grid%j_start(1) = 1; grid%j_end(1) = ny
-    
-    ! Allocate xb fields (background state) with 1-based bounds
-    print *, "WRFDA DEBUG: Allocating xb fields (background state) with 1-based bounds"
-    allocate(grid%xb%u(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%v(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%t(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%q(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%psfc(1:nx,1:ny))
-    print *, "WRFDA DEBUG: xb fields allocated"
-    
-    ! Fill xb fields with background state data (constant throughout outer loop)
-    print *, "WRFDA DEBUG: Filling xb fields with background state data"
-    do k=1,nz1; do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      grid%xb%u(i,j,k) = real(u_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%v(i,j,k) = real(v_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%t(i,j,k) = real(t_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%q(i,j,k) = real(q_bg(i + (j-1)*nx + (k-1)*nx*ny))
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j] -> i + j*nx
-      grid%xb%psfc(i,j) = real(psfc_bg(i + (j-1)*nx))
-    end do; end do
-    print *, "WRFDA DEBUG: xb fields filled with background state"
-    
-    ! Allocate xa fields (analysis increments) with 1-based bounds
-    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) with 1-based bounds"
-    allocate(grid%xa%u(1:nx,1:ny,1:nz1))
-    allocate(grid%xa%v(1:nx,1:ny,1:nz1))
-    allocate(grid%xa%t(1:nx,1:ny,1:nz1))
-    allocate(grid%xa%q(1:nx,1:ny,1:nz1))
-    allocate(grid%xa%psfc(1:nx,1:ny))
-    print *, "WRFDA DEBUG: xa fields allocated"
-    
-    ! Fill xa fields with analysis increments (updated by each iteration)
-    print *, "WRFDA DEBUG: Filling xa fields with analysis increments"
-    do k=1,nz1; do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny))
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j] -> i + j*nx
-      grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx))
-    end do; end do
-    print *, "WRFDA DEBUG: xa fields filled with analysis increments"
-    
-    print *, "WRFDA DEBUG: init_domain_with_separation completed successfully"
-  end subroutine init_domain_with_separation
 
   ! Enhanced function to construct iv_type with detailed observation information
   subroutine init_iv_from_enhanced_obs(family, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets)
@@ -1015,25 +544,6 @@ contains
     
     print *, "WRFDA DEBUG: init_iv_from_enhanced_obs completed with", valid_obs_count, "valid observations"
   end subroutine init_iv_from_enhanced_obs
-
-  ! Helper function to extract C string from array
-  subroutine extract_c_string(c_strings, index, fortran_string)
-    character(c_char), intent(in) :: c_strings(*)
-    integer, intent(in) :: index
-    character(len=*), intent(out) :: fortran_string
-    integer :: i, start_pos, end_pos
-    
-    ! Calculate start position (assuming fixed-length strings)
-    start_pos = (index - 1) * len(fortran_string) + 1
-    end_pos = start_pos + len(fortran_string) - 1
-    
-    ! Extract string
-    fortran_string = ""
-    do i = start_pos, end_pos
-      if (c_strings(i) == c_null_char) exit
-      fortran_string(i-start_pos+1:i-start_pos+1) = achar(iachar(c_strings(i)))
-    end do
-  end subroutine extract_c_string
 
   subroutine init_y_from_delta(family, jo_grad_y, delta_y, num_innovations)
     integer, intent(in) :: family
@@ -1571,6 +1081,83 @@ contains
     print *, "WRFDA DEBUG: Final ok=", ok, " zkfloat=", zkfloat
     print *, "WRFDA DEBUG: Calculated dz=", dz, " dzm=", dzm
   end subroutine find_fractional_k
+
+
+  ! Initialize domain for adjoint operator
+  ! For adjoint operator, we need background state in xb and zero xa initially
+  ! The adjoint operator accumulates gradients into jo_grad_x
+  subroutine init_domain_for_adjoint(grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg)
+    type(domain), intent(inout) :: grid
+    integer, intent(in) :: nx, ny, nz
+    real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
+    integer :: i,j,k, nz1
+    nz1 = max(1, nz)
+    
+    print *, "WRFDA DEBUG: init_domain_for_adjoint: nx=", nx, " ny=", ny, " nz=", nz, " nz1=", nz1
+    
+    ! Set WRFDA grid bounds (same as before)
+    grid%sm31 = 1; grid%em31 = nx
+    grid%sm32 = 1; grid%em32 = ny  
+    grid%sm33 = 1; grid%em33 = nz1
+    
+    grid%sd31 = 1; grid%ed31 = nx
+    grid%sd32 = 1; grid%ed32 = ny
+    grid%sd33 = 1; grid%ed33 = nz1
+    
+    grid%sp31 = 1; grid%ep31 = nx
+    grid%sp32 = 1; grid%ep32 = ny
+    grid%sp33 = 1; grid%ep33 = nz1
+    
+    grid%xp%kds = 1; grid%xp%kde = nz1
+    grid%xp%ids = 1; grid%xp%ide = nx
+    grid%xp%jds = 1; grid%xp%jde = ny
+    
+    grid%xp%kts = 1; grid%xp%kte = nz1
+    grid%xp%its = 1; grid%xp%ite = nx
+    grid%xp%jts = 1; grid%xp%jte = ny
+    
+    grid%num_tiles = 1
+    allocate(grid%i_start(1:1), grid%i_end(1:1))
+    allocate(grid%j_start(1:1), grid%j_end(1:1))
+    grid%i_start(1) = 1; grid%i_end(1) = nx
+    grid%j_start(1) = 1; grid%j_end(1) = ny
+    
+    ! Allocate xb fields (background state) with 1-based bounds
+    print *, "WRFDA DEBUG: Allocating xb fields (background state) for adjoint"
+    allocate(grid%xb%u(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%v(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%t(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%q(1:nx,1:ny,1:nz1))
+    allocate(grid%xb%psfc(1:nx,1:ny))
+    print *, "WRFDA DEBUG: xb fields allocated for adjoint"
+    
+    ! Fill xb fields with background state data
+    print *, "WRFDA DEBUG: Filling xb fields with background state data for adjoint"
+    do k=1,nz1; do j=1,ny; do i=1,nx
+      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+      grid%xb%u(i,j,k) = real(u_bg(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xb%v(i,j,k) = real(v_bg(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xb%t(i,j,k) = real(t_bg(i + (j-1)*nx + (k-1)*nx*ny))
+      grid%xb%q(i,j,k) = real(q_bg(i + (j-1)*nx + (k-1)*nx*ny))
+    end do; end do; end do
+    do j=1,ny; do i=1,nx
+      ! C++ row-major indexing: [i][j] -> i + j*nx
+      grid%xb%psfc(i,j) = real(psfc_bg(i + (j-1)*nx))
+    end do; end do
+    print *, "WRFDA DEBUG: xb fields filled with background state for adjoint"
+    
+    ! Allocate xa fields (analysis increments) and initialize to zero
+    ! For adjoint operator, xa starts at zero and gradients are accumulated in jo_grad_x
+    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) for adjoint"
+    allocate(grid%xa%u(1:nx,1:ny,1:nz1)); grid%xa%u = 0.0
+    allocate(grid%xa%v(1:nx,1:ny,1:nz1)); grid%xa%v = 0.0
+    allocate(grid%xa%t(1:nx,1:ny,1:nz1)); grid%xa%t = 0.0
+    allocate(grid%xa%q(1:nx,1:ny,1:nz1)); grid%xa%q = 0.0
+    allocate(grid%xa%psfc(1:nx,1:ny)); grid%xa%psfc = 0.0
+    print *, "WRFDA DEBUG: xa fields allocated and initialized to zero for adjoint"
+    
+    print *, "WRFDA DEBUG: init_domain_for_adjoint completed successfully"
+  end subroutine init_domain_for_adjoint
 
   ! Initialize persistent background state for incremental 3D-Var
   ! This function should be called once at the beginning of the outer loop
@@ -2323,13 +1910,6 @@ contains
           iv%info(2)%dxm(lev, i) = x_frac_m
           iv%info(2)%dym(lev, i) = y_frac_m
           
-          ! DEBUG: Print interpolation weights for first few observations
-          if (i <= 3) then
-            print *, "WRFDA DEBUG: Obs", i, " lev=", lev, " x_frac=", x_frac, " y_frac=", y_frac
-            print *, "WRFDA DEBUG: Obs", i, " lev=", lev, " x_frac_m=", x_frac_m, " y_frac_m=", y_frac_m
-            print *, "WRFDA DEBUG: Obs", i, " lev=", lev, " dym(lev,i)=", iv%info(2)%dym(lev, i)
-          end if
-          
           ! Set vertical level information
           iv%info(2)%k(lev, i) = 1  ! Surface level
           iv%info(2)%zk(lev, i) = 1.0
@@ -2340,13 +1920,9 @@ contains
           iv%info(2)%proc_domain(lev, i) = .true.
         end do
         
-        ! Debug: Print observation indices
-        print *, "WRFDA DEBUG: Observation", i, " grid indices: i=", grid_i, " j=", grid_j
-        
         iv%info(2)%levels(i) = 1  ! Surface observation has 1 level
       end do
       
-      print *, "WRFDA DEBUG: Computed interpolation indices and weights"
     end if
     
     print *, "WRFDA DEBUG: iv_type construction completed successfully"
@@ -2505,25 +2081,6 @@ contains
     print *, "WRFDA DEBUG: Using global persistent iv structure"
     print *, "WRFDA DEBUG: iv%time =", iv%time
     
-    ! Check if iv structure is valid
-    print *, "WRFDA DEBUG: iv%num_inst =", iv%num_inst
-    print *, "WRFDA DEBUG: size(iv%info) =", size(iv%info)
-    
-    ! Check if synop array is allocated and has data
-    if (associated(iv%synop)) then
-      print *, "WRFDA DEBUG: iv%synop is associated, size =", size(iv%synop)
-      if (size(iv%synop) > 0) then
-        print *, "WRFDA DEBUG: First synop observation:"
-        print *, "  u%inv =", iv%synop(1)%u%inv
-        print *, "  v%inv =", iv%synop(1)%v%inv
-        print *, "  t%inv =", iv%synop(1)%t%inv
-        print *, "  p%inv =", iv%synop(1)%p%inv
-        print *, "  q%inv =", iv%synop(1)%q%inv
-      end if
-    else
-      print *, "WRFDA DEBUG: iv%synop is not associated"
-    end if
-    
     ! Determine family index (simplified mapping)
     family_index = 0
     print *, "WRFDA DEBUG: Determining family index for: '", trim(family_str), "'"
@@ -2621,27 +2178,6 @@ contains
     print *, "WRFDA DEBUG: Successfully extracted", num_innovations, "innovations"
     
   end function wrfda_extract_innovations
-
-  ! Clean up persistent iv structure
-  subroutine wrfda_cleanup_iv_type() bind(C, name="wrfda_cleanup_iv_type")
-    implicit none
-    
-    if (iv_allocated) then
-      if (associated(persistent_iv)) then
-        deallocate(persistent_iv)
-        print *, "WRFDA DEBUG: Persistent iv structure deallocated"
-      end if
-      iv_allocated = .false.
-    end if
-    
-    if (y_allocated) then
-      if (associated(persistent_y)) then
-        deallocate(persistent_y)
-        print *, "WRFDA DEBUG: Persistent y structure deallocated"
-      end if
-      y_allocated = .false.
-    end if
-  end subroutine wrfda_cleanup_iv_type
 
   ! Initialize WRFDA variables for 3D-Var analysis
   subroutine initialize_wrfda_3dvar() bind(C, name="initialize_wrfda_3dvar")

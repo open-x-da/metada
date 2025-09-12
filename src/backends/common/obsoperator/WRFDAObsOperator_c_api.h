@@ -19,8 +19,7 @@ extern "C" {
 
 // Array-based (grid) API for real WRFDA call with per-variable fields
 // Grid and observation location metadata is handled internally via iv structure
-int wrfda_xtoy_apply_grid(const char* operator_family, const int* nx,
-                          const int* ny, const int* nz, const double* u,
+int wrfda_xtoy_apply_grid(const char* operator_family, const double* u,
                           const double* v, const double* t, const double* q,
                           const double* psfc,  // size nx*ny
                           const int* num_obs, double* out_y);
