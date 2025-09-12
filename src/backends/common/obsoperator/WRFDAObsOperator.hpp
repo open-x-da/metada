@@ -418,12 +418,6 @@ class WRFDAObsOperator {
     const double* lons_2d = state_data.lons_2d;
     const double* levels = state_data.levels;
 
-    // Initialize map projection for WRFDA coordinate conversion
-    // TODO: Extract actual map projection parameters from WRF configuration
-    // Map projection is initialized in applyObservationOperator before this
-    // call
-    std::vector<double> out_y(num_observations, 0.0);
-
     // Validate required data
     if (!lats_2d || !lons_2d || !levels) {
       throw std::runtime_error(
@@ -702,14 +696,25 @@ class WRFDAObsOperator {
       v_final = v_unstaggered.data();
     }
 
-    // Prepare output vector
-    std::vector<double> out_y(num_observations, 0.0);
-
-    // Call WRFDA tangent linear operator
+    // Get the correct number of innovations for proper sizing
     std::string family =
         operator_families_.empty() ? "synop" : operator_families_[0];
+
+    int num_innovations = 0;
+    int count_rc = wrfda_count_innovations(const_cast<char*>(family.c_str()),
+                                           &num_innovations);
+
+    if (count_rc != 0 || num_innovations <= 0) {
+      throw std::runtime_error("Failed to count innovations with code " +
+                               std::to_string(count_rc));
+    }
+
+    // Prepare output vector with correct size based on innovations
+    std::vector<double> out_y(num_innovations, 0.0);
+
     std::cout << "WRFDAObsOperator: Calling tangent linear operator for "
-              << num_observations << " observations" << std::endl;
+              << num_observations << " observations with " << num_innovations
+              << " innovations" << std::endl;
 
     const int num_obs_int = static_cast<int>(num_observations);
     int rc =
@@ -722,7 +727,7 @@ class WRFDAObsOperator {
     }
 
     std::cout << "WRFDAObsOperator: Tangent linear operator returned "
-              << out_y.size() << " values" << std::endl;
+              << out_y.size() << " innovation values" << std::endl;
     for (size_t i = 0; i < std::min(out_y.size(), size_t(10)); ++i) {
       std::cout << "  out_y[" << i << "] = " << out_y[i] << std::endl;
     }
