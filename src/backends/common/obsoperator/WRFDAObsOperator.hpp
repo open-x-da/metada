@@ -361,10 +361,9 @@ class WRFDAObsOperator {
     }
 
     // Construct WRFDA domain structure from flat arrays
-    void* domain_ptr = nullptr;
-    int rc = wrfda_construct_domain_from_arrays(
-        &nx, &ny, &nz, u_final, v_final, t, q, psfc, ph, phb, hf, hgt, p, pb,
-        lats_2d, lons_2d, levels, &domain_ptr);
+    int rc = wrfda_construct_domain_from_arrays(&nx, &ny, &nz, u_final, v_final,
+                                                t, q, psfc, ph, phb, hf, hgt, p,
+                                                pb, lats_2d, lons_2d, levels);
 
     if (rc != 0) {
       throw std::runtime_error(
@@ -374,7 +373,7 @@ class WRFDAObsOperator {
 
     // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options,
     // etc.)
-    rc = initialize_wrfda_module_variables(domain_ptr);
+    rc = initialize_wrfda_module_variables();
     if (rc != 0) {
       throw std::runtime_error(
           "Failed to initialize WRFDA module variables with code " +
@@ -404,11 +403,11 @@ class WRFDAObsOperator {
 
     // Step 4: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
-    void* iv_ptr = constructIvType(obs_data, operator_families_, domain_ptr);
+    void* iv_ptr = constructIvType(obs_data, operator_families_);
 
     // Step 5: Call da_get_innov_vector to compute innovations y - H(xb)
     const int it = 1;
-    rc = wrfda_get_innov_vector(&it, domain_ptr, ob_ptr, iv_ptr);
+    rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr);
 
     if (rc != 0) {
       throw std::runtime_error("da_get_innov_vector failed with code " +
@@ -1135,8 +1134,7 @@ class WRFDAObsOperator {
    * quality control information.
    */
   void* constructIvType(const typename ObsBackend::ObsOperatorData& obs_data,
-                        const std::vector<std::string>& families,
-                        void* domain_ptr) const {
+                        const std::vector<std::string>& families) const {
     if (obs_data.num_obs == 0) {
       return nullptr;
     }
@@ -1226,7 +1224,7 @@ class WRFDAObsOperator {
         const_cast<double*>(lons.data()), const_cast<double*>(levels.data()),
         const_cast<double*>(obs_data.elevations.data()),
         const_cast<char*>(obs_types_flat.c_str()),
-        const_cast<char*>(family.c_str()), domain_ptr);
+        const_cast<char*>(family.c_str()));
 
     return iv_ptr;
   }

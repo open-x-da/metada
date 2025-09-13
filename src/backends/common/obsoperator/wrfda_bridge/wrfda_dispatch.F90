@@ -38,7 +38,7 @@ module metada_wrfda_dispatch
   
   ! CRITICAL FIX: Add persistent grid to avoid reconstruction issues
   ! WRFDA internal state persists between calls, so we need consistent grid structure
-  type(domain), save, target :: persistent_grid
+  type(domain), pointer, save :: persistent_grid
   logical, save :: grid_initialized = .false.
   
   ! CRITICAL FIX: Add persistent iv structure to avoid deallocation issues
@@ -1252,10 +1252,10 @@ contains
   end subroutine update_domain_data
 
   ! New function to call da_get_innov_vector directly
-  integer(c_int) function wrfda_get_innov_vector(it, domain_ptr, ob_ptr, iv_ptr) bind(C, name="wrfda_get_innov_vector")
+  integer(c_int) function wrfda_get_innov_vector(it, ob_ptr, iv_ptr) bind(C, name="wrfda_get_innov_vector")
     implicit none
     integer(c_int), intent(in) :: it
-    type(c_ptr), value :: domain_ptr, ob_ptr, iv_ptr
+    type(c_ptr), value :: ob_ptr, iv_ptr
     type(domain), pointer :: grid
     type(y_type), pointer :: ob
     type(iv_type), pointer :: iv
@@ -1265,7 +1265,7 @@ contains
     integer, dimension(1,1,1,1) :: num_qcstat_conv
     
     ! Convert C pointers to Fortran pointers
-    call c_f_pointer(domain_ptr, grid)
+    grid => persistent_grid
     call c_f_pointer(ob_ptr, ob)
     call c_f_pointer(iv_ptr, iv)
     
@@ -1297,13 +1297,11 @@ contains
   end function wrfda_get_innov_vector
 
   ! Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
-  integer(c_int) function initialize_wrfda_module_variables(domain_ptr) bind(C, name="initialize_wrfda_module_variables")
+  integer(c_int) function initialize_wrfda_module_variables() bind(C, name="initialize_wrfda_module_variables")
     implicit none
-    type(c_ptr), value :: domain_ptr
     type(domain), pointer :: grid
-    
-    ! Convert C pointer to Fortran pointer
-    call c_f_pointer(domain_ptr, grid)
+
+    grid => persistent_grid 
     
     ! Initialize return code
     initialize_wrfda_module_variables = 0
@@ -1336,20 +1334,23 @@ contains
   end function initialize_wrfda_module_variables
 
   ! Helper function to construct WRFDA domain structure from flat arrays
-  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d, levels, domain_ptr) bind(C, name="wrfda_construct_domain_from_arrays")
+  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d, levels) bind(C, name="wrfda_construct_domain_from_arrays")
     implicit none
     integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
     real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*), p(*), pb(*)
     real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
-    type(c_ptr), intent(out) :: domain_ptr
     
     type(domain), pointer :: grid
     integer :: i, j, k, idx, idx_3d
     integer :: staggered_nz  ! Height field has nz+1 vertical levels
 
     ! Allocate new domain structure
-    allocate(grid)
+    if (.not.grid_initialized) then
+      allocate(persistent_grid)
+      grid => persistent_grid
+      grid_initialized = .true.
+    end if
 
     ! Temporary constant for METADA - should be imported from WRFDA constants
     Max_StHeight_Diff = 100.0
@@ -1495,8 +1496,6 @@ contains
       end do
     end do
 
-    ! Return pointer to allocated domain
-    domain_ptr = c_loc(grid)
     wrfda_construct_domain_from_arrays = 0
     
   end function wrfda_construct_domain_from_arrays
@@ -1630,7 +1629,7 @@ contains
   end function wrfda_construct_y_type
 
   ! Construct iv_type from observation data
-  type(c_ptr) function wrfda_construct_iv_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_qc, v_qc, t_qc, p_qc, q_qc, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, elevations, obs_types, family, domain_ptr) bind(C, name="wrfda_construct_iv_type")
+  type(c_ptr) function wrfda_construct_iv_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_qc, v_qc, t_qc, p_qc, q_qc, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, elevations, obs_types, family) bind(C, name="wrfda_construct_iv_type")
     implicit none
     integer(c_int), intent(in) :: num_obs, num_levels
     real(c_double), intent(in) :: u_values(*), v_values(*), t_values(*), p_values(*), q_values(*)
@@ -1639,7 +1638,6 @@ contains
     integer(c_int), intent(in) :: u_available(*), v_available(*), t_available(*), p_available(*), q_available(*)
     real(c_double), intent(in) :: lats(*), lons(*), levels(*), elevations(*)
     character(c_char), intent(in) :: obs_types(*), family(*)
-    type(c_ptr), value :: domain_ptr
     
     type(iv_type), pointer :: iv
     type(domain), pointer :: grid
@@ -1654,7 +1652,7 @@ contains
     print *, "WRFDA DEBUG: wrfda_construct_iv_type called with num_obs=", num_obs, "num_levels=", num_levels
     
     ! Convert domain pointer to grid pointer
-    call c_f_pointer(domain_ptr, grid)
+    grid => persistent_grid
     
     ! Check if num_obs is valid
     if (num_obs <= 0 .or. num_levels <= 0) then

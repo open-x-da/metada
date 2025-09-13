@@ -48,8 +48,8 @@ int wrfda_construct_iv_from_observations(
 
 // Main WRFDA innovation vector computation (calls da_get_innov_vector)
 // This is the comprehensive driver routine that handles all observation types
-int wrfda_get_innov_vector(const int* it, const void* domain_ptr,
-                           const void* ob_ptr, const void* iv_ptr);
+int wrfda_get_innov_vector(const int* it, const void* ob_ptr,
+                           const void* iv_ptr);
 
 // Helper function to construct WRFDA domain structure from flat arrays
 int wrfda_construct_domain_from_arrays(
@@ -57,7 +57,7 @@ int wrfda_construct_domain_from_arrays(
     const double* v, const double* t, const double* q, const double* psfc,
     const double* ph, const double* phb, const double* hf, const double* hgt,
     const double* p, const double* pb, const double* lats2d,
-    const double* lons2d, const double* levels, void** domain_ptr);
+    const double* lons2d, const double* levels);
 
 // Construct y_type from observation data
 void* wrfda_construct_y_type(int* num_obs, int* num_levels,
@@ -82,8 +82,7 @@ void* wrfda_construct_iv_type(
     const int* q_qc, const int* u_available, const int* v_available,
     const int* t_available, const int* p_available, const int* q_available,
     const double* lats, const double* lons, const double* levels,
-    const double* elevations, const char* obs_types, const char* family,
-    void* domain_ptr);
+    const double* elevations, const char* obs_types, const char* family);
 
 // Construct config_flags for WRFDA
 void* wrfda_construct_config_flags();
@@ -106,7 +105,7 @@ void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
                                  const double* truelat2);
 
 // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
-int initialize_wrfda_module_variables(void* domain_ptr);
+int initialize_wrfda_module_variables();
 
 // Initialize background state for WRFDA forward operator
 int wrfda_initialize_background_state(int nx, int ny, int nz, const double* u,
