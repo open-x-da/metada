@@ -306,10 +306,6 @@ contains
         if (persistent_iv%synop(n)%q%qc >= 0) num_innovations = num_innovations + 1
         if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
       end do
-    else
-      print *, "WRFDA DEBUG: persistent_iv or synop not associated, using fallback"
-      ! Fallback: assume all variables are available
-      num_innovations = num_obs * 5
     end if
     print *, "WRFDA DEBUG: Adjoint - Calculated num_innovations =", num_innovations
     

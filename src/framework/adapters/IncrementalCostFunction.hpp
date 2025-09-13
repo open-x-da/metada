@@ -314,6 +314,7 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void computeObservationGradient3DVAR(const Increment<BackendTag>& increment,
                                        Increment<BackendTag>& gradient) const {
+    logger_.Debug() << "Computing observation gradient for 3DVAR";
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
@@ -322,15 +323,42 @@ class IncrementalCostFunction : public NonCopyable {
     auto simulated_increment =
         obs_op.applyTangentLinear(increment, background_, obs);
 
+    // Compute norm manually for std::vector<double>
+    double simulated_norm = 0.0;
+    for (const auto& val : simulated_increment) {
+      simulated_norm += val * val;
+    }
+    simulated_norm = std::sqrt(simulated_norm);
+    logger_.Debug() << "Simulated increment: " << simulated_norm;
+
     // Compute d - H'(δx) where d is pre-computed innovation
     auto residual = computeInnovation(innovations_[0], simulated_increment);
+
+    // Compute norm manually for std::vector<double>
+    double residual_norm = 0.0;
+    for (const auto& val : residual) {
+      residual_norm += val * val;
+    }
+    residual_norm = std::sqrt(residual_norm);
+    logger_.Debug() << "Residual: " << residual_norm;
+
     auto weighted_residual = obs.applyInverseCovariance(residual);
+
+    // Compute norm manually for std::vector<double>
+    double weighted_norm = 0.0;
+    for (const auto& val : weighted_residual) {
+      weighted_norm += val * val;
+    }
+    weighted_norm = std::sqrt(weighted_norm);
+    logger_.Debug() << "Weighted residual: " << weighted_norm;
 
     // H'^T R^-1 (d - H'(δx)) where H'^T is the adjoint of the tangent linear
     // operator
     auto obs_gradient =
         obs_op.applyAdjoint(weighted_residual, background_, obs);
     gradient += obs_gradient;
+    logger_.Debug() << "Observation gradient computed, norm: "
+                    << gradient.norm();
   }
 
   /**

@@ -15,7 +15,7 @@ format: "nc"  # NetCDF format
 save_trajectory: false
 
 # Optional: Perform gradient test
-perform_gradient_test: true
+perform_gradient_test: false
 
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file
