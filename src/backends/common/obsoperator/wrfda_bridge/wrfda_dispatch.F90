@@ -67,6 +67,11 @@ module metada_wrfda_dispatch
   logical, save :: background_state_initialized = .false.
   integer, save :: background_nx, background_ny, background_nz
   
+  ! Persistent output array for tangent linear operator results
+  real(c_double), allocatable, save :: persistent_out_y(:)
+  integer, save :: persistent_num_innovations = 0
+  logical, save :: output_allocated = .false.
+  
 contains
 
   ! Forward operator: H(xb + xa) where xb is background state and xa is analysis increments
@@ -75,9 +80,8 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(out_y) bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid() bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
-    real(c_double), intent(inout) :: out_y(*)
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
@@ -180,11 +184,88 @@ contains
       end do
     end if
     print *, "WRFDA DEBUG: Calculated num_innovations =", num_innovations
-    call copy_y_to_out(fam_id, y, out_y, num_innovations)
-    print *, "WRFDA DEBUG: copy_y_to_out completed"
+    
+    ! Store number of innovations for later retrieval
+    persistent_num_innovations = num_innovations
+    
+    ! Allocate or reallocate persistent output array if needed
+    if (.not. output_allocated .or. .not. allocated(persistent_out_y)) then
+      if (allocated(persistent_out_y)) then
+        deallocate(persistent_out_y)
+      end if
+      allocate(persistent_out_y(num_innovations))
+      output_allocated = .true.
+      print *, "WRFDA DEBUG: Allocated persistent_out_y with size", num_innovations
+    else
+      print *, "WRFDA DEBUG: Using existing persistent_out_y with size", size(persistent_out_y)
+    end if
+    
+    ! Copy results to persistent array
+    call copy_y_to_out(fam_id, y, persistent_out_y, num_innovations)
+    print *, "WRFDA DEBUG: copy_y_to_out completed and stored in persistent array"
     print *, "WRFDA DEBUG: Function completed successfully, returning 0"
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
+
+  ! Get count of tangent linear output values (count-only call)
+  integer(c_int) function wrfda_get_tangent_linear_count(num_innovations) bind(C, name="wrfda_get_tangent_linear_count")
+    implicit none
+    integer(c_int), intent(out) :: num_innovations
+
+    print *, "WRFDA DEBUG: Getting tangent linear count"
+
+    ! Check if output is available
+    if (.not. output_allocated .or. persistent_num_innovations <= 0) then
+      print *, "WRFDA ERROR: No tangent linear output available. Call wrfda_xtoy_apply_grid first."
+      num_innovations = 0
+      wrfda_get_tangent_linear_count = 1_c_int
+      return
+    end if
+
+    ! Return the number of innovations
+    num_innovations = persistent_num_innovations
+    print *, "WRFDA DEBUG: Returning count:", num_innovations, "innovations"
+
+    wrfda_get_tangent_linear_count = 0_c_int
+  end function wrfda_get_tangent_linear_count
+
+  ! Extract output values from the tangent linear operator
+  integer(c_int) function wrfda_extract_tangent_linear_output(out_y, num_innovations) bind(C, name="wrfda_extract_tangent_linear_output")
+    implicit none
+    real(c_double), intent(out) :: out_y(*)
+    integer(c_int), intent(out) :: num_innovations
+
+    print *, "WRFDA DEBUG: Extracting tangent linear output"
+
+    ! Check if output is available
+    if (.not. output_allocated .or. persistent_num_innovations <= 0) then
+      print *, "WRFDA ERROR: No tangent linear output available. Call wrfda_xtoy_apply_grid first."
+      num_innovations = 0
+      wrfda_extract_tangent_linear_output = 1_c_int
+      return
+    end if
+
+    ! Return the number of innovations
+    num_innovations = persistent_num_innovations
+    print *, "WRFDA DEBUG: Returning", num_innovations, "innovations"
+
+    ! Copy values to output array (safely)
+    if (allocated(persistent_out_y) .and. size(persistent_out_y) >= num_innovations) then
+      out_y(1:num_innovations) = persistent_out_y(1:num_innovations)
+      print *, "WRFDA DEBUG: Successfully copied", num_innovations, "values to output array"
+    else
+      print *, "WRFDA ERROR: persistent_out_y not properly allocated or size mismatch"
+      print *, "WRFDA ERROR: allocated =", allocated(persistent_out_y)
+      if (allocated(persistent_out_y)) then
+        print *, "WRFDA ERROR: size =", size(persistent_out_y), "needed =", num_innovations
+      end if
+      wrfda_extract_tangent_linear_output = 1_c_int
+      return
+    end if
+
+    print *, "WRFDA DEBUG: Successfully extracted tangent linear output"
+    wrfda_extract_tangent_linear_output = 0_c_int
+  end function wrfda_extract_tangent_linear_output
 
   ! Adjoint operator: H^T * δy -> δx (gradient accumulation)
   ! This function computes the adjoint of the forward operator for incremental 3D-Var:
@@ -1345,46 +1426,81 @@ contains
     integer :: i, j, k, idx, idx_3d
     integer :: staggered_nz  ! Height field has nz+1 vertical levels
 
+    print *, "WRFDA DEBUG: wrfda_construct_domain_from_arrays called"
+    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz
+    print *, "WRFDA DEBUG: grid_initialized=", grid_initialized
+
     ! Allocate new domain structure
     if (.not.grid_initialized) then
+      print *, "WRFDA DEBUG: FIRST ALLOCATION - Allocating persistent_grid"
       allocate(persistent_grid)
+      print *, "WRFDA DEBUG: FIRST ALLOCATION - persistent_grid allocated successfully"
       grid => persistent_grid
+      print *, "WRFDA DEBUG: FIRST ALLOCATION - grid pointer set"
       grid_initialized = .true.
+      print *, "WRFDA DEBUG: FIRST ALLOCATION - grid_initialized set to true"
+    else
+      print *, "WRFDA DEBUG: REUSE - Using existing persistent_grid"
+      print *, "WRFDA DEBUG: REUSE - Checking if persistent_grid is associated"
+      if (associated(persistent_grid)) then
+        print *, "WRFDA DEBUG: REUSE - persistent_grid is properly associated"
+        grid => persistent_grid
+        print *, "WRFDA DEBUG: REUSE - grid pointer set to existing persistent_grid"
+      else
+        print *, "WRFDA DEBUG: REUSE ERROR - persistent_grid is NOT associated!"
+        print *, "WRFDA DEBUG: REUSE ERROR - Reallocating persistent_grid"
+        allocate(persistent_grid)
+        grid => persistent_grid
+        grid_initialized = .true.
+      end if
     end if
 
+    print *, "WRFDA DEBUG: Setting up basic domain parameters"
     ! Temporary constant for METADA - should be imported from WRFDA constants
     Max_StHeight_Diff = 100.0
+    print *, "WRFDA DEBUG: Max_StHeight_Diff set to", Max_StHeight_Diff
 
     ! Set up basic domain dimensions
     grid%id = 1
+    print *, "WRFDA DEBUG: grid%id set to", grid%id
     
     ! Initialize domain clock (required for WRFDA time management)
     ! Set domain_clock_created to false initially
     grid%domain_clock_created = .false.
+    print *, "WRFDA DEBUG: grid%domain_clock_created set to false"
     
     ! Height field is vertically staggered with nz+1 levels
     staggered_nz = nz + 1
+    print *, "WRFDA DEBUG: staggered_nz set to", staggered_nz
     
     ! Allocate PH and PHB fields (vertically staggered with nz+1 levels)
+    print *, "WRFDA DEBUG: About to allocate PH and PHB fields"
+    print *, "WRFDA DEBUG: PH allocation size: nx=", nx, " ny=", ny, " staggered_nz=", staggered_nz
+    
     allocate(grid%ph_2(1:nx, 1:ny, 1:staggered_nz))
+    print *, "WRFDA DEBUG: grid%ph_2 allocated successfully"
     allocate(grid%phb(1:nx, 1:ny, 1:staggered_nz))
+    print *, "WRFDA DEBUG: grid%phb allocated successfully"
     
     ! Store vertical levels information (used for vertical interpolation)
     ! The levels array contains the vertical level values for the model
     ! This is used by WRFDA for vertical interpolation and coordinate conversion
     ! Reference the levels array to prevent unused argument warning
+    print *, "WRFDA DEBUG: Checking vertical levels array"
     if (levels(1) > 0.0) then
       ! This will execute and shows that levels array is being used
       print *, "WRFDA DEBUG: Using vertical levels array with first level =", levels(1)
     end if
     
     ! Set up grid processor dimensions (required for da_copy_tile_dims)
+    print *, "WRFDA DEBUG: Setting up grid processor dimensions"
     grid%xp%kds = 1        ! Start of vertical domain
     grid%xp%kde = nz       ! End of vertical domain (mass variables)
     grid%xp%ids = 1        ! Start of i domain
     grid%xp%ide = nx       ! End of i domain
     grid%xp%jds = 1        ! Start of j domain
     grid%xp%jde = ny       ! End of j domain
+    print *, "WRFDA DEBUG: Grid processor dimensions set: kds=", grid%xp%kds, " kde=", grid%xp%kde, " ids=", grid%xp%ids, " ide=", grid%xp%ide, " jds=", grid%xp%jds, " jde=", grid%xp%jde
     
     ! Set up tile dimensions (single tile for now)
     grid%num_tiles = 1

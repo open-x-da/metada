@@ -20,7 +20,15 @@ extern "C" {
 // Array-based (grid) API for real WRFDA call with per-variable fields
 // Grid and observation location metadata is handled internally via iv structure
 // Family is determined automatically from iv structure
-int wrfda_xtoy_apply_grid(double* out_y);
+// Output is stored internally and extracted via
+// wrfda_extract_tangent_linear_output
+int wrfda_xtoy_apply_grid();
+
+// Get count of tangent linear output values (count-only call)
+int wrfda_get_tangent_linear_count(int* num_innovations);
+
+// Extract output values from the tangent linear operator
+int wrfda_extract_tangent_linear_output(double* out_y, int* num_innovations);
 
 int wrfda_xtoy_adjoint_grid(int nx, int ny, int nz,
                             const double* delta_y,  // size num_obs

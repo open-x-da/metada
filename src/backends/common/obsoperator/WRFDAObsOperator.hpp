@@ -27,9 +27,11 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -308,9 +310,24 @@ class WRFDAObsOperator {
     if (u && state_data.u_dims.is_staggered) {
       // U is staggered, convert to unstaggered
       const auto& dims = state_data.u_dims;
-      convertStaggeredUToUnstaggered(
-          std::vector<double>(u, u + dims.nx * dims.ny * dims.nz),
-          u_unstaggered, nx, ny, nz);
+      std::cout << "DEBUG: About to convert U from staggered (" << dims.nx
+                << "x" << dims.ny << "x" << dims.nz << ") to unstaggered ("
+                << nx << "x" << ny << "x" << nz << ")" << std::endl;
+
+      std::cout << "DEBUG: Creating U staggered vector with size: "
+                << (dims.nx * dims.ny * dims.nz) << std::endl;
+      std::vector<double> u_staggered_vec(u, u + dims.nx * dims.ny * dims.nz);
+      std::cout << "DEBUG: U staggered vector created successfully, size: "
+                << u_staggered_vec.size() << std::endl;
+
+      std::cout << "DEBUG: Calling convertStaggeredUToUnstaggered..."
+                << std::endl;
+      convertStaggeredUToUnstaggered(u_staggered_vec, u_unstaggered, nx, ny,
+                                     nz);
+      std::cout
+          << "DEBUG: convertStaggeredUToUnstaggered completed successfully"
+          << std::endl;
+
       u_final = u_unstaggered.data();
       std::cout << "WRFDA: Converted U from staggered (" << dims.nx << "x"
                 << dims.ny << "x" << dims.nz << ") to unstaggered (" << nx
@@ -320,56 +337,112 @@ class WRFDAObsOperator {
     if (v && state_data.v_dims.is_staggered) {
       // V is staggered, convert to unstaggered
       const auto& dims = state_data.v_dims;
-      convertStaggeredVToUnstaggered(
-          std::vector<double>(v, v + dims.nx * dims.ny * dims.nz),
-          v_unstaggered, nx, ny, nz);
+      std::cout << "DEBUG: About to convert V from staggered (" << dims.nx
+                << "x" << dims.ny << "x" << dims.nz << ") to unstaggered ("
+                << nx << "x" << ny << "x" << nz << ")" << std::endl;
+
+      std::cout << "DEBUG: Creating V staggered vector with size: "
+                << (dims.nx * dims.ny * dims.nz) << std::endl;
+      std::vector<double> v_staggered_vec(v, v + dims.nx * dims.ny * dims.nz);
+      std::cout << "DEBUG: V staggered vector created successfully, size: "
+                << v_staggered_vec.size() << std::endl;
+
+      std::cout << "DEBUG: Calling convertStaggeredVToUnstaggered..."
+                << std::endl;
+      convertStaggeredVToUnstaggered(v_staggered_vec, v_unstaggered, nx, ny,
+                                     nz);
+      std::cout
+          << "DEBUG: convertStaggeredVToUnstaggered completed successfully"
+          << std::endl;
+
       v_final = v_unstaggered.data();
       std::cout << "WRFDA: Converted V from staggered (" << dims.nx << "x"
                 << dims.ny << "x" << dims.nz << ") to unstaggered (" << nx
                 << "x" << ny << "x" << nz << ")" << std::endl;
+      std::cout << "DEBUG: V conversion completed, v_final pointer set"
+                << std::endl;
     }
 
     // Validate essential variables
+    std::cout << "DEBUG: Starting validation of essential variables"
+              << std::endl;
     if (!u && !v && !t) {
       throw std::runtime_error(
           "WRFDA observation operator requires at least one of U, V, or T "
           "variables");
     }
+    std::cout << "DEBUG: U/V/T validation passed" << std::endl;
     if (!ph) {
       throw std::runtime_error(
           "WRFDA observation operator requires PH (geopotential perturbation)");
     }
+    std::cout << "DEBUG: PH validation passed" << std::endl;
     if (!phb) {
       throw std::runtime_error(
           "WRFDA observation operator requires PHB (base state geopotential)");
     }
+    std::cout << "DEBUG: PHB validation passed" << std::endl;
     if (!hf) {
       throw std::runtime_error(
           "WRFDA observation operator requires HF (height field)");
     }
+    std::cout << "DEBUG: HF validation passed" << std::endl;
     if (!hgt) {
       throw std::runtime_error(
           "WRFDA observation operator requires HGT (terrain height)");
     }
+    std::cout << "DEBUG: HGT validation passed" << std::endl;
     if (!p) {
       throw std::runtime_error(
           "WRFDA observation operator requires P (pressure perturbation)");
     }
+    std::cout << "DEBUG: P validation passed" << std::endl;
     if (!pb) {
       throw std::runtime_error(
           "WRFDA observation operator requires PB (base state pressure)");
     }
 
     // Construct WRFDA domain structure from flat arrays
+    std::cout << "DEBUG: About to call wrfda_construct_domain_from_arrays"
+              << std::endl;
+    std::cout << "DEBUG: Parameters - nx=" << nx << " ny=" << ny << " nz=" << nz
+              << std::endl;
+    std::cout << "DEBUG: Pointer validation:" << std::endl;
+    std::cout << "  u_final: " << (u_final ? "valid" : "null") << std::endl;
+    std::cout << "  v_final: " << (v_final ? "valid" : "null") << std::endl;
+    std::cout << "  t: " << (t ? "valid" : "null") << std::endl;
+    std::cout << "  q: " << (q ? "valid" : "null") << std::endl;
+    std::cout << "  psfc: " << (psfc ? "valid" : "null") << std::endl;
+    std::cout << "  ph: " << (ph ? "valid" : "null") << std::endl;
+    std::cout << "  phb: " << (phb ? "valid" : "null") << std::endl;
+    std::cout << "  hf: " << (hf ? "valid" : "null") << std::endl;
+    std::cout << "  hgt: " << (hgt ? "valid" : "null") << std::endl;
+    std::cout << "  p: " << (p ? "valid" : "null") << std::endl;
+    std::cout << "  pb: " << (pb ? "valid" : "null") << std::endl;
+    std::cout << "  lats_2d: " << (lats_2d ? "valid" : "null") << std::endl;
+    std::cout << "  lons_2d: " << (lons_2d ? "valid" : "null") << std::endl;
+    std::cout << "  levels: " << (levels ? "valid" : "null") << std::endl;
+
     int rc = wrfda_construct_domain_from_arrays(&nx, &ny, &nz, u_final, v_final,
                                                 t, q, psfc, ph, phb, hf, hgt, p,
                                                 pb, lats_2d, lons_2d, levels);
+    std::cout << "DEBUG: wrfda_construct_domain_from_arrays returned rc=" << rc
+              << std::endl;
 
     if (rc != 0) {
       throw std::runtime_error(
           "Failed to construct WRFDA domain structure with code " +
           std::to_string(rc));
     }
+    std::cout
+        << "DEBUG: wrfda_construct_domain_from_arrays completed successfully"
+        << std::endl;
+
+    // Add a small delay to help identify timing-related segfaults
+    std::cout << "DEBUG: Sleeping for 100ms to check for timing issues..."
+              << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::cout << "DEBUG: Sleep completed, continuing..." << std::endl;
 
     // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options,
     // etc.)
@@ -553,22 +626,44 @@ class WRFDAObsOperator {
     const double *u_final = u, *v_final = v;
 
     if (u && state_data.u_dims.is_staggered) {
+      std::cout
+          << "DEBUG: updateAnalysisIncrements - Converting U from staggered"
+          << std::endl;
       u_unstaggered.resize(nx * ny * nz);
       // U staggered field has dimensions (nx+1) x ny x nz
       int u_staggered_size = (nx + 1) * ny * nz;
+      std::cout << "DEBUG: updateAnalysisIncrements - U staggered_size: "
+                << u_staggered_size << std::endl;
       std::vector<double> u_staggered_vec(u, u + u_staggered_size);
+      std::cout << "DEBUG: updateAnalysisIncrements - Calling "
+                   "convertStaggeredUToUnstaggered..."
+                << std::endl;
       convertStaggeredUToUnstaggered(u_staggered_vec, u_unstaggered, nx, ny,
                                      nz);
+      std::cout << "DEBUG: updateAnalysisIncrements - "
+                   "convertStaggeredUToUnstaggered completed"
+                << std::endl;
       u_final = u_unstaggered.data();
     }
 
     if (v && state_data.v_dims.is_staggered) {
+      std::cout
+          << "DEBUG: updateAnalysisIncrements - Converting V from staggered"
+          << std::endl;
       v_unstaggered.resize(nx * ny * nz);
       // V staggered field has dimensions nx x (ny+1) x nz
       int v_staggered_size = nx * (ny + 1) * nz;
+      std::cout << "DEBUG: updateAnalysisIncrements - V staggered_size: "
+                << v_staggered_size << std::endl;
       std::vector<double> v_staggered_vec(v, v + v_staggered_size);
+      std::cout << "DEBUG: updateAnalysisIncrements - Calling "
+                   "convertStaggeredVToUnstaggered..."
+                << std::endl;
       convertStaggeredVToUnstaggered(v_staggered_vec, v_unstaggered, nx, ny,
                                      nz);
+      std::cout << "DEBUG: updateAnalysisIncrements - "
+                   "convertStaggeredVToUnstaggered completed"
+                << std::endl;
       v_final = v_unstaggered.data();
     }
 
@@ -577,40 +672,51 @@ class WRFDAObsOperator {
     std::cout << "WRFDAObsOperator: Analysis increments updated successfully"
               << std::endl;
 
-    // Get the correct number of innovations for proper sizing
-    // Use default family since Fortran will determine actual family from iv
-    // structure
-    std::string family = "synop";  // Default family for innovation counting
-    std::cout
-        << "WRFDAObsOperator: Using default family for innovation counting: "
-        << family << std::endl;
-
-    int num_innovations = 0;
-    int count_rc = wrfda_count_innovations(const_cast<char*>(family.c_str()),
-                                           &num_innovations);
-
-    if (count_rc != 0 || num_innovations <= 0) {
-      throw std::runtime_error("Failed to count innovations with code " +
-                               std::to_string(count_rc));
-    }
-
-    // Prepare output vector with correct size based on innovations
-    std::vector<double> out_y(num_innovations, 0.0);
-
     std::cout << "WRFDAObsOperator: Calling tangent linear operator for "
-              << num_observations << " observations with " << num_innovations
-              << " innovations" << std::endl;
+              << num_observations << " observations" << std::endl;
 
-    int rc = wrfda_xtoy_apply_grid(out_y.data());
+    // Call the tangent linear operator (no arguments needed)
+    int rc = wrfda_xtoy_apply_grid();
 
     if (rc != 0) {
       throw std::runtime_error("wrfda_xtoy_apply_grid failed with code " +
                                std::to_string(rc));
     }
 
+    // Get the count of output values from Fortran
+    int num_innovations = 0;
+    int count_rc = wrfda_get_tangent_linear_count(&num_innovations);
+
+    if (count_rc != 0) {
+      throw std::runtime_error(
+          "wrfda_get_tangent_linear_count failed with code " +
+          std::to_string(count_rc));
+    }
+
+    if (num_innovations <= 0) {
+      std::cout << "WRFDAObsOperator: No innovations returned from tangent "
+                   "linear operator"
+                << std::endl;
+      return std::vector<double>();
+    }
+
+    // Allocate output vector with correct size
+    std::vector<double> out_y(num_innovations, 0.0);
+
+    // Extract the actual values
+    int extract_rc =
+        wrfda_extract_tangent_linear_output(out_y.data(), &num_innovations);
+
+    if (extract_rc != 0) {
+      throw std::runtime_error(
+          "wrfda_extract_tangent_linear_output failed with code " +
+          std::to_string(extract_rc));
+    }
+
     std::cout << "WRFDAObsOperator: Tangent linear operator returned "
-              << out_y.size() << " innovation values" << std::endl;
-    for (size_t i = 0; i < std::min(out_y.size(), size_t(10)); ++i) {
+              << num_innovations << " innovation values" << std::endl;
+    for (size_t i = 0;
+         i < std::min(static_cast<size_t>(num_innovations), size_t(10)); ++i) {
       std::cout << "  out_y[" << i << "] = " << out_y[i] << std::endl;
     }
 
@@ -745,9 +851,22 @@ class WRFDAObsOperator {
 
     if (u && isVariableStaggered(result_state, "U")) {
       // U is staggered, convert to unstaggered
-      convertStaggeredUToUnstaggered(
-          std::vector<double>(u, u + nx_u * ny_u * nz_u), u_unstaggered, nx, ny,
-          nz);
+      std::cout << "DEBUG: Adjoint - Converting U from staggered (" << nx_u
+                << "x" << ny_u << "x" << nz_u << ") to unstaggered (" << nx
+                << "x" << ny << "x" << nz << ")" << std::endl;
+
+      int u_staggered_size = nx_u * ny_u * nz_u;
+      std::cout << "DEBUG: Adjoint - U staggered_size: " << u_staggered_size
+                << std::endl;
+      std::vector<double> u_staggered_vec(u, u + u_staggered_size);
+      std::cout << "DEBUG: Adjoint - Calling convertStaggeredUToUnstaggered..."
+                << std::endl;
+
+      convertStaggeredUToUnstaggered(u_staggered_vec, u_unstaggered, nx, ny,
+                                     nz);
+      std::cout << "DEBUG: Adjoint - convertStaggeredUToUnstaggered completed"
+                << std::endl;
+
       u_final = u_unstaggered.data();
       std::cout << "WRFDA Adjoint: Converted U from staggered (" << nx_u << "x"
                 << ny_u << "x" << nz_u << ") to unstaggered (" << nx << "x"
@@ -756,9 +875,22 @@ class WRFDAObsOperator {
 
     if (v && isVariableStaggered(result_state, "V")) {
       // V is staggered, convert to unstaggered
-      convertStaggeredVToUnstaggered(
-          std::vector<double>(v, v + nx_v * ny_v * nz_v), v_unstaggered, nx, ny,
-          nz);
+      std::cout << "DEBUG: Adjoint - Converting V from staggered (" << nx_v
+                << "x" << ny_v << "x" << nz_v << ") to unstaggered (" << nx
+                << "x" << ny << "x" << nz << ")" << std::endl;
+
+      int v_staggered_size = nx_v * ny_v * nz_v;
+      std::cout << "DEBUG: Adjoint - V staggered_size: " << v_staggered_size
+                << std::endl;
+      std::vector<double> v_staggered_vec(v, v + v_staggered_size);
+      std::cout << "DEBUG: Adjoint - Calling convertStaggeredVToUnstaggered..."
+                << std::endl;
+
+      convertStaggeredVToUnstaggered(v_staggered_vec, v_unstaggered, nx, ny,
+                                     nz);
+      std::cout << "DEBUG: Adjoint - convertStaggeredVToUnstaggered completed"
+                << std::endl;
+
       v_final = v_unstaggered.data();
       std::cout << "WRFDA Adjoint: Converted V from staggered (" << nx_v << "x"
                 << ny_v << "x" << nz_v << ") to unstaggered (" << nx << "x"
@@ -916,7 +1048,16 @@ class WRFDAObsOperator {
   void convertStaggeredUToUnstaggered(const std::vector<double>& u_staggered,
                                       std::vector<double>& u_unstaggered,
                                       int nx, int ny, int nz) const {
+    std::cout << "DEBUG: convertStaggeredUToUnstaggered called with nx=" << nx
+              << " ny=" << ny << " nz=" << nz << std::endl;
+    std::cout << "DEBUG: Input u_staggered size: " << u_staggered.size()
+              << std::endl;
+    std::cout << "DEBUG: Expected staggered size: " << ((nx + 1) * ny * nz)
+              << std::endl;
+
     u_unstaggered.resize(nx * ny * nz);
+    std::cout << "DEBUG: Output u_unstaggered resized to: "
+              << u_unstaggered.size() << std::endl;
 
     for (int k = 0; k < nz; ++k) {
       for (int j = 0; j < ny; ++j) {
@@ -925,21 +1066,49 @@ class WRFDAObsOperator {
 
           if (i == 0) {
             // Left boundary: use first staggered point
-            u_unstaggered[unstaggered_idx] =
-                u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i];
+            const size_t staggered_idx = k * ny * (nx + 1) + j * (nx + 1) + i;
+
+            if (staggered_idx >= u_staggered.size()) {
+              std::cout << "SEGFAULT: U staggered_idx " << staggered_idx
+                        << " >= size " << u_staggered.size() << std::endl;
+              throw std::runtime_error("U array bounds violation");
+            }
+
+            u_unstaggered[unstaggered_idx] = u_staggered[staggered_idx];
           } else if (i == nx - 1) {
             // Right boundary: use last staggered point
-            u_unstaggered[unstaggered_idx] =
-                u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i];
+            const size_t staggered_idx = k * ny * (nx + 1) + j * (nx + 1) + i;
+
+            if (staggered_idx >= u_staggered.size()) {
+              std::cout << "SEGFAULT: U staggered_idx " << staggered_idx
+                        << " >= size " << u_staggered.size() << std::endl;
+              throw std::runtime_error("U array bounds violation");
+            }
+
+            u_unstaggered[unstaggered_idx] = u_staggered[staggered_idx];
           } else {
             // Interior: average of two adjacent staggered points
+            const size_t staggered_idx1 = k * ny * (nx + 1) + j * (nx + 1) + i;
+            const size_t staggered_idx2 =
+                k * ny * (nx + 1) + j * (nx + 1) + i + 1;
+
+            if (staggered_idx1 >= u_staggered.size() ||
+                staggered_idx2 >= u_staggered.size()) {
+              std::cout << "SEGFAULT: U staggered_idx1=" << staggered_idx1
+                        << " or staggered_idx2=" << staggered_idx2
+                        << " >= size " << u_staggered.size() << std::endl;
+              throw std::runtime_error("U array bounds violation");
+            }
+
             u_unstaggered[unstaggered_idx] =
-                0.5 * (u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i] +
-                       u_staggered[k * ny * (nx + 1) + j * (nx + 1) + i + 1]);
+                0.5 *
+                (u_staggered[staggered_idx1] + u_staggered[staggered_idx2]);
           }
         }
       }
     }
+    std::cout << "DEBUG: convertStaggeredUToUnstaggered completed successfully"
+              << std::endl;
   }
 
   /**
@@ -958,7 +1127,16 @@ class WRFDAObsOperator {
   void convertStaggeredVToUnstaggered(const std::vector<double>& v_staggered,
                                       std::vector<double>& v_unstaggered,
                                       int nx, int ny, int nz) const {
+    std::cout << "DEBUG: convertStaggeredVToUnstaggered called with nx=" << nx
+              << " ny=" << ny << " nz=" << nz << std::endl;
+    std::cout << "DEBUG: Input v_staggered size: " << v_staggered.size()
+              << std::endl;
+    std::cout << "DEBUG: Expected staggered size: " << (nx * (ny + 1) * nz)
+              << std::endl;
+
     v_unstaggered.resize(nx * ny * nz);
+    std::cout << "DEBUG: Output v_unstaggered resized to: "
+              << v_unstaggered.size() << std::endl;
 
     for (int k = 0; k < nz; ++k) {
       for (int j = 0; j < ny; ++j) {
@@ -967,21 +1145,48 @@ class WRFDAObsOperator {
 
           if (j == 0) {
             // Bottom boundary: use first staggered point
-            v_unstaggered[unstaggered_idx] =
-                v_staggered[k * (ny + 1) * nx + j * nx + i];
+            const size_t staggered_idx = k * (ny + 1) * nx + j * nx + i;
+
+            if (staggered_idx >= v_staggered.size()) {
+              std::cout << "SEGFAULT: V staggered_idx " << staggered_idx
+                        << " >= size " << v_staggered.size() << std::endl;
+              throw std::runtime_error("V array bounds violation");
+            }
+
+            v_unstaggered[unstaggered_idx] = v_staggered[staggered_idx];
           } else if (j == ny - 1) {
             // Top boundary: use last staggered point
-            v_unstaggered[unstaggered_idx] =
-                v_staggered[k * (ny + 1) * nx + j * nx + i];
+            const size_t staggered_idx = k * (ny + 1) * nx + j * nx + i;
+
+            if (staggered_idx >= v_staggered.size()) {
+              std::cout << "SEGFAULT: V staggered_idx " << staggered_idx
+                        << " >= size " << v_staggered.size() << std::endl;
+              throw std::runtime_error("V array bounds violation");
+            }
+
+            v_unstaggered[unstaggered_idx] = v_staggered[staggered_idx];
           } else {
             // Interior: average of two adjacent staggered points
+            const size_t staggered_idx1 = k * (ny + 1) * nx + j * nx + i;
+            const size_t staggered_idx2 = k * (ny + 1) * nx + (j + 1) * nx + i;
+
+            if (staggered_idx1 >= v_staggered.size() ||
+                staggered_idx2 >= v_staggered.size()) {
+              std::cout << "SEGFAULT: V staggered_idx1=" << staggered_idx1
+                        << " or staggered_idx2=" << staggered_idx2
+                        << " >= size " << v_staggered.size() << std::endl;
+              throw std::runtime_error("V array bounds violation");
+            }
+
             v_unstaggered[unstaggered_idx] =
-                0.5 * (v_staggered[k * (ny + 1) * nx + j * nx + i] +
-                       v_staggered[k * (ny + 1) * nx + (j + 1) * nx + i]);
+                0.5 *
+                (v_staggered[staggered_idx1] + v_staggered[staggered_idx2]);
           }
         }
       }
     }
+    std::cout << "DEBUG: convertStaggeredVToUnstaggered completed successfully"
+              << std::endl;
   }
 
   /**
