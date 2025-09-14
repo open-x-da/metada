@@ -62,11 +62,6 @@ module metada_wrfda_dispatch
   type(proj_info), save :: map_info
   logical, save :: map_info_initialized = .false.
   
-  ! Persistent background state for incremental 3D-Var
-  ! Background state (xb) is constant throughout the outer loop
-  logical, save :: background_state_initialized = .false.
-  integer, save :: background_nx, background_ny, background_nz
-  
   ! Persistent output array for tangent linear operator results
   real(c_double), allocatable, save :: persistent_out_y(:)
   integer, save :: persistent_num_innovations = 0
@@ -110,14 +105,6 @@ contains
     ! Point local y to global persistent structure
     y => persistent_y
     print *, "WRFDA DEBUG: Using global persistent y structure"
-
-    ! For incremental 3D-Var, we assume the input arrays are analysis increments (xa)
-    ! and we use the persistent background state (xb) that was initialized earlier
-    if (.not. background_state_initialized) then
-      print *, "WRFDA ERROR: Background state not initialized. Call wrfda_initialize_background_state first."
-      wrfda_xtoy_apply_grid = 1_c_int
-      return
-    end if
     
     ! point grid to global persistent grid for processing
     grid => persistent_grid
@@ -291,16 +278,6 @@ contains
     print *, "WRFDA DEBUG: Entering wrfda_xtoy_adjoint_grid"
     print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
     print *, "WRFDA DEBUG: delta_y(1)=", delta_y(1), " delta_y(2)=", delta_y(2)
-
-    ! For adjoint operator, we use the persistent background state (xb) and zero xa initially
-    ! The adjoint operator accumulates gradients into jo_grad_x, which we then add to inout arrays
-    print *, "WRFDA DEBUG: Checking background state initialization"
-    if (.not. background_state_initialized) then
-      print *, "WRFDA ERROR: Background state not initialized. Call wrfda_initialize_background_state first."
-      wrfda_xtoy_adjoint_grid = 1_c_int
-      return
-    end if
-    print *, "WRFDA DEBUG: Background state is initialized"
     
     ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
     if (.not. associated(persistent_iv)) then
@@ -1094,135 +1071,31 @@ contains
     print *, "WRFDA DEBUG: Calculated dz=", dz, " dzm=", dzm
   end subroutine find_fractional_k
 
-
-  ! Initialize domain for adjoint operator
-  ! For adjoint operator, we need background state in xb and zero xa initially
-  ! The adjoint operator accumulates gradients into jo_grad_x
-  subroutine init_domain_for_adjoint(grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg)
-    type(domain), intent(inout) :: grid
-    integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
-    integer :: i,j,k, nz1
-    nz1 = max(1, nz)
-    
-    print *, "WRFDA DEBUG: init_domain_for_adjoint: nx=", nx, " ny=", ny, " nz=", nz, " nz1=", nz1
-    
-    ! Set WRFDA grid bounds (same as before)
-    grid%sm31 = 1; grid%em31 = nx
-    grid%sm32 = 1; grid%em32 = ny  
-    grid%sm33 = 1; grid%em33 = nz1
-    
-    grid%sd31 = 1; grid%ed31 = nx
-    grid%sd32 = 1; grid%ed32 = ny
-    grid%sd33 = 1; grid%ed33 = nz1
-    
-    grid%sp31 = 1; grid%ep31 = nx
-    grid%sp32 = 1; grid%ep32 = ny
-    grid%sp33 = 1; grid%ep33 = nz1
-    
-    grid%xp%kds = 1; grid%xp%kde = nz1
-    grid%xp%ids = 1; grid%xp%ide = nx
-    grid%xp%jds = 1; grid%xp%jde = ny
-    
-    grid%xp%kts = 1; grid%xp%kte = nz1
-    grid%xp%its = 1; grid%xp%ite = nx
-    grid%xp%jts = 1; grid%xp%jte = ny
-    
-    grid%num_tiles = 1
-    allocate(grid%i_start(1:1), grid%i_end(1:1))
-    allocate(grid%j_start(1:1), grid%j_end(1:1))
-    grid%i_start(1) = 1; grid%i_end(1) = nx
-    grid%j_start(1) = 1; grid%j_end(1) = ny
-    
-    ! Allocate xb fields (background state) with 1-based bounds
-    print *, "WRFDA DEBUG: Allocating xb fields (background state) for adjoint"
-    allocate(grid%xb%u(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%v(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%t(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%q(1:nx,1:ny,1:nz1))
-    allocate(grid%xb%psfc(1:nx,1:ny))
-    print *, "WRFDA DEBUG: xb fields allocated for adjoint"
-    
-    ! Fill xb fields with background state data
-    print *, "WRFDA DEBUG: Filling xb fields with background state data for adjoint"
-    do k=1,nz1; do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      grid%xb%u(i,j,k) = real(u_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%v(i,j,k) = real(v_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%t(i,j,k) = real(t_bg(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xb%q(i,j,k) = real(q_bg(i + (j-1)*nx + (k-1)*nx*ny))
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j] -> i + j*nx
-      grid%xb%psfc(i,j) = real(psfc_bg(i + (j-1)*nx))
-    end do; end do
-    print *, "WRFDA DEBUG: xb fields filled with background state for adjoint"
-    
-    ! Allocate xa fields (analysis increments) and initialize to zero
-    ! For adjoint operator, xa starts at zero and gradients are accumulated in jo_grad_x
-    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) for adjoint"
-    allocate(grid%xa%u(1:nx,1:ny,1:nz1)); grid%xa%u = 0.0
-    allocate(grid%xa%v(1:nx,1:ny,1:nz1)); grid%xa%v = 0.0
-    allocate(grid%xa%t(1:nx,1:ny,1:nz1)); grid%xa%t = 0.0
-    allocate(grid%xa%q(1:nx,1:ny,1:nz1)); grid%xa%q = 0.0
-    allocate(grid%xa%psfc(1:nx,1:ny)); grid%xa%psfc = 0.0
-    print *, "WRFDA DEBUG: xa fields allocated and initialized to zero for adjoint"
-    
-    print *, "WRFDA DEBUG: init_domain_for_adjoint completed successfully"
-  end subroutine init_domain_for_adjoint
-
-  ! Initialize persistent background state for incremental 3D-Var
-  ! This function should be called once at the beginning of the outer loop
-  ! to set up the constant background state (xb)
-  integer(c_int) function wrfda_initialize_background_state(nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg) bind(C, name="wrfda_initialize_background_state")
-    implicit none
-    integer(c_int), value :: nx, ny, nz
-    real(c_double), intent(in) :: u_bg(*), v_bg(*), t_bg(*), q_bg(*), psfc_bg(*)
-    
-    print *, "WRFDA DEBUG: Initializing persistent background state"
-    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz
-    
-    ! Store grid dimensions
-    background_nx = nx
-    background_ny = ny
-    background_nz = nz
-    
-    ! Initialize persistent grid with background state
-    call init_domain_for_adjoint(persistent_grid, nx, ny, nz, u_bg, v_bg, t_bg, q_bg, psfc_bg)
-    
-    ! Mark background state as initialized
-    background_state_initialized = .true.
-    
-    print *, "WRFDA DEBUG: Persistent background state initialized successfully"
-    wrfda_initialize_background_state = 0_c_int
-  end function wrfda_initialize_background_state
-
   ! Update only analysis increments (xa) for incremental 3D-Var
   ! This subroutine updates the analysis increments while keeping background state constant
   subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc) bind(C, name="wrfda_update_analysis_increments")
     implicit none
     real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
-    integer :: i,j,k, nz1
+    integer :: i,j,k, nx, ny, nz
     
-    if (.not. background_state_initialized) then
-      print *, "WRFDA ERROR: Background state not initialized. Call wrfda_initialize_background_state first."
-      return
-    end if
+    ! Get grid dimensions from persistent_grid
+    nx = persistent_grid%xp%ide - persistent_grid%xp%ids + 1
+    ny = persistent_grid%xp%jde - persistent_grid%xp%jds + 1
+    nz = persistent_grid%xp%kde - persistent_grid%xp%kds + 1
     
-    nz1 = max(1, background_nz)
-    print *, "WRFDA DEBUG: Updating analysis increments for grid size:", background_nx, "x", background_ny, "x", nz1
+    print *, "WRFDA DEBUG: Updating analysis increments for grid size:", nx, "x", ny, "x", nz
     
     ! Update only the xa fields (analysis increments)
-    do k=1,nz1; do j=1,background_ny; do i=1,background_nx
+    do k=1,nz; do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      persistent_grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
-      persistent_grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
-      persistent_grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
-      persistent_grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*background_nx + (k-1)*background_nx*background_ny))
+      persistent_grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny))
+      persistent_grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny))
+      persistent_grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny))
+      persistent_grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny))
     end do; end do; end do
-    do j=1,background_ny; do i=1,background_nx
+    do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j] -> i + j*nx
-      persistent_grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*background_nx))
+      persistent_grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx))
     end do; end do
     
     print *, "WRFDA DEBUG: Analysis increments updated successfully"
@@ -1611,6 +1484,16 @@ contains
         end do
       end do
     end do
+
+    ! Allocate xa fields (analysis increments) and initialize to zero
+    ! For adjoint operator, xa starts at zero and gradients are accumulated in jo_grad_x
+    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) for adjoint"
+    allocate(grid%xa%u(1:nx,1:ny,1:nz)); grid%xa%u = 0.0
+    allocate(grid%xa%v(1:nx,1:ny,1:nz)); grid%xa%v = 0.0
+    allocate(grid%xa%t(1:nx,1:ny,1:nz)); grid%xa%t = 0.0
+    allocate(grid%xa%q(1:nx,1:ny,1:nz)); grid%xa%q = 0.0
+    allocate(grid%xa%psfc(1:nx,1:ny)); grid%xa%psfc = 0.0
+    print *, "WRFDA DEBUG: xa fields allocated and initialized to zero for adjoint"
 
     wrfda_construct_domain_from_arrays = 0
     
