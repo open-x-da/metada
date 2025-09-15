@@ -68,8 +68,8 @@ Where:
   - Manages cost function and minimization
   - Provides analysis results with both state and increment
 
-### 4. IncrementalOperatorChecks
-- **File**: `src/framework/algorithms/IncrementalOperatorChecks.hpp`
+### 4. IncrementalGradientChecks
+- **File**: `src/framework/algorithms/IncrementalGradientChecks.hpp`
 - **Purpose**: Gradient verification for incremental formulation
 - **Key Features**:
   - Finite difference gradient tests
