@@ -67,16 +67,46 @@ Where:
   - Orchestrates the incremental variational process
   - Manages cost function and minimization
   - Provides analysis results with both state and increment
+  - **NEW**: Comprehensive verification methods for observation operators
+  - **NEW**: Individual and combined check methods for TL/AD consistency
+  - **NEW**: Integration with observation operator verification framework
 
 ### 4. IncrementalGradientChecks
 - **File**: `src/framework/algorithms/IncrementalGradientChecks.hpp`
-- **Purpose**: Gradient verification for incremental formulation
+- **Purpose**: Gradient and observation operator verification for incremental formulation
 - **Key Features**:
-  - Finite difference gradient tests
+  - Finite difference gradient tests for cost function
   - Multiple random direction testing
   - Comprehensive adjoint verification
+  - **NEW**: Observation operator tangent linear/adjoint consistency checks
+  - **NEW**: Observation operator tangent linear finite difference checks
+  - **NEW**: Comprehensive observation operator verification
 
-### 5. Incremental Variational Application
+### 5. Verification Methods
+
+The incremental variational implementation includes comprehensive verification methods to ensure correctness:
+
+#### 5.1 Cost Function Gradient Verification
+- **Method**: `performGradientTest()`
+- **Purpose**: Verifies the analytical gradient matches finite difference approximation
+- **Mathematical Check**: ∇J(δx) ≈ [J(δx + ε·d) - J(δx - ε·d)] / (2ε)
+
+#### 5.2 Observation Operator Tangent Linear/Adjoint Consistency
+- **Method**: `performObsOperatorTLADCheck()`
+- **Purpose**: Verifies TL/AD consistency for observation operators
+- **Mathematical Check**: ⟨H'dx, dy⟩ = ⟨dx, H'^T dy⟩
+
+#### 5.3 Observation Operator Tangent Linear Verification
+- **Method**: `performObsOperatorTangentLinearCheck()`
+- **Purpose**: Verifies tangent linear implementation using finite differences
+- **Mathematical Check**: H'dx ≈ [H(x_b + ε·dx) - H(x_b)] / ε
+
+#### 5.4 Comprehensive Verification
+- **Method**: `performVerificationChecks()`
+- **Purpose**: Performs all verification checks in sequence
+- **Includes**: Cost function gradient + observation operator checks
+
+### 6. Incremental Variational Application
 - **File**: `applications/data_assimilation/variational/incremental_variational.cpp`
 - **Purpose**: Driver application for incremental variational
 - **Key Features**:

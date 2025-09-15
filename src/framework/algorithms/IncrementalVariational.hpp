@@ -298,6 +298,110 @@ class IncrementalVariational {
   }
 
   /**
+   * @brief Perform tangent linear/adjoint consistency check for observation
+   * operators
+   *
+   * @param tolerance Tolerance for the TL/AD check (default: 1e-6)
+   * @return True if TL/AD check passes within tolerance
+   */
+  bool performObsOperatorTLADCheck(double tolerance = 1e-6) const {
+    logger_.Info() << "Performing observation operator TL/AD consistency check";
+
+    bool test_passed = checkIncrementalObsOperatorTLAD<BackendTag>(
+        obs_operators_, background_, observations_, tolerance);
+
+    return test_passed;
+  }
+
+  /**
+   * @brief Perform tangent linear finite difference check for observation
+   * operators
+   *
+   * @param tolerance Tolerance for the tangent linear check (default: 1e-6)
+   * @param epsilons Set of perturbation sizes for FD check (default: {1e-3,
+   * 1e-4, 1e-5, 1e-6, 1e-7})
+   * @return True if tangent linear check passes within tolerance
+   */
+  bool performObsOperatorTangentLinearCheck(
+      double tolerance = 1e-6,
+      const std::vector<double>& epsilons = std::vector<double>{
+          1e-3, 1e-4, 1e-5, 1e-6, 1e-7}) const {
+    logger_.Info() << "Performing observation operator tangent linear check";
+
+    bool test_passed = checkIncrementalObsOperatorTangentLinear<BackendTag>(
+        obs_operators_, background_, observations_, tolerance, epsilons);
+
+    return test_passed;
+  }
+
+  /**
+   * @brief Perform comprehensive observation operator checks
+   *
+   * @details This method performs both tangent linear/adjoint consistency check
+   * and tangent linear finite difference check for all observation operators
+   * used in the incremental variational formulation.
+   *
+   * @param tolerance Tolerance for the checks (default: 1e-6)
+   * @param epsilons Set of perturbation sizes for FD check (default: {1e-3,
+   * 1e-4, 1e-5, 1e-6, 1e-7})
+   * @return True if all observation operator checks pass within tolerance
+   */
+  bool performObsOperatorChecks(
+      double tolerance = 1e-6,
+      const std::vector<double>& epsilons = std::vector<double>{
+          1e-3, 1e-4, 1e-5, 1e-6, 1e-7}) const {
+    logger_.Info() << "Performing comprehensive observation operator checks";
+
+    bool test_passed = checkIncrementalObsOperatorsComprehensive<BackendTag>(
+        obs_operators_, background_, observations_, tolerance, epsilons);
+
+    return test_passed;
+  }
+
+  /**
+   * @brief Perform all verification checks for incremental variational
+   * implementation
+   *
+   * @details This method performs a comprehensive verification of the
+   * incremental variational implementation including:
+   * - Cost function gradient check
+   * - Observation operator tangent linear/adjoint consistency check
+   * - Observation operator tangent linear finite difference check
+   *
+   * @param test_increment Increment around which to test the gradient
+   * @param tolerance Tolerance for all checks (default: 1e-6)
+   * @param epsilons Set of perturbation sizes for FD checks (default: {1e-3,
+   * 1e-4, 1e-5, 1e-6, 1e-7})
+   * @return True if all verification checks pass within tolerance
+   */
+  bool performVerificationChecks(
+      const Increment<BackendTag>& test_increment, double tolerance = 1e-6,
+      const std::vector<double>& epsilons = std::vector<double>{
+          1e-3, 1e-4, 1e-5, 1e-6, 1e-7}) const {
+    logger_.Info()
+        << "Performing comprehensive verification checks for incremental "
+           "variational implementation";
+
+    // 1. Cost function gradient check
+    bool gradient_passed = performGradientTest(test_increment, tolerance);
+
+    // 2. Observation operator checks
+    bool obs_ops_passed = performObsOperatorChecks(tolerance, epsilons);
+
+    bool all_passed = gradient_passed && obs_ops_passed;
+
+    logger_.Info() << "Verification check results:";
+    logger_.Info() << "  Cost function gradient: "
+                   << (gradient_passed ? "PASSED" : "FAILED");
+    logger_.Info() << "  Observation operators: "
+                   << (obs_ops_passed ? "PASSED" : "FAILED");
+    logger_.Info() << "  Overall result: "
+                   << (all_passed ? "PASSED" : "FAILED");
+
+    return all_passed;
+  }
+
+  /**
    * @brief Get the pre-computed innovation vectors
    */
   const std::vector<std::vector<double>>& getInnovations() const {
