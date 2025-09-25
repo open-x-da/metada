@@ -23,6 +23,10 @@ finite_difference_epsilons:
    - 1.0e-7
    - 1.0e-8
 
+# Analysis time configuration
+analysis_time: &analysis_time "2000-01-24T12:00:00Z"
+time_window: &time_window "±5m" # Time window around analysis time
+
 # Variational method: 3DVAR (single time analysis)
 variational_type: "3DVAR"
 
@@ -39,48 +43,59 @@ preconditioning_enabled: false
 geometry:
   file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
 
-# State configuration
-state:
+# Background state configuration
+background:
   file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
   # Analysis variables for 3DVAR
   variables:
-    - U      # U-component of wind
-  #  - V      # V-component of wind
-  #  - T      # Temperature
-  #  - QVAPOR # Water vapor mixing ratio
-  #  - P      # Pressure
-  #  - PH     # Geopotential
+    - U
+    - V
+    - T
+    - QVAPOR
+    - PSFC
+    - P
+    - PB
+    - PH
+    - PHB
+    - HGT
 
-# Observations configuration (simplified for debugging)
-observations:
+# Observation configuration
+observation:
   types:
-    - test_obs:
+    - adpsfc:
         if_use: true
-        file: "D:/linux/metada/src/backends/wrf/tutorial/wrf_obs.txt"
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2000012412.wo40.nr"
         coordinate: "geographic"
+        data_types: ["ADPSFC"]
+        station_ids: [72405]
+        analysis_time: *analysis_time
+        time_window: *time_window
         variables:
           - U:
               if_use: true
-              error: 2.0
-              missing_value: -999.0
+              error: 1.5
+          - V:
+              if_use: true
+              error: 1.5
+          - T:
+              if_use: true
+              error: 1.0
+          - Q:
+              if_use: true
+              error: 0.5e-3
+          - PSFC:
+              if_use: true
+              error: 100.0
 
 # Observation operator configuration
 obs_operator:
-  type: "identity"
-  # Required state variables for this observation operator
-  required_state_vars:
-    - "U"      # U-wind component
-  # Required observation variables (if any)
-  required_obs_vars: []
-  # Interpolation settings
-  interpolation:
-    method: "nearest_neighbor"  # Only nearest-neighbor supported by IdentityObsOperator
-    coordinate_system: "geographic"  # or "grid"
-  # Quality control settings (not implemented in IdentityObsOperator, but documented for future use)
-  quality_control:
-    enabled: false  # Currently not implemented
-    gross_error_threshold: 10.0
-    buddy_check: false
+  type: "WRFDA"
+  required_state_vars: [U, V, T, QVAPOR, PSFC, P, PB, PH, PHB, HGT]
+  operator_families: ["synop"]  # SYNOP surface observations
+  interpolation_method: "bilinear"
+  vertical_interpolation: "pressure"
+  surface_correction: true
+  quality_control: true
 
 # Model configuration (WRF model settings)
 model:
@@ -103,10 +118,9 @@ model:
     advection_scheme: "WENO"
     diffusion: 0.01
 
-# Background error covariance configuration (simplified)
+# Background error covariance configuration
 background_covariance:
-  size: 717531  # Match actual WRF state size
-  variance: 0.5  # Reasonable variance for meteorological variables
-  background_covariance_type: "diagonal"
+  # Framework-expected keys
+  background_covariance_type: "diagonal"  # Framework expects this key
   localization_enabled: false
   localization_radius: 0.0

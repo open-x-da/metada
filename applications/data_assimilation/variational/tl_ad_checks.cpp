@@ -113,12 +113,12 @@ int main(int argc, char** argv) {
     logger.Info() << "Geometry initialized";
 
     // Initialize state
-    fwk::State<BackendTag> state(config.GetSubsection("state"), geometry);
-    logger.Info() << "State initialized";
+    fwk::State<BackendTag> state(config.GetSubsection("background"), geometry);
+    logger.Info() << "Background initialized";
 
     // Initialize observations
     fwk::Observation<BackendTag> observation(
-        config.GetSubsection("observations"));
+        config.GetSubsection("observation"));
     std::vector<fwk::Observation<BackendTag>> observations;
     observations.emplace_back(std::move(observation));
     logger.Info() << "Observations initialized";

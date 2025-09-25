@@ -303,7 +303,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/tl_ad_checks",
             "args": ["${workspaceFolder}/src/backends/wrf/tutorial/tl_ad_checks.yaml"],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
             "environment": [
                 {
