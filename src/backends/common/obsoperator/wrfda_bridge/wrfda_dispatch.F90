@@ -87,7 +87,6 @@ contains
     
     ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
     if (.not. associated(persistent_iv)) then
-      print *, "WRFDA DEBUG: persistent_iv not associated - cannot proceed"
       wrfda_xtoy_apply_grid = 1_c_int
       return
     end if
@@ -97,19 +96,15 @@ contains
     
     ! CRITICAL FIX: Use persistent y structure instead of allocating each time
     if (.not. associated(persistent_y)) then
-      print *, "WRFDA DEBUG: persistent_y not associated - cannot proceed"
       wrfda_xtoy_apply_grid = 1_c_int
       return
     end if
     
     ! Point local y to global persistent structure
     y => persistent_y
-    print *, "WRFDA DEBUG: Using global persistent y structure"
     
     ! point grid to global persistent grid for processing
     grid => persistent_grid
-
-    print *, "WRFDA DEBUG: Determining available families from iv structure"
     
     ! Instead of parsing input string, determine family from iv structure
     ! Find the first family that has observations available
@@ -117,13 +112,11 @@ contains
     do n = 1, size(persistent_iv%info)
       if (persistent_iv%info(n)%nlocal > 0) then
         fam_id = n
-        print *, "WRFDA DEBUG: Found family", n, "with", persistent_iv%info(n)%nlocal, "observations"
         exit
       end if
     end do
     
     if (fam_id == 0) then
-      print *, "WRFDA ERROR: No observation families available in iv structure"
       wrfda_xtoy_apply_grid = 1_c_int
       return
     end if
@@ -141,21 +134,15 @@ contains
     case default; fam_str = "unknown"
     end select
     
-    print *, "WRFDA DEBUG: Using family '", trim(fam_str), "' (ID=", fam_id, ")"
-    
     select case (trim(fam_str))
     case ('metar'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_metar"
       !call da_transform_xtoy_metar(grid, iv, y)
-      print *, "WRFDA DEBUG: da_transform_xtoy_metar completed"
     case ('synop', 'adpsfc'); 
       call da_transform_xtoy_synop(grid, iv, y)
     case default; 
-      print *, "WRFDA DEBUG: Unknown family '", trim(fam_str), "', returning error"
       wrfda_xtoy_apply_grid = 1_c_int; return
     end select
 
-    print *, "WRFDA DEBUG: About to call copy_y_to_out"
     ! Calculate number of innovations from observations
     ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
     ! But we need to get the actual number of innovations from the iv structure
@@ -170,7 +157,6 @@ contains
         if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
       end do
     end if
-    print *, "WRFDA DEBUG: Calculated num_innovations =", num_innovations
     
     ! Store number of innovations for later retrieval
     persistent_num_innovations = num_innovations
@@ -182,15 +168,10 @@ contains
       end if
       allocate(persistent_out_y(num_innovations))
       output_allocated = .true.
-      print *, "WRFDA DEBUG: Allocated persistent_out_y with size", num_innovations
-    else
-      print *, "WRFDA DEBUG: Using existing persistent_out_y with size", size(persistent_out_y)
     end if
     
     ! Copy results to persistent array
     call copy_y_to_out(fam_id, y, persistent_out_y, num_innovations)
-    print *, "WRFDA DEBUG: copy_y_to_out completed and stored in persistent array"
-    print *, "WRFDA DEBUG: Function completed successfully, returning 0"
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
 
@@ -199,11 +180,8 @@ contains
     implicit none
     integer(c_int), intent(out) :: num_innovations
 
-    print *, "WRFDA DEBUG: Getting tangent linear count"
-
     ! Check if output is available
     if (.not. output_allocated .or. persistent_num_innovations <= 0) then
-      print *, "WRFDA ERROR: No tangent linear output available. Call wrfda_xtoy_apply_grid first."
       num_innovations = 0
       wrfda_get_tangent_linear_count = 1_c_int
       return
@@ -211,7 +189,6 @@ contains
 
     ! Return the number of innovations
     num_innovations = persistent_num_innovations
-    print *, "WRFDA DEBUG: Returning count:", num_innovations, "innovations"
 
     wrfda_get_tangent_linear_count = 0_c_int
   end function wrfda_get_tangent_linear_count
@@ -222,11 +199,8 @@ contains
     real(c_double), intent(out) :: out_y(*)
     integer(c_int), intent(out) :: num_innovations
 
-    print *, "WRFDA DEBUG: Extracting tangent linear output"
-
     ! Check if output is available
     if (.not. output_allocated .or. persistent_num_innovations <= 0) then
-      print *, "WRFDA ERROR: No tangent linear output available. Call wrfda_xtoy_apply_grid first."
       num_innovations = 0
       wrfda_extract_tangent_linear_output = 1_c_int
       return
@@ -234,23 +208,15 @@ contains
 
     ! Return the number of innovations
     num_innovations = persistent_num_innovations
-    print *, "WRFDA DEBUG: Returning", num_innovations, "innovations"
 
     ! Copy values to output array (safely)
     if (allocated(persistent_out_y) .and. size(persistent_out_y) >= num_innovations) then
       out_y(1:num_innovations) = persistent_out_y(1:num_innovations)
-      print *, "WRFDA DEBUG: Successfully copied", num_innovations, "values to output array"
     else
-      print *, "WRFDA ERROR: persistent_out_y not properly allocated or size mismatch"
-      print *, "WRFDA ERROR: allocated =", allocated(persistent_out_y)
-      if (allocated(persistent_out_y)) then
-        print *, "WRFDA ERROR: size =", size(persistent_out_y), "needed =", num_innovations
-      end if
       wrfda_extract_tangent_linear_output = 1_c_int
       return
     end if
 
-    print *, "WRFDA DEBUG: Successfully extracted tangent linear output"
     wrfda_extract_tangent_linear_output = 0_c_int
   end function wrfda_extract_tangent_linear_output
 
@@ -273,47 +239,30 @@ contains
     integer :: n, num_innovations
     character(len=256) :: fam_str
     integer :: fam_id
-
-    ! DEBUG: Print entry point
-    print *, "WRFDA DEBUG: Entering wrfda_xtoy_adjoint_grid"
-    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz, " num_obs=", num_obs
-    print *, "WRFDA DEBUG: delta_y(1)=", delta_y(1), " delta_y(2)=", delta_y(2)
     
     ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
     if (.not. associated(persistent_iv)) then
-      print *, "WRFDA ERROR: persistent_iv not associated - cannot proceed"
       wrfda_xtoy_adjoint_grid = 1_c_int
       return
     end if
     
     ! Point local iv to global persistent structure
     iv => persistent_iv
-    print *, "WRFDA DEBUG: Using global persistent iv structure for adjoint"
     
     ! Use persistent grid with background state and zero analysis increments
-    print *, "WRFDA DEBUG: Using persistent background state for adjoint operator"
     grid => persistent_grid
-    print *, "WRFDA DEBUG: Grid copied from persistent_grid"
     
     ! Zero out analysis increments for adjoint computation
-    print *, "WRFDA DEBUG: Zeroing out analysis increments"
     grid%xa%u = 0.0
     grid%xa%v = 0.0
     grid%xa%t = 0.0
     grid%xa%q = 0.0
     grid%xa%psfc = 0.0
-    print *, "WRFDA DEBUG: Analysis increments zeroed"
     
     ! Grid structure and module-level variables are already set up
     ! No need to call da_copy_dims and da_copy_tile_dims again
-    
-    print *, "WRFDA DEBUG: Calling zero_x_like for jo_grad_x"
     call zero_x_like(jo_grad_x, nx, ny, nz)
-    print *, "WRFDA DEBUG: zero_x_like completed"
     sfc_assi_options = sfc_assi_options_1
-    print *, "WRFDA DEBUG: sfc_assi_options set"
-
-    print *, "WRFDA DEBUG: Determining available families from iv structure for adjoint"
     
     ! Instead of parsing input string, determine family from iv structure
     ! Find the first family that has observations available
@@ -321,13 +270,11 @@ contains
     do n = 1, size(persistent_iv%info)
       if (persistent_iv%info(n)%nlocal > 0) then
         fam_id = n
-        print *, "WRFDA DEBUG: Found family", n, "with", persistent_iv%info(n)%nlocal, "observations"
         exit
       end if
     end do
     
     if (fam_id == 0) then
-      print *, "WRFDA ERROR: No observation families available in iv structure for adjoint"
       wrfda_xtoy_adjoint_grid = 1_c_int
       return
     end if
@@ -345,16 +292,13 @@ contains
     case default; fam_str = "unknown"
     end select
     
-    print *, "WRFDA DEBUG: Using family '", trim(fam_str), "' (ID=", fam_id, ") for adjoint"
     ! iv structure is already set up before calling this function
     ! No need to reinitialize it here
     ! jo_grad_y structure is already allocated before calling this function
     ! No need to reallocate it here
-    print *, "WRFDA DEBUG: Starting innovation counting"
     ! Calculate number of innovations from observations
     ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
     if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
-      print *, "WRFDA DEBUG: persistent_iv and synop are associated"
       ! Count actual innovations from the iv structure
       num_innovations = 0
       do n = 1, persistent_iv%info(2)%nlocal
@@ -365,31 +309,19 @@ contains
         if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
       end do
     end if
-    print *, "WRFDA DEBUG: Adjoint - Calculated num_innovations =", num_innovations
     
-    print *, "WRFDA DEBUG: About to call init_y_from_delta"
     call init_y_from_delta(fam_id, jo_grad_y, delta_y, num_innovations)
-    print *, "WRFDA DEBUG: init_y_from_delta completed"
 
-    print *, "WRFDA DEBUG: About to call adjoint transform for family: '", trim(fam_str), "'"
     select case (trim(fam_str))
     case ('metar'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_metar_adj"
       call da_transform_xtoy_metar_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_metar_adj completed"
     case ('synop', 'adpsfc'); 
-      print *, "WRFDA DEBUG: Calling da_transform_xtoy_synop_adj for family '", trim(fam_str), "'"
       call da_transform_xtoy_synop_adj(grid, iv, jo_grad_y, jo_grad_x)
-      print *, "WRFDA DEBUG: da_transform_xtoy_synop_adj completed"
     case default; 
-      print *, "WRFDA ERROR: Unknown family '", trim(fam_str), "' in adjoint operator"
       wrfda_xtoy_adjoint_grid = 1_c_int; return
     end select
 
-    print *, "WRFDA DEBUG: About to call copy_x_to_state"
     call copy_x_to_state(jo_grad_x, inout_u, inout_v, inout_t, inout_q, inout_psfc, nx, ny, nz)
-    print *, "WRFDA DEBUG: copy_x_to_state completed"
-    print *, "WRFDA DEBUG: Adjoint operator completed successfully, returning 0"
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
 
@@ -417,10 +349,7 @@ contains
       continue
     end if
     
-    print *, "WRFDA DEBUG: init_iv_from_enhanced_obs: family=", family, " num_obs=", num_obs, " nz=", nz
-    
     ! Initialize ALL observation families to prevent memory issues
-    print *, "WRFDA DEBUG: Initializing ALL observation families..."
     iv%info(:)%nlocal = 0
     iv%info(:)%ntotal = 0
     iv%info(:)%max_lev = 1
@@ -441,17 +370,13 @@ contains
       end if
     end do
     
-    print *, "WRFDA DEBUG: Found", valid_obs_count, "valid observations out of", num_obs
-    
     ! Set the actual family we want to use
     iv%info(family)%nlocal = valid_obs_count
     iv%info(family)%ntotal = valid_obs_count
     iv%info(family)%max_lev = nz
     
     ! Allocate arrays using WRFDA's routine
-    print *, "WRFDA DEBUG: Calling da_allocate_obs_info for enhanced observations"
     call da_allocate_obs_info(iv, family)
-    print *, "WRFDA DEBUG: da_allocate_obs_info completed"
     
     ! Set levels array - REMOVED: This conflicts with individual observation level setting
     ! iv%info(family)%levels = 1
@@ -464,27 +389,18 @@ contains
       
       ! Check for valid observations
       if (i == -1 .or. j == -1) then
-        print *, "WRFDA DEBUG: Observation", n, " is out of domain - skipping"
         cycle
       end if
       
       if (obs_qc_flags(n) < 0) then
-        print *, "WRFDA DEBUG: Observation", n, " failed QC - skipping"
         cycle
       end if
       
       if (obs_usage_flags(n) <= 0) then
-        print *, "WRFDA DEBUG: Observation", n, " not used - skipping"
         cycle
       end if
       
       valid_obs_count = valid_obs_count + 1
-      
-      print *, "WRFDA DEBUG: Processing valid observation", valid_obs_count
-      print *, "WRFDA DEBUG:   Lat:", obs_lats(n), " Lon:", obs_lons(n)
-      print *, "WRFDA DEBUG:   Elevation:", obs_elevations(n), " Pressure:", obs_pressures(n), " Height:", obs_heights(n)
-      print *, "WRFDA DEBUG:   QC Flag:", obs_qc_flags(n), " Usage Flag:", obs_usage_flags(n)
-      print *, "WRFDA DEBUG:   Value:", obs_values(n), " Error:", obs_errors(n)
       
       ! Set grid indices for all levels (surface observations)
       do k = 1, nz
@@ -530,8 +446,6 @@ contains
       ! (iv%synop, iv%metar, etc.) which are allocated and managed by WRFDA's
       ! da_allocate_y routine and the specific observation operator routines.
     end do
-    
-    print *, "WRFDA DEBUG: init_iv_from_enhanced_obs completed with", valid_obs_count, "valid observations"
   end subroutine init_iv_from_enhanced_obs
 
   subroutine init_y_from_delta(family, jo_grad_y, delta_y, num_innovations)
@@ -713,8 +627,6 @@ contains
     integer :: i,j,k, nz1
     nz1 = max(1, nz)
     
-    print *, "WRFDA DEBUG: copy_x_to_state: accumulating gradients into state arrays"
-    
     ! Accumulate gradients into state arrays (gradient accumulation)
     do k=1,nz1; do j=1,ny; do i=1,nx
       u(i + (j-1)*nx + (k-1)*nx*ny) = u(i + (j-1)*nx + (k-1)*nx*ny) + real(jo_grad_x%u(i,j,k), kind=c_double)
@@ -725,8 +637,6 @@ contains
     do j=1,ny; do i=1,nx
       psfc(i + (j-1)*nx) = psfc(i + (j-1)*nx) + real(jo_grad_x%psfc(i,j), kind=c_double)
     end do; end do
-    
-    print *, "WRFDA DEBUG: copy_x_to_state: gradient accumulation completed"
   end subroutine copy_x_to_state
 
   subroutine zero_x_like(x, nx, ny, nz)
@@ -800,9 +710,6 @@ contains
       end do
     end do
     
-    print *, "WRFDA DEBUG: lons2d_min=", lons2d_min, " lons2d_max=", lons2d_max
-    print *, "WRFDA DEBUG: lats2d_min=", lats2d_min, " lats2d_max=", lats2d_max
-    print *, "WRFDA DEBUG: olon=", olon
     lons2d_negative_range = (lons2d_min < 0.0_c_double)
     olon_positive_range = (olon >= 0.0_c_double .and. olon <= 360.0_c_double)
     
@@ -828,11 +735,6 @@ contains
       olon_converted = olon
     end if
     
-    print *, "WRFDA DEBUG: lons2d_negative_range=", lons2d_negative_range, " olon_positive_range=", olon_positive_range
-    print *, "WRFDA DEBUG: olon_converted=", olon_converted
-    print *, "WRFDA DEBUG: lons2d_min=", lons2d_min, " lons2d_max=", lons2d_max
-    print *, "WRFDA DEBUG: lats2d_min=", lats2d_min, " lats2d_max=", lats2d_max
-    print *, "WRFDA DEBUG: olat=", olat
     ! First, check if observation is outside the domain bounds
     ! This mimics WRFDA's da_llxy boundary checking logic
     ! Use converted longitude and actual min/max values for boundary checking
@@ -924,7 +826,6 @@ contains
     
     ! Use module-level kts and kte from da_control (set by da_copy_tile_dims)
     ! kts and kte are already defined in da_control module
-    print *, "WRFDA DEBUG: da_to_zk using module-level kts=", kts, " kte=", kte
     
     ! First, check if observation is outside the vertical domain bounds
     ! This mimics WRFDA's boundary checking logic
@@ -938,9 +839,6 @@ contains
       levels_max = max(levels_max, levels(k))
     end do
     
-    print *, "WRFDA DEBUG: levels_min=", levels_min, " levels_max=", levels_max
-    print *, "WRFDA DEBUG: olev=", olev
-    
     ! CRITICAL FIX: Check if this is a surface observation BEFORE domain checking
     ! Surface observations are identified by:
     ! 1. Pressure > 100 hPa (surface pressure range)
@@ -949,18 +847,14 @@ contains
     if (olev > 100.0_c_double) then
       ! This is a surface pressure observation (e.g., 1015.5 hPa)
       ! WRFDA ALWAYS places surface obs at k=1 with no vertical interpolation
-      print *, "WRFDA DEBUG: Surface pressure observation detected: ", olev, " hPa"
       ok = kts  ! k=1 (surface level)
       zkfloat = real(kts, c_double)  ! No fractional part
-      print *, "WRFDA DEBUG: Surface obs: k=", ok, " zkfloat=", zkfloat
       return
     else if (olev >= 0.99_c_double) then
       ! This is a surface sigma level observation (close to 1.0)
       ! WRFDA ALWAYS places surface obs at k=1 with no vertical interpolation
-      print *, "WRFDA DEBUG: Surface sigma level observation detected: ", olev
       ok = kts  ! k=1 (surface level)
       zkfloat = real(kts, c_double)  ! No fractional part
-      print *, "WRFDA DEBUG: Surface obs: k=", ok, " zkfloat=", zkfloat
       return
     end if
     
@@ -969,7 +863,6 @@ contains
     if (olev < levels_min .or. olev > levels_max) then
       outside_domain = .true.
     end if
-    print *, "WRFDA DEBUG: outside_domain=", outside_domain
     
     if (outside_domain) then
       ! Observation is outside vertical domain - follow WRFDA standard pattern
@@ -1067,8 +960,6 @@ contains
       zkfloat = real(kts, c_double)
     end if
     
-    print *, "WRFDA DEBUG: Final ok=", ok, " zkfloat=", zkfloat
-    print *, "WRFDA DEBUG: Calculated dz=", dz, " dzm=", dzm
   end subroutine find_fractional_k
 
   ! Update only analysis increments (xa) for incremental 3D-Var
@@ -1083,8 +974,6 @@ contains
     ny = persistent_grid%xp%jde - persistent_grid%xp%jds + 1
     nz = persistent_grid%xp%kde - persistent_grid%xp%kds + 1
     
-    print *, "WRFDA DEBUG: Updating analysis increments for grid size:", nx, "x", ny, "x", nz
-    
     ! Update only the xa fields (analysis increments)
     do k=1,nz; do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
@@ -1098,7 +987,6 @@ contains
       persistent_grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx))
     end do; end do
     
-    print *, "WRFDA DEBUG: Analysis increments updated successfully"
   end subroutine wrfda_update_analysis_increments
 
   ! Get available observation families from iv structure
@@ -1111,11 +999,8 @@ contains
     character(len=20) :: family_name
     character(len=256) :: families_string
     
-    print *, "WRFDA DEBUG: Getting available observation families from iv structure"
-    
     ! Check if iv structure is available
     if (.not. iv_allocated .or. .not. associated(persistent_iv)) then
-      print *, "WRFDA DEBUG: iv structure not available - no families found"
       families_string = ""
       buffer_size = 0
       wrfda_get_available_families = 0
@@ -1150,8 +1035,6 @@ contains
           family_name = "unknown"
         end select
         
-        print *, "WRFDA DEBUG: Found family '", trim(family_name), "' with", persistent_iv%info(family_index)%nlocal, "observations"
-        
         ! Add family name to string (comma-separated)
         if (len_trim(families_string) > 0) then
           families_string = trim(families_string) // ","
@@ -1159,8 +1042,6 @@ contains
         families_string = trim(families_string) // trim(family_name)
       end if
     end do
-    
-    print *, "WRFDA DEBUG: Available families: '", trim(families_string), "'"
     
     ! Copy to C buffer
     do i = 1, min(len_trim(families_string), buffer_size - 1)
@@ -1171,7 +1052,6 @@ contains
     buffer_size = len_trim(families_string) + 1
     wrfda_get_available_families = 0
     
-    print *, "WRFDA DEBUG: Successfully returned", buffer_size - 1, "characters of family data"
   end function wrfda_get_available_families
 
   ! CRITICAL FIX: Add subroutine to update only data arrays without reconstructing grid structure
@@ -1182,7 +1062,6 @@ contains
     integer :: i,j,k, nz1
     
     nz1 = max(1, nz)
-    print *, "WRFDA DEBUG: update_domain_data: updating data arrays only"
     
     ! Update only the data arrays, not the grid structure
     do k=1,nz1; do j=1,ny; do i=1,nx
@@ -1202,7 +1081,6 @@ contains
     grid%xb%q = grid%xa%q
     grid%xb%psfc = grid%xa%psfc
     
-    print *, "WRFDA DEBUG: update_domain_data completed"
   end subroutine update_domain_data
 
   ! New function to call da_get_innov_vector directly
@@ -1230,18 +1108,7 @@ contains
     num_qcstat_conv = 0
     
     ! Call the main WRFDA innovation vector computation routine
-    print *, "WRFDA DEBUG: About to call da_get_innov_vector"
-    print *, "WRFDA DEBUG: Before da_get_innov_vector - U inv =", iv%synop(1)%u%inv
-    print *, "WRFDA DEBUG: Before da_get_innov_vector - V inv =", iv%synop(1)%v%inv
-    print *, "WRFDA DEBUG: Before da_get_innov_vector - U QC =", iv%synop(1)%u%qc
-    print *, "WRFDA DEBUG: Before da_get_innov_vector - V QC =", iv%synop(1)%v%qc
-    print *, "WRFDA DEBUG: Before da_get_innov_vector - ob%synop(1)%u =", ob%synop(1)%u
-    print *, "WRFDA DEBUG: Before da_get_innov_vector - ob%synop(1)%v =", ob%synop(1)%v
-    print *, "WRFDA DEBUG: missing_r =", missing_r
     call da_get_innov_vector(it, num_qcstat_conv, ob, iv, grid, config_flags)
-    print *, "WRFDA DEBUG: After da_get_innov_vector - U inv =", iv%synop(1)%u%inv
-    print *, "WRFDA DEBUG: After da_get_innov_vector - V inv =", iv%synop(1)%v%inv
-    print *, "WRFDA DEBUG: da_get_innov_vector completed successfully"
 
     ! Clean up allocated config_flags
     deallocate(config_flags)
@@ -1260,30 +1127,15 @@ contains
     ! Initialize return code
     initialize_wrfda_module_variables = 0
     
-    ! Debug: Check if grid structure is properly initialized
-    print *, "WRFDA DEBUG: initialize_wrfda_module_variables - checking grid structure"
-    print *, "WRFDA DEBUG: grid%id=", grid%id
-    print *, "WRFDA DEBUG: grid%num_tiles=", grid%num_tiles
-    if (grid%num_tiles > 0) then
-      print *, "WRFDA DEBUG: grid%i_start(1)=", grid%i_start(1), " grid%i_end(1)=", grid%i_end(1)
-      print *, "WRFDA DEBUG: grid%j_start(1)=", grid%j_start(1), " grid%j_end(1)=", grid%j_end(1)
-    end if
-    
     ! CRITICAL FIX: Initialize WRFDA module-level variables
-    print *, "WRFDA DEBUG: Calling da_copy_dims to set up module-level grid bounds"
     call da_copy_dims(grid)
-    print *, "WRFDA DEBUG: da_copy_dims completed"
      
     ! CRITICAL FIX: Call da_copy_tile_dims to set up module-level tile bounds
     ! This ensures that kts, kte, its, ite, jts, jte are properly set
-    print *, "WRFDA DEBUG: Calling da_copy_tile_dims to set up module-level tile bounds"
     call da_copy_tile_dims(grid)
-    print *, "WRFDA DEBUG: da_copy_tile_dims completed"
-    print *, "WRFDA DEBUG: Module-level kts=", kts, " kte=", kte, " its=", its, " ite=", ite, " jts=", jts, " jte=", jte
-     
-    print *, "WRFDA DEBUG: Setting sfc_assi_options"
+    call da_copy_tile_dims(grid)
     sfc_assi_options = sfc_assi_options_1
-    print *, "WRFDA DEBUG: sfc_assi_options set to", sfc_assi_options
+    sfc_assi_options = sfc_assi_options_1
     
   end function initialize_wrfda_module_variables
 
@@ -1299,81 +1151,51 @@ contains
     integer :: i, j, k, idx, idx_3d
     integer :: staggered_nz  ! Height field has nz+1 vertical levels
 
-    print *, "WRFDA DEBUG: wrfda_construct_domain_from_arrays called"
-    print *, "WRFDA DEBUG: nx=", nx, " ny=", ny, " nz=", nz
-    print *, "WRFDA DEBUG: grid_initialized=", grid_initialized
-
     ! Allocate new domain structure
     if (.not.grid_initialized) then
-      print *, "WRFDA DEBUG: FIRST ALLOCATION - Allocating persistent_grid"
       allocate(persistent_grid)
-      print *, "WRFDA DEBUG: FIRST ALLOCATION - persistent_grid allocated successfully"
       grid => persistent_grid
-      print *, "WRFDA DEBUG: FIRST ALLOCATION - grid pointer set"
       grid_initialized = .true.
-      print *, "WRFDA DEBUG: FIRST ALLOCATION - grid_initialized set to true"
     else
-      print *, "WRFDA DEBUG: REUSE - Using existing persistent_grid"
-      print *, "WRFDA DEBUG: REUSE - Checking if persistent_grid is associated"
       if (associated(persistent_grid)) then
-        print *, "WRFDA DEBUG: REUSE - persistent_grid is properly associated"
         grid => persistent_grid
-        print *, "WRFDA DEBUG: REUSE - grid pointer set to existing persistent_grid"
       else
-        print *, "WRFDA DEBUG: REUSE ERROR - persistent_grid is NOT associated!"
-        print *, "WRFDA DEBUG: REUSE ERROR - Reallocating persistent_grid"
         allocate(persistent_grid)
         grid => persistent_grid
         grid_initialized = .true.
       end if
     end if
 
-    print *, "WRFDA DEBUG: Setting up basic domain parameters"
     ! Temporary constant for METADA - should be imported from WRFDA constants
     Max_StHeight_Diff = 100.0
-    print *, "WRFDA DEBUG: Max_StHeight_Diff set to", Max_StHeight_Diff
 
     ! Set up basic domain dimensions
     grid%id = 1
-    print *, "WRFDA DEBUG: grid%id set to", grid%id
     
     ! Initialize domain clock (required for WRFDA time management)
     ! Set domain_clock_created to false initially
     grid%domain_clock_created = .false.
-    print *, "WRFDA DEBUG: grid%domain_clock_created set to false"
     
     ! Height field is vertically staggered with nz+1 levels
     staggered_nz = nz + 1
-    print *, "WRFDA DEBUG: staggered_nz set to", staggered_nz
     
     ! Allocate PH and PHB fields (vertically staggered with nz+1 levels)
-    print *, "WRFDA DEBUG: About to allocate PH and PHB fields"
-    print *, "WRFDA DEBUG: PH allocation size: nx=", nx, " ny=", ny, " staggered_nz=", staggered_nz
     
     allocate(grid%ph_2(1:nx, 1:ny, 1:staggered_nz))
-    print *, "WRFDA DEBUG: grid%ph_2 allocated successfully"
     allocate(grid%phb(1:nx, 1:ny, 1:staggered_nz))
-    print *, "WRFDA DEBUG: grid%phb allocated successfully"
     
     ! Store vertical levels information (used for vertical interpolation)
     ! The levels array contains the vertical level values for the model
     ! This is used by WRFDA for vertical interpolation and coordinate conversion
     ! Reference the levels array to prevent unused argument warning
-    print *, "WRFDA DEBUG: Checking vertical levels array"
-    if (levels(1) > 0.0) then
-      ! This will execute and shows that levels array is being used
-      print *, "WRFDA DEBUG: Using vertical levels array with first level =", levels(1)
-    end if
     
     ! Set up grid processor dimensions (required for da_copy_tile_dims)
-    print *, "WRFDA DEBUG: Setting up grid processor dimensions"
     grid%xp%kds = 1        ! Start of vertical domain
     grid%xp%kde = nz       ! End of vertical domain (mass variables)
     grid%xp%ids = 1        ! Start of i domain
     grid%xp%ide = nx       ! End of i domain
     grid%xp%jds = 1        ! Start of j domain
     grid%xp%jde = ny       ! End of j domain
-    print *, "WRFDA DEBUG: Grid processor dimensions set: kds=", grid%xp%kds, " kde=", grid%xp%kde, " ids=", grid%xp%ids, " ide=", grid%xp%ide, " jds=", grid%xp%jds, " jde=", grid%xp%jde
     
     ! Set up tile dimensions (single tile for now)
     grid%num_tiles = 1
@@ -1487,13 +1309,11 @@ contains
 
     ! Allocate xa fields (analysis increments) and initialize to zero
     ! For adjoint operator, xa starts at zero and gradients are accumulated in jo_grad_x
-    print *, "WRFDA DEBUG: Allocating xa fields (analysis increments) for adjoint"
     allocate(grid%xa%u(1:nx,1:ny,1:nz)); grid%xa%u = 0.0
     allocate(grid%xa%v(1:nx,1:ny,1:nz)); grid%xa%v = 0.0
     allocate(grid%xa%t(1:nx,1:ny,1:nz)); grid%xa%t = 0.0
     allocate(grid%xa%q(1:nx,1:ny,1:nz)); grid%xa%q = 0.0
     allocate(grid%xa%psfc(1:nx,1:ny)); grid%xa%psfc = 0.0
-    print *, "WRFDA DEBUG: xa fields allocated and initialized to zero for adjoint"
 
     wrfda_construct_domain_from_arrays = 0
     
@@ -1514,11 +1334,9 @@ contains
     character(len=20) :: family_str
     character(c_char), target :: family_target(20)
     
-    print *, "WRFDA DEBUG: wrfda_construct_y_type called with num_obs=", num_obs, "num_levels=", num_levels
     
     ! Check if num_obs is valid
     if (num_obs <= 0 .or. num_levels <= 0) then
-      print *, "WRFDA DEBUG: Invalid num_obs or num_levels =", num_obs, num_levels
       wrfda_construct_y_type = c_null_ptr
       return
     end if
@@ -1535,9 +1353,6 @@ contains
     if (.not. y_allocated) then
       allocate(persistent_y)
       y_allocated = .true.
-      print *, "WRFDA DEBUG: persistent y structure allocated"
-    else
-      print *, "WRFDA DEBUG: persistent y structure already allocated"
     end if
     
     ! Point local y to persistent structure
@@ -1618,12 +1433,10 @@ contains
         end if
       end do
       
-      print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
     end if
     
     ! Return pointer to persistent y_type
     wrfda_construct_y_type = c_loc(persistent_y)
-    print *, "WRFDA DEBUG: y_type constructed successfully"
     
   end function wrfda_construct_y_type
 
@@ -1648,35 +1461,28 @@ contains
     
     ! Use global persistent iv structure
     
-    print *, "WRFDA DEBUG: wrfda_construct_iv_type called with num_obs=", num_obs, "num_levels=", num_levels
     
     ! Convert domain pointer to grid pointer
     grid => persistent_grid
     
     ! Check if num_obs is valid
     if (num_obs <= 0 .or. num_levels <= 0) then
-      print *, "WRFDA DEBUG: Invalid num_obs or num_levels =", num_obs, num_levels
       wrfda_construct_iv_type = c_null_ptr
       return
     end if
     
     ! Now implement the actual iv_type construction
-    print *, "WRFDA DEBUG: Starting iv_type construction"
     
     ! Allocate iv_type
     ! Allocate persistent iv structure if not already allocated
     if (.not. iv_allocated) then
       allocate(persistent_iv)
       iv_allocated = .true.
-      print *, "WRFDA DEBUG: persistent iv structure allocated"
-    else
-      print *, "WRFDA DEBUG: using existing persistent iv structure"
     end if
     
     ! Point local iv to persistent structure
     iv => persistent_iv
     if (.not. associated(iv)) then
-      print *, "WRFDA DEBUG: Failed to associate iv pointer"
       wrfda_construct_iv_type = c_null_ptr
       return
     end if
@@ -1715,15 +1521,10 @@ contains
       ! Check if synop array is already associated
       if (.not. associated(iv%synop)) then
         allocate(iv%synop(num_obs))
-        print *, "WRFDA DEBUG: Allocated synop array with", num_obs, "observations"
       else
         ! Check if the existing array has the right size
         if (size(iv%synop) /= num_obs) then
-          print *, "WRFDA DEBUG: Reallocating synop array from size", size(iv%synop), "to", num_obs
           allocate(iv%synop(num_obs))
-          print *, "WRFDA DEBUG: Reallocated synop array with", num_obs, "observations"
-        else
-          print *, "WRFDA DEBUG: synop array already associated with correct size =", size(iv%synop)
         end if
       end if
       
@@ -1731,13 +1532,7 @@ contains
     ! Use kms:kme for vertical dimension to match WRFDA expectations
     iv%info(2)%max_lev = 1  ! Surface observations have max_lev = 1
     
-    ! Check if arrays are already allocated before allocating
-    print *, "WRFDA DEBUG: About to check/allocate interpolation arrays"
-    print *, "WRFDA DEBUG: kms=", kms, " kme=", kme, " num_obs=", num_obs
-    print *, "WRFDA DEBUG: Array bounds will be: (", kms, ":", kme, ", 1:", num_obs, ")"
-    
     if (.not. allocated(iv%info(2)%i)) then
-      print *, "WRFDA DEBUG: Allocating interpolation arrays..."
       allocate(iv%info(2)%i(kms:kme, num_obs))
       allocate(iv%info(2)%j(kms:kme, num_obs))
       allocate(iv%info(2)%dx(kms:kme, num_obs))
@@ -1750,11 +1545,6 @@ contains
       allocate(iv%info(2)%dzm(kms:kme, num_obs))
       allocate(iv%info(2)%levels(num_obs))
       allocate(iv%info(2)%proc_domain(kms:kme, num_obs))
-      print *, "WRFDA DEBUG: Allocated interpolation arrays for", num_obs, "observations"
-      print *, "WRFDA DEBUG: dym array allocated with bounds: lbound=", lbound(iv%info(2)%dym), " ubound=", ubound(iv%info(2)%dym)
-    else
-      print *, "WRFDA DEBUG: Interpolation arrays already allocated"
-      print *, "WRFDA DEBUG: Existing dym array bounds: lbound=", lbound(iv%info(2)%dym), " ubound=", ubound(iv%info(2)%dym)
     end if
       
       ! Allocate observation metadata arrays
@@ -1765,9 +1555,6 @@ contains
         allocate(iv%info(2)%date_char(num_obs))
         allocate(iv%info(2)%lat(1, num_obs))
         allocate(iv%info(2)%lon(1, num_obs))
-        print *, "WRFDA DEBUG: Allocated metadata arrays for", num_obs, "observations"
-      else
-        print *, "WRFDA DEBUG: Metadata arrays already allocated"
       end if
       
       ! Populate synop data
@@ -1777,12 +1564,10 @@ contains
         
         ! Set up field_type members for u, v, t, p, q only if available
         if (u_available(i) == 1) then
-          print *, "WRFDA DEBUG: Observed U value for obs", i, "=", u_values(i)
           iv%synop(i)%u%inv = u_values(i)
           iv%synop(i)%u%qc = u_qc(i)
           iv%synop(i)%u%error = u_errors(i)
         else
-          print *, "WRFDA DEBUG: U not available for obs", i
           iv%synop(i)%u%inv = missing_r  ! WRFDA standard missing value
           iv%synop(i)%u%qc = missing_data  ! WRFDA standard missing data QC flag
           iv%synop(i)%u%error = 1.0
@@ -1791,12 +1576,10 @@ contains
         iv%synop(i)%u%imp = 0.0
         
         if (v_available(i) == 1) then
-          print *, "WRFDA DEBUG: Observed V value for obs", i, "=", v_values(i)
           iv%synop(i)%v%inv = v_values(i)
           iv%synop(i)%v%qc = v_qc(i)
           iv%synop(i)%v%error = v_errors(i)
         else
-          print *, "WRFDA DEBUG: V not available for obs", i
           iv%synop(i)%v%inv = missing_r  ! WRFDA standard missing value
           iv%synop(i)%v%qc = missing_data  ! WRFDA standard missing data QC flag
           iv%synop(i)%v%error = 1.0
@@ -1889,7 +1672,6 @@ contains
         ! Note: We need to use the map projection information that was initialized
         ! in the C++ code before calling this function
         call da_llxy_wrf(map_info, obs_lat, obs_lon, grid_x, grid_y)
-        print *, "WRFDA DEBUG: obs_lat, obs_lon, grid_x, grid_y =", obs_lat, obs_lon, grid_x, grid_y
         
         ! Convert grid coordinates to fractional indices using WRFDA's da_togrid
         ! da_togrid(x, ib, ie, i, dx, dxm) - converts x coordinate to grid index i
@@ -1926,7 +1708,6 @@ contains
       
     end if
     
-    print *, "WRFDA DEBUG: iv_type construction completed successfully"
     wrfda_construct_iv_type = c_loc(persistent_iv)
     
     ! Convert C string to Fortran string
@@ -1947,8 +1728,6 @@ contains
     ! In a full implementation, this would create a proper grid_config_rec_type
     ! with all the necessary WRFDA configuration parameters
     
-    print *, "WRFDA DEBUG: wrfda_construct_config_flags called"
-    print *, "WRFDA DEBUG: Returning null config_flags (simplified implementation)"
     
     wrfda_construct_config_flags = c_null_ptr
     
@@ -1965,26 +1744,21 @@ contains
     integer :: i, count
     integer :: family_index
     
-    print *, "WRFDA DEBUG: wrfda_count_innovations called"
-    
     ! Convert C string to Fortran string
     family_str = ""
     do i = 1, 20
       if (family(i) == c_null_char) exit
       family_str(i:i) = family(i)
     end do
-    print *, "WRFDA DEBUG: Converted family string: '", trim(family_str), "'"
     
     ! Use global persistent iv structure
     if (.not. iv_allocated) then
-      print *, "WRFDA DEBUG: iv structure not allocated - returning 0 innovations"
       num_innovations = 0
       wrfda_count_innovations = 0
       return
     end if
     
     if (.not. associated(persistent_iv)) then
-      print *, "WRFDA DEBUG: persistent_iv not associated - returning 0 innovations"
       num_innovations = 0
       wrfda_count_innovations = 0
       return
@@ -1992,7 +1766,6 @@ contains
     
     ! Point local iv to global persistent structure
     iv => persistent_iv
-    print *, "WRFDA DEBUG: Using global persistent iv structure"
     
     ! Determine family index
     family_index = 0
@@ -2027,16 +1800,12 @@ contains
           count = count + 1
         end if
       end do
-      print *, "WRFDA DEBUG: Counted", count, "innovations from synop array (all variables with good QC)"
     else
-      print *, "WRFDA DEBUG: No data available for family:", trim(family_str)
       count = 0
     end if
     
     num_innovations = count
     wrfda_count_innovations = 0
-    
-    print *, "WRFDA DEBUG: Successfully counted", num_innovations, "innovations"
     
   end function wrfda_count_innovations
 
@@ -2052,26 +1821,21 @@ contains
     integer :: i, count
     integer :: family_index
     
-    print *, "WRFDA DEBUG: wrfda_extract_innovations called"
-    
     ! Convert C string to Fortran string
     family_str = ""
     do i = 1, 20
       if (family(i) == c_null_char) exit
       family_str(i:i) = family(i)
     end do
-    print *, "WRFDA DEBUG: Converted family string: '", trim(family_str), "'"
     
     ! Use global persistent iv structure instead of converting iv_ptr
     if (.not. iv_allocated) then
-      print *, "WRFDA DEBUG: iv structure not allocated - returning empty innovations"
       num_innovations = 0
       wrfda_extract_innovations = 0
       return
     end if
     
     if (.not. associated(persistent_iv)) then
-      print *, "WRFDA DEBUG: persistent_iv not associated - returning empty innovations"
       num_innovations = 0
       wrfda_extract_innovations = 0
       return
@@ -2079,54 +1843,30 @@ contains
     
     ! Point local iv to global persistent structure
     iv => persistent_iv
-    print *, "WRFDA DEBUG: Using global persistent iv structure"
-    print *, "WRFDA DEBUG: iv%time =", iv%time
     
     ! Determine family index (simplified mapping)
     family_index = 0
-    print *, "WRFDA DEBUG: Determining family index for: '", trim(family_str), "'"
     
     if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
       family_index = 2  ! synop index (metar uses synop structure)
-      print *, "WRFDA DEBUG: Matched synop family, family_index =", family_index
     else if (trim(family_str) == "sound") then
       family_index = 3  ! sound index
-      print *, "WRFDA DEBUG: Matched sound family, family_index =", family_index
     else if (trim(family_str) == "gpspw") then
       family_index = 4  ! gpspw index
-      print *, "WRFDA DEBUG: Matched gpspw family, family_index =", family_index
-    else
-      print *, "WRFDA DEBUG: No family match found for: '", trim(family_str), "'"
-    end if
-    
-    ! Check bounds
-    if (family_index > 0 .and. family_index <= size(iv%info)) then
-      print *, "WRFDA DEBUG: family_index", family_index, "is within bounds"
-    else
-      print *, "WRFDA DEBUG: family_index", family_index, "is out of bounds (max:", size(iv%info), ")"
     end if
     
     if (family_index == 0) then
-      print *, "WRFDA DEBUG: Unknown family:", trim(family_str)
       wrfda_extract_innovations = -2
       return
     end if
     
     ! Extract innovations based on family
     count = 0
-    print *, "WRFDA DEBUG: family_index =", family_index
-    print *, "WRFDA DEBUG: associated(iv%synop) =", associated(iv%synop)
-    if (family_index == 2) then
-      print *, "WRFDA DEBUG: iv%info(2)%nlocal =", iv%info(2)%nlocal
-    end if
     
     if (family_index == 2 .and. family_index <= size(iv%info) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
       ! Extract from synop array (all variables with good QC only)
-      print *, "WRFDA DEBUG: Extracting from synop array with", iv%info(2)%nlocal, "observations (all variables with good QC)"
       do i = 1, iv%info(2)%nlocal
-        print *, "WRFDA DEBUG: Processing observation", i, "of", iv%info(2)%nlocal
         if (i > size(iv%synop)) then
-          print *, "WRFDA DEBUG: Index", i, "exceeds synop array size", size(iv%synop)
           exit
         end if
         
@@ -2134,49 +1874,40 @@ contains
         if (iv%synop(i)%u%qc >= 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%u%inv
-          print *, "WRFDA DEBUG: Extracted U innovation:", innovations(count)
         end if
         
         ! Extract V component innovation if QC is good and innovation is non-zero
         if (iv%synop(i)%v%qc >= 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%v%inv
-          print *, "WRFDA DEBUG: Extracted V innovation:", innovations(count)
         end if
         
         ! Extract T component innovation if QC is good and innovation is non-zero
         if (iv%synop(i)%t%qc >= 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%t%inv
-          print *, "WRFDA DEBUG: Extracted T innovation:", innovations(count)
         end if
         
         ! Extract P component innovation if QC is good and innovation is non-zero
         if (iv%synop(i)%p%qc >= 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%p%inv
-          print *, "WRFDA DEBUG: Extracted P innovation:", innovations(count)
         end if
         
         ! Extract Q component innovation if QC is good and innovation is non-zero
         if (iv%synop(i)%q%qc >= 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%q%inv
-          print *, "WRFDA DEBUG: Extracted Q innovation:", innovations(count)
         end if
         
       end do
       
-      print *, "WRFDA DEBUG: Extracted", count, "innovations from synop array (all variables with good QC)"
     else
-      print *, "WRFDA DEBUG: No data available for family:", trim(family_str)
       count = 0
     end if
     
     num_innovations = count
     wrfda_extract_innovations = 0
-    
-    print *, "WRFDA DEBUG: Successfully extracted", num_innovations, "innovations"
     
   end function wrfda_extract_innovations
 
@@ -2192,11 +1923,6 @@ contains
     num_fgat_time = 1
     sfc_assi_options = sfc_assi_options_1
     
-    print *, "WRFDA DEBUG: Initialized for 3D-Var analysis"
-    print *, "WRFDA DEBUG: var4d_run = ", var4d_run
-    print *, "WRFDA DEBUG: num_fgat_time = ", num_fgat_time
-    print *, "WRFDA DEBUG: sfc_assi_options = ", sfc_assi_options
-    
   end subroutine initialize_wrfda_3dvar
   
   ! C-callable function to initialize map projection with grid parameters
@@ -2209,9 +1935,6 @@ contains
       ! Initialize map projection using WRFDA's da_map_set function
       call da_map_set(map_proj, 28.1562, -93.6489, 1.0, 1.0, dx, stand_lon, truelat1, truelat2, 0.26290, 0.26290, map_info)
       map_info_initialized = .true.
-      print *, "WRFDA DEBUG: Map projection initialized using da_map_set"
-      print *, "WRFDA DEBUG: Projection code = ", map_info%code
-      print *, "WRFDA DEBUG: Center lat/lon = ", cen_lat, cen_lon
     end if
   end subroutine initialize_map_projection_c
 
@@ -2229,7 +1952,6 @@ contains
     if (.not. wrfu_initialized) then
       call wrfu_initialize(defaultCalKind=wrfu_cal_gregorian)
       wrfu_initialized = .true.
-      print *, "WRFDA DEBUG: WRFU initialized for domain clock"
     end if
     
     ! Set a default analysis time for the domain clock
@@ -2257,7 +1979,6 @@ contains
     ! Set the domain_clock_created flag to true
     grid%domain_clock_created = .true.
     
-    print *, "WRFDA DEBUG: Domain clock initialized with time = ", trim(timestr)
   end subroutine initialize_domain_clock
 
 end module metada_wrfda_dispatch

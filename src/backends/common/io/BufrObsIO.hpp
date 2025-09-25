@@ -471,9 +471,6 @@ class BufrObsIO {
           }
         }
         double value = getEvnsValue(tempEvns_, 1, lv, ievn + 1, kk);
-        std::cout << "BUFR DEBUG: Level " << lv << ", Variable " << kk << " ("
-                  << types[kk - 1] << "), Value = " << value
-                  << ", isValid = " << isValidValue(value) << std::endl;
         if (isValidValue(value)) {
           ObsLevelRecord level_record;
           level_record.type = types[kk - 1];

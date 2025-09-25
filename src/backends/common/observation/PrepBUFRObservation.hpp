@@ -458,12 +458,6 @@ class PrepBUFRObservation {
           }
         }
 
-        // Debug output for understanding why no observations were found
-        std::cout << "  Debug: Records processed: " << records_processed
-                  << ", Records filtered out: " << records_filtered
-                  << ", Levels processed: " << levels_processed
-                  << ", Variables found: " << variables_found << std::endl;
-
         // Count unique locations by grouping observations by location
         std::set<std::string> unique_locations;
         for (const auto& [var_name, var_indices] :
