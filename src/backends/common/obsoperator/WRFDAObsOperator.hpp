@@ -364,7 +364,7 @@ class WRFDAObsOperator {
 
     int rc = wrfda_construct_domain_from_arrays(&nx, &ny, &nz, u_final, v_final,
                                                 t, q, psfc, ph, phb, hf, hgt, p,
-                                                pb, lats_2d, lons_2d, levels);
+                                                pb, lats_2d, lons_2d);
 
     if (rc != 0) {
       throw std::runtime_error(
@@ -1139,7 +1139,7 @@ class WRFDAObsOperator {
         const_cast<int*>(t_available.data()),
         const_cast<int*>(p_available.data()),
         const_cast<int*>(q_available.data()), const_cast<double*>(lats.data()),
-        const_cast<double*>(lons.data()), const_cast<double*>(levels.data()),
+        const_cast<double*>(lons.data()),
         const_cast<char*>(obs_types_flat.c_str()),
         const_cast<char*>(family.c_str()));
 

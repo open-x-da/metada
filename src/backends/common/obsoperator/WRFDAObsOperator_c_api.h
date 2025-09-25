@@ -65,20 +65,17 @@ int wrfda_construct_domain_from_arrays(
     const double* v, const double* t, const double* q, const double* psfc,
     const double* ph, const double* phb, const double* hf, const double* hgt,
     const double* p, const double* pb, const double* lats2d,
-    const double* lons2d, const double* levels);
+    const double* lons2d);
 
 // Construct y_type from observation data
-void* wrfda_construct_y_type(int* num_obs, int* num_levels,
-                             const double* u_values, const double* v_values,
-                             const double* t_values, const double* p_values,
-                             const double* q_values, const double* u_errors,
-                             const double* v_errors, const double* t_errors,
-                             const double* p_errors, const double* q_errors,
-                             const int* u_available, const int* v_available,
-                             const int* t_available, const int* p_available,
-                             const int* q_available, const double* lats,
-                             const double* lons, const double* levels,
-                             const char* obs_types, const char* family);
+void* wrfda_construct_y_type(
+    int* num_obs, int* num_levels, const double* u_values,
+    const double* v_values, const double* t_values, const double* p_values,
+    const double* q_values, const double* u_errors, const double* v_errors,
+    const double* t_errors, const double* p_errors, const double* q_errors,
+    const int* u_available, const int* v_available, const int* t_available,
+    const int* p_available, const int* q_available, const double* lats,
+    const double* lons, const char* obs_types, const char* family);
 
 // Construct iv_type from observation data
 void* wrfda_construct_iv_type(

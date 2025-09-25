@@ -292,6 +292,12 @@ contains
     case default; fam_str = "unknown"
     end select
     
+    ! Validate input parameters
+    if (num_obs <= 0) then
+      wrfda_xtoy_adjoint_grid = 1_c_int
+      return
+    end if
+    
     ! iv structure is already set up before calling this function
     ! No need to reinitialize it here
     ! jo_grad_y structure is already allocated before calling this function
@@ -299,6 +305,12 @@ contains
     ! Calculate number of innovations from observations
     ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
     if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
+      ! Validate that num_obs matches the actual number of observations in iv structure
+      if (persistent_iv%info(2)%nlocal /= num_obs) then
+        wrfda_xtoy_adjoint_grid = 1_c_int
+        return
+      end if
+      
       ! Count actual innovations from the iv structure
       num_innovations = 0
       do n = 1, persistent_iv%info(2)%nlocal
@@ -325,128 +337,7 @@ contains
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
 
-  ! Enhanced function to construct iv_type with detailed observation information
-  subroutine init_iv_from_enhanced_obs(family, iv, nx, ny, nz, lats2d, lons2d, levels, num_obs, obs_lats, obs_lons, obs_levels, obs_values, obs_errors, obs_types, obs_station_ids, obs_elevations, obs_pressures, obs_heights, obs_qc_flags, obs_usage_flags, obs_time_offsets)
-    integer, intent(in) :: family
-    type(iv_type), intent(inout) :: iv
-    integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
-    integer, intent(in) :: num_obs
-    real(c_double), intent(in) :: obs_lats(*), obs_lons(*), obs_levels(*)
-    real(c_double), intent(in) :: obs_values(*), obs_errors(*)
-    character(c_char), intent(in) :: obs_types(*), obs_station_ids(*)
-    real(c_double), intent(in) :: obs_elevations(*), obs_pressures(*), obs_heights(*)
-    integer(c_int), intent(in) :: obs_qc_flags(*), obs_usage_flags(*)
-    real(c_double), intent(in) :: obs_time_offsets(*)
-    
-    integer :: n, i, j, k
-    real(c_double) :: xfloat, yfloat, zkfloat
-    integer :: valid_obs_count
-    
-    ! Suppress unused argument warnings for parameters not currently used
-    if (obs_types(1) == c_null_char .and. obs_station_ids(1) == c_null_char .and. obs_time_offsets(1) < 0.0) then
-      ! This will never execute but prevents unused argument warnings
-      continue
-    end if
-    
-    ! Initialize ALL observation families to prevent memory issues
-    iv%info(:)%nlocal = 0
-    iv%info(:)%ntotal = 0
-    iv%info(:)%max_lev = 1
-    iv%time = 1
-    
-    ! Initialize instrument-related fields
-    iv%num_inst = 0
-    iv%total_rad_pixel = 0
-    iv%total_rad_channel = 0
-    nullify(iv%instid)
-    
-    ! Count valid observations (those within domain and with good QC)
-    valid_obs_count = 0
-    do n = 1, num_obs
-      call find_fractional_ij(nx, ny, lats2d, lons2d, obs_lats(n), obs_lons(n), i, j, xfloat, yfloat)
-      if (i /= -1 .and. j /= -1 .and. obs_qc_flags(n) >= 0 .and. obs_usage_flags(n) > 0) then
-        valid_obs_count = valid_obs_count + 1
-      end if
-    end do
-    
-    ! Set the actual family we want to use
-    iv%info(family)%nlocal = valid_obs_count
-    iv%info(family)%ntotal = valid_obs_count
-    iv%info(family)%max_lev = nz
-    
-    ! Allocate arrays using WRFDA's routine
-    call da_allocate_obs_info(iv, family)
-    
-    ! Set levels array - REMOVED: This conflicts with individual observation level setting
-    ! iv%info(family)%levels = 1
-    
-    ! Initialize grid indices and observation data
-    valid_obs_count = 0
-    do n = 1, num_obs
-      ! Find grid indices
-      call find_fractional_ij(nx, ny, lats2d, lons2d, obs_lats(n), obs_lons(n), i, j, xfloat, yfloat)
-      
-      ! Check for valid observations
-      if (i == -1 .or. j == -1) then
-        cycle
-      end if
-      
-      if (obs_qc_flags(n) < 0) then
-        cycle
-      end if
-      
-      if (obs_usage_flags(n) <= 0) then
-        cycle
-      end if
-      
-      valid_obs_count = valid_obs_count + 1
-      
-      ! Set grid indices for all levels (surface observations)
-      do k = 1, nz
-        iv%info(family)%i(k, valid_obs_count) = i
-        iv%info(family)%j(k, valid_obs_count) = j
-        iv%info(family)%x(k, valid_obs_count) = real(xfloat)
-        iv%info(family)%y(k, valid_obs_count) = real(yfloat)
-        
-        ! Compute proper interpolation weights for bilinear interpolation
-        iv%info(family)%dx(k, valid_obs_count) = real(xfloat - int(xfloat))  ! Fractional part of x
-        iv%info(family)%dxm(k, valid_obs_count) = 1.0 - iv%info(family)%dx(k, valid_obs_count)  ! 1.0 - dx
-        iv%info(family)%dy(k, valid_obs_count) = real(yfloat - int(yfloat))  ! Fractional part of y  
-        iv%info(family)%dym(k, valid_obs_count) = 1.0 - iv%info(family)%dy(k, valid_obs_count)  ! 1.0 - dy
-      end do
-      
-      ! Set vertical interpolation
-      if (nz > 1) then
-        call find_fractional_k(nz, levels, obs_levels(n), k, zkfloat)
-        do k = 1, nz
-          iv%info(family)%k(k, valid_obs_count) = k
-          iv%info(family)%zk(k, valid_obs_count) = real(zkfloat)
-          iv%info(family)%dz(k, valid_obs_count) = zkfloat - real(k, c_double)
-        end do
-      else
-        iv%info(family)%k(1, valid_obs_count) = 1
-        iv%info(family)%zk(1, valid_obs_count) = 1.0
-        iv%info(family)%dz(1, valid_obs_count) = 0.0
-      end if
-      
-      ! Note: The infa_type structure in WRFDA only contains grid interpolation fields
-      ! Observation-specific data (values, errors, QC flags, etc.) are stored in
-      ! separate structures (like synop_type, metar_type, etc.) that are accessed
-      ! by the specific observation operator routines (da_transform_xtoy_synop, etc.)
-      ! 
-      ! The iv%info structure is primarily for grid interpolation information,
-      ! not for storing observation values or metadata.
-      !
-      ! For now, we'll just set the basic grid interpolation fields that are
-      ! actually available in the infa_type structure.
-      !
-      ! The enhanced observation data (values, errors, QC flags, station info)
-      ! would need to be stored in the appropriate observation-specific structures
-      ! (iv%synop, iv%metar, etc.) which are allocated and managed by WRFDA's
-      ! da_allocate_y routine and the specific observation operator routines.
-    end do
-  end subroutine init_iv_from_enhanced_obs
+ 
 
   subroutine init_y_from_delta(family, jo_grad_y, delta_y, num_innovations)
     integer, intent(in) :: family
@@ -1140,12 +1031,12 @@ contains
   end function initialize_wrfda_module_variables
 
   ! Helper function to construct WRFDA domain structure from flat arrays
-  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d, levels) bind(C, name="wrfda_construct_domain_from_arrays")
+  integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d) bind(C, name="wrfda_construct_domain_from_arrays")
     implicit none
     integer(c_int), intent(in) :: nx, ny, nz
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
     real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*), p(*), pb(*)
-    real(c_double), intent(in) :: lats2d(*), lons2d(*), levels(*)
+    real(c_double), intent(in) :: lats2d(*), lons2d(*)
     
     type(domain), pointer :: grid
     integer :: i, j, k, idx, idx_3d
@@ -1184,10 +1075,7 @@ contains
     allocate(grid%ph_2(1:nx, 1:ny, 1:staggered_nz))
     allocate(grid%phb(1:nx, 1:ny, 1:staggered_nz))
     
-    ! Store vertical levels information (used for vertical interpolation)
-    ! The levels array contains the vertical level values for the model
-    ! This is used by WRFDA for vertical interpolation and coordinate conversion
-    ! Reference the levels array to prevent unused argument warning
+
     
     ! Set up grid processor dimensions (required for da_copy_tile_dims)
     grid%xp%kds = 1        ! Start of vertical domain
@@ -1320,13 +1208,13 @@ contains
   end function wrfda_construct_domain_from_arrays
 
   ! Construct y_type from observation data
-  type(c_ptr) function wrfda_construct_y_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, obs_types, family) bind(C, name="wrfda_construct_y_type")
+  type(c_ptr) function wrfda_construct_y_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_available, v_available, t_available, p_available, q_available, lats, lons, obs_types, family) bind(C, name="wrfda_construct_y_type")
     implicit none
     integer(c_int), intent(in) :: num_obs, num_levels
     real(c_double), intent(in) :: u_values(*), v_values(*), t_values(*), p_values(*), q_values(*)
     real(c_double), intent(in) :: u_errors(*), v_errors(*), t_errors(*), p_errors(*), q_errors(*)
     integer(c_int), intent(in) :: u_available(*), v_available(*), t_available(*), p_available(*), q_available(*)
-    real(c_double), intent(in) :: lats(*), lons(*), levels(*)
+    real(c_double), intent(in) :: lats(*), lons(*)
     character(c_char), intent(in) :: obs_types(*), family(*)
     
     type(y_type), pointer :: y
@@ -1401,13 +1289,6 @@ contains
           y%synop(i)%q = q_values(i)
         else
           y%synop(i)%q = missing_r
-        end if
-        
-        ! Reference unused arguments to prevent warnings
-        ! levels array contains vertical level information (used for vertical interpolation)
-        if (i <= num_levels .and. levels(i) > 0.0) then
-          ! Valid level information - used for vertical interpolation
-          continue
         end if
         
         ! lats, lons arrays contain observation location information (used for coordinate conversion)
@@ -1933,7 +1814,8 @@ contains
     
     if (.not. map_info_initialized) then
       ! Initialize map projection using WRFDA's da_map_set function
-      call da_map_set(map_proj, 28.1562, -93.6489, 1.0, 1.0, dx, stand_lon, truelat1, truelat2, 0.26290, 0.26290, map_info)
+      ! Use the provided cen_lat and cen_lon instead of hardcoded values
+      call da_map_set(map_proj, real(cen_lat), real(cen_lon), 1.0, 1.0, real(dx), real(stand_lon), real(truelat1), real(truelat2), 0.26290, 0.26290, map_info)
       map_info_initialized = .true.
     end if
   end subroutine initialize_map_projection_c
