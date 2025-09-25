@@ -291,7 +291,7 @@ contains
     case (8); fam_str = "buoy"
     case default; fam_str = "unknown"
     end select
-    
+
     ! Validate input parameters
     if (num_obs <= 0) then
       wrfda_xtoy_adjoint_grid = 1_c_int
@@ -305,11 +305,6 @@ contains
     ! Calculate number of innovations from observations
     ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
     if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
-      ! Validate that num_obs matches the actual number of observations in iv structure
-      if (persistent_iv%info(2)%nlocal /= num_obs) then
-        wrfda_xtoy_adjoint_grid = 1_c_int
-        return
-      end if
       
       ! Count actual innovations from the iv structure
       num_innovations = 0

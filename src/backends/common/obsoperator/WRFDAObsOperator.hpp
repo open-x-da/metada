@@ -1287,9 +1287,6 @@ class WRFDAObsOperator {
     int rc = wrfda_count_innovations(const_cast<char*>(family.c_str()),
                                      &num_innovations);
 
-    std::cout << "WRFDAObsOperator: Count call returned rc = " << rc
-              << ", num_innovations = " << num_innovations << std::endl;
-
     if (rc != 0 || num_innovations <= 0) {
       std::cerr << "WRFDA: Failed to count innovations with code " << rc
                 << std::endl;
@@ -1302,10 +1299,6 @@ class WRFDAObsOperator {
     // Second call to extract the actual innovations
     rc = wrfda_extract_innovations(const_cast<char*>(family.c_str()),
                                    innovations.data(), &num_innovations);
-
-    std::cout << "WRFDAObsOperator: Extract call returned rc = " << rc
-              << ", extracted " << num_innovations << " innovations"
-              << std::endl;
 
     if (rc != 0) {
       std::cerr << "WRFDA: Failed to extract innovations with code " << rc
