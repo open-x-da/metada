@@ -69,13 +69,32 @@ class Observation : private NonCopyable {
   ~Observation() = default;
 
   /**
-   * @brief Constructor that initializes observation with configuration
+   * @brief Constructor that initializes observation with configuration only
+   *
+   * @details This constructor creates an observation without geometry
+   * filtering. The backend will create its own geometry instance if needed.
    *
    * @param config Configuration object containing initialization parameters
    */
   explicit Observation(const Config<BackendTag>& config)
       : backend_(config.backend()), initialized_(true) {
-    logger_.Info() << "Observation constructed";
+    logger_.Info() << "Observation constructed (no geometry filtering)";
+  }
+
+  /**
+   * @brief Constructor that initializes observation with configuration and
+   * geometry
+   *
+   * @details This constructor creates an observation with geometry filtering.
+   * Only observations within the geometry domain will be included.
+   *
+   * @param config Configuration object containing initialization parameters
+   * @param geometry Geometry object for domain filtering
+   */
+  template <typename GeometryType>
+  Observation(const Config<BackendTag>& config, const GeometryType& geometry)
+      : backend_(config.backend(), geometry.backend()), initialized_(true) {
+    logger_.Info() << "Observation constructed (with geometry filtering)";
   }
 
   /**

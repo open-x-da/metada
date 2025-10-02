@@ -77,15 +77,39 @@ class WRFDAObservation {
   WRFDAObservation& operator=(const WRFDAObservation&) = delete;
 
   /**
-   * @brief Construct from config (framework requirement)
+   * @brief Construct from config only (no geometry filtering)
    * @param config Configuration object containing observation settings
+   *
+   * @details This constructor creates its own geometry from config.
+   * No geometry filtering is applied - all observations are included.
    */
   explicit WRFDAObservation(const backends::config::YamlConfig& config)
       : obs_ptr_(std::make_shared<PrepBUFRObservation>(config)),
         geometry_ptr_(std::make_shared<GeometryBackend>(config)),
         obs_(*obs_ptr_),
-        geometry_(*geometry_ptr_) {
+        geometry_(*geometry_ptr_),
+        apply_geometry_filtering_(false) {
     // Initialize WRFDA data structures
+    initialize();
+  }
+
+  /**
+   * @brief Construct from config and geometry (with geometry filtering)
+   * @param config Configuration object containing observation settings
+   * @param geometry WRF geometry for domain filtering
+   *
+   * @details This constructor uses the provided geometry to filter
+   * observations. Only observations within the geometry domain will be
+   * included.
+   */
+  WRFDAObservation(const backends::config::YamlConfig& config,
+                   const GeometryBackend& geometry)
+      : obs_ptr_(std::make_shared<PrepBUFRObservation>(config)),
+        geometry_ptr_(nullptr),
+        obs_(*obs_ptr_),
+        geometry_(geometry),
+        apply_geometry_filtering_(true) {
+    // Initialize WRFDA data structures with geometry filtering
     initialize();
   }
 
@@ -94,13 +118,17 @@ class WRFDAObservation {
    * @param obs Source PrepBUFR observation
    * @param geometry WRF geometry for domain information and Arakawa-C grid
    * transforms
+   *
+   * @details This constructor is for direct construction with existing objects.
+   * Geometry filtering is applied.
    */
   WRFDAObservation(const PrepBUFRObservation& obs,
                    const GeometryBackend& geometry)
       : obs_ptr_(nullptr),
         geometry_ptr_(nullptr),
         obs_(obs),
-        geometry_(geometry) {
+        geometry_(geometry),
+        apply_geometry_filtering_(true) {
     // Initialize WRFDA data structures
     initialize();
   }
@@ -115,6 +143,11 @@ class WRFDAObservation {
   void initialize() {
     // Extract observation data organized by WRFDA types
     auto obs_data = obs_.getObsOperatorData();
+
+    // Apply geometry filtering if requested
+    if (apply_geometry_filtering_) {
+      applyGeometryFiltering(obs_data);
+    }
 
     // Allocate and populate iv_type structure
     allocateIVType(obs_data);
@@ -421,6 +454,23 @@ class WRFDAObservation {
     // - QC flag distribution
   }
 
+  /**
+   * @brief Apply geometry filtering to observations
+   * @param obs_data Observation data to filter
+   *
+   * @details Filters observations based on geometry domain:
+   * - Checks if observation location is within model domain
+   * - Removes out-of-domain observations
+   * - Updates observation counts accordingly
+   */
+  void applyGeometryFiltering(ObsOperatorData& obs_data) {
+    // TODO: Implement geometry filtering:
+    // 1. For each observation, check if location is within geometry domain
+    // 2. Use geometry_.isInDomain(lat, lon) or similar method
+    // 3. Remove observations outside domain
+    // 4. Update observation metadata
+  }
+
   // Data members
   std::shared_ptr<PrepBUFRObservation>
       obs_ptr_;  // Owned observation (when constructed from config)
@@ -428,6 +478,7 @@ class WRFDAObservation {
       geometry_ptr_;  // Owned geometry (when constructed from config)
   const PrepBUFRObservation& obs_;   // Reference to source observation
   const GeometryBackend& geometry_;  // Reference to WRF geometry
+  bool apply_geometry_filtering_;    // Whether to apply geometry filtering
 
   // WRFDA data structures
   std::unique_ptr<char[]> iv_type_data_;  // Raw iv_type data

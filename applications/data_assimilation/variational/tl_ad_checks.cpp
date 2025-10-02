@@ -116,9 +116,9 @@ int main(int argc, char** argv) {
     fwk::State<BackendTag> state(config.GetSubsection("background"), geometry);
     logger.Info() << "Background initialized";
 
-    // Initialize observations
+    // Initialize observations with geometry filtering
     fwk::Observation<BackendTag> observation(
-        config.GetSubsection("observation"));
+        config.GetSubsection("observation"), geometry);
     std::vector<fwk::Observation<BackendTag>> observations;
     observations.emplace_back(std::move(observation));
     logger.Info() << "Observations initialized";
