@@ -19,6 +19,7 @@ target_link_libraries(obs_processing
         metada::traits
         metada::backends::common::utils
         metada::backends::common::io
+        metada::backends::common::observation
 )
 
 # Set output directory

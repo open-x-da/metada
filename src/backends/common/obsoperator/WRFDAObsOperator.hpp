@@ -274,135 +274,30 @@ class WRFDAObsOperator {
 
     const size_t num_observations = obs_data.num_obs;
 
-    // Use pre-extracted state data
-    const int nx = state_data.nx;
-    const int ny = state_data.ny;
-    const int nz = state_data.nz;
+    // State variables and grid metadata are now managed by WRFState
+    // No need to extract individual pointers since domain is pre-initialized
 
-    // Get state variables (already extracted and optimized)
-    const double* u = state_data.u;
-    const double* v = state_data.v;
-    const double* t = state_data.t;
-    const double* q = state_data.q;
-    const double* psfc = state_data.psfc;
-    const double* ph = state_data.ph;
-    const double* phb = state_data.phb;
-    const double* hf = state_data.hf;
-    const double* hgt = state_data.hgt;
-    const double* p = state_data.p;
-    const double* pb = state_data.pb;
-
-    // Get grid metadata (already extracted)
-    const double* lats_2d = state_data.lats_2d;
-    const double* lons_2d = state_data.lons_2d;
-    const double* levels = state_data.levels;
-
-    // Validate required data
-    if (!lats_2d || !lons_2d || !levels) {
+    // Validate that state data is available (domain should be pre-initialized)
+    if (!state_data.u || !state_data.v || !state_data.t || !state_data.q ||
+        !state_data.psfc || !state_data.ph || !state_data.phb ||
+        !state_data.hf || !state_data.hgt || !state_data.p || !state_data.pb ||
+        !state_data.lats_2d || !state_data.lons_2d || !state_data.levels) {
       throw std::runtime_error(
-          "WRFDAObsOperator: Missing required grid metadata (lat/lon/levels)");
+          "WRFDAObsOperator: Missing required state variables or grid "
+          "metadata. "
+          "WRFDA domain should be pre-initialized in WRFState constructor.");
     }
 
-    // Convert staggered U and V to unstaggered grids if needed
-    std::vector<double> u_unstaggered, v_unstaggered;
-    const double *u_final = u, *v_final = v;
+    // WRFDA domain structure is now initialized in WRFState constructor
+    // No need to construct domain or initialize module variables here
 
-    if (u && state_data.u_dims.is_staggered) {
-      // U is staggered, convert to unstaggered
-      const auto& dims = state_data.u_dims;
-
-      std::vector<double> u_staggered_vec(u, u + dims.nx * dims.ny * dims.nz);
-
-      convertStaggeredUToUnstaggered(u_staggered_vec, u_unstaggered, nx, ny,
-                                     nz);
-
-      u_final = u_unstaggered.data();
-    }
-
-    if (v && state_data.v_dims.is_staggered) {
-      // V is staggered, convert to unstaggered
-      const auto& dims = state_data.v_dims;
-
-      std::vector<double> v_staggered_vec(v, v + dims.nx * dims.ny * dims.nz);
-
-      convertStaggeredVToUnstaggered(v_staggered_vec, v_unstaggered, nx, ny,
-                                     nz);
-
-      v_final = v_unstaggered.data();
-    }
-
-    // Validate essential variables
-    if (!u && !v && !t) {
-      throw std::runtime_error(
-          "WRFDA observation operator requires at least one of U, V, or T "
-          "variables");
-    }
-    if (!ph) {
-      throw std::runtime_error(
-          "WRFDA observation operator requires PH (geopotential perturbation)");
-    }
-    if (!phb) {
-      throw std::runtime_error(
-          "WRFDA observation operator requires PHB (base state geopotential)");
-    }
-    if (!hf) {
-      throw std::runtime_error(
-          "WRFDA observation operator requires HF (height field)");
-    }
-    if (!hgt) {
-      throw std::runtime_error(
-          "WRFDA observation operator requires HGT (terrain height)");
-    }
-    if (!p) {
-      throw std::runtime_error(
-          "WRFDA observation operator requires P (pressure perturbation)");
-    }
-    if (!pb) {
-      throw std::runtime_error(
-          "WRFDA observation operator requires PB (base state pressure)");
-    }
-
-    int rc = wrfda_construct_domain_from_arrays(&nx, &ny, &nz, u_final, v_final,
-                                                t, q, psfc, ph, phb, hf, hgt, p,
-                                                pb, lats_2d, lons_2d);
-
-    if (rc != 0) {
-      throw std::runtime_error(
-          "Failed to construct WRFDA domain structure with code " +
-          std::to_string(rc));
-    }
-
-    // Add a small delay to help identify timing-related segfaults
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options,
-    // etc.)
-    rc = initialize_wrfda_module_variables();
-    if (rc != 0) {
-      throw std::runtime_error(
-          "Failed to initialize WRFDA module variables with code " +
-          std::to_string(rc));
-    }
-
-    // Step 2: Initialize map projection for coordinate conversion
-    int map_proj = 3;           // Lambert conformal conic projection
-    double cen_lat = 34.83002;  // center latitude
-    double cen_lon = -81.03;    // center longitude
-    double dx = 30000.0;        // grid spacing in m
-    double stand_lon = -98.0;   // standard longitude
-    double truelat1 = 30.0;     // first true latitude
-    double truelat2 = 60.0;     // second true latitude
-
-    initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
-                                &truelat1, &truelat2);
-
-    // Step 3: Construct observation and innovation vector structures
+    // Step 2: Construct observation and innovation vector structures
     void* ob_ptr = constructYType(obs_data, operator_families_);
     void* iv_ptr = constructIvType(obs_data, operator_families_);
 
-    // Step 4: Call da_get_innov_vector to compute innovations y - H(xb)
+    // Step 3: Call da_get_innov_vector to compute innovations y - H(xb)
     const int it = 1;
-    rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr);
+    int rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr);
 
     if (rc != 0) {
       throw std::runtime_error("da_get_innov_vector failed with code " +
@@ -648,13 +543,11 @@ class WRFDAObsOperator {
     const auto& gi = result_state.geometry().unstaggered_info();
 
     for (size_t i = 0; i < num_observations; ++i) {
-      const auto& loc = obs[i].location;
-      if (loc.getCoordinateSystem() !=
-          framework::CoordinateSystem::GEOGRAPHIC) {
-        throw std::runtime_error(
-            "WRFDAObsOperator requires geographic observation locations");
-      }
-      auto [lat, lon, level] = loc.getGeographicCoords();
+      const auto& shared = obs[i].shared;
+      // Use shared longitude, latitude, elevation instead of location object
+      double lon = shared.longitude;
+      double lat = shared.latitude;
+      double elev = shared.elevation;
       obs_lats[i] = lat;
       obs_lons[i] = lon;
 
@@ -671,12 +564,12 @@ class WRFDAObsOperator {
         // level) This avoids varying olev values from run to run due to
         // pressure variations
         obs_levels[i] = 1.0;
-      } else if (level <= 0.0) {
+      } else if (elev <= 0.0) {
         // Upper-air observation with invalid level - use model surface level
         obs_levels[i] = 1.0;
       } else {
         // Upper-air observation with valid level
-        obs_levels[i] = level;
+        obs_levels[i] = elev;
       }
     }
 
@@ -1253,17 +1146,6 @@ class WRFDAObsOperator {
 
     return iv_ptr;
   }
-
-  /**
-   * @brief Construct WRFDA config_flags structure
-   *
-   * @return Pointer to constructed config_flags structure
-   *
-   * @details Constructs a WRFDA config_flags structure containing
-   * configuration parameters for the data assimilation process.
-   * Currently returns a simplified implementation.
-   */
-  void* constructConfigFlags() const { return wrfda_construct_config_flags(); }
 
   /**
    * @brief Extract innovation values from iv_type structure

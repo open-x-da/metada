@@ -1336,8 +1336,6 @@ contains
     integer :: grid_i, grid_j
     
     ! Use global persistent iv structure
-    
-    
     ! Convert domain pointer to grid pointer
     grid => persistent_grid
     
