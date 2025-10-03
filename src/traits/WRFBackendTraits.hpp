@@ -25,7 +25,7 @@
 #include "../backends/wrf/WRFState.hpp"
 #include "../backends/wrf/WRFModel.hpp"
 #include "../backends/wrf/WRFBackgroundErrorCovariance.hpp"
-#include "../backends/wrf/WRFDAObservation.hpp"
+#include "../backends/wrf/WRFObservation.hpp"
 #include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/common/observation/PrepBUFRObservation.hpp"
 #include "../backends/common/observation/PrepBUFRObservationIterator.hpp"
@@ -85,7 +85,7 @@ struct BackendTraits<WRFBackendTag> {
   using EnsembleBackend = void; // TODO: Implement WRFEnsemble
   
   /** @brief WRF observation backend implementation */
-  using ObservationBackend = backends::wrf::WRFDAObservation<GeometryBackend>;
+  using ObservationBackend = backends::wrf::WRFObservation<GeometryBackend>;
   
   /** @brief WRF observation iterator backend implementation */
   using ObservationIteratorBackend = metada::backends::common::observation::PrepBUFRObservationIterator;

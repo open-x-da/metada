@@ -21,7 +21,7 @@ using PrepBUFRObservation = backends::common::observation::PrepBUFRObservation;
 
 // Simple iterator implementation
 template <typename GeometryBackend>
-class WRFDAObservationIterator {
+class WRFObservationIterator {
  public:
   using iterator_category = std::forward_iterator_tag;
   using value_type = framework::ObsRecord;
@@ -29,17 +29,17 @@ class WRFDAObservationIterator {
   using pointer = const value_type*;
   using reference = const value_type&;
 
-  WRFDAObservationIterator() : index_(0) {}
-  WRFDAObservationIterator(size_t index) : index_(index) {}
+  WRFObservationIterator() : index_(0) {}
+  WRFObservationIterator(size_t index) : index_(index) {}
 
-  bool operator==(const WRFDAObservationIterator& other) const {
+  bool operator==(const WRFObservationIterator& other) const {
     return index_ == other.index_;
   }
-  bool operator!=(const WRFDAObservationIterator& other) const {
+  bool operator!=(const WRFObservationIterator& other) const {
     return !(*this == other);
   }
 
-  WRFDAObservationIterator& operator++() {
+  WRFObservationIterator& operator++() {
     ++index_;
     return *this;
   }
@@ -54,28 +54,30 @@ class WRFDAObservationIterator {
 };
 
 /**
- * @brief Adapter class to convert METADA observations to WRFDA iv_type/y_type
+ * @brief WRF observation backend that bridges framework adapters to observation
+ * database
  *
- * This class handles the conversion between METADA's observation
- * representation and WRFDA's internal iv_type/y_type structures. It provides
- * methods to:
- * 1. Convert PrepBUFR observations to WRFDA format
+ * This class serves as the WRF observation backend, handling the conversion
+ * between METADA's observation representation and WRF-compatible formats
+ * (including WRFDA iv_type/y_type structures). It provides methods to:
+ * 1. Convert PrepBUFR observations to WRF format
  * 2. Handle different observation types (SYNOP, SOUND, etc.)
  * 3. Manage observation errors and QC flags
  * 4. Support WRF-specific coordinate transformations (Arakawa-C grid)
+ * 5. Bridge between framework adapters and observation database
  */
 template <typename GeometryBackend>
-class WRFDAObservation {
+class WRFObservation {
  public:
   // Required type definitions for ObservationBackendImpl concept
-  using iterator_type = WRFDAObservationIterator<GeometryBackend>;
+  using iterator_type = WRFObservationIterator<GeometryBackend>;
   using value_type = ObsRecord;
   using ObsOperatorData = PrepBUFRObservation::ObsOperatorData;
 
   // Delete default constructor and copying
-  WRFDAObservation() = delete;
-  WRFDAObservation(const WRFDAObservation&) = delete;
-  WRFDAObservation& operator=(const WRFDAObservation&) = delete;
+  WRFObservation() = delete;
+  WRFObservation(const WRFObservation&) = delete;
+  WRFObservation& operator=(const WRFObservation&) = delete;
 
   /**
    * @brief Construct from config only (no geometry filtering)
@@ -84,7 +86,7 @@ class WRFDAObservation {
    * @details This constructor does not use geometry.
    * No geometry filtering is applied - all observations are included.
    */
-  explicit WRFDAObservation(const backends::config::YamlConfig& config)
+  explicit WRFObservation(const backends::config::YamlConfig& config)
       : obs_(std::make_shared<PrepBUFRObservation>(config)),
         geometry_(nullptr),
         apply_geometry_filtering_(false) {
@@ -101,8 +103,8 @@ class WRFDAObservation {
    * observations. Only observations within the geometry domain will be
    * included.
    */
-  WRFDAObservation(const backends::config::YamlConfig& config,
-                   const GeometryBackend& geometry)
+  WRFObservation(const backends::config::YamlConfig& config,
+                 const GeometryBackend& geometry)
       : obs_(std::make_shared<PrepBUFRObservation>(config)),
         geometry_(std::shared_ptr<GeometryBackend>(), &geometry),
         apply_geometry_filtering_(true) {
@@ -111,8 +113,8 @@ class WRFDAObservation {
   }
 
   // Move semantics
-  WRFDAObservation(WRFDAObservation&& other) noexcept = default;
-  WRFDAObservation& operator=(WRFDAObservation&& other) noexcept = default;
+  WRFObservation(WRFObservation&& other) noexcept = default;
+  WRFObservation& operator=(WRFObservation&& other) noexcept = default;
 
   /**
    * @brief Initialize observation data structures
@@ -300,7 +302,7 @@ class WRFDAObservation {
    * @brief Add another observation to this one
    * @param other Observation to add
    */
-  void add(const WRFDAObservation& other) {
+  void add(const WRFObservation& other) {
     // TODO: Implement observation addition
     throw std::runtime_error("Not implemented");
   }
@@ -309,7 +311,7 @@ class WRFDAObservation {
    * @brief Subtract another observation from this one
    * @param other Observation to subtract
    */
-  void subtract(const WRFDAObservation& other) {
+  void subtract(const WRFObservation& other) {
     // TODO: Implement observation subtraction
     throw std::runtime_error("Not implemented");
   }
@@ -328,7 +330,7 @@ class WRFDAObservation {
    * @param other Observation to compare with
    * @return True if equal, false otherwise
    */
-  bool equals(const WRFDAObservation& other) const {
+  bool equals(const WRFObservation& other) const {
     // TODO: Implement equality comparison
     throw std::runtime_error("Not implemented");
   }
@@ -359,7 +361,7 @@ class WRFDAObservation {
    * @brief Create a clone of this observation
    * @return Unique pointer to cloned observation
    */
-  std::unique_ptr<WRFDAObservation> clone() const {
+  std::unique_ptr<WRFObservation> clone() const {
     // TODO: Implement deep copy
     throw std::runtime_error("Not implemented");
   }
