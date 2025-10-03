@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "../common/obsoperator/WRFDAObsOperator.hpp"
+#include "WRFDAObsOperator.hpp"
 
 namespace metada::backends::wrf {
 

@@ -6,11 +6,11 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../common/obsoperator/WRFDAObsOperator_c_api.h"
 #include "Location.hpp"
 #include "ObsRecord.hpp"
 #include "ObservationIterator.hpp"
 #include "PrepBUFRObservation.hpp"
+#include "WRFDAObsOperator_c_api.h"
 #include "WRFGeometry.hpp"
 
 namespace metada::backends::wrf {
