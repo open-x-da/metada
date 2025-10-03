@@ -84,10 +84,8 @@ class WRFDAObservation {
    * No geometry filtering is applied - all observations are included.
    */
   explicit WRFDAObservation(const backends::config::YamlConfig& config)
-      : obs_ptr_(std::make_shared<PrepBUFRObservation>(config)),
-        geometry_ptr_(std::make_shared<GeometryBackend>(config)),
-        obs_(*obs_ptr_),
-        geometry_(*geometry_ptr_),
+      : obs_(std::make_shared<PrepBUFRObservation>(config)),
+        geometry_(std::make_shared<GeometryBackend>(config)),
         apply_geometry_filtering_(false) {
     // Initialize WRFDA data structures
     initialize();
@@ -104,32 +102,10 @@ class WRFDAObservation {
    */
   WRFDAObservation(const backends::config::YamlConfig& config,
                    const GeometryBackend& geometry)
-      : obs_ptr_(std::make_shared<PrepBUFRObservation>(config)),
-        geometry_ptr_(nullptr),
-        obs_(*obs_ptr_),
-        geometry_(geometry),
+      : obs_(std::make_shared<PrepBUFRObservation>(config)),
+        geometry_(std::shared_ptr<GeometryBackend>(), &geometry),
         apply_geometry_filtering_(true) {
     // Initialize WRFDA data structures with geometry filtering
-    initialize();
-  }
-
-  /**
-   * @brief Construct from PrepBUFR observation and WRF geometry
-   * @param obs Source PrepBUFR observation
-   * @param geometry WRF geometry for domain information and Arakawa-C grid
-   * transforms
-   *
-   * @details This constructor is for direct construction with existing objects.
-   * Geometry filtering is applied.
-   */
-  WRFDAObservation(const PrepBUFRObservation& obs,
-                   const GeometryBackend& geometry)
-      : obs_ptr_(nullptr),
-        geometry_ptr_(nullptr),
-        obs_(obs),
-        geometry_(geometry),
-        apply_geometry_filtering_(true) {
-    // Initialize WRFDA data structures
     initialize();
   }
 
@@ -142,7 +118,7 @@ class WRFDAObservation {
    */
   void initialize() {
     // Extract observation data organized by WRFDA types
-    auto obs_data = obs_.getObsOperatorData();
+    auto obs_data = obs_->getObsOperatorData();
 
     // Apply geometry filtering if requested
     if (apply_geometry_filtering_) {
@@ -293,7 +269,7 @@ class WRFDAObservation {
    * @return ObsOperatorData structure
    */
   ObsOperatorData getObsOperatorData() const {
-    return obs_.getObsOperatorData();
+    return obs_->getObsOperatorData();
   }
 
   // Required by ObservationBackendImpl concept
@@ -472,13 +448,11 @@ class WRFDAObservation {
   }
 
   // Data members
-  std::shared_ptr<PrepBUFRObservation>
-      obs_ptr_;  // Owned observation (when constructed from config)
-  std::shared_ptr<GeometryBackend>
-      geometry_ptr_;  // Owned geometry (when constructed from config)
-  const PrepBUFRObservation& obs_;   // Reference to source observation
-  const GeometryBackend& geometry_;  // Reference to WRF geometry
-  bool apply_geometry_filtering_;    // Whether to apply geometry filtering
+  std::shared_ptr<const PrepBUFRObservation>
+      obs_;  // Observation (owned or aliased)
+  std::shared_ptr<const GeometryBackend>
+      geometry_;                   // Geometry (owned or aliased)
+  bool apply_geometry_filtering_;  // Whether to apply geometry filtering
 
   // WRFDA data structures
   std::unique_ptr<char[]> iv_type_data_;  // Raw iv_type data
