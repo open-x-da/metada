@@ -80,12 +80,12 @@ class WRFDAObservation {
    * @brief Construct from config only (no geometry filtering)
    * @param config Configuration object containing observation settings
    *
-   * @details This constructor creates its own geometry from config.
+   * @details This constructor does not use geometry.
    * No geometry filtering is applied - all observations are included.
    */
   explicit WRFDAObservation(const backends::config::YamlConfig& config)
       : obs_(std::make_shared<PrepBUFRObservation>(config)),
-        geometry_(std::make_shared<GeometryBackend>(config)),
+        geometry_(nullptr),
         apply_geometry_filtering_(false) {
     // Initialize WRFDA data structures
     initialize();
