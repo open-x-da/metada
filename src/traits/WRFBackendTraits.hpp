@@ -30,7 +30,6 @@
 #include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/common/observation/PrepBUFRObservation.hpp"
 #include "../backends/common/observation/PrepBUFRObservationIterator.hpp"
-#include "../backends/common/obsoperator/WRFDAObsOperator.hpp"
 
 namespace metada::traits {
 
