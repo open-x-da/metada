@@ -26,6 +26,7 @@
 #include "../backends/wrf/WRFModel.hpp"
 #include "../backends/wrf/WRFBackgroundErrorCovariance.hpp"
 #include "../backends/wrf/WRFObservation.hpp"
+#include "../backends/wrf/WRFObsOperator.hpp"
 #include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/common/observation/PrepBUFRObservation.hpp"
 #include "../backends/common/observation/PrepBUFRObservationIterator.hpp"
@@ -90,8 +91,8 @@ struct BackendTraits<WRFBackendTag> {
   /** @brief WRF observation iterator backend implementation */
   using ObservationIteratorBackend = metada::backends::common::observation::PrepBUFRObservationIterator;
   
-  /** @brief Identity observation operator backend implementation */
-  using ObsOperatorBackend = backends::common::obsoperator::WRFDAObsOperator<StateBackend, ObservationBackend>;
+  /** @brief WRF observation operator backend implementation */
+  using ObsOperatorBackend = backends::wrf::WRFObsOperator<StateBackend, ObservationBackend>;
   
   /** @brief WRF-specific model backend implementation */
   using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend>;
