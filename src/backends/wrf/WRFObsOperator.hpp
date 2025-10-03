@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "WRFDAObsOperator.hpp"
+#include "WRFDAObsOperator_c_api.h"
 
 namespace metada::backends::wrf {
 
@@ -42,7 +43,7 @@ class WRFObsOperator {
    */
   template <typename ConfigBackend>
   explicit WRFObsOperator(const ConfigBackend& config)
-      : wrfda_impl_(config), initialized_(false) {
+      : wrfda_impl_(config), initialized_(false), iv_type_data_(nullptr) {
     // WRFDAObsOperator handles its own initialization in constructor
     initialized_ = wrfda_impl_.isInitialized();
   }
@@ -53,8 +54,10 @@ class WRFObsOperator {
    */
   WRFObsOperator(WRFObsOperator&& other) noexcept
       : wrfda_impl_(std::move(other.wrfda_impl_)),
-        initialized_(other.initialized_) {
+        initialized_(other.initialized_),
+        iv_type_data_(other.iv_type_data_) {
     other.initialized_ = false;
+    other.iv_type_data_ = nullptr;
   }
 
   /**
@@ -66,7 +69,9 @@ class WRFObsOperator {
     if (this != &other) {
       wrfda_impl_ = std::move(other.wrfda_impl_);
       initialized_ = other.initialized_;
+      iv_type_data_ = other.iv_type_data_;
       other.initialized_ = false;
+      other.iv_type_data_ = nullptr;
     }
     return *this;
   }
@@ -108,6 +113,10 @@ class WRFObsOperator {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
+    
+    // Construct IV type (innovations) for this operator call
+    constructIVType(obs);
+    
     return wrfda_impl_.apply(state, obs);
   }
 
@@ -202,11 +211,118 @@ class WRFObsOperator {
   }
 
  private:
+  /**
+   * @brief Construct IV type (innovation vector) from observation data
+   * @param obs Observation backend containing observation data
+   * 
+   * @details Constructs WRFDA iv_type structure by calling wrfda_construct_iv_type
+   * from the WRFDA bridge. The IV type contains innovation vectors (O-B) and is
+   * used by WRFDA for data assimilation computations.
+   */
+  void constructIVType(const ObsBackend& obs) const {
+    const auto obs_data = obs.getObsOperatorData();
+    
+    if (obs_data.num_obs == 0) {
+      return;
+    }
+
+    // Determine the operator family (default to "synop" for surface observations)
+    std::string family = "synop";
+
+    // Extract structured data for WRFDA iv_type construction
+    std::vector<double> u_values, v_values, t_values, p_values, q_values;
+    std::vector<double> u_errors, v_errors, t_errors, p_errors, q_errors;
+    std::vector<double> lats, lons, levels;
+    std::vector<int> u_qc, v_qc, t_qc, p_qc, q_qc;
+    std::vector<int> u_available, v_available, t_available, p_available, q_available;
+
+    // Prepare observation types as a flat string
+    std::string obs_types_flat;
+    for (size_t i = 0; i < obs_data.num_obs; ++i) {
+      std::string obs_type = (i < obs_data.types.size()) ? obs_data.types[i] : "ADPSFC";
+      obs_types_flat += obs_type + std::string(20 - obs_type.length(), '\0');
+    }
+
+    // Extract data from the hierarchical structure
+    for (size_t station = 0; station < obs_data.num_obs; ++station) {
+      lats.push_back(obs_data.lats[station]);
+      lons.push_back(obs_data.lons[station]);
+
+      // Process each level for this station
+      for (const auto& level : obs_data.levels[station]) {
+        levels.push_back(level.level);
+
+        // Use WRFDA standard missing value (-888888.0) for unavailable observations
+        const double missing_r = -888888.0;
+        u_values.push_back(level.u.available ? level.u.value : missing_r);
+        v_values.push_back(level.v.available ? level.v.value : missing_r);
+        t_values.push_back(level.t.available ? level.t.value : missing_r);
+        p_values.push_back(level.p.available ? level.p.value : missing_r);
+        q_values.push_back(level.q.available ? level.q.value : missing_r);
+
+        u_errors.push_back(level.u.available ? level.u.error : 1.0);
+        v_errors.push_back(level.v.available ? level.v.error : 1.0);
+        t_errors.push_back(level.t.available ? level.t.error : 1.0);
+        p_errors.push_back(level.p.available ? level.p.error : 1.0);
+        q_errors.push_back(level.q.available ? level.q.error : 1.0);
+
+        const int missing_data = -88;
+        u_qc.push_back(level.u.available ? level.u.qc : missing_data);
+        v_qc.push_back(level.v.available ? level.v.qc : missing_data);
+        t_qc.push_back(level.t.available ? level.t.qc : missing_data);
+        p_qc.push_back(level.p.available ? level.p.qc : missing_data);
+        q_qc.push_back(level.q.available ? level.q.qc : missing_data);
+
+        // Extract availability flags
+        u_available.push_back(level.u.available ? 1 : 0);
+        v_available.push_back(level.v.available ? 1 : 0);
+        t_available.push_back(level.t.available ? 1 : 0);
+        p_available.push_back(level.p.available ? 1 : 0);
+        q_available.push_back(level.q.available ? 1 : 0);
+      }
+    }
+
+    // Call the WRFDA bridge function to construct iv_type
+    int num_obs_int = static_cast<int>(obs_data.num_obs);
+    int num_levels_int = static_cast<int>(u_values.size());  // Total number of level records
+
+    void* iv_ptr = wrfda_construct_iv_type(
+        &num_obs_int, &num_levels_int, const_cast<double*>(u_values.data()),
+        const_cast<double*>(v_values.data()),
+        const_cast<double*>(t_values.data()),
+        const_cast<double*>(p_values.data()),
+        const_cast<double*>(q_values.data()),
+        const_cast<double*>(u_errors.data()),
+        const_cast<double*>(v_errors.data()),
+        const_cast<double*>(t_errors.data()),
+        const_cast<double*>(p_errors.data()),
+        const_cast<double*>(q_errors.data()), const_cast<int*>(u_qc.data()),
+        const_cast<int*>(v_qc.data()), const_cast<int*>(t_qc.data()),
+        const_cast<int*>(p_qc.data()), const_cast<int*>(q_qc.data()),
+        const_cast<int*>(u_available.data()),
+        const_cast<int*>(v_available.data()),
+        const_cast<int*>(t_available.data()),
+        const_cast<int*>(p_available.data()),
+        const_cast<int*>(q_available.data()), const_cast<double*>(lats.data()),
+        const_cast<double*>(lons.data()), const_cast<double*>(levels.data()),
+        const_cast<double*>(obs_data.elevations.data()),
+        const_cast<char*>(obs_types_flat.c_str()),
+        const_cast<char*>(family.c_str()));
+
+    // Store the pointer (memory is managed by Fortran persistent structures)
+    if (iv_ptr) {
+      iv_type_data_ = iv_ptr;
+    }
+  }
+
   /// Underlying WRFDA observation operator implementation
   common::obsoperator::WRFDAObsOperator<StateBackend, ObsBackend> wrfda_impl_;
   
   /// Initialization status flag
   bool initialized_;
+  
+  /// IV type data (non-owning pointer to Fortran-managed memory)
+  mutable void* iv_type_data_;
 };
 
 }  // namespace metada::backends::wrf

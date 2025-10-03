@@ -128,9 +128,6 @@ class WRFObservation {
       applyGeometryFiltering(obs_data);
     }
 
-    // Allocate and populate iv_type structure
-    allocateIVType(obs_data);
-
     // Allocate and populate y_type structure
     allocateYType(obs_data);
   }
@@ -394,19 +391,6 @@ class WRFObservation {
   }
 
  private:
-  /**
-   * @brief Allocate and populate WRFDA iv_type structure
-   * @param obs_data Organized observation data
-   */
-  void allocateIVType(const ObsOperatorData& obs_data) {
-    // TODO: Implement iv_type allocation and population following WRFDA
-    // conventions:
-    // - Organize by observation type (synop, sound, etc.)
-    // - Handle multiple variables per station
-    // - Set proper QC flags and metadata
-    // - Convert units to WRFDA convention
-  }
-
   /**
    * @brief Allocate and populate WRFDA y_type structure
    * @param obs_data Organized observation data
