@@ -85,7 +85,6 @@ contains
     character(len=256) :: fam_str
     integer :: fam_id
     
-    ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
     if (.not. associated(persistent_iv)) then
       wrfda_xtoy_apply_grid = 1_c_int
       return

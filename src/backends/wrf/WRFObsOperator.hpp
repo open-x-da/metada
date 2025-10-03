@@ -128,8 +128,8 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Construct IV type (innovations) for this operator call
-    constructIVType(obs);
+    // Ensure IV type is constructed for this observation set
+    ensureIVTypeConstructed(obs);
 
     // Get observation structure from observation backend
     void* ob_ptr = obs.getYTypeData();
@@ -179,10 +179,13 @@ class WRFObsOperator {
   std::vector<double> applyTangentLinear(
       const StateBackend& state_increment,
       [[maybe_unused]] const StateBackend& reference_state,
-      [[maybe_unused]] const ObsBackend& obs) const {
+      const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
+
+    // Ensure IV type is constructed for TL/AD checks
+    ensureIVTypeConstructed(obs);
 
     // Extract state increment data
     const auto state_data = state_increment.getObsOperatorData();
@@ -229,11 +232,13 @@ class WRFObsOperator {
    */
   void applyAdjoint(const std::vector<double>& obs_increment,
                     [[maybe_unused]] const StateBackend& reference_state,
-                    StateBackend& result_state,
-                    [[maybe_unused]] const ObsBackend& obs) const {
+                    StateBackend& result_state, const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
+
+    // Ensure IV type is constructed for TL/AD checks
+    ensureIVTypeConstructed(obs);
 
     // Extract grid dimensions and state data
     const int nx = static_cast<int>(result_state.geometry().x_dim());
@@ -325,6 +330,20 @@ class WRFObsOperator {
   }
 
  private:
+  /**
+   * @brief Ensure IV type is constructed for the given observation set
+   * @param obs Observation backend containing observation data
+   *
+   * @details Constructs WRFDA iv_type structure once and caches it for reuse
+   * in TL/AD checks. This ensures the IV structure is ready before any
+   * operator methods are called.
+   */
+  void ensureIVTypeConstructed(const ObsBackend& obs) const {
+    if (iv_type_data_ == nullptr) {
+      constructIVType(obs);
+    }
+  }
+
   /**
    * @brief Construct IV type (innovation vector) from observation data
    * @param obs Observation backend containing observation data
