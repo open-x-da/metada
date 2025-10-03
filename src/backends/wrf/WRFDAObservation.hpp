@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../common/obsoperator/WRFDAObsOperator_c_api.h"
 #include "Location.hpp"
 #include "ObsRecord.hpp"
 #include "ObservationIterator.hpp"
@@ -130,22 +131,19 @@ class WRFDAObservation {
 
     // Allocate and populate y_type structure
     allocateYType(obs_data);
-
-    // Compute observation counts and error statistics
-    computeStats(obs_data);
   }
 
   /**
    * @brief Get pointer to WRFDA iv_type structure
    * @return Raw pointer to iv_type data
    */
-  void* getIVTypeData() { return iv_type_data_.get(); }
+  void* getIVTypeData() { return iv_type_data_; }
 
   /**
    * @brief Get pointer to WRFDA y_type structure
    * @return Raw pointer to y_type data
    */
-  void* getYTypeData() { return y_type_data_.get(); }
+  void* getYTypeData() const { return y_type_data_; }
 
   /**
    * @brief Get iterator to beginning of observations
@@ -182,13 +180,13 @@ class WRFDAObservation {
    * @brief Get raw data pointer
    * @return Void pointer to underlying data
    */
-  void* getData() { return iv_type_data_.get(); }
+  void* getData() { return iv_type_data_; }
 
   /**
    * @brief Get raw data pointer (const)
    * @return Const void pointer to underlying data
    */
-  const void* getData() const { return iv_type_data_.get(); }
+  const void* getData() const { return iv_type_data_; }
 
   /**
    * @brief Get typed data access
@@ -412,22 +410,92 @@ class WRFDAObservation {
    * @param obs_data Organized observation data
    */
   void allocateYType(const ObsOperatorData& obs_data) {
-    // TODO: Implement y_type allocation and population:
-    // - Match iv_type organization
-    // - Initialize innovation vectors
-    // - Set proper metadata
-  }
+    // Delegate to WRFDA bridge for y_type construction
+    // This uses the same wrfda_construct_y_type function as WRFDAObsOperator
 
-  /**
-   * @brief Compute observation statistics
-   * @param obs_data Organized observation data
-   */
-  void computeStats(const ObsOperatorData& obs_data) {
-    // TODO: Implement statistics computation:
-    // - Count by observation type
-    // - Error statistics by variable
-    // - Domain coverage statistics
-    // - QC flag distribution
+    if (obs_data.num_obs == 0) {
+      return;
+    }
+
+    // Determine the operator family (default to "synop" for surface
+    // observations)
+    std::string family = "synop";
+
+    // Extract structured data for WRFDA y_type construction
+    std::vector<double> u_values, v_values, t_values, p_values, q_values;
+    std::vector<double> u_errors, v_errors, t_errors, p_errors, q_errors;
+    std::vector<double> lats, lons;
+    std::vector<int> u_available, v_available, t_available, p_available,
+        q_available;
+
+    // Prepare observation types as a flat string
+    std::string obs_types_flat;
+    for (size_t i = 0; i < obs_data.num_obs; ++i) {
+      std::string obs_type =
+          (i < obs_data.types.size()) ? obs_data.types[i] : "ADPSFC";
+      obs_types_flat += obs_type + std::string(20 - obs_type.length(), '\0');
+    }
+
+    // Extract data from the hierarchical structure
+    for (size_t station = 0; station < obs_data.num_obs; ++station) {
+      lats.push_back(obs_data.lats[station]);
+      lons.push_back(obs_data.lons[station]);
+
+      // Process each level for this station
+      for (const auto& level : obs_data.levels[station]) {
+        // Use WRFDA standard missing value (-888888.0) for unavailable
+        // observations
+        const double missing_r = -888888.0;
+        u_values.push_back(level.u.available ? level.u.value : missing_r);
+        v_values.push_back(level.v.available ? level.v.value : missing_r);
+        t_values.push_back(level.t.available ? level.t.value : missing_r);
+        p_values.push_back(level.p.available ? level.p.value : missing_r);
+        q_values.push_back(level.q.available ? level.q.value : missing_r);
+
+        u_errors.push_back(level.u.available ? level.u.error : 1.0);
+        v_errors.push_back(level.v.available ? level.v.error : 1.0);
+        t_errors.push_back(level.t.available ? level.t.error : 1.0);
+        p_errors.push_back(level.p.available ? level.p.error : 1.0);
+        q_errors.push_back(level.q.available ? level.q.error : 1.0);
+
+        // Extract availability flags
+        u_available.push_back(level.u.available ? 1 : 0);
+        v_available.push_back(level.v.available ? 1 : 0);
+        t_available.push_back(level.t.available ? 1 : 0);
+        p_available.push_back(level.p.available ? 1 : 0);
+        q_available.push_back(level.q.available ? 1 : 0);
+      }
+    }
+
+    // Call the WRFDA bridge function to construct y_type
+    int num_obs_int = static_cast<int>(obs_data.num_obs);
+    int num_levels_int =
+        static_cast<int>(u_values.size());  // Total number of level records
+
+    void* y_ptr = wrfda_construct_y_type(
+        &num_obs_int, &num_levels_int, const_cast<double*>(u_values.data()),
+        const_cast<double*>(v_values.data()),
+        const_cast<double*>(t_values.data()),
+        const_cast<double*>(p_values.data()),
+        const_cast<double*>(q_values.data()),
+        const_cast<double*>(u_errors.data()),
+        const_cast<double*>(v_errors.data()),
+        const_cast<double*>(t_errors.data()),
+        const_cast<double*>(p_errors.data()),
+        const_cast<double*>(q_errors.data()),
+        const_cast<int*>(u_available.data()),
+        const_cast<int*>(v_available.data()),
+        const_cast<int*>(t_available.data()),
+        const_cast<int*>(p_available.data()),
+        const_cast<int*>(q_available.data()), const_cast<double*>(lats.data()),
+        const_cast<double*>(lons.data()),
+        const_cast<char*>(obs_types_flat.c_str()),
+        const_cast<char*>(family.c_str()));
+
+    // Store the pointer (memory is managed by Fortran persistent structures)
+    if (y_ptr) {
+      y_type_data_ = y_ptr;
+    }
   }
 
   /**
@@ -454,9 +522,9 @@ class WRFDAObservation {
       geometry_;                   // Geometry (owned or aliased)
   bool apply_geometry_filtering_;  // Whether to apply geometry filtering
 
-  // WRFDA data structures
-  std::unique_ptr<char[]> iv_type_data_;  // Raw iv_type data
-  std::unique_ptr<char[]> y_type_data_;   // Raw y_type data
+  // WRFDA data structures (non-owning pointers to Fortran-managed memory)
+  void* iv_type_data_ = nullptr;  // Non-owning pointer to Fortran iv_type
+  void* y_type_data_ = nullptr;   // Non-owning pointer to Fortran y_type
 
   // Statistics
   std::unordered_map<std::string, size_t> obs_counts_;   // Counts by type
