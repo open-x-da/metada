@@ -1,24 +1,18 @@
 #pragma once
 
-#include <algorithm>
 #include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "Location.hpp"
 #include "ObsRecord.hpp"
-#include "ObservationIterator.hpp"
 #include "PrepBUFRObservation.hpp"
 #include "WRFDAObsOperator_c_api.h"
-#include "WRFGeometry.hpp"
 
 namespace metada::backends::wrf {
 using ObsRecord = framework::ObsRecord;
-using ObsLevelRecord = framework::ObsLevelRecord;
-using Location = framework::Location;
-using PrepBUFRObservation = backends::common::observation::PrepBUFRObservation;
+using PrepBUFRObservation = common::observation::PrepBUFRObservation;
 
 // Simple iterator implementation
 template <typename GeometryBackend>
@@ -288,11 +282,16 @@ class WRFObservation {
 
   /**
    * @brief Get observation error covariance matrix
-   * @return Vector containing covariance matrix elements
+   * @return Vector containing covariance matrix diagonal elements
+   *
+   * @details Returns the diagonal elements of the observation error covariance
+   * matrix R. For diagonal matrices, this is equivalent to the variance of each
+   * observation. The elements are returned in the same order as the observation
+   * values.
    */
   std::vector<double> getCovariance() const {
-    // TODO: Implement covariance matrix access from WRFDA structures
-    throw std::runtime_error("Not implemented");
+    // Return pre-computed R matrix diagonal elements (variances)
+    return r_matrix_;
   }
 
   /**
@@ -304,6 +303,9 @@ class WRFObservation {
   size_t getSize(const std::string& typeName,
                  const std::string& varName) const {
     // TODO: Implement size calculation for specific type/variable
+    // For now, return total count regardless of type/variable
+    (void)typeName;  // Suppress unused parameter warning
+    (void)varName;   // Suppress unused parameter warning
     return getTotalObservationCount();
   }
 
@@ -317,24 +319,66 @@ class WRFObservation {
 
   // Required by ObservationBackendImpl concept
   double quadraticForm(const std::vector<double>& innovation) const {
-    // TODO: Implement R^-1 quadratic form
-    throw std::runtime_error("Not implemented");
+    // Validate input vector size
+    if (innovation.size() != r_inverse_matrix_.size()) {
+      throw std::invalid_argument(
+          "Innovation vector size mismatch in quadraticForm: expected " +
+          std::to_string(r_inverse_matrix_.size()) + ", got " +
+          std::to_string(innovation.size()));
+    }
+
+    // Compute quadratic form: innovation^T * R^-1 * innovation
+    // For diagonal R: result = sum(innovation[i]^2 / error[i]^2)
+    double result = 0.0;
+    for (size_t i = 0; i < innovation.size(); ++i) {
+      result += innovation[i] * innovation[i] * r_inverse_matrix_[i];
+    }
+
+    return result;
   }
 
   std::vector<double> applyInverseCovariance(
       const std::vector<double>& vector) const {
-    // TODO: Implement R^-1 application
-    throw std::runtime_error("Not implemented");
+    // Validate input vector size
+    if (vector.size() != r_inverse_matrix_.size()) {
+      throw std::invalid_argument(
+          "Vector size mismatch in applyInverseCovariance: expected " +
+          std::to_string(r_inverse_matrix_.size()) + ", got " +
+          std::to_string(vector.size()));
+    }
+
+    // Apply R^-1 element-wise for diagonal covariance matrix
+    // R^-1[i,i] = 1/error[i]^2, so R^-1 * vector[i] = vector[i] / error[i]^2
+    std::vector<double> result(vector.size());
+    for (size_t i = 0; i < vector.size(); ++i) {
+      result[i] = vector[i] * r_inverse_matrix_[i];
+    }
+
+    return result;
   }
 
   std::vector<double> applyCovariance(const std::vector<double>& vector) const {
-    // TODO: Implement R application
-    throw std::runtime_error("Not implemented");
+    // Validate input vector size
+    if (vector.size() != r_matrix_.size()) {
+      throw std::invalid_argument(
+          "Vector size mismatch in applyCovariance: expected " +
+          std::to_string(r_matrix_.size()) + ", got " +
+          std::to_string(vector.size()));
+    }
+
+    // Apply R element-wise for diagonal covariance matrix
+    // R[i,i] = error[i]^2, so R * vector[i] = error[i]^2 * vector[i]
+    std::vector<double> result(vector.size());
+    for (size_t i = 0; i < vector.size(); ++i) {
+      result[i] = r_matrix_[i] * vector[i];
+    }
+
+    return result;
   }
 
   std::vector<double> getInverseCovarianceDiagonal() const {
-    // TODO: Implement R^-1 diagonal access
-    throw std::runtime_error("Not implemented");
+    // Return pre-computed R^-1 matrix diagonal elements
+    return r_inverse_matrix_;
   }
 
   bool isDiagonalCovariance() const {
@@ -416,6 +460,7 @@ class WRFObservation {
    */
   std::vector<std::string> getVariableNames(const std::string& typeName) const {
     // TODO: Implement variable name retrieval from WRFDA structures
+    (void)typeName;  // Suppress unused parameter warning
     throw std::runtime_error("Not implemented");
   }
 
@@ -550,6 +595,65 @@ class WRFObservation {
 
     // Populate observation counts by type
     updateObservationCounts(obs_data);
+
+    // Set up observation error covariance matrix R
+    setupCovarianceMatrix(obs_data);
+  }
+
+  /**
+   * @brief Set up observation error covariance matrix R
+   * @param obs_data Observation data to extract error information
+   *
+   * @details Sets up the diagonal elements of R (variances) and R^-1 (inverse
+   * variances) once during initialization. This avoids recomputing them in
+   * every covariance operation.
+   */
+  void setupCovarianceMatrix(const ObsOperatorData& obs_data) {
+    // Clear existing matrices
+    r_matrix_.clear();
+    r_inverse_matrix_.clear();
+
+    // Reserve space for efficiency
+    size_t total_obs = getTotalObservationCount();
+    r_matrix_.reserve(total_obs);
+    r_inverse_matrix_.reserve(total_obs);
+
+    // Extract diagonal elements of R (variances) for diagonal covariance matrix
+    // R[i,i] = error[i]^2, R^-1[i,i] = 1/error[i]^2
+    for (size_t station = 0; station < obs_data.num_obs; ++station) {
+      for (const auto& level : obs_data.levels[station]) {
+        // Process each available variable in consistent order (u, v, t, p, q)
+        if (level.u.available) {
+          double variance = level.u.error * level.u.error;
+          r_matrix_.push_back(variance);
+          r_inverse_matrix_.push_back((variance > 0.0) ? 1.0 / variance : 0.0);
+        }
+
+        if (level.v.available) {
+          double variance = level.v.error * level.v.error;
+          r_matrix_.push_back(variance);
+          r_inverse_matrix_.push_back((variance > 0.0) ? 1.0 / variance : 0.0);
+        }
+
+        if (level.t.available) {
+          double variance = level.t.error * level.t.error;
+          r_matrix_.push_back(variance);
+          r_inverse_matrix_.push_back((variance > 0.0) ? 1.0 / variance : 0.0);
+        }
+
+        if (level.p.available) {
+          double variance = level.p.error * level.p.error;
+          r_matrix_.push_back(variance);
+          r_inverse_matrix_.push_back((variance > 0.0) ? 1.0 / variance : 0.0);
+        }
+
+        if (level.q.available) {
+          double variance = level.q.error * level.q.error;
+          r_matrix_.push_back(variance);
+          r_inverse_matrix_.push_back((variance > 0.0) ? 1.0 / variance : 0.0);
+        }
+      }
+    }
   }
 
   /**
@@ -596,6 +700,7 @@ class WRFObservation {
     // 2. Use geometry_.isInDomain(lat, lon) or similar method
     // 3. Remove observations outside domain
     // 4. Update observation metadata
+    (void)obs_data;  // Suppress unused parameter warning
   }
 
   // Data members
@@ -612,6 +717,11 @@ class WRFObservation {
   // Statistics
   std::unordered_map<std::string, size_t> obs_counts_;   // Counts by type
   std::unordered_map<std::string, double> error_stats_;  // Error stats by type
+
+  // Observation error covariance matrix (diagonal elements)
+  std::vector<double> r_matrix_;  // R diagonal elements (variances)
+  std::vector<double>
+      r_inverse_matrix_;  // R^-1 diagonal elements (1/variances)
 };
 
 }  // namespace metada::backends::wrf

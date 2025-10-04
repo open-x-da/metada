@@ -83,3 +83,6 @@ prepbufr*.nr
 # fortran files
 *.mod
 fort.*
+
+# index files
+*.idx
