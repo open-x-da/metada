@@ -247,7 +247,7 @@ class LWEnKF {
     MatrixXd Yb_pert = Yb.colwise() - yb_mean;
 
     // 5. Compute innovation
-    const auto obs_data = obs_.template getData<std::vector<double>>();
+    const auto obs_data = obs_.getObservationValues();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     VectorXd d = yo - yb_mean;
 
@@ -504,7 +504,7 @@ class LWEnKF {
     const int obs_dim = obs_.size();
 
     // Get observation data
-    const auto obs_data = obs_.template getData<std::vector<double>>();
+    const auto obs_data = obs_.getObservationValues();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
 
     // Get observation error covariance

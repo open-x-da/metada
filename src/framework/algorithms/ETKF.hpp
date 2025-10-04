@@ -138,7 +138,7 @@ class ETKF {
     MatrixXd Yb_pert = Yb.colwise() - yb_mean;
 
     // 2. Compute innovation
-    const auto obs_data = obs_.template getData<std::vector<double>>();
+    const auto obs_data = obs_.getObservationValues();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     VectorXd d = yo - yb_mean;
 

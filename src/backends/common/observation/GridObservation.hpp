@@ -193,6 +193,19 @@ class GridObservation {
   }
 
   /**
+   * @brief Get all observation values as a flat vector
+   * @return Vector containing all observation values in order
+   */
+  std::vector<double> getObservationValues() const {
+    std::vector<double> values;
+    values.reserve(observations_.size());
+    for (const auto& obs : observations_) {
+      values.push_back(obs.value);
+    }
+    return values;
+  }
+
+  /**
    * @brief Get names of observation types
    * @return Vector of observation type names
    */

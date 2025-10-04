@@ -248,7 +248,7 @@ class Variational {
 
       // Compute innovations
       auto simulated_obs = obs_op.apply(current_state, obs);
-      auto obs_data = obs.template getData<std::vector<double>>();
+      auto obs_data = obs.getObservationValues();
 
       double sum = 0.0, sum_sq = 0.0;
       for (size_t j = 0; j < obs_data.size(); ++j) {

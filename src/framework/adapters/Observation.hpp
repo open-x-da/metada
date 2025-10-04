@@ -257,6 +257,14 @@ class Observation : private NonCopyable {
   }
 
   /**
+   * @brief Get all observation values as a flat vector
+   * @return Vector containing all observation values in order
+   */
+  std::vector<double> getObservationValues() const {
+    return backend_.getObservationValues();
+  }
+
+  /**
    * @brief Get the observation error variances
    *
    * @details Returns the observation error variances as a vector of doubles.

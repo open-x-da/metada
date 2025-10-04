@@ -226,7 +226,7 @@ class IncrementalCostFunction : public NonCopyable {
       const auto& obs_op = obs_operators_[0];
 
       auto simulated_obs = obs_op.apply(background_, obs);
-      auto obs_data = obs.template getData<std::vector<double>>();
+      auto obs_data = obs.getObservationValues();
       innovations_[0] = computeInnovation(obs_data, simulated_obs);
 
     } else if (var_type_ == VariationalType::FGAT ||
@@ -246,7 +246,7 @@ class IncrementalCostFunction : public NonCopyable {
         }
 
         auto simulated_obs = obs_op.apply(current_state, obs);
-        auto obs_data = obs.template getData<std::vector<double>>();
+        auto obs_data = obs.getObservationValues();
         innovations_[i] = computeInnovation(obs_data, simulated_obs);
       }
     }

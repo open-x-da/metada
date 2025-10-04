@@ -63,10 +63,8 @@ concept ObservationBackendImpl =
       { t.getData() } -> std::same_as<void*>;
       { ct.getData() } -> std::same_as<const void*>;
 
-      // Template data access for backward compatibility
-      {
-        ct.template getData<std::vector<double>>()
-      } -> std::convertible_to<std::vector<double>>;
+      // Observation values access
+      { ct.getObservationValues() } -> std::convertible_to<std::vector<double>>;
 
       // Variable information
       { ct.getTypeNames() } -> std::convertible_to<std::vector<std::string>>;

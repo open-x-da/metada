@@ -189,15 +189,45 @@ class WRFObservation {
   const void* getData() const { return iv_type_data_; }
 
   /**
-   * @brief Get typed data access
-   * @tparam T Expected data type
-   * @return Data cast to requested type
+   * @brief Get all observation values as a flat vector
+   * @return Vector containing all observation values in order
+   *
+   * @details Extracts all individual observation values (u, v, t, p, q)
+   * from all stations and levels into a single flat vector. Values are
+   * ordered consistently across all observations.
    */
-  template <typename T>
-  T getData() const {
-    // TODO: Implement type-safe data access
-    throw std::runtime_error("Not implemented");
+  std::vector<double> getObservationValues() const {
+    std::vector<double> values;
+
+    // Get the observation data from the underlying PrepBUFRObservation
+    auto obs_data = obs_->getObsOperatorData();
+
+    // Extract all observation values in order
+    for (size_t station = 0; station < obs_data.num_obs; ++station) {
+      for (const auto& level : obs_data.levels[station]) {
+        // Add available observation values in a consistent order (u, v, t, p,
+        // q)
+        if (level.u.available) values.push_back(level.u.value);
+        if (level.v.available) values.push_back(level.v.value);
+        if (level.t.available) values.push_back(level.t.value);
+        if (level.p.available) values.push_back(level.p.value);
+        if (level.q.available) values.push_back(level.q.value);
+      }
+    }
+
+    return values;
   }
+
+  /**
+   * @brief Get the size of observation values vector
+   * @return Number of individual observation values
+   *
+   * @details Returns the total number of individual observation values
+   * (across all variables and levels) that would be returned by
+   * getObservationValues(). This is useful for pre-allocating
+   * vectors or checking sizes without extracting the full data.
+   */
+  size_t getObservationValuesSize() const { return getTotalObservationCount(); }
 
   /**
    * @brief Get number of observations by type

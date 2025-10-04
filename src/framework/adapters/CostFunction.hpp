@@ -215,7 +215,7 @@ class CostFunction : public NonCopyable {
     const auto& obs_op = obs_operators_[0];
 
     auto simulated_obs = obs_op.apply(state, obs);
-    auto obs_data = obs.template getData<std::vector<double>>();
+    auto obs_data = obs.getObservationValues();
     auto innovation = computeInnovation(obs, simulated_obs);
 
     // Debug print: show first 5 values of H(x), y, and innovation
@@ -370,7 +370,7 @@ class CostFunction : public NonCopyable {
   std::vector<double> computeInnovation(
       const Observation<BackendTag>& obs,
       const std::vector<double>& simulated_obs) const {
-    const auto obs_data = obs.template getData<std::vector<double>>();
+    const auto obs_data = obs.getObservationValues();
     std::vector<double> innovation(obs_data.size());
 
     for (size_t i = 0; i < innovation.size(); ++i) {

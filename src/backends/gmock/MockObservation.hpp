@@ -217,6 +217,16 @@ class MockObservation {
     return T{};
   }
 
+  // Get all observation values as a flat vector
+  std::vector<double> getObservationValues() const {
+    std::vector<double> values;
+    values.reserve(observations_.size());
+    for (const auto& obs : observations_) {
+      values.push_back(obs.value);
+    }
+    return values;
+  }
+
   // Get the observation type names
   std::vector<std::string> getTypeNames() const {
     std::vector<std::string> types;

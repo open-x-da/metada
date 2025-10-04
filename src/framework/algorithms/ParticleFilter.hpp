@@ -246,7 +246,7 @@ class ParticleFilter {
     const int obs_dim = obs_.size();
 
     // Get observation data
-    const auto obs_data = obs_.template getData<std::vector<double>>();
+    const auto obs_data = obs_.getObservationValues();
     Eigen::VectorXd yo =
         Eigen::Map<const Eigen::VectorXd>(obs_data.data(), obs_dim);
 

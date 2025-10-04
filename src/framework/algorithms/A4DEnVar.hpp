@@ -243,7 +243,7 @@ class A4DEnVar {
       logger_.Info() << "Time window " << t << ": obs_dim = " << obs_dim;
 
       // Get observation data
-      const auto obs_data = obs.template getData<std::vector<double>>();
+      const auto obs_data = obs.getObservationValues();
       VectorXd y_o = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
 
       // Get observation error covariance

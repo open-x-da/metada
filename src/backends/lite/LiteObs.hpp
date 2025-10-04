@@ -62,12 +62,30 @@ class LiteObs {
     return T(observations_.begin(), observations_.end());
   }
 
+  // Get all observation values as a flat vector
+  std::vector<double> getObservationValues() const { return observations_; }
+
   // Variable names
   std::vector<std::string> getTypeNames() const {
     return {"temperature", "pressure"};
   }
   std::vector<std::string> getVariableNames(const std::string& typeName) const {
     return {typeName};
+  }
+
+  // Get size for specific type/variable
+  size_t getSize(const std::string& typeName,
+                 const std::string& varName) const {
+    return observations_.size();
+  }
+
+  // Apply covariance
+  std::vector<double> applyCovariance(const std::vector<double>& vector) const {
+    std::vector<double> result(vector.size());
+    for (size_t i = 0; i < vector.size(); ++i) {
+      result[i] = vector[i] * covariance_[i % covariance_.size()];
+    }
+    return result;
   }
 
   // Covariance matrix

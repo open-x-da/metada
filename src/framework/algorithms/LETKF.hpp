@@ -72,7 +72,7 @@ class LETKF {
     const int ens_size = ensemble_.Size();
 
     // Get observation data and locations
-    const auto obs_data = obs_.template getData<std::vector<double>>();
+    const auto obs_data = obs_.getObservationValues();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_.size());
 
     std::vector<Location> obs_locations;
