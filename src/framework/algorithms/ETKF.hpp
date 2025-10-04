@@ -1,8 +1,6 @@
 #pragma once
 #include <Eigen/Dense>
 #include <cmath>
-#include <iostream>
-#include <vector>
 
 #include "Config.hpp"
 #include "Ensemble.hpp"

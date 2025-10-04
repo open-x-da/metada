@@ -1,7 +1,6 @@
 #pragma once
 
 #include <concepts>
-#include <string>
 
 #include "BackendTraits.hpp"
 #include "CommonConcepts.hpp"

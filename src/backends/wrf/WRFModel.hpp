@@ -7,11 +7,8 @@
 
 #pragma once
 
-#include <memory>
 #include <netcdf>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 #include "DateTime.hpp"
 #include "Duration.hpp"

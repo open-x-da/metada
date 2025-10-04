@@ -1,16 +1,8 @@
 #pragma once
 
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
-
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
-#include "Increment.hpp"
 #include "Logger.hpp"
-#include "NonCopyable.hpp"
-#include "State.hpp"
 
 // Framework-independent optimizers
 #include "ConjugateGradientOptimizer.hpp"

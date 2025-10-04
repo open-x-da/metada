@@ -11,7 +11,6 @@
 #include <filesystem>
 #include <memory>
 #include <netcdf>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>

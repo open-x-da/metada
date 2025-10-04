@@ -7,10 +7,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cmath>
-#include <numbers>
-#include <random>
-
 #include "Config.hpp"
 #include "ETKF.hpp"
 #include "Ensemble.hpp"

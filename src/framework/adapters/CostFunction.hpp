@@ -1,8 +1,5 @@
 #pragma once
 
-#include <memory>
-#include <vector>
-
 #include "BackendTraits.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "ConfigConcepts.hpp"

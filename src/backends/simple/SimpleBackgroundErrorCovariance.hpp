@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stdexcept>
-#include <string>
 #include <vector>
 
 #include "SimpleState.hpp"

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
 #include "LiteState.hpp"
 
 namespace metada::backends::lite {

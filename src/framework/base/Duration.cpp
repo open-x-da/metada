@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <cmath>
-#include <format>
 #include <regex>
 #include <sstream>
 #include <stdexcept>

@@ -3,7 +3,6 @@
 #include <mutex>
 #include <set>
 #include <stdexcept>
-#include <string>
 
 namespace metada {
 

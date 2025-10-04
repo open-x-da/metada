@@ -26,7 +26,6 @@
 #include <filesystem>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "Config.hpp"
 #include "ConfigValue.hpp"

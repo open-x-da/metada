@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <sstream>
-#include <thread>
 
 #include "DateTime.hpp"
 

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <chrono>
-#include <compare>
-#include <stdexcept>
 #include <string>
 
 namespace metada {

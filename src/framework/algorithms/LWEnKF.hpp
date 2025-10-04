@@ -2,8 +2,6 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
-#include <iostream>
-#include <vector>
 
 #include "Config.hpp"
 #include "Ensemble.hpp"

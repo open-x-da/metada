@@ -27,9 +27,7 @@
 
 #pragma once
 
-#include <concepts>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 

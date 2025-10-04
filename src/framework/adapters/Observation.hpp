@@ -1,8 +1,6 @@
 #pragma once
 
 #include <iomanip>
-#include <memory>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
