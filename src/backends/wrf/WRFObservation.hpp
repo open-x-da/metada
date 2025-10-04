@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -128,7 +129,7 @@ class WRFObservation {
       applyGeometryFiltering(obs_data);
     }
 
-    // Allocate and populate y_type structure
+    // Allocate and populate y_type structure (this also updates obs_counts_)
     allocateYType(obs_data);
   }
 
@@ -200,12 +201,27 @@ class WRFObservation {
 
   /**
    * @brief Get number of observations by type
-   * @param obs_type Observation type (e.g., "synop", "sound")
+   * @param obs_type Observation type (e.g., "ADPSFC", "ADPSFC_u", "ADPSFC_t")
    * @return Number of observations of that type
    */
   size_t getObservationCount(const std::string& obs_type) const {
     auto it = obs_counts_.find(obs_type);
     return it != obs_counts_.end() ? it->second : 0;
+  }
+
+  /**
+   * @brief Get number of observations by base type (sum of all variables)
+   * @param base_type Base observation type (e.g., "ADPSFC", "ADPUPA")
+   * @return Total number of observations of that base type across all variables
+   */
+  size_t getObservationCountByBaseType(const std::string& base_type) const {
+    size_t total = 0;
+    for (const auto& [type, count] : obs_counts_) {
+      if (type.substr(0, base_type.length()) == base_type) {
+        total += count;
+      }
+    }
+    return total;
   }
 
   /**
@@ -334,7 +350,7 @@ class WRFObservation {
 
   /**
    * @brief Get observation type names
-   * @return Vector of observation type names
+   * @return Vector of observation type names (includes variable-specific types)
    */
   std::vector<std::string> getTypeNames() const {
     std::vector<std::string> types;
@@ -342,6 +358,25 @@ class WRFObservation {
       types.push_back(type);
     }
     return types;
+  }
+
+  /**
+   * @brief Get base observation type names (without variable suffixes)
+   * @return Vector of base observation type names
+   */
+  std::vector<std::string> getBaseTypeNames() const {
+    std::set<std::string> base_types;
+    for (const auto& [type, count] : obs_counts_) {
+      // Extract base type by finding the last underscore and taking everything
+      // before it
+      size_t last_underscore = type.find_last_of('_');
+      if (last_underscore != std::string::npos) {
+        base_types.insert(type.substr(0, last_underscore));
+      } else {
+        base_types.insert(type);
+      }
+    }
+    return std::vector<std::string>(base_types.begin(), base_types.end());
   }
 
   /**
@@ -481,6 +516,38 @@ class WRFObservation {
     // Store the pointer (memory is managed by Fortran persistent structures)
     if (y_ptr) {
       y_type_data_ = y_ptr;
+    }
+
+    // Populate observation counts by type
+    updateObservationCounts(obs_data);
+  }
+
+  /**
+   * @brief Update observation counts by type
+   * @param obs_data Observation data to count
+   *
+   * @details Populates obs_counts_ map with the count of each observation type
+   * found in the data. Counts all individual observation values including
+   * all variables (u, v, t, p, q) and all levels per station.
+   */
+  void updateObservationCounts(const ObsOperatorData& obs_data) {
+    obs_counts_.clear();
+
+    // Count all individual observation values by type
+    for (size_t station = 0; station < obs_data.num_obs; ++station) {
+      std::string obs_type = (station < obs_data.types.size())
+                                 ? obs_data.types[station]
+                                 : "ADPSFC";
+
+      // Count all variables and levels for this station
+      for (const auto& level : obs_data.levels[station]) {
+        // Count each available variable as a separate observation
+        if (level.u.available) obs_counts_[obs_type + "_u"]++;
+        if (level.v.available) obs_counts_[obs_type + "_v"]++;
+        if (level.t.available) obs_counts_[obs_type + "_t"]++;
+        if (level.p.available) obs_counts_[obs_type + "_p"]++;
+        if (level.q.available) obs_counts_[obs_type + "_q"]++;
+      }
     }
   }
 
