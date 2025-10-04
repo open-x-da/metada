@@ -1,10 +1,9 @@
 #pragma once
 
-#include <memory>
 #include <string>
 #include <vector>
 
-#include "../common/obsoperator/WRFDAObsOperator_c_api.h"
+#include "WRFDAObsOperator_c_api.h"
 
 namespace metada::backends::wrf {
 
