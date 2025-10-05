@@ -119,13 +119,23 @@ class WRFObsOperator {
    *
    * @details Maps model state to observation space by applying the WRFDA
    * observation operator. This computes H(x) where H is the observation
-   * operator and x is the model state.
+   * operator and x is the model state. The state parameter is used to update
+   * the background state (grid%xb) before computing innovations.
    */
-  std::vector<double> apply([[maybe_unused]] const StateBackend& state,
+  std::vector<double> apply(const StateBackend& state,
                             const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
+
+    // Extract state data and update background state (grid%xb)
+    const auto state_data = state.getObsOperatorData();
+
+    // Update WRFDA background state with current state values
+    wrfda_update_background_state(
+        state_data.u, state_data.v, state_data.t, state_data.q, state_data.psfc,
+        state_data.ph, state_data.phb, state_data.hf, state_data.hgt,
+        state_data.p, state_data.pb, state_data.lats_2d, state_data.lons_2d);
 
     // Ensure IV type is constructed for this observation set
     ensureIVTypeConstructed(obs);

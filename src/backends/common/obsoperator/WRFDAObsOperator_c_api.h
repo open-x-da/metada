@@ -117,6 +117,15 @@ void wrfda_update_analysis_increments(const double* u, const double* v,
                                       const double* t, const double* q,
                                       const double* psfc);
 
+// Update background state (xb) from state data
+void wrfda_update_background_state(const double* u, const double* v,
+                                   const double* t, const double* q,
+                                   const double* psfc, const double* ph,
+                                   const double* phb, const double* hf,
+                                   const double* hgt, const double* p,
+                                   const double* pb, const double* lats2d,
+                                   const double* lons2d);
+
 // Get available observation families from iv structure
 int wrfda_get_available_families(char* families_buffer, int* buffer_size);
 

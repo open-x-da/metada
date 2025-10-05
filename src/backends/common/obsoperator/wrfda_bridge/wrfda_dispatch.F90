@@ -135,7 +135,7 @@ contains
     
     select case (trim(fam_str))
     case ('metar'); 
-      !call da_transform_xtoy_metar(grid, iv, y)
+      call da_transform_xtoy_metar(grid, iv, y)
     case ('synop', 'adpsfc'); 
       call da_transform_xtoy_synop(grid, iv, y)
     case default; 
@@ -874,6 +874,79 @@ contains
     
   end subroutine wrfda_update_analysis_increments
 
+  ! Update background state (xb) from state data
+  ! This subroutine updates the background state with the current state values
+  subroutine wrfda_update_background_state(u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d) bind(C, name="wrfda_update_background_state")
+    implicit none
+    real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
+    real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*), p(*), pb(*)
+    real(c_double), intent(in) :: lats2d(*), lons2d(*)
+    integer :: i, j, k, nx, ny, nz, idx, idx_3d, staggered_nz
+    
+    ! Get grid dimensions from persistent_grid
+    nx = persistent_grid%xp%ide - persistent_grid%xp%ids + 1
+    ny = persistent_grid%xp%jde - persistent_grid%xp%jds + 1
+    nz = persistent_grid%xp%kde - persistent_grid%xp%kds + 1
+    staggered_nz = nz + 1  ! Height field has nz+1 vertical levels
+    
+    ! Update background state (xb) with current state values
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+          idx = i + (j-1)*nx + (k-1)*nx*ny
+          persistent_grid%xb%u(i,j,k) = real(u(idx))
+          persistent_grid%xb%v(i,j,k) = real(v(idx))
+          persistent_grid%xb%t(i,j,k) = real(t(idx))
+          persistent_grid%xb%q(i,j,k) = real(q(idx))
+          ! Calculate pressure from P and PB: grid%xb%p = pb + p
+          persistent_grid%xb%p(i,j,k) = real(pb(idx) + p(idx))
+        end do
+      end do
+    end do
+    
+    ! Update surface pressure
+    do j = 1, ny
+      do i = 1, nx
+        ! C++ row-major indexing: [i][j] -> i + j*nx
+        idx = i + (j-1)*nx
+        persistent_grid%xb%psfc(i,j) = real(psfc(idx))
+      end do
+    end do
+    
+    ! Update PH and PHB data (vertically staggered with nz+1 levels)
+    do k = 1, staggered_nz
+      do j = 1, ny
+        do i = 1, nx
+          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+          idx_3d = i + (j-1)*nx + (k-1)*nx*ny
+          persistent_grid%ph_2(i,j,k) = real(ph(idx_3d))
+          persistent_grid%phb(i,j,k) = real(phb(idx_3d))
+        end do
+      end do
+    end do
+    
+    ! Update grid metadata
+    do j = 1, ny
+      do i = 1, nx
+        ! C++ row-major indexing: [i][j] -> i + j*nx
+        idx = i + (j-1)*nx
+        persistent_grid%xb%lat(i,j) = real(lats2d(idx))
+        persistent_grid%xb%lon(i,j) = real(lons2d(idx))
+        ! Assign terrain height from HGT field
+        persistent_grid%ht(i,j) = real(hgt(idx))
+        persistent_grid%xb%terr(i,j) = real(hgt(idx))
+        do k = 1, staggered_nz
+          ! Use calculated height field instead of levels array
+          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+          idx_3d = i + (j-1)*nx + (k-1)*nx*ny
+          persistent_grid%xb%h(i,j,k) = real(hf(idx_3d))
+        end do
+      end do
+    end do
+    
+  end subroutine wrfda_update_background_state
+
   ! Get available observation families from iv structure
   integer(c_int) function wrfda_get_available_families(families_buffer, buffer_size) bind(C, name="wrfda_get_available_families")
     implicit none
@@ -938,35 +1011,6 @@ contains
     wrfda_get_available_families = 0
     
   end function wrfda_get_available_families
-
-  ! CRITICAL FIX: Add subroutine to update only data arrays without reconstructing grid structure
-  subroutine update_domain_data(grid, nx, ny, nz, u, v, t, q, psfc)
-    type(domain), intent(inout) :: grid
-    integer, intent(in) :: nx, ny, nz
-    real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
-    integer :: i,j,k, nz1
-    
-    nz1 = max(1, nz)
-    
-    ! Update only the data arrays, not the grid structure
-    do k=1,nz1; do j=1,ny; do i=1,nx
-      grid%xa%u(i,j,k) = real(u(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%v(i,j,k) = real(v(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%t(i,j,k) = real(t(i + (j-1)*nx + (k-1)*nx*ny))
-      grid%xa%q(i,j,k) = real(q(i + (j-1)*nx + (k-1)*nx*ny))
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      grid%xa%psfc(i,j) = real(psfc(i + (j-1)*nx))
-    end do; end do
-    
-    ! Mirror xb from xa
-    grid%xb%u = grid%xa%u
-    grid%xb%v = grid%xa%v
-    grid%xb%t = grid%xa%t
-    grid%xb%q = grid%xa%q
-    grid%xb%psfc = grid%xa%psfc
-    
-  end subroutine update_domain_data
 
   ! New function to call da_get_innov_vector directly
   integer(c_int) function wrfda_get_innov_vector(it, ob_ptr, iv_ptr) bind(C, name="wrfda_get_innov_vector")
@@ -1124,8 +1168,8 @@ contains
     do k = 1, nz
       do j = 1, ny
         do i = 1, nx
-          ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
-          idx = (k-1)*nx*ny + (j-1)*nx + i
+          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+          idx = i + (j-1)*nx + (k-1)*nx*ny
           grid%xb%u(i,j,k) = u(idx)
           grid%xb%v(i,j,k) = v(idx)
           grid%xb%t(i,j,k) = t(idx)
@@ -1140,8 +1184,8 @@ contains
     do k = 1, staggered_nz
       do j = 1, ny
         do i = 1, nx
-          ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
-          idx_3d = (k-1)*nx*ny + (j-1)*nx + i
+          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+          idx_3d = i + (j-1)*nx + (k-1)*nx*ny
           grid%ph_2(i,j,k) = ph(idx_3d)
           grid%phb(i,j,k) = phb(idx_3d)
         end do
@@ -1150,8 +1194,8 @@ contains
 
     do j = 1, ny
       do i = 1, nx
-        ! Convert from C++ [X,Y] indexing to Fortran [Y,X] indexing
-        idx = (i-1)*ny + j
+        ! C++ row-major indexing: [i][j] -> i + j*nx
+        idx = i + (j-1)*nx
         grid%xb%psfc(i,j) = psfc(idx)
       end do
     end do
@@ -1169,8 +1213,8 @@ contains
 
     do j = 1, ny
       do i = 1, nx
-        ! Convert from C++ [X,Y] indexing to Fortran [Y,X] indexing
-        idx = (i-1)*ny + j
+        ! C++ row-major indexing: [i][j] -> i + j*nx
+        idx = i + (j-1)*nx
         grid%xb%lat(i,j) = lats2d(idx)
         grid%xb%lon(i,j) = lons2d(idx)
         ! Assign terrain height from HGT field
@@ -1180,10 +1224,9 @@ contains
         grid%xb%rough(i,j) = 0.5
         do k = 1, staggered_nz
           ! Use calculated height field instead of levels array
-          ! Convert from C++ [X,Y,Z] indexing to Fortran [Z,Y,X] indexing
+          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           ! Note: HF is vertically staggered with nz+1 levels
-          ! C++ array order: [X,Y,Z] -> index = (k-1)*nx*ny + (j-1)*nx + i
-          idx_3d = (k-1)*nx*ny + (j-1)*nx + i
+          idx_3d = i + (j-1)*nx + (k-1)*nx*ny
           grid%xb%h(i,j,k) = hf(idx_3d)
         end do
       end do
