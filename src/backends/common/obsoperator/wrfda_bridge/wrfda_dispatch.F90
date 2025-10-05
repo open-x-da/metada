@@ -149,11 +149,11 @@ contains
       ! Count actual innovations from the iv structure
       num_innovations = 0
       do n = 1, persistent_iv%info(2)%nlocal
-        if (persistent_iv%synop(n)%u%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%v%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%t%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%q%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
       end do
     end if
     
@@ -308,11 +308,11 @@ contains
       ! Count actual innovations from the iv structure
       num_innovations = 0
       do n = 1, persistent_iv%info(2)%nlocal
-        if (persistent_iv%synop(n)%u%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%v%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%t%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%q%qc >= 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%p%qc >= 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
+        if (persistent_iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
       end do
     end if
     
@@ -1385,23 +1385,23 @@ contains
       count = 0
       do i = 1, iv%info(2)%nlocal
         ! Count U innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%u%qc >= 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
+        if (iv%synop(i)%u%qc == 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
           count = count + 1
         end if
         ! Count V innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%v%qc >= 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
+        if (iv%synop(i)%v%qc == 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
           count = count + 1
         end if
         ! Count T innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%t%qc >= 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
+        if (iv%synop(i)%t%qc == 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
           count = count + 1
         end if
         ! Count P innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%p%qc >= 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
+        if (iv%synop(i)%p%qc == 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
           count = count + 1
         end if
         ! Count Q innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%q%qc >= 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
+        if (iv%synop(i)%q%qc == 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
           count = count + 1
         end if
       end do
@@ -1476,31 +1476,31 @@ contains
         end if
         
         ! Extract U component innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%u%qc >= 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
+        if (iv%synop(i)%u%qc == 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%u%inv
         end if
         
         ! Extract V component innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%v%qc >= 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
+        if (iv%synop(i)%v%qc == 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%v%inv
         end if
         
         ! Extract T component innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%t%qc >= 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
+        if (iv%synop(i)%t%qc == 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%t%inv
         end if
         
         ! Extract P component innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%p%qc >= 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
+        if (iv%synop(i)%p%qc == 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%p%inv
         end if
         
         ! Extract Q component innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%q%qc >= 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
+        if (iv%synop(i)%q%qc == 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
           count = count + 1
           innovations(count) = iv%synop(i)%q%inv
         end if
