@@ -2043,9 +2043,9 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
   // backend
   int map_proj = 3;           // Lambert conformal conic projection
   double cen_lat = 34.83002;  // center latitude
-  double cen_lon = -107.0;    // center longitude
-  double dx = 36000.0;        // grid spacing in meters
-  double stand_lon = -107.0;  // standard longitude
+  double cen_lon = -81.03;    // center longitude
+  double dx = 30000.0;        // grid spacing in meters
+  double stand_lon = -98.0;   // standard longitude
   double truelat1 = 30.0;     // first true latitude
   double truelat2 = 60.0;     // second true latitude
 

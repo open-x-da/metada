@@ -1539,7 +1539,7 @@ contains
     if (.not. map_info_initialized) then
       ! Initialize map projection using WRFDA's da_map_set function
       ! Use the provided cen_lat and cen_lon instead of hardcoded values
-      call da_map_set(map_proj, real(cen_lat), real(cen_lon), 1.0, 1.0, real(dx), real(stand_lon), real(truelat1), real(truelat2), 0.26290, 0.26290, map_info)
+      call da_map_set(map_proj, real(cen_lat), real(cen_lon), 37.0, 30.5, real(dx), real(stand_lon), real(truelat1), real(truelat2), real(truelat1), real(stand_lon), map_info)
       map_info_initialized = .true.
     end if
   end subroutine initialize_map_projection_c
