@@ -73,8 +73,8 @@ class LiteObs {
   }
 
   // Get size for specific type/variable
-  size_t getSize(const std::string& typeName,
-                 const std::string& varName) const {
+  size_t getSize([[maybe_unused]] const std::string& typeName,
+                 [[maybe_unused]] const std::string& varName) const {
     return observations_.size();
   }
 

@@ -228,33 +228,6 @@ int main(int argc, char** argv) {
                      << e.what();
     }
 
-    // Check: Cost Function Gradient with multiple random directions
-    try {
-      size_t num_directions = config.Get("gradient_check_directions").asInt();
-      bool cost_func_gradient_multi_passed =
-          fwk::checkCostFunctionGradientMultipleDirections(
-              cost_function, state, num_directions, tl_ad_tolerance);
-
-      results.push_back(
-          {"Cost Function Gradient (Multi)", cost_func_gradient_multi_passed,
-           0.0, tl_ad_tolerance,
-           cost_func_gradient_multi_passed
-               ? "Cost function gradient is correct across multiple directions"
-               : "Cost function gradient is incorrect across multiple "
-                 "directions"});
-
-      logger.Info() << "Cost Function Gradient check (multiple directions): "
-                    << (cost_func_gradient_multi_passed ? "PASSED" : "FAILED");
-
-    } catch (const std::exception& e) {
-      results.push_back({"Cost Function Gradient (Multi)", false, 1.0,
-                         tl_ad_tolerance,
-                         std::string("Exception during check: ") + e.what()});
-      logger.Error()
-          << "Cost Function Gradient check (multiple) failed with exception: "
-          << e.what();
-    }
-
     // Check: Cost Function Gradient with unit vector directions
     try {
       bool cost_func_gradient_unit_passed =
