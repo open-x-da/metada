@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <iomanip>
 #include <memory>
 #include <netcdf>
 #include <string>
@@ -84,13 +85,9 @@ class WRFState {
    * and provide a consistent interface following standard container
    * conventions.
    */
-  using value_type = double;               ///< Type of elements stored
-  using reference = double&;               ///< Reference to element type
-  using const_reference = const double&;   ///< Const reference to element type
-  using pointer = double*;                 ///< Pointer to element type
-  using const_pointer = const double*;     ///< Const pointer to element type
-  using size_type = std::size_t;           ///< Type for sizes and indices
-  using difference_type = std::ptrdiff_t;  ///< Type for pointer differences
+  using reference = double&;              ///< Reference to element type
+  using const_reference = const double&;  ///< Const reference to element type
+  using size_type = std::size_t;          ///< Type for sizes and indices
   ///@}
 
   ///@{ @name Construction and Destruction
@@ -1136,35 +1133,63 @@ class WRFState {
    *                      variables: [...], total_size: <num>}
    */
   friend std::ostream& operator<<(std::ostream& os, const WRFState& state) {
-    os << "WRFState{";
-    os << "initialized: " << (state.initialized_ ? "true" : "false");
-    os << ", filename: \"" << state.wrfFilename_ << "\"";
-    os << ", variables: [";
+    os << "WRFState{\n";
+    os << "  initialized: " << (state.initialized_ ? "true" : "false") << ",\n";
+    os << "  filename: \"" << state.wrfFilename_ << "\",\n";
+    os << "  variables: [";
 
     for (size_t i = 0; i < state.variableNames_.size(); ++i) {
       if (i > 0) os << ", ";
       os << "\"" << state.variableNames_[i] << "\"";
     }
-    os << "]";
+    os << "],\n";
 
-    os << ", total_size: " << state.size();
+    os << "  total_size: " << state.size();
 
     // Add statistics if data is available
     if (!state.flattened_data_.empty()) {
-      auto min_it = std::min_element(state.flattened_data_.begin(),
-                                     state.flattened_data_.end());
-      auto max_it = std::max_element(state.flattened_data_.begin(),
-                                     state.flattened_data_.end());
-      double sum = std::accumulate(state.flattened_data_.begin(),
-                                   state.flattened_data_.end(), 0.0);
-      double mean = sum / state.flattened_data_.size();
+      os << ",\n  variable_stats: {\n";
 
-      os << ", min: " << *min_it;
-      os << ", max: " << *max_it;
-      os << ", mean: " << mean;
+      for (size_t i = 0; i < state.variableNames_.size(); ++i) {
+        const std::string& varName = state.variableNames_[i];
+        os << "    \"" << varName << "\": {";
+
+        // Get variable offset and dimensions
+        auto offset_it = state.variable_offsets_.find(varName);
+        auto dims_it = state.dimensions_.find(varName);
+
+        if (offset_it != state.variable_offsets_.end() &&
+            dims_it != state.dimensions_.end()) {
+          size_t offset = offset_it->second;
+          size_t var_size = 1;
+          for (size_t dim : dims_it->second) var_size *= dim;
+
+          // Calculate statistics for this variable
+          auto var_begin = state.flattened_data_.begin() + offset;
+          auto var_end = var_begin + var_size;
+
+          auto var_min_it = std::min_element(var_begin, var_end);
+          auto var_max_it = std::max_element(var_begin, var_end);
+          double var_sum = std::accumulate(var_begin, var_end, 0.0);
+          double var_mean = var_sum / var_size;
+
+          os << "min=" << std::fixed << std::setprecision(6) << *var_min_it;
+          os << ", max=" << *var_max_it;
+          os << ", mean=" << var_mean;
+          os << ", size=" << var_size;
+        } else {
+          os << "invalid";
+        }
+
+        os << "}";
+        if (i < state.variableNames_.size() - 1) os << ",";
+        os << "\n";
+      }
+
+      os << "  }";
     }
 
-    os << "}";
+    os << "\n}\n";
     return os;
   }
   ///@}

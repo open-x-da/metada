@@ -251,29 +251,6 @@ class WRFObsOperator {
     double* q = static_cast<double*>(result_state.getData("QVAPOR"));
     double* psfc = static_cast<double*>(result_state.getData("PSFC"));
 
-    // Create zero arrays if variables don't exist
-    std::vector<double> u_zero, v_zero, t_zero, q_zero, psfc_zero;
-    if (!u) {
-      u_zero.assign(nx * ny * nz, 0.0);
-      u = u_zero.data();
-    }
-    if (!v) {
-      v_zero.assign(nx * ny * nz, 0.0);
-      v = v_zero.data();
-    }
-    if (!t) {
-      t_zero.assign(nx * ny * nz, 0.0);
-      t = t_zero.data();
-    }
-    if (!q) {
-      q_zero.assign(nx * ny * nz, 0.0);
-      q = q_zero.data();
-    }
-    if (!psfc) {
-      psfc_zero.assign(nx * ny, 0.0);
-      psfc = psfc_zero.data();
-    }
-
     // Call WRFDA adjoint directly
     int rc = wrfda_xtoy_adjoint_grid(nx, ny, nz, obs_increment.data(),
                                      static_cast<int>(obs_increment.size()), u,

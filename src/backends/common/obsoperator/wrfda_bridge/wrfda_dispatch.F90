@@ -354,11 +354,11 @@ contains
       allocate(jo_grad_y%metar(num_obs))
       do n=1,num_obs
         ! Initialize all variables to missing
-        jo_grad_y%metar(n)%u = missing_r
-        jo_grad_y%metar(n)%v = missing_r
-        jo_grad_y%metar(n)%t = missing_r
-        jo_grad_y%metar(n)%q = missing_r
-        jo_grad_y%metar(n)%p = missing_r
+        jo_grad_y%metar(n)%u = 0.0_c_double
+        jo_grad_y%metar(n)%v = 0.0_c_double
+        jo_grad_y%metar(n)%t = 0.0_c_double
+        jo_grad_y%metar(n)%q = 0.0_c_double
+        jo_grad_y%metar(n)%p = 0.0_c_double
         
         ! Process all variables in order: U, V, T, Q, P
         var_idx = (n-1) * 5  ! Start index for this observation's variables
@@ -392,11 +392,11 @@ contains
       allocate(jo_grad_y%synop(num_obs))
       do n=1,num_obs
         ! Initialize all variables to missing
-        jo_grad_y%synop(n)%u = missing_r
-        jo_grad_y%synop(n)%v = missing_r
-        jo_grad_y%synop(n)%t = missing_r
-        jo_grad_y%synop(n)%q = missing_r
-        jo_grad_y%synop(n)%p = missing_r
+        jo_grad_y%synop(n)%u = 0.0_c_double
+        jo_grad_y%synop(n)%v = 0.0_c_double
+        jo_grad_y%synop(n)%t = 0.0_c_double
+        jo_grad_y%synop(n)%q = 0.0_c_double
+        jo_grad_y%synop(n)%p = 0.0_c_double
         
         ! Process all variables in order: U, V, T, Q, P
         ! delta_y array contains innovations for all variables for all observations
