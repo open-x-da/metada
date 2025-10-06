@@ -75,8 +75,9 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid() bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid(ob_ptr, iv_ptr) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
+    type(c_ptr), value :: ob_ptr, iv_ptr
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
@@ -85,31 +86,26 @@ contains
     character(len=256) :: fam_str
     integer :: fam_id
     
-    if (.not. associated(persistent_iv)) then
-      wrfda_xtoy_apply_grid = 1_c_int
-      return
-    end if
-    
-    ! Point local iv to global persistent structure
-    iv => persistent_iv
-    
-    ! CRITICAL FIX: Use persistent y structure instead of allocating each time
-    if (.not. associated(persistent_y)) then
-      wrfda_xtoy_apply_grid = 1_c_int
-      return
-    end if
-    
-    ! Point local y to global persistent structure
-    y => persistent_y
-    
-    ! point grid to global persistent grid for processing
+    ! Convert C pointers to Fortran pointers
     grid => persistent_grid
+    call c_f_pointer(iv_ptr, iv)
+    call c_f_pointer(ob_ptr, y)
+    
+    if (.not. associated(iv)) then
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
+    end if
+    
+    if (.not. associated(y)) then
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
+    end if
     
     ! Instead of parsing input string, determine family from iv structure
     ! Find the first family that has observations available
     fam_id = 0
-    do n = 1, size(persistent_iv%info)
-      if (persistent_iv%info(n)%nlocal > 0) then
+    do n = 1, size(iv%info)
+      if (iv%info(n)%nlocal > 0) then
         fam_id = n
         exit
       end if
@@ -145,15 +141,15 @@ contains
     ! Calculate number of innovations from observations
     ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
     ! But we need to get the actual number of innovations from the iv structure
-    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
+    if (associated(iv) .and. associated(iv%synop)) then
       ! Count actual innovations from the iv structure
       num_innovations = 0
-      do n = 1, persistent_iv%info(2)%nlocal
-        if (persistent_iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
+      do n = 1, iv%info(2)%nlocal
+        if (iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
       end do
     end if
     

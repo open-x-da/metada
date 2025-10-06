@@ -204,7 +204,9 @@ class WRFObsOperator {
                                      state_data.q, state_data.psfc);
 
     // Apply tangent linear operator directly
-    int rc = wrfda_xtoy_apply_grid();
+    void* ob_ptr = obs.getYTypeData();
+    void* iv_ptr = iv_type_data_;
+    int rc = wrfda_xtoy_apply_grid(ob_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA tangent linear failed with code " +
                                std::to_string(rc));

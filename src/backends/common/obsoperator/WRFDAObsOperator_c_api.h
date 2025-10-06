@@ -22,7 +22,7 @@ extern "C" {
 // Family is determined automatically from iv structure
 // Output is stored internally and extracted via
 // wrfda_extract_tangent_linear_output
-int wrfda_xtoy_apply_grid();
+int wrfda_xtoy_apply_grid(const void* ob_ptr, const void* iv_ptr);
 
 // Get count of tangent linear output values (count-only call)
 int wrfda_get_tangent_linear_count(int* num_innovations);
