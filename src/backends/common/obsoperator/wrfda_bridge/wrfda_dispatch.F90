@@ -67,6 +67,14 @@ module metada_wrfda_dispatch
   integer, save :: persistent_num_innovations = 0
   logical, save :: output_allocated = .false.
   
+  ! Persistent arrays for adjoint operator gradients
+  real(c_double), allocatable, save :: persistent_adjoint_u(:), persistent_adjoint_v(:)
+  real(c_double), allocatable, save :: persistent_adjoint_t(:), persistent_adjoint_q(:)
+  real(c_double), allocatable, save :: persistent_adjoint_psfc(:)
+  real(c_double), allocatable, save :: persistent_delta_y(:)
+  integer, save :: persistent_nx = 0, persistent_ny = 0, persistent_nz = 0
+  logical, save :: adjoint_allocated = .false.
+  
 contains
 
   ! Forward operator: H(xb + xa) where xb is background state and xa is analysis increments
@@ -217,35 +225,34 @@ contains
 
   ! Adjoint operator: H^T * δy -> δx (gradient accumulation)
   ! This function computes the adjoint of the forward operator for incremental 3D-Var:
-  ! - delta_y: gradient in observation space
-  ! - inout_u, inout_v, inout_t, inout_q, inout_psfc: gradient in state space (accumulated)
+  ! - delta_y: gradient in observation space (passed via persistent arrays)
+  ! - inout_u, inout_v, inout_t, inout_q, inout_psfc: gradient in state space (accumulated in persistent arrays)
   ! - The adjoint operator accumulates gradients into the state space arrays
-  integer(c_int) function wrfda_xtoy_adjoint_grid(nx, ny, nz, delta_y, num_obs, inout_u, inout_v, inout_t, inout_q, inout_psfc) bind(C, name="wrfda_xtoy_adjoint_grid")
+  integer(c_int) function wrfda_xtoy_adjoint_grid(iv_ptr) bind(C, name="wrfda_xtoy_adjoint_grid")
     implicit none
-    integer(c_int), value :: nx, ny, nz
-    real(c_double), intent(in) :: delta_y(*)
-    integer(c_int), value :: num_obs
-    real(c_double), intent(inout) :: inout_u(*), inout_v(*), inout_t(*), inout_q(*), inout_psfc(*)
+    type(c_ptr), value :: iv_ptr
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
     type(y_type), target :: jo_grad_y
     type(x_type), target :: jo_grad_x
-    integer :: n, num_innovations
+    integer :: n, num_innovations, nx, ny, nz
     character(len=256) :: fam_str
     integer :: fam_id
     
-    ! CRITICAL FIX: Use persistent iv structure instead of local uninitialized iv
-    if (.not. associated(persistent_iv)) then
+    ! Convert C pointers to Fortran pointers
+    grid => persistent_grid
+    call c_f_pointer(iv_ptr, iv)
+    
+    if (.not. associated(iv)) then
       wrfda_xtoy_adjoint_grid = 1_c_int
       return
     end if
     
-    ! Point local iv to global persistent structure
-    iv => persistent_iv
-    
-    ! Use persistent grid with background state and zero analysis increments
-    grid => persistent_grid
+    ! Get grid dimensions from persistent grid
+    nx = persistent_grid%xp%ide - persistent_grid%xp%ids + 1
+    ny = persistent_grid%xp%jde - persistent_grid%xp%jds + 1
+    nz = persistent_grid%xp%kde - persistent_grid%xp%kds + 1
     
     ! Zero out analysis increments for adjoint computation
     grid%xa%u = 0.0
@@ -262,8 +269,8 @@ contains
     ! Instead of parsing input string, determine family from iv structure
     ! Find the first family that has observations available
     fam_id = 0
-    do n = 1, size(persistent_iv%info)
-      if (persistent_iv%info(n)%nlocal > 0) then
+    do n = 1, size(iv%info)
+      if (iv%info(n)%nlocal > 0) then
         fam_id = n
         exit
       end if
@@ -287,32 +294,23 @@ contains
     case default; fam_str = "unknown"
     end select
 
-    ! Validate input parameters
-    if (num_obs <= 0) then
-      wrfda_xtoy_adjoint_grid = 1_c_int
-      return
-    end if
-    
-    ! iv structure is already set up before calling this function
-    ! No need to reinitialize it here
-    ! jo_grad_y structure is already allocated before calling this function
-    ! No need to reallocate it here
     ! Calculate number of innovations from observations
     ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
-    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
+    if (associated(iv) .and. associated(iv%synop)) then
       
       ! Count actual innovations from the iv structure
       num_innovations = 0
-      do n = 1, persistent_iv%info(2)%nlocal
-        if (persistent_iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
-        if (persistent_iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
+      do n = 1, iv%info(2)%nlocal
+        if (iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
+        if (iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
       end do
     end if
     
-    call init_y_from_delta(fam_id, jo_grad_y, delta_y, num_innovations)
+    ! Initialize jo_grad_y from persistent delta_y array
+    call init_y_from_delta(fam_id, jo_grad_y, persistent_delta_y, num_innovations)
 
     select case (trim(fam_str))
     case ('metar'); 
@@ -323,11 +321,10 @@ contains
       wrfda_xtoy_adjoint_grid = 1_c_int; return
     end select
 
-    call copy_x_to_state(jo_grad_x, inout_u, inout_v, inout_t, inout_q, inout_psfc, nx, ny, nz)
+    ! Copy gradients to persistent arrays for later retrieval
+    call copy_x_to_persistent(jo_grad_x, nx, ny, nz)
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
-
- 
 
   subroutine init_y_from_delta(family, jo_grad_y, delta_y, num_innovations)
     integer, intent(in) :: family
@@ -497,6 +494,50 @@ contains
       end do
     end select
   end subroutine copy_y_to_out
+
+  ! Copy gradient from jo_grad_x to persistent arrays for later retrieval
+  ! This function stores the adjoint gradients in persistent arrays
+  ! For incremental 3D-Var, this represents the gradient of the cost function with respect to state
+  subroutine copy_x_to_persistent(jo_grad_x, nx, ny, nz)
+    type(x_type), intent(in) :: jo_grad_x
+    integer, intent(in) :: nx, ny, nz
+    integer :: i,j,k, nz1, total_size, surface_size
+    
+    nz1 = max(1, nz)
+    total_size = nx * ny * nz1
+    surface_size = nx * ny
+    
+    ! Allocate persistent arrays if needed
+    if (.not. adjoint_allocated .or. persistent_nx /= nx .or. persistent_ny /= ny .or. persistent_nz /= nz) then
+      if (allocated(persistent_adjoint_u)) deallocate(persistent_adjoint_u)
+      if (allocated(persistent_adjoint_v)) deallocate(persistent_adjoint_v)
+      if (allocated(persistent_adjoint_t)) deallocate(persistent_adjoint_t)
+      if (allocated(persistent_adjoint_q)) deallocate(persistent_adjoint_q)
+      if (allocated(persistent_adjoint_psfc)) deallocate(persistent_adjoint_psfc)
+      
+      allocate(persistent_adjoint_u(total_size))
+      allocate(persistent_adjoint_v(total_size))
+      allocate(persistent_adjoint_t(total_size))
+      allocate(persistent_adjoint_q(total_size))
+      allocate(persistent_adjoint_psfc(surface_size))
+      
+      persistent_nx = nx
+      persistent_ny = ny
+      persistent_nz = nz
+      adjoint_allocated = .true.
+    end if
+    
+    ! Copy gradients to persistent arrays
+    do k=1,nz1; do j=1,ny; do i=1,nx
+      persistent_adjoint_u(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%u(i,j,k), kind=c_double)
+      persistent_adjoint_v(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%v(i,j,k), kind=c_double)
+      persistent_adjoint_t(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%t(i,j,k), kind=c_double)
+      persistent_adjoint_q(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%q(i,j,k), kind=c_double)
+    end do; end do; end do
+    do j=1,ny; do i=1,nx
+      persistent_adjoint_psfc(i + (j-1)*nx) = real(jo_grad_x%psfc(i,j), kind=c_double)
+    end do; end do
+  end subroutine copy_x_to_persistent
 
   ! Copy gradient from jo_grad_x to state arrays (gradient accumulation)
   ! This function accumulates the adjoint gradients into the state space arrays
@@ -1511,6 +1552,51 @@ contains
     wrfda_extract_innovations = 0
     
   end function wrfda_extract_innovations
+
+  ! Set delta_y input for adjoint operator
+  integer(c_int) function wrfda_set_delta_y(delta_y, num_obs) bind(C, name="wrfda_set_delta_y")
+    implicit none
+    real(c_double), intent(in) :: delta_y(*)
+    integer(c_int), value :: num_obs
+    
+    ! Allocate persistent delta_y array if needed
+    if (.not. allocated(persistent_delta_y)) then
+      allocate(persistent_delta_y(num_obs))
+    else if (size(persistent_delta_y) /= num_obs) then
+      deallocate(persistent_delta_y)
+      allocate(persistent_delta_y(num_obs))
+    end if
+    
+    ! Copy input delta_y to persistent array
+    persistent_delta_y(1:num_obs) = delta_y(1:num_obs)
+    
+    wrfda_set_delta_y = 0_c_int
+  end function wrfda_set_delta_y
+
+  ! Get adjoint gradients from persistent arrays
+  integer(c_int) function wrfda_get_adjoint_gradients(u, v, t, q, psfc) bind(C, name="wrfda_get_adjoint_gradients")
+    implicit none
+    real(c_double), intent(out) :: u(*), v(*), t(*), q(*), psfc(*)
+    
+    integer :: total_size, surface_size
+    
+    if (.not. adjoint_allocated) then
+      wrfda_get_adjoint_gradients = 1_c_int
+      return
+    end if
+    
+    total_size = persistent_nx * persistent_ny * persistent_nz
+    surface_size = persistent_nx * persistent_ny
+    
+    ! Copy gradients from persistent arrays
+    u(1:total_size) = persistent_adjoint_u(1:total_size)
+    v(1:total_size) = persistent_adjoint_v(1:total_size)
+    t(1:total_size) = persistent_adjoint_t(1:total_size)
+    q(1:total_size) = persistent_adjoint_q(1:total_size)
+    psfc(1:surface_size) = persistent_adjoint_psfc(1:surface_size)
+    
+    wrfda_get_adjoint_gradients = 0_c_int
+  end function wrfda_get_adjoint_gradients
 
   ! Initialize WRFDA variables for 3D-Var analysis
   subroutine initialize_wrfda_3dvar() bind(C, name="initialize_wrfda_3dvar")

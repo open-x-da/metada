@@ -30,12 +30,14 @@ int wrfda_get_tangent_linear_count(int* num_innovations);
 // Extract output values from the tangent linear operator
 int wrfda_extract_tangent_linear_output(double* out_y, int* num_innovations);
 
-int wrfda_xtoy_adjoint_grid(int nx, int ny, int nz,
-                            const double* delta_y,  // size num_obs
-                            int num_obs, double* inout_u, double* inout_v,
-                            double* inout_t, double* inout_q,
-                            double* inout_psfc  // size nx*ny
-);
+int wrfda_xtoy_adjoint_grid(const void* iv_ptr);
+
+// Set delta_y input for adjoint operator
+int wrfda_set_delta_y(const double* delta_y, int num_obs);
+
+// Get adjoint gradients from persistent arrays
+int wrfda_get_adjoint_gradients(double* u, double* v, double* t, double* q,
+                                double* psfc);
 
 // Enhanced function for constructing iv_type with detailed observation
 // information

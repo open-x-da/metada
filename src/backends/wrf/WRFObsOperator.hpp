@@ -251,10 +251,23 @@ class WRFObsOperator {
     // Ensure IV type is constructed for TL/AD checks
     ensureIVTypeConstructed(obs);
 
-    // Extract grid dimensions and state data
-    const int nx = static_cast<int>(result_state.geometry().x_dim());
-    const int ny = static_cast<int>(result_state.geometry().y_dim());
-    const int nz = static_cast<int>(result_state.geometry().z_dim());
+    // Set delta_y input for adjoint operator
+    int rc = wrfda_set_delta_y(obs_increment.data(),
+                               static_cast<int>(obs_increment.size()));
+    if (rc != 0) {
+      throw std::runtime_error("WRFDA set delta_y failed with code " +
+                               std::to_string(rc));
+    }
+
+    // Get innovation vector structure
+    void* iv_ptr = iv_type_data_;
+
+    // Call WRFDA adjoint directly
+    rc = wrfda_xtoy_adjoint_grid(iv_ptr);
+    if (rc != 0) {
+      throw std::runtime_error("WRFDA adjoint failed with code " +
+                               std::to_string(rc));
+    }
 
     // Get state variable pointers (or create zero arrays)
     double* u = static_cast<double*>(result_state.getData("U"));
@@ -263,12 +276,10 @@ class WRFObsOperator {
     double* q = static_cast<double*>(result_state.getData("QVAPOR"));
     double* psfc = static_cast<double*>(result_state.getData("PSFC"));
 
-    // Call WRFDA adjoint directly
-    int rc = wrfda_xtoy_adjoint_grid(nx, ny, nz, obs_increment.data(),
-                                     static_cast<int>(obs_increment.size()), u,
-                                     v, t, q, psfc);
+    // Retrieve adjoint gradients from persistent arrays
+    rc = wrfda_get_adjoint_gradients(u, v, t, q, psfc);
     if (rc != 0) {
-      throw std::runtime_error("WRFDA adjoint failed with code " +
+      throw std::runtime_error("WRFDA get adjoint gradients failed with code " +
                                std::to_string(rc));
     }
   }
