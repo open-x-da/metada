@@ -184,14 +184,16 @@ class WRFState {
 
   ///@{ @name Data Access
   /**
-   * @brief Get mutable access to first variable data (concept compliance)
+   * @brief Get mutable access to core state variables data (concept compliance)
    *
-   * @details Returns a void pointer to the raw data array of the first
-   * loaded variable. This method is provided for StateBackendImpl concept
-   * compliance. For explicit variable access, use getData(variableName).
+   * @details Returns a void pointer to the raw data array of core state
+   * variables (U, V, T, QVAPOR, PSFC) stored contiguously at the beginning.
+   * This method is provided for StateBackendImpl concept compliance.
+   * For explicit variable access, use getData(variableName).
    *
-   * @return void* Pointer to first variable data, or nullptr if no variables
-   * @throws std::runtime_error If no variables are loaded
+   * @return void* Pointer to core state variables data, or nullptr if no core
+   * variables
+   * @throws std::runtime_error If no core variables are loaded
    *
    * @warning Use with caution - no bounds checking is performed
    * @see getData(const std::string&) for explicit variable access
@@ -199,15 +201,16 @@ class WRFState {
   void* getData();
 
   /**
-   * @brief Get const access to first variable data (concept compliance)
+   * @brief Get const access to core state variables data (concept compliance)
    *
-   * @details Returns a const void pointer to the raw data array of the first
-   * loaded variable. This method is provided for StateBackendImpl concept
-   * compliance. For explicit variable access, use getData(variableName).
+   * @details Returns a const void pointer to the raw data array of core state
+   * variables (U, V, T, QVAPOR, PSFC) stored contiguously at the beginning.
+   * This method is provided for StateBackendImpl concept compliance.
+   * For explicit variable access, use getData(variableName).
    *
-   * @return const void* Const pointer to first variable data, or nullptr if no
-   * variables
-   * @throws std::runtime_error If no variables are loaded
+   * @return const void* Const pointer to core state variables data, or nullptr
+   * if no core variables
+   * @throws std::runtime_error If no core variables are loaded
    *
    * @see getData(const std::string&) for explicit variable access
    */
@@ -350,6 +353,37 @@ class WRFState {
    */
   size_t size() const;
   ///@}
+
+  ///@{ @name State Data Access
+  /**
+   * @brief Extract core state data for direct access
+   *
+   * @details This method extracts only the core state variables from the WRF
+   * state, providing raw pointers for efficient access. This is a lightweight
+   * alternative to ObsOperatorData when only state variables are needed.
+   *
+   * @return Structure containing core state data
+   */
+  struct StateData {
+    // State variables (as raw pointers for efficiency)
+    const double* u = nullptr;     // U-wind component
+    const double* v = nullptr;     // V-wind component
+    const double* t = nullptr;     // Temperature
+    const double* q = nullptr;     // Specific humidity
+    const double* psfc = nullptr;  // Surface pressure
+
+    // Core state data locations in flattened_data_
+    size_t u_begin = 0, u_end = 0;        // U-wind location range
+    size_t v_begin = 0, v_end = 0;        // V-wind location range
+    size_t t_begin = 0, t_end = 0;        // Temperature location range
+    size_t q_begin = 0, q_end = 0;        // Specific humidity location range
+    size_t psfc_begin = 0, psfc_end = 0;  // Surface pressure location range
+
+    // Total core state size (u + v + t + q + psfc)
+    size_t core_state_size = 0;
+  };
+
+  StateData getStateData() const;
 
   ///@{ @name Observation Operator Support
   /**
@@ -1294,6 +1328,16 @@ class WRFState {
   std::unordered_map<std::string, size_t>
       variable_offsets_;  ///< Starting offsets for each variable in flattened
                           ///< data
+
+  /// @name Core State Variables (stored contiguously at beginning)
+  ///@{
+  size_t u_begin_ = 0, u_end_ = 0;        ///< U-wind location range
+  size_t v_begin_ = 0, v_end_ = 0;        ///< V-wind location range
+  size_t t_begin_ = 0, t_end_ = 0;        ///< Temperature location range
+  size_t q_begin_ = 0, q_end_ = 0;        ///< Specific humidity location range
+  size_t psfc_begin_ = 0, psfc_end_ = 0;  ///< Surface pressure location range
+  size_t core_state_size_ = 0;            ///< Total core state size
+  ///@}
   ///@}
   ///@}
 };
@@ -1323,6 +1367,8 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
   }
 
   // Load state data from WRF NetCDF file
+  // Core variables (u, v, t, q, psfc) will be stored contiguously at beginning
+  variables.insert(variables.end(), {"PH", "PHB", "HGT", "P", "PB"});
   loadStateData(wrfFilename_, variables);
 
   initialized_ = true;
@@ -1364,10 +1410,22 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
       dimensions_(std::move(other.dimensions_)),
       variableNames_(std::move(other.variableNames_)),
       variable_grid_info_(std::move(other.variable_grid_info_)),
-      variable_offsets_(std::move(other.variable_offsets_)) {
+      variable_offsets_(std::move(other.variable_offsets_)),
+      u_begin_(other.u_begin_),
+      u_end_(other.u_end_),
+      v_begin_(other.v_begin_),
+      v_end_(other.v_end_),
+      t_begin_(other.t_begin_),
+      t_end_(other.t_end_),
+      q_begin_(other.q_begin_),
+      q_end_(other.q_end_),
+      psfc_begin_(other.psfc_begin_),
+      psfc_end_(other.psfc_end_),
+      core_state_size_(other.core_state_size_) {
   // Reset the moved-from object
   other.initialized_ = false;
   other.variableNames_.clear();
+  other.core_state_size_ = 0;
 }
 
 // Move assignment operator implementation
@@ -1385,9 +1443,23 @@ WRFState<ConfigBackend, GeometryBackend>::operator=(
     variable_grid_info_ = std::move(other.variable_grid_info_);
     variable_offsets_ = std::move(other.variable_offsets_);
 
+    // Copy core state tracking variables
+    u_begin_ = other.u_begin_;
+    u_end_ = other.u_end_;
+    v_begin_ = other.v_begin_;
+    v_end_ = other.v_end_;
+    t_begin_ = other.t_begin_;
+    t_end_ = other.t_end_;
+    q_begin_ = other.q_begin_;
+    q_end_ = other.q_end_;
+    psfc_begin_ = other.psfc_begin_;
+    psfc_end_ = other.psfc_end_;
+    core_state_size_ = other.core_state_size_;
+
     // Reset the moved-from object
     other.initialized_ = false;
     other.variableNames_.clear();
+    other.core_state_size_ = 0;
   }
   return *this;
 }
@@ -1411,24 +1483,43 @@ WRFState<ConfigBackend, GeometryBackend>::clone() const {
   cloned->variable_grid_info_ = this->variable_grid_info_;
   cloned->variable_offsets_ = this->variable_offsets_;
 
+  // Copy core state tracking variables
+  cloned->u_begin_ = this->u_begin_;
+  cloned->u_end_ = this->u_end_;
+  cloned->v_begin_ = this->v_begin_;
+  cloned->v_end_ = this->v_end_;
+  cloned->t_begin_ = this->t_begin_;
+  cloned->t_end_ = this->t_end_;
+  cloned->q_begin_ = this->q_begin_;
+  cloned->q_end_ = this->q_end_;
+  cloned->psfc_begin_ = this->psfc_begin_;
+  cloned->psfc_end_ = this->psfc_end_;
+  cloned->core_state_size_ = this->core_state_size_;
+
   return cloned;
 }
 
-// Data access implementation (concept compliance)
+// Data access implementation (concept compliance) - returns only core state
+// variables
 template <typename ConfigBackend, typename GeometryBackend>
 void* WRFState<ConfigBackend, GeometryBackend>::getData() {
-  if (!initialized_ || variableNames_.empty()) {
+  if (!initialized_ || core_state_size_ == 0) {
     return nullptr;
   }
+  // Return pointer to core state variables (stored at beginning of
+  // flattened_data_)
   return flattened_data_.data();
 }
 
-// Const data access implementation (concept compliance)
+// Const data access implementation (concept compliance) - returns only core
+// state variables
 template <typename ConfigBackend, typename GeometryBackend>
 const void* WRFState<ConfigBackend, GeometryBackend>::getData() const {
-  if (!initialized_ || variableNames_.empty()) {
+  if (!initialized_ || core_state_size_ == 0) {
     return nullptr;
   }
+  // Return pointer to core state variables (stored at beginning of
+  // flattened_data_)
   return flattened_data_.data();
 }
 
@@ -1471,19 +1562,24 @@ WRFState<ConfigBackend, GeometryBackend>::getVariableNames() const {
   return variableNames_;
 }
 
-// Size implementation
+// Size implementation - returns size of core state variables only
 template <typename ConfigBackend, typename GeometryBackend>
 size_t WRFState<ConfigBackend, GeometryBackend>::size() const {
-  return flattened_data_.size();
+  return core_state_size_;
 }
 
-// Zero implementation
+// Zero implementation - only zeros core state variables (U, V, T, QVAPOR, PSFC)
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::zero() {
-  std::fill(flattened_data_.begin(), flattened_data_.end(), 0.0);
+  // Only zero the core state variables which are stored contiguously at the
+  // beginning
+  if (core_state_size_ > 0) {
+    std::fill(flattened_data_.begin(),
+              flattened_data_.begin() + core_state_size_, 0.0);
+  }
 }
 
-// Dot product implementation
+// Dot product implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 double WRFState<ConfigBackend, GeometryBackend>::dot(
     const WRFState<ConfigBackend, GeometryBackend>& other) const {
@@ -1493,28 +1589,28 @@ double WRFState<ConfigBackend, GeometryBackend>::dot(
 
   double result = 0.0;
 
-  // Compute dot product directly on flattened data
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Compute dot product only on core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
     result += flattened_data_[i] * other.flattened_data_[i];
   }
 
   return result;
 }
 
-// Norm implementation
+// Norm implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 double WRFState<ConfigBackend, GeometryBackend>::norm() const {
   double sumSquares = 0.0;
 
-  // Compute norm directly on flattened data
-  for (double value : flattened_data_) {
-    sumSquares += value * value;
+  // Compute norm only on core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
+    sumSquares += flattened_data_[i] * flattened_data_[i];
   }
 
   return std::sqrt(sumSquares);
 }
 
-// Equals implementation
+// Equals implementation - only compares core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 bool WRFState<ConfigBackend, GeometryBackend>::equals(
     const WRFState<ConfigBackend, GeometryBackend>& other) const {
@@ -1522,8 +1618,8 @@ bool WRFState<ConfigBackend, GeometryBackend>::equals(
     return false;
   }
 
-  // Check if flattened data is equal within tolerance
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Check if core state variables are equal within tolerance
+  for (size_t i = 0; i < core_state_size_; ++i) {
     if (std::abs(flattened_data_[i] - other.flattened_data_[i]) > 1e-10) {
       return false;
     }
@@ -1532,7 +1628,7 @@ bool WRFState<ConfigBackend, GeometryBackend>::equals(
   return true;
 }
 
-// Add implementation
+// Add implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::add(
     const WRFState<ConfigBackend, GeometryBackend>& other) {
@@ -1540,13 +1636,13 @@ void WRFState<ConfigBackend, GeometryBackend>::add(
     throw std::runtime_error("States are incompatible for addition");
   }
 
-  // Add directly on flattened data
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Add only core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
     flattened_data_[i] += other.flattened_data_[i];
   }
 }
 
-// Subtract implementation
+// Subtract implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::subtract(
     const WRFState<ConfigBackend, GeometryBackend>& other) {
@@ -1554,18 +1650,18 @@ void WRFState<ConfigBackend, GeometryBackend>::subtract(
     throw std::runtime_error("States are incompatible for subtraction");
   }
 
-  // Subtract directly on flattened data
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Subtract only core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
     flattened_data_[i] -= other.flattened_data_[i];
   }
 }
 
-// Multiply implementation
+// Multiply implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
-  // Multiply flattened data by the scalar
-  for (double& value : flattened_data_) {
-    value *= scalar;
+  // Multiply only core state variables by the scalar
+  for (size_t i = 0; i < core_state_size_; ++i) {
+    flattened_data_[i] *= scalar;
   }
 }
 
@@ -1591,8 +1687,224 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
       variable_grid_info_.clear();
       variable_offsets_.clear();
 
-      // Load each requested variable
+      // Reset core state tracking
+      u_begin_ = u_end_ = v_begin_ = v_end_ = t_begin_ = t_end_ = q_begin_ =
+          q_end_ = psfc_begin_ = psfc_end_ = 0;
+      core_state_size_ = 0;
+
+      // Define core state variables that will be stored contiguously at
+      // beginning
+      const std::vector<std::string> core_variables = {"U", "V", "T", "QVAPOR",
+                                                       "PSFC"};
+
+      // First pass: Load core variables and store them contiguously
+      for (const auto& varName : core_variables) {
+        if (std::find(variables.begin(), variables.end(), varName) !=
+            variables.end()) {
+          auto var = wrf_file.getVar(varName);
+
+          if (!var.isNull()) {
+            // Get variable dimensions
+            const auto& varDims = var.getDims();
+            std::vector<size_t> dims;
+
+            // --- Begin: Fill VariableGridInfo ---
+            VariableGridInfo grid_info;
+            size_t dim_offset = 0;
+            if (!varDims.empty() && varDims[0].getName() == "Time") {
+              dim_offset = 1;
+            }
+
+            // Assume WRF variable dimensions are ordered as [Z, Y, X] after
+            // Time
+            if (varDims.size() >= dim_offset + 2) {  // At least 2D (Y, X)
+              if (varDims.size() >= dim_offset + 3) {
+                // 3D variable: [Z, Y, X]
+                grid_info.z_dim_name = varDims[dim_offset + 0].getName();
+                grid_info.y_dim_name = varDims[dim_offset + 1].getName();
+                grid_info.x_dim_name = varDims[dim_offset + 2].getName();
+              } else {
+                // 2D variable: [Y, X]
+                grid_info.y_dim_name = varDims[dim_offset + 0].getName();
+                grid_info.x_dim_name = varDims[dim_offset + 1].getName();
+                grid_info.z_dim_name = "";  // No Z dimension
+              }
+
+              // Determine staggering based on dimension names
+              grid_info.z_staggered =
+                  !grid_info.z_dim_name.empty() &&
+                  (grid_info.z_dim_name.find("_stag") != std::string::npos);
+              grid_info.y_staggered =
+                  (grid_info.y_dim_name.find("_stag") != std::string::npos);
+              grid_info.x_staggered =
+                  (grid_info.x_dim_name.find("_stag") != std::string::npos);
+
+              // Determine grid type based on staggering pattern
+              grid_info.grid_type = grid_info.determineGridType();
+
+              // Validate grid type against WRF geometry
+              try {
+                switch (grid_info.grid_type) {
+                  case VariableGridInfo::GridType::UNSTAGGERED:
+                    // Check if dimensions match unstaggered grid
+                    if (grid_info.x_dim_name != "west_east" ||
+                        grid_info.y_dim_name != "south_north") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as unstaggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << std::endl;
+                    }
+                    break;
+                  case VariableGridInfo::GridType::U_STAGGERED:
+                    // Check if dimensions match U-staggered grid
+                    if (grid_info.x_dim_name != "west_east_stag" ||
+                        grid_info.y_dim_name != "south_north") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as U-staggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << std::endl;
+                    }
+                    break;
+                  case VariableGridInfo::GridType::V_STAGGERED:
+                    // Check if dimensions match V-staggered grid
+                    if (grid_info.x_dim_name != "west_east" ||
+                        grid_info.y_dim_name != "south_north_stag") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as V-staggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << std::endl;
+                    }
+                    break;
+                  case VariableGridInfo::GridType::W_STAGGERED:
+                    // Check if dimensions match W-staggered grid
+                    if (grid_info.x_dim_name != "west_east" ||
+                        grid_info.y_dim_name != "south_north" ||
+                        grid_info.z_dim_name != "bottom_top_stag") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as W-staggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << ", "
+                                << grid_info.z_dim_name << std::endl;
+                    }
+                    break;
+                }
+              } catch (const std::exception& e) {
+                std::cerr
+                    << "Warning: Could not validate grid type for variable "
+                    << varName << ": " << e.what() << std::endl;
+              }
+
+              // Debug output
+              std::cout << "Variable " << varName
+                        << " -> Grid type: " << grid_info.getGridTypeString()
+                        << " (dims: " << grid_info.x_dim_name << ", "
+                        << grid_info.y_dim_name;
+              if (!grid_info.z_dim_name.empty()) {
+                std::cout << ", " << grid_info.z_dim_name;
+              }
+              std::cout << ")" << std::endl;
+            } else {
+              // Variable has fewer than 2 dimensions, treat as unstaggered
+              grid_info.grid_type = VariableGridInfo::GridType::UNSTAGGERED;
+              std::cerr
+                  << "Warning: Variable " << varName
+                  << " has fewer than 2 dimensions, treating as unstaggered"
+                  << std::endl;
+            }
+
+            variable_grid_info_[varName] = grid_info;
+            // --- End: Fill VariableGridInfo ---
+
+            // Skip time dimension if present
+            bool hasTimeDim =
+                (varDims.size() > 0 && varDims[0].getName() == "Time");
+            size_t startDim = hasTimeDim ? 1 : 0;
+
+            for (size_t i = startDim; i < varDims.size(); ++i) {
+              dims.push_back(varDims[i].getSize());
+            }
+
+            // Store dimensions
+            dimensions_[varName] = dims;
+
+            // Calculate total size
+            size_t totalSize = 1;
+            for (size_t dim : dims) {
+              totalSize *= dim;
+            }
+
+            // Prepare start and count vectors for reading
+            std::vector<size_t> start(varDims.size(), 0);
+            std::vector<size_t> count(varDims.size(), 1);
+
+            if (hasTimeDim) {
+              start[0] =
+                  0;  // or time_idx if you want to support multiple times
+            }
+
+            for (size_t i = startDim; i < varDims.size(); ++i) {
+              count[i] = varDims[i].getSize();
+            }
+
+            // Allocate memory for the data
+            std::vector<double> data(totalSize);
+
+            // Read data
+            var.getVar(start, count, data.data());
+
+            // Calculate offset for this variable in flattened data
+            size_t offset = flattened_data_.size();
+            variable_offsets_[varName] = offset;
+
+            // Append to flattened data
+            flattened_data_.insert(flattened_data_.end(), data.begin(),
+                                   data.end());
+
+            // Track core state variable locations
+            size_t var_end = flattened_data_.size();
+            if (varName == "U") {
+              u_begin_ = offset;
+              u_end_ = var_end;
+            } else if (varName == "V") {
+              v_begin_ = offset;
+              v_end_ = var_end;
+            } else if (varName == "T") {
+              t_begin_ = offset;
+              t_end_ = var_end;
+            } else if (varName == "QVAPOR") {
+              q_begin_ = offset;
+              q_end_ = var_end;
+            } else if (varName == "PSFC") {
+              psfc_begin_ = offset;
+              psfc_end_ = var_end;
+            }
+
+            // Store dimensions
+            dimensions_[varName] = dims;
+            variableNames_.push_back(varName);
+          } else {
+            std::cerr << "Warning: Variable not found in WRF file: " << varName
+                      << std::endl;
+          }
+        }
+      }
+
+      // Calculate total core state size after loading all core variables
+      // Core variables are stored contiguously at the beginning
+      core_state_size_ = flattened_data_.size();
+
+      // Second pass: Load non-core variables (diagnostic/background fields)
       for (const auto& varName : variables) {
+        // Skip if already loaded as core variable
+        if (std::find(core_variables.begin(), core_variables.end(), varName) !=
+            core_variables.end()) {
+          continue;
+        }
+
         auto var = wrf_file.getVar(varName);
 
         if (!var.isNull()) {
@@ -1633,61 +1945,6 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
             // Determine grid type based on staggering pattern
             grid_info.grid_type = grid_info.determineGridType();
 
-            // Validate grid type against WRF geometry
-            try {
-              switch (grid_info.grid_type) {
-                case VariableGridInfo::GridType::UNSTAGGERED:
-                  // Check if dimensions match unstaggered grid
-                  if (grid_info.x_dim_name != "west_east" ||
-                      grid_info.y_dim_name != "south_north") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as unstaggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << std::endl;
-                  }
-                  break;
-                case VariableGridInfo::GridType::U_STAGGERED:
-                  // Check if dimensions match U-staggered grid
-                  if (grid_info.x_dim_name != "west_east_stag" ||
-                      grid_info.y_dim_name != "south_north") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as U-staggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << std::endl;
-                  }
-                  break;
-                case VariableGridInfo::GridType::V_STAGGERED:
-                  // Check if dimensions match V-staggered grid
-                  if (grid_info.x_dim_name != "west_east" ||
-                      grid_info.y_dim_name != "south_north_stag") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as V-staggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << std::endl;
-                  }
-                  break;
-                case VariableGridInfo::GridType::W_STAGGERED:
-                  // Check if dimensions match W-staggered grid
-                  if (grid_info.x_dim_name != "west_east" ||
-                      grid_info.y_dim_name != "south_north" ||
-                      grid_info.z_dim_name != "bottom_top_stag") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as W-staggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << ", "
-                              << grid_info.z_dim_name << std::endl;
-                  }
-                  break;
-              }
-            } catch (const std::exception& e) {
-              std::cerr << "Warning: Could not validate grid type for variable "
-                        << varName << ": " << e.what() << std::endl;
-            }
-
             // Debug output
             std::cout << "Variable " << varName
                       << " -> Grid type: " << grid_info.getGridTypeString()
@@ -1700,9 +1957,6 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
           } else {
             // Variable has fewer than 2 dimensions, treat as unstaggered
             grid_info.grid_type = VariableGridInfo::GridType::UNSTAGGERED;
-            std::cerr << "Warning: Variable " << varName
-                      << " has fewer than 2 dimensions, treating as unstaggered"
-                      << std::endl;
           }
 
           variable_grid_info_[varName] = grid_info;
@@ -1748,7 +2002,7 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
           size_t offset = flattened_data_.size();
           variable_offsets_[varName] = offset;
 
-          // Append to flattened data
+          // Append to flattened data (after core variables)
           flattened_data_.insert(flattened_data_.end(), data.begin(),
                                  data.end());
 
@@ -1911,11 +2165,13 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   }
   if (!data.p) {
     throw std::runtime_error(
-        "Required variable 'P' (Pressure perturbation) not found in WRF state");
+        "Required variable 'P' (Pressure perturbation) not found in WRF "
+        "state");
   }
   if (!data.pb) {
     throw std::runtime_error(
-        "Required variable 'PB' (Base state pressure) not found in WRF state");
+        "Required variable 'PB' (Base state pressure) not found in WRF "
+        "state");
   }
 
   // Calculate height field: hf = (ph + phb) / gravity
@@ -1950,6 +2206,38 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   return data;
 }
 
+// Implementation of getStateData
+template <typename ConfigBackend, typename GeometryBackend>
+typename WRFState<ConfigBackend, GeometryBackend>::StateData
+WRFState<ConfigBackend, GeometryBackend>::getStateData() const {
+  StateData data;
+
+  // Get state variables from contiguous storage at beginning of
+  // flattened_data_
+  data.u = flattened_data_.data() + u_begin_;
+  data.v = flattened_data_.data() + v_begin_;
+  data.t = flattened_data_.data() + t_begin_;
+  data.q = flattened_data_.data() + q_begin_;
+  data.psfc = flattened_data_.data() + psfc_begin_;
+
+  // Set location ranges
+  data.u_begin = u_begin_;
+  data.u_end = u_end_;
+  data.v_begin = v_begin_;
+  data.v_end = v_end_;
+  data.t_begin = t_begin_;
+  data.t_end = t_end_;
+  data.q_begin = q_begin_;
+  data.q_end = q_end_;
+  data.psfc_begin = psfc_begin_;
+  data.psfc_end = psfc_end_;
+
+  // Set total core state size
+  data.core_state_size = core_state_size_;
+
+  return data;
+}
+
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
   // Get observation operator data which contains all required state variables
@@ -1961,7 +2249,8 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
       !state_data.hgt || !state_data.p || !state_data.pb ||
       !state_data.lats_2d || !state_data.lons_2d) {
     throw std::runtime_error(
-        "WRFDA domain initialization failed: Missing required state variables");
+        "WRFDA domain initialization failed: Missing required state "
+        "variables");
   }
 
   // Get grid dimensions
@@ -2030,7 +2319,8 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
         std::to_string(rc));
   }
 
-  // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
+  // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options,
+  // etc.)
   rc = initialize_wrfda_module_variables();
   if (rc != 0) {
     throw std::runtime_error(
