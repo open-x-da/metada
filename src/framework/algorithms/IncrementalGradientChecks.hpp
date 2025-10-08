@@ -62,18 +62,20 @@ bool checkIncrementalCostFunctionGradient(
     }
   }
 
-  // Compute analytical gradient
+  // Compute analytical gradient at test_increment
   auto analytical_gradient = Increment<BackendTag>(test_increment.state());
   cost_function.gradient(test_increment, analytical_gradient);
 
   // Compute finite difference gradient
-  double epsilon = 1e-8;
+  // Use larger epsilon for better numerical stability with nonlinear operators
+  // Rule of thumb: epsilon ~ sqrt(machine_precision) * scale
+  double epsilon = 1e-5;
+
   auto perturbed_plus = Increment<BackendTag>(test_increment.state());
   auto perturbed_minus = Increment<BackendTag>(test_increment.state());
 
-  // δx + ε*d
+  // Perturb: (test_increment ± ε*d)
   perturbed_plus += direction * epsilon;
-  // δx - ε*d
   perturbed_minus -= direction * epsilon;
 
   double cost_plus = cost_function.evaluate(perturbed_plus);

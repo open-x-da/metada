@@ -349,11 +349,11 @@ class IncrementalCostFunction : public NonCopyable {
     weighted_norm = std::sqrt(weighted_norm);
     logger_.Debug() << "Weighted residual: " << weighted_norm;
 
-    // H'^T R^-1 (d - H'(δx)) where H'^T is the adjoint of the tangent linear
-    // operator
+    // -H'^T R^-1 (d - H'(δx)) where H'^T is the adjoint of the tangent linear
+    // operator. Note the NEGATIVE sign from the chain rule!
     auto obs_gradient =
         obs_op.applyAdjoint(weighted_residual, background_, obs);
-    gradient += obs_gradient;
+    gradient -= obs_gradient;  // Subtract, not add!
     logger_.Debug() << "Observation gradient computed, norm: "
                     << gradient.norm();
   }
@@ -381,7 +381,8 @@ class IncrementalCostFunction : public NonCopyable {
           obs_op.applyAdjoint(weighted_residual, background_, obs);
 
       // For FGAT, we approximate by not using model adjoint
-      gradient += obs_gradient;
+      // Note: NEGATIVE sign from chain rule!
+      gradient -= obs_gradient;
     }
   }
 
@@ -422,7 +423,8 @@ class IncrementalCostFunction : public NonCopyable {
       auto obs_adjoint =
           obs_op.applyAdjoint(weighted_residual, state_at_time, obs);
 
-      adjoint_forcing += obs_adjoint;
+      // Note: NEGATIVE sign from chain rule!
+      adjoint_forcing -= obs_adjoint;
 
       // Adjoint model integration (if not at initial time)
       if (i > 0) {
