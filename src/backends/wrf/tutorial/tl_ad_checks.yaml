@@ -18,12 +18,13 @@ gradient_tolerance: 1.0e-6
 # Number of random directions for gradient checks
 gradient_check_directions: 10
 finite_difference_epsilons:
+   - 1.0e-1   # Start larger to see truncation error regime
+   - 1.0e-2
    - 1.0e-3
    - 1.0e-4
    - 1.0e-5
    - 1.0e-6
    - 1.0e-7
-   - 1.0e-8
 
 # Analysis time configuration
 analysis_time: &analysis_time "2000-01-24T12:00:00Z"

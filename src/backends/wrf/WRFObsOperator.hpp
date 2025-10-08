@@ -185,10 +185,9 @@ class WRFObsOperator {
    * state increment. This is used in variational data assimilation for
    * computing the linearized observation operator.
    */
-  std::vector<double> applyTangentLinear(
-      const StateBackend& state_increment,
-      [[maybe_unused]] const StateBackend& reference_state,
-      const ObsBackend& obs) const {
+  std::vector<double> applyTangentLinear(const StateBackend& state_increment,
+                                         const StateBackend& reference_state,
+                                         const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
@@ -196,14 +195,23 @@ class WRFObsOperator {
     // Ensure IV type is constructed for TL/AD checks
     ensureIVTypeConstructed(obs);
 
-    // Extract state increment data
-    const auto state_data = state_increment.getObsOperatorData();
+    // CRITICAL FIX: Update background state (grid%xb) to the reference state
+    // The tangent linear operator H'(xb) needs the linearization point xb
+    // WRFDA's da_transform_xtoy_synop computes H'(xb)·xa where:
+    // - xb is in grid%xb (background state)
+    // - xa is in grid%xa (analysis increment)
+    const auto ref_data = reference_state.getObsOperatorData();
+    wrfda_update_background_state(
+        ref_data.u, ref_data.v, ref_data.t, ref_data.q, ref_data.psfc,
+        ref_data.ph, ref_data.phb, ref_data.hf, ref_data.hgt, ref_data.p,
+        ref_data.pb, ref_data.lats_2d, ref_data.lons_2d);
 
-    // Update WRFDA analysis increments directly
+    // Extract state increment data and update analysis increments (grid%xa)
+    const auto state_data = state_increment.getObsOperatorData();
     wrfda_update_analysis_increments(state_data.u, state_data.v, state_data.t,
                                      state_data.q, state_data.psfc);
 
-    // Apply tangent linear operator directly
+    // Apply tangent linear operator: H'(xb)·xa
     void* ob_ptr = obs.getYTypeData();
     void* iv_ptr = iv_type_data_;
     int rc = wrfda_xtoy_apply_grid(ob_ptr, iv_ptr);
@@ -212,7 +220,7 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // Get output count and extract values directly
+    // Get output count and extract values
     int num_innovations = 0;
     rc = wrfda_get_tangent_linear_count(&num_innovations);
     if (rc != 0 || num_innovations <= 0) {
@@ -225,6 +233,13 @@ class WRFObsOperator {
       throw std::runtime_error(
           "Failed to extract tangent linear output with code " +
           std::to_string(rc));
+    }
+
+    // CRITICAL: Since apply() returns innovations d = y_obs - H(x), not H(x),
+    // the tangent linear should be -H'(xb)·xa, not +H'(xb)·xa
+    // WRFDA's da_transform_xtoy computes +H'(xb)·xa, so we negate it
+    for (int i = 0; i < num_innovations; ++i) {
+      out_y[i] = -out_y[i];
     }
 
     return out_y;
@@ -242,7 +257,7 @@ class WRFObsOperator {
    * gradients in variational data assimilation.
    */
   void applyAdjoint(const std::vector<double>& obs_increment,
-                    [[maybe_unused]] const StateBackend& reference_state,
+                    const StateBackend& reference_state,
                     StateBackend& result_state, const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
@@ -250,6 +265,14 @@ class WRFObsOperator {
 
     // Ensure IV type is constructed for TL/AD checks
     ensureIVTypeConstructed(obs);
+
+    // CRITICAL FIX: Update background state (grid%xb) to the reference state
+    // The adjoint operator H'^T(xb) needs the linearization point xb
+    const auto ref_data = reference_state.getObsOperatorData();
+    wrfda_update_background_state(
+        ref_data.u, ref_data.v, ref_data.t, ref_data.q, ref_data.psfc,
+        ref_data.ph, ref_data.phb, ref_data.hf, ref_data.hgt, ref_data.p,
+        ref_data.pb, ref_data.lats_2d, ref_data.lons_2d);
 
     // Set delta_y input for adjoint operator
     int rc = wrfda_set_delta_y(obs_increment.data(),
@@ -281,6 +304,36 @@ class WRFObsOperator {
     if (rc != 0) {
       throw std::runtime_error("WRFDA get adjoint gradients failed with code " +
                                std::to_string(rc));
+    }
+
+    // CRITICAL: Since apply() returns innovations d = y_obs - H(x), not H(x),
+    // the adjoint should be -H'^T(xb), not +H'^T(xb)
+    // WRFDA's adjoint computes +H'^T(xb), so we negate it
+    // Get dimensions to know how many values to negate
+    const auto& u_dims = reference_state.getVariableDimensions("U");
+    const auto& psfc_dims = reference_state.getVariableDimensions("PSFC");
+
+    // For 3D variables (U, V, T, Q): dimensions are [nz, ny, nx]
+    size_t size_3d = 1;
+    for (const auto& dim : u_dims) {
+      size_3d *= dim;
+    }
+
+    // For 2D variables (PSFC): dimensions are [ny, nx]
+    size_t size_2d = 1;
+    for (const auto& dim : psfc_dims) {
+      size_2d *= dim;
+    }
+
+    // Negate all adjoint gradients
+    for (size_t i = 0; i < size_3d; ++i) {
+      u[i] = -u[i];
+      v[i] = -v[i];
+      t[i] = -t[i];
+      q[i] = -q[i];
+    }
+    for (size_t i = 0; i < size_2d; ++i) {
+      psfc[i] = -psfc[i];
     }
   }
 
