@@ -101,6 +101,10 @@ int wrfda_count_innovations(const char* family, int* num_innovations);
 int wrfda_extract_innovations(const char* family, double* innovations,
                               int* num_innovations);
 
+// Extract observation values from y_type structure
+int wrfda_extract_observations(const char* family, double* observations,
+                               int* num_observations);
+
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();
 

@@ -1553,6 +1553,110 @@ contains
     
   end function wrfda_extract_innovations
 
+  ! Extract observation values from y_type structure
+  integer(c_int) function wrfda_extract_observations(family, observations, num_observations) bind(C, name="wrfda_extract_observations")
+    implicit none
+    character(c_char), intent(in) :: family(*)
+    real(c_double), intent(out) :: observations(*)
+    integer(c_int), intent(out) :: num_observations
+    
+    type(y_type), pointer :: y
+    type(iv_type), pointer :: iv
+    character(len=20) :: family_str
+    integer :: i, count
+    integer :: family_index
+    
+    ! Convert C string to Fortran string
+    family_str = ""
+    do i = 1, 20
+      if (family(i) == c_null_char) exit
+      family_str(i:i) = family(i)
+    end do
+    
+    ! Use global persistent y structure
+    if (.not. y_allocated) then
+      num_observations = 0
+      wrfda_extract_observations = 0
+      return
+    end if
+    
+    if (.not. associated(persistent_y)) then
+      num_observations = 0
+      wrfda_extract_observations = 0
+      return
+    end if
+    
+    ! Also need iv to determine which observations have good QC
+    if (.not. iv_allocated .or. .not. associated(persistent_iv)) then
+      num_observations = 0
+      wrfda_extract_observations = 0
+      return
+    end if
+    
+    ! Point local pointers to global persistent structures
+    y => persistent_y
+    iv => persistent_iv
+    
+    ! Determine family index
+    family_index = 0
+    if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
+      family_index = 2  ! synop index
+    else if (trim(family_str) == "sound") then
+      family_index = 3  ! sound index
+    else if (trim(family_str) == "gpspw") then
+      family_index = 4  ! gpspw index
+    end if
+    
+    if (family_index == 0) then
+      wrfda_extract_observations = -2
+      return
+    end if
+    
+    ! Extract observations based on family
+    count = 0
+    
+    if (family_index == 2 .and. associated(y%synop) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
+      ! Extract from synop array (only variables with good QC)
+      do i = 1, min(size(y%synop), iv%info(2)%nlocal)
+        ! Extract U component if QC is good and innovation is non-zero
+        if (iv%synop(i)%u%qc == 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%synop(i)%u
+        end if
+        
+        ! Extract V component if QC is good and innovation is non-zero
+        if (iv%synop(i)%v%qc == 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%synop(i)%v
+        end if
+        
+        ! Extract T component if QC is good and innovation is non-zero
+        if (iv%synop(i)%t%qc == 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%synop(i)%t
+        end if
+        
+        ! Extract P component if QC is good and innovation is non-zero
+        if (iv%synop(i)%p%qc == 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%synop(i)%p
+        end if
+        
+        ! Extract Q component if QC is good and innovation is non-zero
+        if (iv%synop(i)%q%qc == 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%synop(i)%q
+        end if
+      end do
+    else
+      count = 0
+    end if
+    
+    num_observations = count
+    wrfda_extract_observations = 0
+    
+  end function wrfda_extract_observations
+
   ! Set delta_y input for adjoint operator
   integer(c_int) function wrfda_set_delta_y(delta_y, num_obs) bind(C, name="wrfda_set_delta_y")
     implicit none

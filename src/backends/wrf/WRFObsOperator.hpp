@@ -115,12 +115,16 @@ class WRFObsOperator {
    * @brief Apply the forward observation operator: H(x)
    * @param state Model state to transform
    * @param obs Observations defining observation locations
-   * @return Vector of simulated observations
+   * @return Vector of simulated observations H(x)
    *
    * @details Maps model state to observation space by applying the WRFDA
    * observation operator. This computes H(x) where H is the observation
-   * operator and x is the model state. The state parameter is used to update
-   * the background state (grid%xb) before computing innovations.
+   * operator and x is the model state.
+   *
+   * Implementation: WRFDA computes innovations d = y_obs - H(x), so we extract:
+   * - innovations d from iv structure
+   * - observations y_obs from y structure
+   * - Then compute H(x) = y_obs - d
    */
   std::vector<double> apply(const StateBackend& state,
                             const ObsBackend& obs) const {
@@ -144,7 +148,7 @@ class WRFObsOperator {
     void* ob_ptr = obs.getYTypeData();
     void* iv_ptr = iv_type_data_;
 
-    // Call WRFDA to compute innovations directly
+    // Call WRFDA to compute innovations: d = y_obs - H(x)
     const int it = 1;
     int rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr);
     if (rc != 0) {
@@ -153,10 +157,10 @@ class WRFObsOperator {
           std::to_string(rc));
     }
 
-    // Extract innovations from iv structure
     std::string family =
         operator_families_.empty() ? "synop" : operator_families_[0];
 
+    // Extract innovations: d = y_obs - H(x)
     int num_innovations = 0;
     rc = wrfda_count_innovations(family.c_str(), &num_innovations);
     if (rc != 0 || num_innovations <= 0) {
@@ -171,7 +175,30 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    return innovations;
+    // Extract observations: y_obs
+    int num_observations = 0;
+    std::vector<double> observations(num_innovations);
+    rc = wrfda_extract_observations(family.c_str(), observations.data(),
+                                    &num_observations);
+    if (rc != 0) {
+      throw std::runtime_error("Failed to extract observations with code " +
+                               std::to_string(rc));
+    }
+
+    if (num_observations != num_innovations) {
+      throw std::runtime_error(
+          "Mismatch between number of observations and innovations: " +
+          std::to_string(num_observations) + " vs " +
+          std::to_string(num_innovations));
+    }
+
+    // Compute H(x) = y_obs - d
+    std::vector<double> simulated_obs(num_innovations);
+    for (int i = 0; i < num_innovations; ++i) {
+      simulated_obs[i] = observations[i] - innovations[i];
+    }
+
+    return simulated_obs;
   }
 
   /**
@@ -179,11 +206,14 @@ class WRFObsOperator {
    * @param state_increment State increment to transform
    * @param reference_state Reference state around which to linearize
    * @param obs Observations defining observation locations
-   * @return Vector of observation increments
+   * @return Vector of observation increments H'(xb)·δx
    *
    * @details Applies the tangent linear of the observation operator to a
    * state increment. This is used in variational data assimilation for
    * computing the linearized observation operator.
+   *
+   * Implementation: Since apply() now returns H(x), the tangent linear
+   * returns H'(xb)·δx directly without sign changes.
    */
   std::vector<double> applyTangentLinear(const StateBackend& state_increment,
                                          const StateBackend& reference_state,
@@ -195,7 +225,7 @@ class WRFObsOperator {
     // Ensure IV type is constructed for TL/AD checks
     ensureIVTypeConstructed(obs);
 
-    // CRITICAL FIX: Update background state (grid%xb) to the reference state
+    // Update background state (grid%xb) to the reference state
     // The tangent linear operator H'(xb) needs the linearization point xb
     // WRFDA's da_transform_xtoy_synop computes H'(xb)·xa where:
     // - xb is in grid%xb (background state)
@@ -235,13 +265,8 @@ class WRFObsOperator {
           std::to_string(rc));
     }
 
-    // CRITICAL: Since apply() returns innovations d = y_obs - H(x), not H(x),
-    // the tangent linear should be -H'(xb)·xa, not +H'(xb)·xa
-    // WRFDA's da_transform_xtoy computes +H'(xb)·xa, so we negate it
-    for (int i = 0; i < num_innovations; ++i) {
-      out_y[i] = -out_y[i];
-    }
-
+    // WRFDA's da_transform_xtoy computes +H'(xb)·xa, which is exactly what we
+    // need since apply() now returns H(x), so the derivative is +H'(x)
     return out_y;
   }
 
@@ -255,6 +280,9 @@ class WRFObsOperator {
    * @details Applies the adjoint of the observation operator to map from
    * observation space back to state space. This is essential for computing
    * gradients in variational data assimilation.
+   *
+   * Implementation: Since apply() now returns H(x), the adjoint returns
+   * H'^T(xb) directly without sign changes.
    */
   void applyAdjoint(const std::vector<double>& obs_increment,
                     const StateBackend& reference_state,
@@ -266,7 +294,7 @@ class WRFObsOperator {
     // Ensure IV type is constructed for TL/AD checks
     ensureIVTypeConstructed(obs);
 
-    // CRITICAL FIX: Update background state (grid%xb) to the reference state
+    // Update background state (grid%xb) to the reference state
     // The adjoint operator H'^T(xb) needs the linearization point xb
     const auto ref_data = reference_state.getObsOperatorData();
     wrfda_update_background_state(
@@ -292,7 +320,7 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // Get state variable pointers (or create zero arrays)
+    // Get state variable pointers
     double* u = static_cast<double*>(result_state.getData("U"));
     double* v = static_cast<double*>(result_state.getData("V"));
     double* t = static_cast<double*>(result_state.getData("T"));
@@ -306,35 +334,9 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // CRITICAL: Since apply() returns innovations d = y_obs - H(x), not H(x),
-    // the adjoint should be -H'^T(xb), not +H'^T(xb)
-    // WRFDA's adjoint computes +H'^T(xb), so we negate it
-    // Get dimensions to know how many values to negate
-    const auto& u_dims = reference_state.getVariableDimensions("U");
-    const auto& psfc_dims = reference_state.getVariableDimensions("PSFC");
-
-    // For 3D variables (U, V, T, Q): dimensions are [nz, ny, nx]
-    size_t size_3d = 1;
-    for (const auto& dim : u_dims) {
-      size_3d *= dim;
-    }
-
-    // For 2D variables (PSFC): dimensions are [ny, nx]
-    size_t size_2d = 1;
-    for (const auto& dim : psfc_dims) {
-      size_2d *= dim;
-    }
-
-    // Negate all adjoint gradients
-    for (size_t i = 0; i < size_3d; ++i) {
-      u[i] = -u[i];
-      v[i] = -v[i];
-      t[i] = -t[i];
-      q[i] = -q[i];
-    }
-    for (size_t i = 0; i < size_2d; ++i) {
-      psfc[i] = -psfc[i];
-    }
+    // WRFDA's adjoint computes +H'^T(xb), which is exactly what we need
+    // since apply() now returns H(x), so the adjoint is +H'^T(x)
+    // No sign changes needed!
   }
 
   /**
