@@ -12,8 +12,6 @@
 #include "Logger.hpp"
 #include "Model.hpp"
 #include "ObsOperator.hpp"
-#include "OperatorChecks.hpp"
-#include "ProgressBar.hpp"
 #include "State.hpp"
 
 namespace metada::framework {

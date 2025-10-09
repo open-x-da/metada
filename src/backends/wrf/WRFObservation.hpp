@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <string>
@@ -302,11 +303,19 @@ class WRFObservation {
    */
   size_t getSize(const std::string& typeName,
                  const std::string& varName) const {
-    // TODO: Implement size calculation for specific type/variable
-    // For now, return total count regardless of type/variable
-    (void)typeName;  // Suppress unused parameter warning
-    (void)varName;   // Suppress unused parameter warning
-    return getTotalObservationCount();
+    // Extract base type name (remove variable suffix if present)
+    std::string base_type = typeName;
+    size_t last_underscore = typeName.find_last_of('_');
+    if (last_underscore != std::string::npos) {
+      base_type = typeName.substr(0, last_underscore);
+    }
+
+    // Convert to lowercase for PrepBUFR lookup
+    std::transform(base_type.begin(), base_type.end(), base_type.begin(),
+                   ::tolower);
+
+    // Delegate to PrepBUFR observation
+    return obs_->getSize(base_type, varName);
   }
 
   /**
@@ -455,13 +464,39 @@ class WRFObservation {
 
   /**
    * @brief Get variable names for observation type
-   * @param typeName Observation type name
+   * @param typeName Observation type name (may include variable suffix like
+   * "ADPSFC_u")
    * @return Vector of variable names
    */
   std::vector<std::string> getVariableNames(const std::string& typeName) const {
-    // TODO: Implement variable name retrieval from WRFDA structures
-    (void)typeName;  // Suppress unused parameter warning
-    throw std::runtime_error("Not implemented");
+    // Extract base type name (remove variable suffix if present)
+    std::string base_type = typeName;
+    std::string var_suffix;
+    size_t last_underscore = typeName.find_last_of('_');
+    if (last_underscore != std::string::npos) {
+      base_type = typeName.substr(0, last_underscore);
+      var_suffix = typeName.substr(last_underscore + 1);
+    }
+
+    // Convert to lowercase for PrepBUFR lookup
+    std::transform(base_type.begin(), base_type.end(), base_type.begin(),
+                   ::tolower);
+
+    // Get variables from PrepBUFR
+    auto variables = obs_->getVariableNames(base_type);
+
+    // If type had a variable suffix, filter to that variable only
+    if (!var_suffix.empty()) {
+      std::transform(var_suffix.begin(), var_suffix.end(), var_suffix.begin(),
+                     ::toupper);
+      variables.erase(std::remove_if(variables.begin(), variables.end(),
+                                     [&var_suffix](const std::string& v) {
+                                       return v != var_suffix;
+                                     }),
+                      variables.end());
+    }
+
+    return variables;
   }
 
   /**

@@ -916,12 +916,13 @@ class WRFState {
   ///@{ @name File I/O Operations
   /**
    * @brief Save state data to NetCDF file by copying original and updating
-   * variables
+   * core variables
    *
-   * @details Copies the original WRF NetCDF file and updates only the variables
-   * that have been loaded and potentially modified. This preserves all original
-   * file structure, dimensions, attributes, and variables not explicitly
-   * loaded. The method is more efficient and maintains WRF file compatibility.
+   * @details Copies the original WRF NetCDF file and updates only the core
+   * state variables (U, V, T, QVAPOR, PSFC) that have been loaded and
+   * potentially modified. This preserves all original file structure,
+   * dimensions, attributes, and other variables. The method is more efficient
+   * and maintains WRF file compatibility.
    *
    * @param[in] filename Path where the NetCDF file should be created
    * @throws std::runtime_error If file creation or copying fails
@@ -929,8 +930,9 @@ class WRFState {
    *
    * @note The output file will contain:
    *       - All original variables and attributes from source file
-   *       - Updated data for loaded variables
+   *       - Updated data for core state variables (U, V, T, QVAPOR, PSFC)
    *       - Preserved file structure and metadata
+   *       - Diagnostic/background variables remain unchanged
    */
   void saveToFile(const std::string& filename) const {
     try {
@@ -947,8 +949,19 @@ class WRFState {
                                  filename);
       }
 
-      // Update only the variables that were loaded (and potentially modified)
-      for (const auto& varName : variableNames_) {
+      // Define core state variables to update
+      const std::vector<std::string> core_variables = {"U", "V", "T", "QVAPOR",
+                                                       "PSFC"};
+
+      // Update only the core variables that were loaded
+      std::string updated_vars;
+      for (const auto& varName : core_variables) {
+        // Check if this core variable was loaded
+        if (std::find(variableNames_.begin(), variableNames_.end(), varName) ==
+            variableNames_.end()) {
+          continue;  // Core variable not loaded, skip it
+        }
+
         auto nc_var = nc_file.getVar(varName);
 
         if (!nc_var.isNull()) {
@@ -956,10 +969,13 @@ class WRFState {
 
           // Write updated data from flattened storage
           nc_var.putVar(flattened_data_.data() + offset);
+
+          // Track updated variable
+          if (!updated_vars.empty()) updated_vars += ", ";
+          updated_vars += varName;
         } else {
           // Variable doesn't exist in original file, skip it
-          // This could happen if we loaded variables not in the original file
-          std::cerr << "Warning: Variable " << varName
+          std::cerr << "Warning: Core variable " << varName
                     << " not found in original file, skipping update"
                     << std::endl;
         }
@@ -975,13 +991,10 @@ class WRFState {
                            .count();
       nc_file.putAtt("metada_update_time", std::to_string(timestamp));
 
-      // Add list of updated variables as a single string
-      std::string updated_vars;
-      for (size_t i = 0; i < variableNames_.size(); ++i) {
-        if (i > 0) updated_vars += ", ";
-        updated_vars += variableNames_[i];
+      // Add list of updated variables
+      if (!updated_vars.empty()) {
+        nc_file.putAtt("metada_updated_variables", updated_vars);
       }
-      nc_file.putAtt("metada_updated_variables", updated_vars);
 
       nc_file.close();
 

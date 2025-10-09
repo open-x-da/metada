@@ -73,8 +73,7 @@ class ObsOperator : public NonCopyable {
    * @tparam ConfigBackend The configuration backend type
    * @param config Configuration object containing initialization parameters
    */
-  template <typename ConfigBackend>
-  explicit ObsOperator(const Config<ConfigBackend>& config)
+  explicit ObsOperator(const Config<BackendTag>& config)
       : backend_(config.backend()) {
     logger_.Info() << "ObsOperator constructed";
   }
