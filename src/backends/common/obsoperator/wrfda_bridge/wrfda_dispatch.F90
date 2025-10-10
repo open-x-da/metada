@@ -1018,6 +1018,14 @@ contains
     if (.not. grid_initialized) then
       allocate(persistent_grid)
       grid => persistent_grid
+
+      ! CRITICAL: Nullify all pointer components immediately after allocation
+      nullify(grid%u_2, grid%v_2, grid%w_2, grid%t_2, grid%p, grid%pb)
+      nullify(grid%t_init, grid%mu_2, grid%mub, grid%psfc)
+      nullify(grid%ph_2, grid%phb, grid%moist)
+      nullify(grid%xlat, grid%xlong, grid%ht)
+      nullify(grid%znu, grid%znw, grid%dn, grid%dnw, grid%rdnw, grid%rdn)
+
       grid_initialized = .true.
     else
       grid => persistent_grid
@@ -1026,79 +1034,57 @@ contains
     staggered_nz = nz + 1
     
     ! Allocate all WRF fields needed by da_transfer_wrftoxb
-    ! Note: WRF domain fields are pointers, not allocatable arrays
-    ! Deallocate if already associated, then allocate
+    ! Note: We only allocate if not already allocated by WRFDA
+    ! WRFDA's da_transfer_wrftoxb expects these fields to exist
     
-    ! Mass point 3D fields
-    if (associated(grid%u_2)) deallocate(grid%u_2)
-    allocate(grid%u_2(1:nx, 1:ny, 1:nz))
+    ! Mass point 3D fields (only allocate if not associated)
+    if (.not. associated(grid%u_2)) allocate(grid%u_2(1:nx, 1:ny, 1:nz))
     
-    if (associated(grid%v_2)) deallocate(grid%v_2)
-    allocate(grid%v_2(1:nx, 1:ny, 1:nz))
+    if (.not. associated(grid%v_2)) allocate(grid%v_2(1:nx, 1:ny, 1:nz))
     
-    if (associated(grid%w_2)) deallocate(grid%w_2)
-    allocate(grid%w_2(1:nx, 1:ny, 1:staggered_nz))
+    if (.not. associated(grid%w_2)) allocate(grid%w_2(1:nx, 1:ny, 1:staggered_nz))
     
-    if (associated(grid%t_2)) deallocate(grid%t_2)
-    allocate(grid%t_2(1:nx, 1:ny, 1:nz))
+    if (.not. associated(grid%t_2)) allocate(grid%t_2(1:nx, 1:ny, 1:nz))
     
-    if (associated(grid%p)) deallocate(grid%p)
-    allocate(grid%p(1:nx, 1:ny, 1:nz))
+    if (.not. associated(grid%p)) allocate(grid%p(1:nx, 1:ny, 1:nz))
     
-    if (associated(grid%pb)) deallocate(grid%pb)
-    allocate(grid%pb(1:nx, 1:ny, 1:nz))
+    if (.not. associated(grid%pb)) allocate(grid%pb(1:nx, 1:ny, 1:nz))
     
-    if (associated(grid%t_init)) deallocate(grid%t_init)
-    allocate(grid%t_init(1:nx, 1:ny, 1:nz))
+    if (.not. associated(grid%t_init)) allocate(grid%t_init(1:nx, 1:ny, 1:nz))
     
-    if (associated(grid%mu_2)) deallocate(grid%mu_2)
-    allocate(grid%mu_2(1:nx, 1:ny))
+    if (.not. associated(grid%mu_2)) allocate(grid%mu_2(1:nx, 1:ny))
     
-    if (associated(grid%mub)) deallocate(grid%mub)
-    allocate(grid%mub(1:nx, 1:ny))
+    if (.not. associated(grid%mub)) allocate(grid%mub(1:nx, 1:ny))
     
-    if (associated(grid%psfc)) deallocate(grid%psfc)
-    allocate(grid%psfc(1:nx, 1:ny))
+    if (.not. associated(grid%psfc)) allocate(grid%psfc(1:nx, 1:ny))
     
-    ! Height fields (staggered)
-    if (associated(grid%ph_2)) deallocate(grid%ph_2)
-    allocate(grid%ph_2(1:nx, 1:ny, 1:staggered_nz))
+    ! Height fields (staggered, only allocate if not associated)
+    if (.not. associated(grid%ph_2)) allocate(grid%ph_2(1:nx, 1:ny, 1:staggered_nz))
     
-    if (associated(grid%phb)) deallocate(grid%phb)
-    allocate(grid%phb(1:nx, 1:ny, 1:staggered_nz))
+    if (.not. associated(grid%phb)) allocate(grid%phb(1:nx, 1:ny, 1:staggered_nz))
     
     ! Moisture fields (all species: qvapor, qcloud, qrain, qice, qsnow, qgraupel, etc.)
-    if (associated(grid%moist)) deallocate(grid%moist)
-    allocate(grid%moist(1:nx, 1:ny, 1:nz, 1:num_moist))
+    if (.not. associated(grid%moist)) allocate(grid%moist(1:nx, 1:ny, 1:nz, 1:num_moist))
     
-    ! Grid metadata
-    if (associated(grid%xlat)) deallocate(grid%xlat)
-    allocate(grid%xlat(1:nx, 1:ny))
+    ! Grid metadata (only allocate if not associated)
+    if (.not. associated(grid%xlat)) allocate(grid%xlat(1:nx, 1:ny))
     
-    if (associated(grid%xlong)) deallocate(grid%xlong)
-    allocate(grid%xlong(1:nx, 1:ny))
+    if (.not. associated(grid%xlong)) allocate(grid%xlong(1:nx, 1:ny))
     
-    if (associated(grid%ht)) deallocate(grid%ht)
-    allocate(grid%ht(1:nx, 1:ny))
+    if (.not. associated(grid%ht)) allocate(grid%ht(1:nx, 1:ny))
     
-    ! Vertical coordinates
-    if (associated(grid%znu)) deallocate(grid%znu)
-    allocate(grid%znu(1:staggered_nz))
+    ! Vertical coordinates (only allocate if not associated)
+    if (.not. associated(grid%znu)) allocate(grid%znu(1:staggered_nz))
     
-    if (associated(grid%znw)) deallocate(grid%znw)
-    allocate(grid%znw(1:staggered_nz))
+    if (.not. associated(grid%znw)) allocate(grid%znw(1:staggered_nz))
     
-    if (associated(grid%dn)) deallocate(grid%dn)
-    allocate(grid%dn(1:staggered_nz))
+    if (.not. associated(grid%dn)) allocate(grid%dn(1:staggered_nz))
     
-    if (associated(grid%dnw)) deallocate(grid%dnw)
-    allocate(grid%dnw(1:staggered_nz))
+    if (.not. associated(grid%dnw)) allocate(grid%dnw(1:staggered_nz))
     
-    if (associated(grid%rdnw)) deallocate(grid%rdnw)
-    allocate(grid%rdnw(1:staggered_nz))
+    if (.not. associated(grid%rdnw)) allocate(grid%rdnw(1:staggered_nz))
     
-    if (associated(grid%rdn)) deallocate(grid%rdn)
-    allocate(grid%rdn(1:staggered_nz))
+    if (.not. associated(grid%rdn)) allocate(grid%rdn(1:staggered_nz))
     
     ! Copy data from flat C arrays to WRFDA grid structure
     ! 3D fields

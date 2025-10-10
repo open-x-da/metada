@@ -417,6 +417,7 @@ class WRFState {
     // State variables (as raw pointers for efficiency)
     const double* u = nullptr;
     const double* v = nullptr;
+    const double* w = nullptr;  // Vertical velocity (W-staggered)
     const double* t = nullptr;
     const double* q = nullptr;
     const double* psfc = nullptr;
@@ -426,6 +427,9 @@ class WRFState {
     const double* hgt = nullptr;  // Terrain height (from HGT variable)
     const double* p = nullptr;    // Pressure perturbation
     const double* pb = nullptr;   // Base state pressure
+    const double* mu = nullptr;   // Column dry air mass perturbation
+    const double* mub = nullptr;  // Base state column dry air mass
+    const double* t_init = nullptr;  // Initial temperature field
 
     // Grid metadata
     const double* lats_2d = nullptr;
@@ -438,8 +442,9 @@ class WRFState {
       bool is_staggered = false;
     };
 
-    VariableDims u_dims, v_dims, t_dims, q_dims, psfc_dims, ph_dims, phb_dims,
-        hf_dims, hgt_dims, p_dims, pb_dims;
+    VariableDims u_dims, v_dims, w_dims, t_dims, q_dims, psfc_dims, ph_dims,
+        phb_dims, hf_dims, hgt_dims, p_dims, pb_dims, mu_dims, mub_dims,
+        t_init_dims;
   };
 
   ObsOperatorData getObsOperatorData() const;
@@ -2153,6 +2158,7 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   // Get state variables
   data.u = static_cast<const double*>(getData("U"));
   data.v = static_cast<const double*>(getData("V"));
+  data.w = static_cast<const double*>(getData("W"));
   data.t = static_cast<const double*>(getData("T"));
   data.q = static_cast<const double*>(getData("QVAPOR"));
   data.psfc = static_cast<const double*>(getData("PSFC"));
@@ -2161,6 +2167,9 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   data.hgt = static_cast<const double*>(getData("HGT"));
   data.p = static_cast<const double*>(getData("P"));
   data.pb = static_cast<const double*>(getData("PB"));
+  data.mu = static_cast<const double*>(getData("MU"));
+  data.mub = static_cast<const double*>(getData("MUB"));
+  data.t_init = static_cast<const double*>(getData("T_INIT"));
 
   // Get grid metadata
   const auto& gi = geometry_.unstaggered_info();
@@ -2198,6 +2207,7 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
 
   set_dims("U", data.u_dims);
   set_dims("V", data.v_dims);
+  set_dims("W", data.w_dims);
   set_dims("T", data.t_dims);
   set_dims("QVAPOR", data.q_dims);
   set_dims("PSFC", data.psfc_dims);
@@ -2206,6 +2216,9 @@ WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
   set_dims("HGT", data.hgt_dims);
   set_dims("P", data.p_dims);
   set_dims("PB", data.pb_dims);
+  set_dims("MU", data.mu_dims);
+  set_dims("MUB", data.mub_dims);
+  set_dims("T_INIT", data.t_init_dims);
 
   // Validate required variables are present - fail fast if missing
   if (!data.u) {
@@ -2334,10 +2347,10 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
   // Note: getObsOperatorData provides u, v, t, q, psfc, ph, phb, hf, hgt, p,
   // pb, lats_2d, lons_2d For additional fields not in state_data, use data()
   // method
-  const double* w_data = data("W");
-  const double* mu_data = data("MU");
-  const double* mub_data = data("MUB");
-  const double* t_init_data = data("T_INIT");
+  const double* w_data = state_data.w;
+  const double* mu_data = state_data.mu;
+  const double* mub_data = state_data.mub;
+  const double* t_init_data = state_data.t_init;
 
   // Get moisture species - for now just use QVAPOR from state_data
   // TODO: Combine all moisture species (QCLOUD, QRAIN, etc.) into moist array
