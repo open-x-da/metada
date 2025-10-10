@@ -32,11 +32,6 @@ background:
     - T
     - QVAPOR
     - PSFC
-    - P
-    - PB
-    - PH
-    - PHB
-    - HGT
 
 # Model configuration (WRF model settings)
 model:

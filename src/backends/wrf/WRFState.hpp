@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
@@ -1381,7 +1382,12 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
 
   // Load state data from WRF NetCDF file
   // Core variables (u, v, t, q, psfc) will be stored contiguously at beginning
-  variables.insert(variables.end(), {"PH", "PHB", "HGT", "P", "PB"});
+  // Only insert if not already present
+  for (const auto& var : {"PH", "PHB", "HGT", "P", "PB"}) {
+    if (std::find(variables.begin(), variables.end(), var) == variables.end()) {
+      variables.push_back(var);
+    }
+  }
   loadStateData(wrfFilename_, variables);
 
   initialized_ = true;

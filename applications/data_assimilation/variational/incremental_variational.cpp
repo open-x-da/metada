@@ -50,16 +50,16 @@ int main(int argc, char** argv) {
     logger.Info() << "Variational method: " << var_type
                   << " (incremental formulation)";
 
+    // Initialize geometry
+    fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
+
     // Initialize observations first (data-driven workflow)
     // For 3DVAR, we have a single observation time with multiple types
     std::vector<fwk::Observation<BackendTag>> observations;
-    observations.emplace_back(config.GetSubsection("observation"));
+    observations.emplace_back(config.GetSubsection("observation"), geometry);
 
     logger.Info() << "Loaded observations for " << var_type << " analysis";
     logger.Info() << "Observations: " << observations.front();
-
-    // Initialize geometry
-    fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
     // Initialize background state
     fwk::State<BackendTag> background(config.GetSubsection("background"),
