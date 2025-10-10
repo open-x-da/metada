@@ -34,6 +34,20 @@ int wrfda_construct_domain_from_arrays(
     const double* p, const double* pb, const double* lats2d,
     const double* lons2d);
 
+// Proper WRFDA domain initialization using da_transfer_wrftoxb
+// This leverages WRFDA's comprehensive field transfer and diagnostic
+// computation
+int wrfda_init_domain_from_wrf_fields(
+    const int* nx, const int* ny, const int* nz, const double* u,
+    const double* v, const double* w, const double* t, const double* mu,
+    const double* mub, const double* p, const double* pb, const double* ph,
+    const double* phb, const double* xlat, const double* xlong,
+    const double* ht, const double* znu, const double* znw, const double* dn,
+    const double* dnw, const double* rdnw, const double* rdn,
+    const double* p_top, const double* t_init, const double* moist,
+    const int* num_moist, const double* psfc, const int* start_year,
+    const int* start_month, const int* start_day, const int* start_hour);
+
 int initialize_wrfda_module_variables();
 
 void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
@@ -1293,6 +1307,18 @@ class WRFState {
                      const std::vector<std::string>& variables);
 
   /**
+   * @brief Load 1D vertical coordinate variables from WRF NetCDF file
+   *
+   * @details Loads ZNU, ZNW, DN, DNW, RDNW, RDN arrays that define the
+   * vertical coordinate system. These are typically 1D arrays stored
+   * as coordinate variables in the NetCDF file.
+   *
+   * @param[in] filename Path to the WRF NetCDF file
+   * @throws std::runtime_error If required coordinate variables are missing
+   */
+  void loadVerticalCoordinates(const std::string& filename);
+
+  /**
    * @brief Check compatibility between two WRF states
    *
    * @details Verifies that two states have the same variable names and
@@ -1352,6 +1378,18 @@ class WRFState {
   size_t psfc_begin_ = 0, psfc_end_ = 0;  ///< Surface pressure location range
   size_t core_state_size_ = 0;            ///< Total core state size
   ///@}
+
+  /// @name Vertical Coordinate Arrays (1D)
+  ///@{
+  std::vector<double> znu_;  ///< Eta values on mass levels (size: nz)
+  std::vector<double> znw_;  ///< Eta values on staggered levels (size: nz+1)
+  std::vector<double> dn_;   ///< Delta eta on mass levels (size: nz)
+  std::vector<double> dnw_;  ///< Delta eta on staggered levels (size: nz+1)
+  std::vector<double>
+      rdnw_;  ///< Inverse delta eta on staggered levels (size: nz+1)
+  std::vector<double> rdn_;  ///< Inverse delta eta on mass levels (size: nz)
+  double p_top_ = 0.0;       ///< Pressure at model top (Pa)
+  ///@}
   ///@}
   ///@}
 };
@@ -1383,12 +1421,34 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
   // Load state data from WRF NetCDF file
   // Core variables (u, v, t, q, psfc) will be stored contiguously at beginning
   // Only insert if not already present
-  for (const auto& var : {"PH", "PHB", "HGT", "P", "PB"}) {
+
+  // Required fields for da_transfer_wrftoxb
+  std::vector<std::string> required_fields = {
+      // Geopotential (staggered vertical)
+      "PH", "PHB",
+      // Terrain height
+      "HGT",
+      // Pressure perturbation and base state
+      "P", "PB",
+      // Vertical velocity (staggered vertical)
+      "W",
+      // Column dry air mass (perturbation and base state)
+      "MU", "MUB",
+      // Initial temperature field
+      "T_INIT",
+      // Additional moisture species (beyond QVAPOR)
+      "QCLOUD", "QRAIN", "QICE", "QSNOW", "QGRAUPEL"};
+
+  for (const auto& var : required_fields) {
     if (std::find(variables.begin(), variables.end(), var) == variables.end()) {
       variables.push_back(var);
     }
   }
+
   loadStateData(wrfFilename_, variables);
+
+  // Load vertical coordinate arrays (1D)
+  loadVerticalCoordinates(wrfFilename_);
 
   initialized_ = true;
 
@@ -2259,6 +2319,66 @@ WRFState<ConfigBackend, GeometryBackend>::getStateData() const {
 
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
+  // Use wrfda_init_domain_from_wrf_fields which properly leverages
+  // WRFDA's da_transfer_wrftoxb subroutine for complete initialization
+
+  // Get observation operator data which contains all required state variables
+  const auto state_data = getObsOperatorData();
+
+  // Get grid dimensions
+  const int nx = static_cast<int>(geometry_.x_dim());
+  const int ny = static_cast<int>(geometry_.y_dim());
+  const int nz = static_cast<int>(geometry_.z_dim());
+
+  // Get pointers to all required WRF fields from state_data
+  // Note: getObsOperatorData provides u, v, t, q, psfc, ph, phb, hf, hgt, p,
+  // pb, lats_2d, lons_2d For additional fields not in state_data, use data()
+  // method
+  const double* w_data = data("W");
+  const double* mu_data = data("MU");
+  const double* mub_data = data("MUB");
+  const double* t_init_data = data("T_INIT");
+
+  // Get moisture species - for now just use QVAPOR from state_data
+  // TODO: Combine all moisture species (QCLOUD, QRAIN, etc.) into moist array
+  int num_moist = 1;  // Only QVAPOR for now
+
+  // Get time information from config or WRF file
+  // For now, use placeholder values - should come from WRF file metadata
+  int start_year = 2000;
+  int start_month = 1;
+  int start_day = 24;
+  int start_hour = 12;
+
+  // Call wrfda_init_domain_from_wrf_fields with all required parameters
+  int rc = wrfda_init_domain_from_wrf_fields(
+      &nx, &ny, &nz, state_data.u, state_data.v, w_data, state_data.t, mu_data,
+      mub_data, state_data.p, state_data.pb, state_data.ph, state_data.phb,
+      state_data.lats_2d, state_data.lons_2d, state_data.hgt, znu_.data(),
+      znw_.data(), dn_.data(), dnw_.data(), rdnw_.data(), rdn_.data(), &p_top_,
+      t_init_data, state_data.q, &num_moist, state_data.psfc, &start_year,
+      &start_month, &start_day, &start_hour);
+
+  if (rc != 0) {
+    throw std::runtime_error(
+        "Failed to initialize WRFDA domain with da_transfer_wrftoxb, code " +
+        std::to_string(rc));
+  }
+
+  // Initialize map projection for coordinate conversion
+  // TODO: Get these from WRF file global attributes
+  int map_proj = 3;           // Lambert conformal conic projection
+  double cen_lat = 34.83002;  // center latitude
+  double cen_lon = -81.03;    // center longitude
+  double dx = 30000.0;        // grid spacing in meters
+  double stand_lon = -98.0;   // standard longitude
+  double truelat1 = 30.0;     // first true latitude
+  double truelat2 = 60.0;     // second true latitude
+
+  initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
+                              &truelat1, &truelat2);
+
+  /* ===== OLD MANUAL CONSTRUCTION CODE (COMMENTED OUT) =====
   // Get observation operator data which contains all required state variables
   const auto state_data = getObsOperatorData();
 
@@ -2360,6 +2480,98 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
 
   initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
                               &truelat1, &truelat2);
+  ===== END OLD MANUAL CONSTRUCTION CODE ===== */
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::loadVerticalCoordinates(
+    const std::string& filename) {
+  try {
+    // Open NetCDF file
+    netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
+
+    if (wrf_file.isNull()) {
+      throw std::runtime_error("Failed to open WRF file: " + filename);
+    }
+
+    // Get vertical dimension size
+    auto nz_dim = wrf_file.getDim("bottom_top");
+    if (nz_dim.isNull()) {
+      throw std::runtime_error(
+          "Cannot find 'bottom_top' dimension in WRF file");
+    }
+    size_t nz = nz_dim.getSize();
+    size_t nz_stag = nz + 1;
+
+    // Load ZNU (eta values on mass levels)
+    auto znu_var = wrf_file.getVar("ZNU");
+    if (!znu_var.isNull()) {
+      znu_.resize(nz);
+      znu_var.getVar(znu_.data());
+    } else {
+      throw std::runtime_error("Required variable ZNU not found in WRF file");
+    }
+
+    // Load ZNW (eta values on staggered levels)
+    auto znw_var = wrf_file.getVar("ZNW");
+    if (!znw_var.isNull()) {
+      znw_.resize(nz_stag);
+      znw_var.getVar(znw_.data());
+    } else {
+      throw std::runtime_error("Required variable ZNW not found in WRF file");
+    }
+
+    // Load DN (delta eta on mass levels)
+    auto dn_var = wrf_file.getVar("DN");
+    if (!dn_var.isNull()) {
+      dn_.resize(nz);
+      dn_var.getVar(dn_.data());
+    } else {
+      throw std::runtime_error("Required variable DN not found in WRF file");
+    }
+
+    // Load DNW (delta eta on staggered levels)
+    auto dnw_var = wrf_file.getVar("DNW");
+    if (!dnw_var.isNull()) {
+      dnw_.resize(nz_stag);
+      dnw_var.getVar(dnw_.data());
+    } else {
+      throw std::runtime_error("Required variable DNW not found in WRF file");
+    }
+
+    // Load RDNW (inverse delta eta on staggered levels)
+    auto rdnw_var = wrf_file.getVar("RDNW");
+    if (!rdnw_var.isNull()) {
+      rdnw_.resize(nz_stag);
+      rdnw_var.getVar(rdnw_.data());
+    } else {
+      throw std::runtime_error("Required variable RDNW not found in WRF file");
+    }
+
+    // Load RDN (inverse delta eta on mass levels)
+    auto rdn_var = wrf_file.getVar("RDN");
+    if (!rdn_var.isNull()) {
+      rdn_.resize(nz);
+      rdn_var.getVar(rdn_.data());
+    } else {
+      throw std::runtime_error("Required variable RDN not found in WRF file");
+    }
+
+    // Load P_TOP (pressure at model top)
+    auto p_top_var = wrf_file.getVar("P_TOP");
+    if (!p_top_var.isNull()) {
+      p_top_var.getVar(&p_top_);
+    } else {
+      throw std::runtime_error("Required variable P_TOP not found in WRF file");
+    }
+
+    std::cout << "Loaded vertical coordinates: nz=" << nz
+              << ", p_top=" << p_top_ << " Pa" << std::endl;
+
+  } catch (const netCDF::exceptions::NcException& e) {
+    throw std::runtime_error("NetCDF error loading vertical coordinates: " +
+                             std::string(e.what()));
+  }
 }
 
 }  // namespace metada::backends::wrf

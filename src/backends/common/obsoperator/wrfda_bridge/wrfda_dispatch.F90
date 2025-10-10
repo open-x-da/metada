@@ -970,6 +970,224 @@ contains
     
   end function wrfda_construct_domain_from_arrays
 
+  ! Proper WRFDA domain initialization using da_transfer_wrftoxb
+  ! This function populates the WRF grid structure from arrays and then calls
+  ! da_transfer_wrftoxb to properly compute all derived fields
+  integer(c_int) function wrfda_init_domain_from_wrf_fields(nx, ny, nz, &
+      u, v, w, t, mu, mub, p, pb, ph, phb, &
+      xlat, xlong, ht, znu, znw, dn, dnw, rdnw, rdn, &
+      p_top, t_init, moist, num_moist, psfc, &
+      start_year, start_month, start_day, start_hour) &
+      bind(C, name="wrfda_init_domain_from_wrf_fields")
+    use da_transfer_model, only: da_transfer_wrftoxb
+    use da_define_structures, only: xbx_type
+    implicit none
+    
+    ! Grid dimensions
+    integer(c_int), intent(in) :: nx, ny, nz, num_moist
+    
+    ! WRF state variables (3D fields: nx x ny x nz)
+    real(c_double), intent(in) :: u(*), v(*), w(*), t(*)
+    real(c_double), intent(in) :: mu(*), mub(*)  ! 2D: nx x ny
+    real(c_double), intent(in) :: p(*), pb(*)    ! 3D: nx x ny x nz
+    real(c_double), intent(in) :: ph(*), phb(*)  ! 3D staggered: nx x ny x (nz+1)
+    
+    ! Grid metadata (2D fields: nx x ny)
+    real(c_double), intent(in) :: xlat(*), xlong(*), ht(*)
+    
+    ! Vertical coordinates (1D arrays: size nz or nz+1)
+    real(c_double), intent(in) :: znu(*), znw(*), dn(*), dnw(*)
+    real(c_double), intent(in) :: rdnw(*), rdn(*)
+    
+    ! Scalar parameters
+    real(c_double), intent(in) :: p_top
+    real(c_double), intent(in) :: t_init(*)  ! 3D: nx x ny x nz
+    real(c_double), intent(in) :: moist(*)   ! 4D: nx x ny x nz x num_moist
+    real(c_double), intent(in) :: psfc(*)    ! 2D: nx x ny
+    
+    ! Time information
+    integer(c_int), intent(in) :: start_year, start_month, start_day, start_hour
+    
+    ! Local variables
+    type(domain), pointer :: grid
+    type(xbx_type) :: xbx
+    type(grid_config_rec_type) :: config_flags
+    integer :: i, j, k, m, idx, idx_3d, staggered_nz
+    
+    ! Set up grid structure (similar to wrfda_construct_domain_from_arrays but more complete)
+    if (.not. grid_initialized) then
+      allocate(persistent_grid)
+      grid => persistent_grid
+      grid_initialized = .true.
+    else
+      grid => persistent_grid
+    end if
+    
+    staggered_nz = nz + 1
+    
+    ! Allocate all WRF fields needed by da_transfer_wrftoxb
+    ! Note: WRF domain fields are pointers, not allocatable arrays
+    ! Deallocate if already associated, then allocate
+    
+    ! Mass point 3D fields
+    if (associated(grid%u_2)) deallocate(grid%u_2)
+    allocate(grid%u_2(1:nx, 1:ny, 1:nz))
+    
+    if (associated(grid%v_2)) deallocate(grid%v_2)
+    allocate(grid%v_2(1:nx, 1:ny, 1:nz))
+    
+    if (associated(grid%w_2)) deallocate(grid%w_2)
+    allocate(grid%w_2(1:nx, 1:ny, 1:staggered_nz))
+    
+    if (associated(grid%t_2)) deallocate(grid%t_2)
+    allocate(grid%t_2(1:nx, 1:ny, 1:nz))
+    
+    if (associated(grid%p)) deallocate(grid%p)
+    allocate(grid%p(1:nx, 1:ny, 1:nz))
+    
+    if (associated(grid%pb)) deallocate(grid%pb)
+    allocate(grid%pb(1:nx, 1:ny, 1:nz))
+    
+    if (associated(grid%t_init)) deallocate(grid%t_init)
+    allocate(grid%t_init(1:nx, 1:ny, 1:nz))
+    
+    if (associated(grid%mu_2)) deallocate(grid%mu_2)
+    allocate(grid%mu_2(1:nx, 1:ny))
+    
+    if (associated(grid%mub)) deallocate(grid%mub)
+    allocate(grid%mub(1:nx, 1:ny))
+    
+    if (associated(grid%psfc)) deallocate(grid%psfc)
+    allocate(grid%psfc(1:nx, 1:ny))
+    
+    ! Height fields (staggered)
+    if (associated(grid%ph_2)) deallocate(grid%ph_2)
+    allocate(grid%ph_2(1:nx, 1:ny, 1:staggered_nz))
+    
+    if (associated(grid%phb)) deallocate(grid%phb)
+    allocate(grid%phb(1:nx, 1:ny, 1:staggered_nz))
+    
+    ! Moisture fields (all species: qvapor, qcloud, qrain, qice, qsnow, qgraupel, etc.)
+    if (associated(grid%moist)) deallocate(grid%moist)
+    allocate(grid%moist(1:nx, 1:ny, 1:nz, 1:num_moist))
+    
+    ! Grid metadata
+    if (associated(grid%xlat)) deallocate(grid%xlat)
+    allocate(grid%xlat(1:nx, 1:ny))
+    
+    if (associated(grid%xlong)) deallocate(grid%xlong)
+    allocate(grid%xlong(1:nx, 1:ny))
+    
+    if (associated(grid%ht)) deallocate(grid%ht)
+    allocate(grid%ht(1:nx, 1:ny))
+    
+    ! Vertical coordinates
+    if (associated(grid%znu)) deallocate(grid%znu)
+    allocate(grid%znu(1:staggered_nz))
+    
+    if (associated(grid%znw)) deallocate(grid%znw)
+    allocate(grid%znw(1:staggered_nz))
+    
+    if (associated(grid%dn)) deallocate(grid%dn)
+    allocate(grid%dn(1:staggered_nz))
+    
+    if (associated(grid%dnw)) deallocate(grid%dnw)
+    allocate(grid%dnw(1:staggered_nz))
+    
+    if (associated(grid%rdnw)) deallocate(grid%rdnw)
+    allocate(grid%rdnw(1:staggered_nz))
+    
+    if (associated(grid%rdn)) deallocate(grid%rdn)
+    allocate(grid%rdn(1:staggered_nz))
+    
+    ! Copy data from flat C arrays to WRFDA grid structure
+    ! 3D fields
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          idx = i + (j-1)*nx + (k-1)*nx*ny
+          grid%u_2(i,j,k) = u(idx)
+          grid%v_2(i,j,k) = v(idx)
+          grid%t_2(i,j,k) = t(idx)
+          grid%p(i,j,k) = p(idx)
+          grid%pb(i,j,k) = pb(idx)
+          grid%t_init(i,j,k) = t_init(idx)
+        end do
+      end do
+    end do
+    
+    ! Copy moisture fields (all species)
+    do m = 1, num_moist
+      do k = 1, nz
+        do j = 1, ny
+          do i = 1, nx
+            ! 4D array indexing: i + (j-1)*nx + (k-1)*nx*ny + (m-1)*nx*ny*nz
+            idx = i + (j-1)*nx + (k-1)*nx*ny + (m-1)*nx*ny*nz
+            grid%moist(i,j,k,m) = moist(idx)
+          end do
+        end do
+      end do
+    end do
+    
+    ! W field (staggered)
+    do k = 1, staggered_nz
+      do j = 1, ny
+        do i = 1, nx
+          idx_3d = i + (j-1)*nx + (k-1)*nx*ny
+          grid%w_2(i,j,k) = w(idx_3d)
+          grid%ph_2(i,j,k) = ph(idx_3d)
+          grid%phb(i,j,k) = phb(idx_3d)
+        end do
+      end do
+    end do
+    
+    ! 2D fields
+    do j = 1, ny
+      do i = 1, nx
+        idx = i + (j-1)*nx
+        grid%mu_2(i,j) = mu(idx)
+        grid%mub(i,j) = mub(idx)
+        grid%psfc(i,j) = psfc(idx)
+        grid%xlat(i,j) = xlat(idx)
+        grid%xlong(i,j) = xlong(idx)
+        grid%ht(i,j) = ht(idx)
+      end do
+    end do
+    
+    ! 1D vertical coordinates
+    do k = 1, nz
+      grid%znu(k) = znu(k)
+      grid%znw(k) = znw(k)
+      grid%dn(k) = dn(k)
+      grid%dnw(k) = dnw(k)
+      grid%rdnw(k) = rdnw(k)
+      grid%rdn(k) = rdn(k)
+    end do
+    ! Last level for staggered arrays
+    grid%znw(staggered_nz) = znw(staggered_nz)
+    grid%dnw(staggered_nz) = dnw(staggered_nz)
+    grid%rdnw(staggered_nz) = rdnw(staggered_nz)
+    
+    ! Set scalar parameters
+    grid%p_top = p_top
+    grid%start_year = start_year
+    grid%start_month = start_month
+    grid%start_day = start_day
+    grid%start_hour = start_hour
+    
+    ! Set up grid dimensions
+    grid%xp%ids = 1; grid%xp%ide = nx
+    grid%xp%jds = 1; grid%xp%jde = ny
+    grid%xp%kds = 1; grid%xp%kde = nz
+    
+    ! Call da_transfer_wrftoxb to do all the proper initialization
+    ! This computes all derived fields, diagnostics, etc.
+    call da_transfer_wrftoxb(xbx, grid, config_flags)
+    
+    wrfda_init_domain_from_wrf_fields = 0  ! Success
+    
+  end function wrfda_init_domain_from_wrf_fields
+
   ! Construct y_type from observation data
   type(c_ptr) function wrfda_construct_y_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_available, v_available, t_available, p_available, q_available, lats, lons, obs_types, family) bind(C, name="wrfda_construct_y_type")
     implicit none
