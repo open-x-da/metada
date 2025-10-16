@@ -12,6 +12,8 @@ module metada_wrf_config_bridge
   implicit none
 
   ! Module-level storage for config_flags (not C-interoperable, so kept in Fortran)
+  ! This is ALWAYS derived from WRF's authoritative model_config_rec via model_to_grid_config_rec
+  ! NEVER manually update this variable - it must stay synchronized with WRF's configuration space
   ! TARGET attribute allows taking C pointers for passing to WRF observation operators
   type(grid_config_rec_type), save, target :: config_flags_
   
@@ -73,13 +75,18 @@ contains
   end subroutine wrf_initial_config
 
   ! C-callable wrapper for model_to_grid_config_rec()
-  ! Extracts domain-specific configuration from model_config_rec
+  ! Extracts domain-specific configuration from WRF's authoritative model_config_rec
+  ! This is the ONLY way config_flags_ should be populated - ensuring we always
+  ! use WRF's configuration space, not a parallel MetaDA configuration
   subroutine wrf_model_to_grid_config(domain_id) bind(C, name="wrf_model_to_grid_config_")
     implicit none
     integer(c_int), intent(in) :: domain_id
     
     ! Call WRF's model_to_grid_config_rec to extract domain-specific config
     ! This copies values from model_config_rec(domain_id) to module-level config_flags_
+    ! All other code that needs to update config_flags_ must do so by:
+    !   1. Updating model_config_rec first
+    !   2. Then calling this subroutine to sync config_flags_
     call model_to_grid_config_rec(domain_id, model_config_rec, config_flags_)
     
   end subroutine wrf_model_to_grid_config
@@ -147,11 +154,11 @@ contains
   !============================================================================
   
   ! Set grid geometry parameters in WRF structures
-  ! Stores in WRF's model_config_rec (authoritative source), grid domain structure, 
-  ! and module-level config_flags_
+  ! Stores in WRF's model_config_rec (authoritative source) and grid domain structure
+  ! Then syncs config_flags_ from model_config_rec to ensure consistency
   subroutine wrf_set_grid_geometry(domain_id, dx, dy, map_proj, &
-                                     cen_lat, cen_lon, truelat1, truelat2, &
-                                     stand_lon) bind(C, name="wrf_set_grid_geometry_")
+                                    cen_lat, cen_lon, truelat1, truelat2, &
+                                    stand_lon) bind(C, name="wrf_set_grid_geometry_")
     implicit none
     integer(c_int), intent(in), value :: domain_id
     real(c_float), intent(in), value :: dx, dy
@@ -163,14 +170,14 @@ contains
     
     ! 1. Store in WRF's model_config_rec (authoritative source for all WRF subsystems)
     !    This is indexed by domain_id and is the master configuration storage
-    model_config_rec%dx(domain_id) = real(dx)
-    model_config_rec%dy(domain_id) = real(dy)
+    model_config_rec%dx(domain_id) = dx
+    model_config_rec%dy(domain_id) = dy
     model_config_rec%map_proj(domain_id) = map_proj
-    model_config_rec%cen_lat(domain_id) = real(cen_lat)
-    model_config_rec%cen_lon(domain_id) = real(cen_lon)
-    model_config_rec%truelat1(domain_id) = real(truelat1)
-    model_config_rec%truelat2(domain_id) = real(truelat2)
-    model_config_rec%stand_lon(domain_id) = real(stand_lon)
+    model_config_rec%cen_lat(domain_id) = cen_lat
+    model_config_rec%cen_lon(domain_id) = cen_lon
+    model_config_rec%truelat1(domain_id) = truelat1
+    model_config_rec%truelat2(domain_id) = truelat2
+    model_config_rec%stand_lon(domain_id) = stand_lon
     
     ! 2. Find and update the grid domain structure if it exists
     nullify(grid)
@@ -178,26 +185,19 @@ contains
     
     if (associated(grid)) then
       ! Set grid geometry in domain structure (for WRF routines that use grid%)
-      grid%dx = real(dx)
-      grid%dy = real(dy)
+      grid%dx = dx
+      grid%dy = dy
       grid%map_proj = map_proj
-      grid%cen_lat = real(cen_lat)
-      grid%cen_lon = real(cen_lon)
-      grid%truelat1 = real(truelat1)
-      grid%truelat2 = real(truelat2)
-      grid%stand_lon = real(stand_lon)
+      grid%cen_lat = cen_lat
+      grid%cen_lon = cen_lon
+      grid%truelat1 = truelat1
+      grid%truelat2 = truelat2
+      grid%stand_lon = stand_lon
     endif
     
-    ! 3. Store in module-level config_flags_ for local convenience
-    !    (This gets populated from model_config_rec via model_to_grid_config_rec)
-    config_flags_%dx = real(dx)
-    config_flags_%dy = real(dy)
-    config_flags_%map_proj = map_proj
-    config_flags_%cen_lat = real(cen_lat)
-    config_flags_%cen_lon = real(cen_lon)
-    config_flags_%truelat1 = real(truelat1)
-    config_flags_%truelat2 = real(truelat2)
-    config_flags_%stand_lon = real(stand_lon)
+    ! 3. Sync config_flags_ from model_config_rec (NEVER manually update config_flags_)
+    !    This ensures config_flags_ always reflects WRF's authoritative configuration
+    call model_to_grid_config_rec(domain_id, model_config_rec, config_flags_)
     
   end subroutine wrf_set_grid_geometry
   
