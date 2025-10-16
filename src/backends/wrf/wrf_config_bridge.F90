@@ -147,7 +147,8 @@ contains
   !============================================================================
   
   ! Set grid geometry parameters in WRF structures
-  ! Stores in both grid domain structure AND module-level config_flags_
+  ! Stores in WRF's model_config_rec (authoritative source), grid domain structure, 
+  ! and module-level config_flags_
   subroutine wrf_set_grid_geometry(domain_id, dx, dy, map_proj, &
                                      cen_lat, cen_lon, truelat1, truelat2, &
                                      stand_lon) bind(C, name="wrf_set_grid_geometry_")
@@ -160,7 +161,18 @@ contains
     
     type(domain), pointer :: grid
     
-    ! Find the domain
+    ! 1. Store in WRF's model_config_rec (authoritative source for all WRF subsystems)
+    !    This is indexed by domain_id and is the master configuration storage
+    model_config_rec%dx(domain_id) = real(dx)
+    model_config_rec%dy(domain_id) = real(dy)
+    model_config_rec%map_proj(domain_id) = map_proj
+    model_config_rec%cen_lat(domain_id) = real(cen_lat)
+    model_config_rec%cen_lon(domain_id) = real(cen_lon)
+    model_config_rec%truelat1(domain_id) = real(truelat1)
+    model_config_rec%truelat2(domain_id) = real(truelat2)
+    model_config_rec%stand_lon(domain_id) = real(stand_lon)
+    
+    ! 2. Find and update the grid domain structure if it exists
     nullify(grid)
     call find_grid_by_id(domain_id, head_grid, grid)
     
@@ -169,19 +181,23 @@ contains
       grid%dx = real(dx)
       grid%dy = real(dy)
       grid%map_proj = map_proj
+      grid%cen_lat = real(cen_lat)
+      grid%cen_lon = real(cen_lon)
+      grid%truelat1 = real(truelat1)
+      grid%truelat2 = real(truelat2)
+      grid%stand_lon = real(stand_lon)
     endif
     
-    ! Store projection parameters in module-level config_flags_
-    ! (This is the authoritative source for projection parameters)
-    ! Use explicit conversion from c_float to default real
-    config_flags_%dx = dx
-    config_flags_%dy = dy
+    ! 3. Store in module-level config_flags_ for local convenience
+    !    (This gets populated from model_config_rec via model_to_grid_config_rec)
+    config_flags_%dx = real(dx)
+    config_flags_%dy = real(dy)
     config_flags_%map_proj = map_proj
-    config_flags_%cen_lat = cen_lat
-    config_flags_%cen_lon = cen_lon
-    config_flags_%truelat1 = truelat1
-    config_flags_%truelat2 = truelat2
-    config_flags_%stand_lon = stand_lon
+    config_flags_%cen_lat = real(cen_lat)
+    config_flags_%cen_lon = real(cen_lon)
+    config_flags_%truelat1 = real(truelat1)
+    config_flags_%truelat2 = real(truelat2)
+    config_flags_%stand_lon = real(stand_lon)
     
   end subroutine wrf_set_grid_geometry
   
@@ -189,62 +205,39 @@ contains
   ! WRF Grid Geometry Getters (read from WRF domain structures)
   !============================================================================
   
-  ! Get grid geometry from WRF domain structure
+  ! Get grid geometry from WRF's model_config_rec (authoritative source)
+  ! These getters read from model_config_rec which is the master configuration storage
+  
   function wrf_get_grid_dx(domain_id) bind(C, name="wrf_get_grid_dx_") result(dx)
     implicit none
     integer(c_int), intent(in), value :: domain_id
     real(c_float) :: dx
-    type(domain), pointer :: grid
     
-    dx = 0.0
-    nullify(grid)
-    call find_grid_by_id(domain_id, head_grid, grid)
-    
-    if (associated(grid)) then
-      dx = real(grid%dx, kind=c_float)
-    endif
+    dx = real(model_config_rec%dx(domain_id), kind=c_float)
   end function wrf_get_grid_dx
   
   function wrf_get_grid_dy(domain_id) bind(C, name="wrf_get_grid_dy_") result(dy)
     implicit none
     integer(c_int), intent(in), value :: domain_id
     real(c_float) :: dy
-    type(domain), pointer :: grid
     
-    dy = 0.0
-    nullify(grid)
-    call find_grid_by_id(domain_id, head_grid, grid)
-    
-    if (associated(grid)) then
-      dy = real(grid%dy, kind=c_float)
-    endif
+    dy = real(model_config_rec%dy(domain_id), kind=c_float)
   end function wrf_get_grid_dy
   
   function wrf_get_grid_map_proj(domain_id) bind(C, name="wrf_get_grid_map_proj_") result(map_proj)
     implicit none
     integer(c_int), intent(in), value :: domain_id
     integer(c_int) :: map_proj
-    type(domain), pointer :: grid
     
-    map_proj = 0
-    nullify(grid)
-    call find_grid_by_id(domain_id, head_grid, grid)
-    
-    if (associated(grid)) then
-      map_proj = int(grid%map_proj, kind=c_int)
-    endif
+    map_proj = int(model_config_rec%map_proj(domain_id), kind=c_int)
   end function wrf_get_grid_map_proj
   
-  ! Get projection parameters from config_flags_
-  ! Note: domain_id parameter kept for API consistency (all getters take domain_id)
-  ! but not used since config_flags_ is module-level, not domain-specific
   function wrf_get_grid_cen_lat(domain_id) bind(C, name="wrf_get_grid_cen_lat_") result(cen_lat)
     implicit none
     integer(c_int), intent(in), value :: domain_id
     real(c_float) :: cen_lat
     
-    cen_lat = real(config_flags_%cen_lat, kind=c_float)
-    ! domain_id intentionally unused - config_flags_ is module-level
+    cen_lat = real(model_config_rec%cen_lat(domain_id), kind=c_float)
   end function wrf_get_grid_cen_lat
   
   function wrf_get_grid_cen_lon(domain_id) bind(C, name="wrf_get_grid_cen_lon_") result(cen_lon)
@@ -252,8 +245,7 @@ contains
     integer(c_int), intent(in), value :: domain_id
     real(c_float) :: cen_lon
     
-    cen_lon = real(config_flags_%cen_lon, kind=c_float)
-    ! domain_id intentionally unused
+    cen_lon = real(model_config_rec%cen_lon(domain_id), kind=c_float)
   end function wrf_get_grid_cen_lon
   
   function wrf_get_grid_truelat1(domain_id) bind(C, name="wrf_get_grid_truelat1_") result(truelat1)
@@ -261,8 +253,7 @@ contains
     integer(c_int), intent(in), value :: domain_id
     real(c_float) :: truelat1
     
-    truelat1 = real(config_flags_%truelat1, kind=c_float)
-    ! domain_id intentionally unused
+    truelat1 = real(model_config_rec%truelat1(domain_id), kind=c_float)
   end function wrf_get_grid_truelat1
   
   function wrf_get_grid_truelat2(domain_id) bind(C, name="wrf_get_grid_truelat2_") result(truelat2)
@@ -270,8 +261,7 @@ contains
     integer(c_int), intent(in), value :: domain_id
     real(c_float) :: truelat2
     
-    truelat2 = real(config_flags_%truelat2, kind=c_float)
-    ! domain_id intentionally unused
+    truelat2 = real(model_config_rec%truelat2(domain_id), kind=c_float)
   end function wrf_get_grid_truelat2
   
   function wrf_get_grid_stand_lon(domain_id) bind(C, name="wrf_get_grid_stand_lon_") result(stand_lon)
@@ -279,8 +269,7 @@ contains
     integer(c_int), intent(in), value :: domain_id
     real(c_float) :: stand_lon
     
-    stand_lon = real(config_flags_%stand_lon, kind=c_float)
-    ! domain_id intentionally unused
+    stand_lon = real(model_config_rec%stand_lon(domain_id), kind=c_float)
   end function wrf_get_grid_stand_lon
   
   !============================================================================
