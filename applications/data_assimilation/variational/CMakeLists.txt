@@ -41,23 +41,38 @@ if(WITH_WRFDA AND WRFDA_VAR_LIB AND WRFDA_COMPLETE_BUILD)
     # Explicitly add da_control.o if present and not archived in libwrfvar
     set(WRFDA_DA_CONTROL_OBJ "${WRFDA_MOD_DIR}/da_control.o")
     if (EXISTS ${WRFDA_DA_CONTROL_OBJ})
+      target_link_libraries(tl_ad_checks PRIVATE ${WRFDA_DA_CONTROL_OBJ})
       target_link_libraries(incremental_variational PRIVATE ${WRFDA_DA_CONTROL_OBJ})
     endif()
     
     # Link NetCDF Fortran library (required by WRFDA)
     find_library(NETCDF_FORTRAN_LIBRARY NAMES netcdff)
     if(NETCDF_FORTRAN_LIBRARY)
+      target_link_libraries(tl_ad_checks PRIVATE ${NETCDF_FORTRAN_LIBRARY})
       target_link_libraries(incremental_variational PRIVATE ${NETCDF_FORTRAN_LIBRARY})
     endif()
     
-    # Link CRTM library (required by WRFDA)
+    # Set CRTM library path (used by both executables)
     set(CRTM_LIBRARY_PATH "${WRFDA_MOD_DIR}/../external/crtm_2.3.0/libsrc/libCRTM.a")
+    
+    # Configure tl_ad_checks linking
+    # Use linker group to handle circular dependencies between WRFDA libraries
+    # Note: Library order matters - dependencies must come after dependents
+    target_link_options(tl_ad_checks PRIVATE -Wl,--start-group)
+    target_link_libraries(tl_ad_checks PRIVATE ${WRFDA_VAR_LIB})
+    # Link CRTM library AFTER libwrfvar.a (since libwrfvar depends on CRTM)
+    if(EXISTS ${CRTM_LIBRARY_PATH})
+      target_link_libraries(tl_ad_checks PRIVATE ${CRTM_LIBRARY_PATH})
+    endif()
+    target_link_options(tl_ad_checks PRIVATE -Wl,--end-group)
+    
+    # Configure incremental_variational linking
+    target_link_options(incremental_variational PRIVATE -Wl,--start-group)
+    target_link_libraries(incremental_variational PRIVATE ${WRFDA_VAR_LIB})
+    # Link CRTM library AFTER libwrfvar.a (since libwrfvar depends on CRTM)
     if(EXISTS ${CRTM_LIBRARY_PATH})
       target_link_libraries(incremental_variational PRIVATE ${CRTM_LIBRARY_PATH})
     endif()
-    
-    target_link_options(incremental_variational PRIVATE -Wl,--start-group)
-    target_link_libraries(incremental_variational PRIVATE ${WRFDA_VAR_LIB})
     target_link_options(incremental_variational PRIVATE -Wl,--end-group)
   endif()
 elseif(WITH_WRFDA)
