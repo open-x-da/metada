@@ -21,6 +21,8 @@ perform_gradient_test: true
 # WRFGeometry automatically reads all grid information from the NetCDF file
 geometry:
   file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+  namelist_path: "D:/linux/metada/src/backends/wrf/tutorial/namelist.input"
+  domain_id: 1  # Optional, defaults to 1
 
 # Background state configuration
 background:

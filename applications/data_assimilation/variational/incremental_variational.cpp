@@ -53,6 +53,11 @@ int main(int argc, char** argv) {
     // Initialize geometry
     fwk::Geometry<BackendTag> geometry(config.GetSubsection("geometry"));
 
+    // Initialize background state
+    fwk::State<BackendTag> background(config.GetSubsection("background"),
+                                      geometry);
+    logger.Info() << "Background state: " << background;
+
     // Initialize observations first (data-driven workflow)
     // For 3DVAR, we have a single observation time with multiple types
     std::vector<fwk::Observation<BackendTag>> observations;
@@ -60,11 +65,6 @@ int main(int argc, char** argv) {
 
     logger.Info() << "Loaded observations for " << var_type << " analysis";
     logger.Info() << "Observations: " << observations.front();
-
-    // Initialize background state
-    fwk::State<BackendTag> background(config.GetSubsection("background"),
-                                      geometry);
-    logger.Info() << "Background state: " << background;
 
     // Initialize model
     fwk::Model<BackendTag> model(config.GetSubsection("model"));

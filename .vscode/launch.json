@@ -176,8 +176,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/incremental_variational",
             "args": ["${workspaceFolder}/src/backends/wrf/tutorial/incremental_var3d.yaml"],
-            "stopAtEntry": false
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
+            "preLaunchTask": "Copy WRF namelist.input",
             "environment": [
                 {
                     "name": "GLOG_logtostderr",

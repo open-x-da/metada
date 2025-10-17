@@ -50,11 +50,8 @@ int wrfda_init_domain_from_wrf_fields(
 
 int initialize_wrfda_module_variables();
 
-void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
-                                 const double* cen_lon, const double* dx,
-                                 const double* stand_lon,
-                                 const double* truelat1,
-                                 const double* truelat2);
+// Note: initialize_map_projection_c is now called in WRFGeometry constructor
+// Forward declaration removed from here - see WRFGeometry.hpp
 }
 
 namespace metada::backends::wrf {
@@ -2378,19 +2375,6 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
         std::to_string(rc));
   }
 
-  // Initialize map projection for coordinate conversion
-  // TODO: Get these from WRF file global attributes
-  int map_proj = 3;           // Lambert conformal conic projection
-  double cen_lat = 34.83002;  // center latitude
-  double cen_lon = -81.03;    // center longitude
-  double dx = 30000.0;        // grid spacing in meters
-  double stand_lon = -98.0;   // standard longitude
-  double truelat1 = 30.0;     // first true latitude
-  double truelat2 = 60.0;     // second true latitude
-
-  initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
-                              &truelat1, &truelat2);
-
   /* ===== OLD MANUAL CONSTRUCTION CODE (COMMENTED OUT) =====
   // Get observation operator data which contains all required state variables
   const auto state_data = getObsOperatorData();
@@ -2480,19 +2464,9 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
         std::to_string(rc));
   }
 
-  // Initialize map projection for coordinate conversion
-  // Use default values for now - these should ideally come from the geometry
-  // backend
-  int map_proj = 3;           // Lambert conformal conic projection
-  double cen_lat = 34.83002;  // center latitude
-  double cen_lon = -81.03;    // center longitude
-  double dx = 30000.0;        // grid spacing in meters
-  double stand_lon = -98.0;   // standard longitude
-  double truelat1 = 30.0;     // first true latitude
-  double truelat2 = 60.0;     // second true latitude
-
-  initialize_map_projection_c(&map_proj, &cen_lat, &cen_lon, &dx, &stand_lon,
-                              &truelat1, &truelat2);
+  // NOTE: Map projection initialization removed - now properly handled in
+  // WRFGeometry constructor which reads values from NetCDF file global
+  attributes
   ===== END OLD MANUAL CONSTRUCTION CODE ===== */
 }
 

@@ -11,6 +11,21 @@
             "problemMatcher": [
                 "$gcc"
             ]
+        },
+        {
+            "type": "shell",
+            "label": "Copy WRF namelist.input",
+            "command": "powershell",
+            "args": [
+                "-Command",
+                "Copy-Item -Force '${workspaceFolder}\\src\\backends\\wrf\\tutorial\\namelist.input' '${workspaceFolder}\\build\\namelist.input'"
+            ],
+            "options": {
+                "shell": {
+                    "executable": "powershell.exe"
+                }
+            },
+            "problemMatcher": []
         }
     ],
     "version": "2.0.0"
