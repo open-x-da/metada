@@ -2076,7 +2076,7 @@ contains
     end if
     
     ! Initialize config_flags from model_config_rec for this grid domain
-    call model_to_grid_config_rec(grid%id, model_config_rec, config_flags)
+    ! call model_to_grid_config_rec(grid%id, model_config_rec, config_flags)
     
     ! Step 1: Call da_med_initialdata_input to read NetCDF file into grid structure
     ! This reads all variables from the NetCDF file and validates compatibility

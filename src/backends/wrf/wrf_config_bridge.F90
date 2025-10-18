@@ -113,6 +113,18 @@ contains
     if (domain_id == 1) then
       ! Pass head_grid directly - alloc_and_configure_domain will allocate and set it
       call alloc_and_configure_domain(domain_id, active_this_task, head_grid, parent, -1)
+      
+      ! Verify that head_grid was successfully allocated
+      if (associated(head_grid)) then
+        ! CRITICAL FIX: alloc_and_configure_domain doesn't set grid%id
+        ! We must set it explicitly
+        head_grid%id = domain_id
+        print *, "DEBUG: Set head_grid%id to ", head_grid%id
+      else
+        print *, "ERROR: head_grid not associated after alloc_and_configure_domain"
+        ierr = 1
+        return
+      endif
     else
       ! For nested domains, find parent (parent_id = domain_id - 1 for simplicity)
       ! In a more complex setup, this would need proper parent tracking
