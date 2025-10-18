@@ -27,6 +27,25 @@
 
 // WRFDA C bindings for domain initialization
 extern "C" {
+// NEW: WRFDA First Guess Initialization Functions
+// These functions implement the refactored WRFState initialization strategy
+// that leverages WRFDA's proven initialization pipeline
+int wrfda_load_first_guess(void* grid_ptr, const char* filename,
+                           int filename_len);
+
+int wrfda_extract_background_state(void* grid_ptr, double* u, double* v,
+                                   double* t, double* q, double* psfc,
+                                   double* p, double* ph, double* phb,
+                                   double* hgt, double* lats, double* lons,
+                                   int* nx, int* ny, int* nz);
+
+int wrfda_extract_additional_fields(void* grid_ptr, double* w, double* mu,
+                                    double* mub, double* pb, double* t_init);
+
+// Get grid pointer from WRF config bridge
+void* wrf_get_grid_ptr_(int domain_id);
+
+// LEGACY: Old domain construction methods (kept for backward compatibility)
 int wrfda_construct_domain_from_arrays(
     const int* nx, const int* ny, const int* nz, const double* u,
     const double* v, const double* t, const double* q, const double* psfc,
@@ -34,9 +53,6 @@ int wrfda_construct_domain_from_arrays(
     const double* p, const double* pb, const double* lats2d,
     const double* lons2d);
 
-// Proper WRFDA domain initialization using da_transfer_wrftoxb
-// This leverages WRFDA's comprehensive field transfer and diagnostic
-// computation
 int wrfda_init_domain_from_wrf_fields(
     const int* nx, const int* ny, const int* nz, const double* u,
     const double* v, const double* w, const double* t, const double* mu,
@@ -1420,50 +1436,281 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
               << std::endl;
   }
 
-  // Load state data from WRF NetCDF file
-  // Core variables (u, v, t, q, psfc) will be stored contiguously at beginning
-  // Only insert if not already present
-
-  // Required fields for da_transfer_wrftoxb
-  std::vector<std::string> required_fields = {
-      // Geopotential (staggered vertical)
-      "PH", "PHB",
-      // Terrain height
-      "HGT",
-      // Pressure perturbation and base state
-      "P", "PB",
-      // Vertical velocity (staggered vertical)
-      "W",
-      // Column dry air mass (perturbation and base state)
-      "MU", "MUB",
-      // Initial temperature field
-      "T_INIT",
-      // Additional moisture species (beyond QVAPOR)
-      "QCLOUD", "QRAIN", "QICE", "QSNOW", "QGRAUPEL"};
-
-  for (const auto& var : required_fields) {
-    if (std::find(variables.begin(), variables.end(), var) == variables.end()) {
-      variables.push_back(var);
+  // Check if we should use WRFDA-based initialization (recommended)
+  bool use_wrfda_init = true;
+  try {
+    if (config.HasKey("use_wrfda_initialization")) {
+      use_wrfda_init = config.Get("use_wrfda_initialization").asBool();
     }
+  } catch (const std::exception&) {
+    // Default to WRFDA initialization
   }
 
-  loadStateData(wrfFilename_, variables);
-
-  // Load vertical coordinate arrays (1D)
-  loadVerticalCoordinates(wrfFilename_);
-
-  initialized_ = true;
-
-  // Initialize WRFDA domain structure after state is fully initialized
-  try {
-    initializeWRFDADomain();
-  } catch (const std::exception& e) {
-    std::cerr << "Warning: WRFDA domain initialization failed: " << e.what()
+  if (use_wrfda_init) {
+    // NEW APPROACH: Use WRFDA's proven initialization pipeline
+    std::cout << "Using WRFDA first guess initialization for: " << wrfFilename_
               << std::endl;
-    std::cerr << "WRFDA observation operators may not work correctly."
+
+    // Get grid pointer from geometry (allocated in WRFGeometry)
+    void* grid_ptr = wrf_get_grid_ptr_(1);  // domain_id = 1
+    if (!grid_ptr) {
+      throw std::runtime_error("Failed to get WRF grid pointer from geometry");
+    }
+
+    // Load first guess using WRFDA with the geometry's grid
+    int rc = wrfda_load_first_guess(grid_ptr, wrfFilename_.c_str(),
+                                    static_cast<int>(wrfFilename_.length()));
+    if (rc != 0) {
+      throw std::runtime_error("Failed to load first guess with WRFDA, code " +
+                               std::to_string(rc));
+    }
+
+    // Step 2: Extract background state dimensions first
+    int nx = 0, ny = 0, nz = 0;
+    std::vector<double> u_temp, v_temp, t_temp, q_temp, psfc_temp;
+    std::vector<double> p_temp, ph_temp, phb_temp, hgt_temp;
+    std::vector<double> lats_temp, lons_temp;
+
+    // Extract to get dimensions (pass grid_ptr and nullptrs for data arrays)
+    rc = wrfda_extract_background_state(
+        grid_ptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+        nullptr, nullptr, nullptr, nullptr, &nx, &ny, &nz);
+    if (rc != 0) {
+      throw std::runtime_error("Failed to get dimensions from WRFDA, code " +
+                               std::to_string(rc));
+    }
+
+    std::cout << "Grid dimensions: nx=" << nx << ", ny=" << ny << ", nz=" << nz
               << std::endl;
-    // Continue with initialization - WRFDA is optional for basic state
-    // operations
+
+    // Step 3: Allocate and extract full background state
+    u_temp.resize(nx * ny * nz);
+    v_temp.resize(nx * ny * nz);
+    t_temp.resize(nx * ny * nz);
+    q_temp.resize(nx * ny * nz);
+    psfc_temp.resize(nx * ny);
+    p_temp.resize(nx * ny * nz);
+    ph_temp.resize(nx * ny * (nz + 1));
+    phb_temp.resize(nx * ny * (nz + 1));
+    hgt_temp.resize(nx * ny);
+    lats_temp.resize(nx * ny);
+    lons_temp.resize(nx * ny);
+
+    rc = wrfda_extract_background_state(
+        grid_ptr, u_temp.data(), v_temp.data(), t_temp.data(), q_temp.data(),
+        psfc_temp.data(), p_temp.data(), ph_temp.data(), phb_temp.data(),
+        hgt_temp.data(), lats_temp.data(), lons_temp.data(), &nx, &ny, &nz);
+    if (rc != 0) {
+      throw std::runtime_error(
+          "Failed to extract background state from WRFDA, code " +
+          std::to_string(rc));
+    }
+
+    // Step 4: Extract additional fields
+    std::vector<double> w_temp(nx * ny * (nz + 1));
+    std::vector<double> mu_temp(nx * ny);
+    std::vector<double> mub_temp(nx * ny);
+    std::vector<double> pb_temp(nx * ny * nz);
+    std::vector<double> t_init_temp(nx * ny * nz);
+
+    rc = wrfda_extract_additional_fields(grid_ptr, w_temp.data(),
+                                         mu_temp.data(), mub_temp.data(),
+                                         pb_temp.data(), t_init_temp.data());
+    if (rc != 0) {
+      throw std::runtime_error(
+          "Failed to extract additional fields from WRFDA, code " +
+          std::to_string(rc));
+    }
+
+    // Step 5: Populate internal data structures
+    // Core variables (stored contiguously at beginning)
+    std::vector<std::string> core_variables = {"U", "V", "T", "QVAPOR", "PSFC"};
+
+    for (const auto& varName : core_variables) {
+      if (varName == "U") {
+        variable_offsets_["U"] = flattened_data_.size();
+        u_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), u_temp.begin(),
+                               u_temp.end());
+        u_end_ = flattened_data_.size();
+        dimensions_["U"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                            static_cast<size_t>(nx)};
+        variableNames_.push_back("U");
+      } else if (varName == "V") {
+        variable_offsets_["V"] = flattened_data_.size();
+        v_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), v_temp.begin(),
+                               v_temp.end());
+        v_end_ = flattened_data_.size();
+        dimensions_["V"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                            static_cast<size_t>(nx)};
+        variableNames_.push_back("V");
+      } else if (varName == "T") {
+        variable_offsets_["T"] = flattened_data_.size();
+        t_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), t_temp.begin(),
+                               t_temp.end());
+        t_end_ = flattened_data_.size();
+        dimensions_["T"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                            static_cast<size_t>(nx)};
+        variableNames_.push_back("T");
+      } else if (varName == "QVAPOR") {
+        variable_offsets_["QVAPOR"] = flattened_data_.size();
+        q_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), q_temp.begin(),
+                               q_temp.end());
+        q_end_ = flattened_data_.size();
+        dimensions_["QVAPOR"] = {static_cast<size_t>(nz),
+                                 static_cast<size_t>(ny),
+                                 static_cast<size_t>(nx)};
+        variableNames_.push_back("QVAPOR");
+      } else if (varName == "PSFC") {
+        variable_offsets_["PSFC"] = flattened_data_.size();
+        psfc_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), psfc_temp.begin(),
+                               psfc_temp.end());
+        psfc_end_ = flattened_data_.size();
+        dimensions_["PSFC"] = {static_cast<size_t>(ny),
+                               static_cast<size_t>(nx)};
+        variableNames_.push_back("PSFC");
+      }
+    }
+
+    core_state_size_ = flattened_data_.size();
+
+    // Add additional fields (after core state variables)
+    variable_offsets_["P"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), p_temp.begin(), p_temp.end());
+    dimensions_["P"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                        static_cast<size_t>(nx)};
+    variableNames_.push_back("P");
+
+    variable_offsets_["PH"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), ph_temp.begin(),
+                           ph_temp.end());
+    dimensions_["PH"] = {static_cast<size_t>(nz + 1), static_cast<size_t>(ny),
+                         static_cast<size_t>(nx)};
+    variableNames_.push_back("PH");
+
+    variable_offsets_["PHB"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), phb_temp.begin(),
+                           phb_temp.end());
+    dimensions_["PHB"] = {static_cast<size_t>(nz + 1), static_cast<size_t>(ny),
+                          static_cast<size_t>(nx)};
+    variableNames_.push_back("PHB");
+
+    variable_offsets_["HGT"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), hgt_temp.begin(),
+                           hgt_temp.end());
+    dimensions_["HGT"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("HGT");
+
+    variable_offsets_["XLAT"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), lats_temp.begin(),
+                           lats_temp.end());
+    dimensions_["XLAT"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("XLAT");
+
+    variable_offsets_["XLONG"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), lons_temp.begin(),
+                           lons_temp.end());
+    dimensions_["XLONG"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("XLONG");
+
+    variable_offsets_["W"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), w_temp.begin(), w_temp.end());
+    dimensions_["W"] = {static_cast<size_t>(nz + 1), static_cast<size_t>(ny),
+                        static_cast<size_t>(nx)};
+    variableNames_.push_back("W");
+
+    variable_offsets_["MU"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), mu_temp.begin(),
+                           mu_temp.end());
+    dimensions_["MU"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("MU");
+
+    variable_offsets_["MUB"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), mub_temp.begin(),
+                           mub_temp.end());
+    dimensions_["MUB"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("MUB");
+
+    variable_offsets_["PB"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), pb_temp.begin(),
+                           pb_temp.end());
+    dimensions_["PB"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                         static_cast<size_t>(nx)};
+    variableNames_.push_back("PB");
+
+    variable_offsets_["T_INIT"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), t_init_temp.begin(),
+                           t_init_temp.end());
+    dimensions_["T_INIT"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                             static_cast<size_t>(nx)};
+    variableNames_.push_back("T_INIT");
+
+    // Load vertical coordinate arrays (1D) from NetCDF
+    // WRFDA doesn't provide these through extraction, so load directly
+    loadVerticalCoordinates(wrfFilename_);
+
+    initialized_ = true;
+
+    std::cout << "WRFDA-based initialization completed successfully"
+              << std::endl;
+    std::cout << "Loaded " << variableNames_.size()
+              << " variables, core state size: " << core_state_size_
+              << std::endl;
+  } else {
+    // LEGACY APPROACH: Manual NetCDF loading + WRFDA initialization
+    std::cout << "Using legacy initialization for: " << wrfFilename_
+              << std::endl;
+
+    // Load state data from WRF NetCDF file
+    // Core variables (u, v, t, q, psfc) will be stored contiguously at
+    // beginning Only insert if not already present
+
+    // Required fields for da_transfer_wrftoxb
+    std::vector<std::string> required_fields = {
+        // Geopotential (staggered vertical)
+        "PH", "PHB",
+        // Terrain height
+        "HGT",
+        // Pressure perturbation and base state
+        "P", "PB",
+        // Vertical velocity (staggered vertical)
+        "W",
+        // Column dry air mass (perturbation and base state)
+        "MU", "MUB",
+        // Initial temperature field
+        "T_INIT",
+        // Additional moisture species (beyond QVAPOR)
+        "QCLOUD", "QRAIN", "QICE", "QSNOW", "QGRAUPEL"};
+
+    for (const auto& var : required_fields) {
+      if (std::find(variables.begin(), variables.end(), var) ==
+          variables.end()) {
+        variables.push_back(var);
+      }
+    }
+
+    loadStateData(wrfFilename_, variables);
+
+    // Load vertical coordinate arrays (1D)
+    loadVerticalCoordinates(wrfFilename_);
+
+    initialized_ = true;
+
+    // Initialize WRFDA domain structure after state is fully initialized
+    try {
+      initializeWRFDADomain();
+    } catch (const std::exception& e) {
+      std::cerr << "Warning: WRFDA domain initialization failed: " << e.what()
+                << std::endl;
+      std::cerr << "WRFDA observation operators may not work correctly."
+                << std::endl;
+      // Continue with initialization - WRFDA is optional for basic state
+      // operations
+    }
   }
 }
 

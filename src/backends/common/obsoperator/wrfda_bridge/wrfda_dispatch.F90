@@ -13,7 +13,7 @@
 module metada_wrfda_dispatch
   use iso_c_binding
   use module_domain,        only: domain, x_type
-  use da_define_structures, only: iv_type, y_type, da_allocate_y, da_allocate_obs_info
+  use da_define_structures, only: iv_type, y_type, xbx_type, da_allocate_y, da_allocate_obs_info
   use module_symbols_util,  only: wrfu_initialize, wrfu_finalize, wrfu_cal_gregorian
   use module_symbols_util, only: WRFU_ClockCreate, WRFU_TimeIntervalSet, WRFU_SUCCESS, WRFU_Time, WRFU_TimeInterval, WRFU_INITIALIZE, WRFU_CAL_GREGORIAN
   use da_control, only: metar, synop, ships, buoy, airep, pilot, sound, sonde_sfc, &
@@ -36,9 +36,12 @@ module metada_wrfda_dispatch
 
   implicit none
   
-  ! CRITICAL FIX: Add persistent grid to avoid reconstruction issues
-  ! WRFDA internal state persists between calls, so we need consistent grid structure
-  type(domain), pointer, save :: persistent_grid
+  ! One-time initialization flag for WRF I/O system  
+  logical, save :: wrfio_initialized = .false.
+  
+  ! Grid pointer: points to grid allocated in WRFGeometry (not allocated here!)
+  ! This allows legacy functions to continue working
+  type(domain), pointer, save :: persistent_grid => null()
   logical, save :: grid_initialized = .false.
   
   ! CRITICAL FIX: Add persistent iv structure to avoid deallocation issues
@@ -588,14 +591,14 @@ contains
     ! Update only the xa fields (analysis increments)
     do k=1,nz; do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      persistent_grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny))
-      persistent_grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny))
-      persistent_grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny))
-      persistent_grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny))
+      persistent_grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
+      persistent_grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
+      persistent_grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
+      persistent_grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
     end do; end do; end do
     do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j] -> i + j*nx
-      persistent_grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx))
+      persistent_grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx), kind=4)
     end do; end do
     
   end subroutine wrfda_update_analysis_increments
@@ -621,12 +624,12 @@ contains
         do i = 1, nx
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx = i + (j-1)*nx + (k-1)*nx*ny
-          persistent_grid%xb%u(i,j,k) = real(u(idx))
-          persistent_grid%xb%v(i,j,k) = real(v(idx))
-          persistent_grid%xb%t(i,j,k) = real(t(idx))
-          persistent_grid%xb%q(i,j,k) = real(q(idx))
+          persistent_grid%xb%u(i,j,k) = real(u(idx), kind=4)
+          persistent_grid%xb%v(i,j,k) = real(v(idx), kind=4)
+          persistent_grid%xb%t(i,j,k) = real(t(idx), kind=4)
+          persistent_grid%xb%q(i,j,k) = real(q(idx), kind=4)
           ! Calculate pressure from P and PB: grid%xb%p = pb + p
-          persistent_grid%xb%p(i,j,k) = real(pb(idx) + p(idx))
+          persistent_grid%xb%p(i,j,k) = real(pb(idx) + p(idx), kind=4)
         end do
       end do
     end do
@@ -636,7 +639,7 @@ contains
       do i = 1, nx
         ! C++ row-major indexing: [i][j] -> i + j*nx
         idx = i + (j-1)*nx
-        persistent_grid%xb%psfc(i,j) = real(psfc(idx))
+        persistent_grid%xb%psfc(i,j) = real(psfc(idx), kind=4)
       end do
     end do
     
@@ -646,8 +649,8 @@ contains
         do i = 1, nx
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          persistent_grid%ph_2(i,j,k) = real(ph(idx_3d))
-          persistent_grid%phb(i,j,k) = real(phb(idx_3d))
+          persistent_grid%ph_2(i,j,k) = real(ph(idx_3d), kind=4)
+          persistent_grid%phb(i,j,k) = real(phb(idx_3d), kind=4)
         end do
       end do
     end do
@@ -657,16 +660,16 @@ contains
       do i = 1, nx
         ! C++ row-major indexing: [i][j] -> i + j*nx
         idx = i + (j-1)*nx
-        persistent_grid%xb%lat(i,j) = real(lats2d(idx))
-        persistent_grid%xb%lon(i,j) = real(lons2d(idx))
+        persistent_grid%xb%lat(i,j) = real(lats2d(idx), kind=4)
+        persistent_grid%xb%lon(i,j) = real(lons2d(idx), kind=4)
         ! Assign terrain height from HGT field
-        persistent_grid%ht(i,j) = real(hgt(idx))
-        persistent_grid%xb%terr(i,j) = real(hgt(idx))
+        persistent_grid%ht(i,j) = real(hgt(idx), kind=4)
+        persistent_grid%xb%terr(i,j) = real(hgt(idx), kind=4)
         do k = 1, staggered_nz
           ! Use calculated height field instead of levels array
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          persistent_grid%xb%h(i,j,k) = real(hf(idx_3d))
+          persistent_grid%xb%h(i,j,k) = real(hf(idx_3d), kind=4)
         end do
       end do
     end do
@@ -896,12 +899,12 @@ contains
         do i = 1, nx
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx = i + (j-1)*nx + (k-1)*nx*ny
-          grid%xb%u(i,j,k) = u(idx)
-          grid%xb%v(i,j,k) = v(idx)
-          grid%xb%t(i,j,k) = t(idx)
-          grid%xb%q(i,j,k) = q(idx)
+          grid%xb%u(i,j,k) = real(u(idx), kind=4)
+          grid%xb%v(i,j,k) = real(v(idx), kind=4)
+          grid%xb%t(i,j,k) = real(t(idx), kind=4)
+          grid%xb%q(i,j,k) = real(q(idx), kind=4)
           ! Calculate pressure from P and PB: grid%xb%p = pb + p
-          grid%xb%p(i,j,k) = pb(idx) + p(idx)
+          grid%xb%p(i,j,k) = real(pb(idx) + p(idx), kind=4)
         end do
       end do
     end do
@@ -912,8 +915,8 @@ contains
         do i = 1, nx
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          grid%ph_2(i,j,k) = ph(idx_3d)
-          grid%phb(i,j,k) = phb(idx_3d)
+          grid%ph_2(i,j,k) = real(ph(idx_3d), kind=4)
+          grid%phb(i,j,k) = real(phb(idx_3d), kind=4)
         end do
       end do
     end do
@@ -922,7 +925,7 @@ contains
       do i = 1, nx
         ! C++ row-major indexing: [i][j] -> i + j*nx
         idx = i + (j-1)*nx
-        grid%xb%psfc(i,j) = psfc(idx)
+        grid%xb%psfc(i,j) = real(psfc(idx), kind=4)
       end do
     end do
 
@@ -941,11 +944,11 @@ contains
       do i = 1, nx
         ! C++ row-major indexing: [i][j] -> i + j*nx
         idx = i + (j-1)*nx
-        grid%xb%lat(i,j) = lats2d(idx)
-        grid%xb%lon(i,j) = lons2d(idx)
+        grid%xb%lat(i,j) = real(lats2d(idx), kind=4)
+        grid%xb%lon(i,j) = real(lons2d(idx), kind=4)
         ! Assign terrain height from HGT field
-        grid%ht(i,j) = hgt(idx)
-        grid%xb%terr(i,j) = hgt(idx)
+        grid%ht(i,j) = real(hgt(idx), kind=4)
+        grid%xb%terr(i,j) = real(hgt(idx), kind=4)
         ! Assign temporary constant roughness length
         grid%xb%rough(i,j) = 0.5
         do k = 1, staggered_nz
@@ -953,7 +956,7 @@ contains
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           ! Note: HF is vertically staggered with nz+1 levels
           idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          grid%xb%h(i,j,k) = hf(idx_3d)
+          grid%xb%h(i,j,k) = real(hf(idx_3d), kind=4)
         end do
       end do
     end do
@@ -1092,12 +1095,12 @@ contains
       do j = 1, ny
         do i = 1, nx
           idx = i + (j-1)*nx + (k-1)*nx*ny
-          grid%u_2(i,j,k) = u(idx)
-          grid%v_2(i,j,k) = v(idx)
-          grid%t_2(i,j,k) = t(idx)
-          grid%p(i,j,k) = p(idx)
-          grid%pb(i,j,k) = pb(idx)
-          grid%t_init(i,j,k) = t_init(idx)
+          grid%u_2(i,j,k) = real(u(idx), kind=4)
+          grid%v_2(i,j,k) = real(v(idx), kind=4)
+          grid%t_2(i,j,k) = real(t(idx), kind=4)
+          grid%p(i,j,k) = real(p(idx), kind=4)
+          grid%pb(i,j,k) = real(pb(idx), kind=4)
+          grid%t_init(i,j,k) = real(t_init(idx), kind=4)
         end do
       end do
     end do
@@ -1109,7 +1112,7 @@ contains
           do i = 1, nx
             ! 4D array indexing: i + (j-1)*nx + (k-1)*nx*ny + (m-1)*nx*ny*nz
             idx = i + (j-1)*nx + (k-1)*nx*ny + (m-1)*nx*ny*nz
-            grid%moist(i,j,k,m) = moist(idx)
+            grid%moist(i,j,k,m) = real(moist(idx), kind=4)
           end do
         end do
       end do
@@ -1120,9 +1123,9 @@ contains
       do j = 1, ny
         do i = 1, nx
           idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          grid%w_2(i,j,k) = w(idx_3d)
-          grid%ph_2(i,j,k) = ph(idx_3d)
-          grid%phb(i,j,k) = phb(idx_3d)
+          grid%w_2(i,j,k) = real(w(idx_3d), kind=4)
+          grid%ph_2(i,j,k) = real(ph(idx_3d), kind=4)
+          grid%phb(i,j,k) = real(phb(idx_3d), kind=4)
         end do
       end do
     end do
@@ -1131,31 +1134,31 @@ contains
     do j = 1, ny
       do i = 1, nx
         idx = i + (j-1)*nx
-        grid%mu_2(i,j) = mu(idx)
-        grid%mub(i,j) = mub(idx)
-        grid%psfc(i,j) = psfc(idx)
-        grid%xlat(i,j) = xlat(idx)
-        grid%xlong(i,j) = xlong(idx)
-        grid%ht(i,j) = ht(idx)
+        grid%mu_2(i,j) = real(mu(idx), kind=4)
+        grid%mub(i,j) = real(mub(idx), kind=4)
+        grid%psfc(i,j) = real(psfc(idx), kind=4)
+        grid%xlat(i,j) = real(xlat(idx), kind=4)
+        grid%xlong(i,j) = real(xlong(idx), kind=4)
+        grid%ht(i,j) = real(ht(idx), kind=4)
       end do
     end do
     
     ! 1D vertical coordinates
     do k = 1, nz
-      grid%znu(k) = znu(k)
-      grid%znw(k) = znw(k)
-      grid%dn(k) = dn(k)
-      grid%dnw(k) = dnw(k)
-      grid%rdnw(k) = rdnw(k)
-      grid%rdn(k) = rdn(k)
+      grid%znu(k) = real(znu(k), kind=4)
+      grid%znw(k) = real(znw(k), kind=4)
+      grid%dn(k) = real(dn(k), kind=4)
+      grid%dnw(k) = real(dnw(k), kind=4)
+      grid%rdnw(k) = real(rdnw(k), kind=4)
+      grid%rdn(k) = real(rdn(k), kind=4)
     end do
     ! Last level for staggered arrays
-    grid%znw(staggered_nz) = znw(staggered_nz)
-    grid%dnw(staggered_nz) = dnw(staggered_nz)
-    grid%rdnw(staggered_nz) = rdnw(staggered_nz)
+    grid%znw(staggered_nz) = real(znw(staggered_nz), kind=4)
+    grid%dnw(staggered_nz) = real(dnw(staggered_nz), kind=4)
+    grid%rdnw(staggered_nz) = real(rdnw(staggered_nz), kind=4)
     
     ! Set scalar parameters
-    grid%p_top = p_top
+    grid%p_top = real(p_top, kind=4)
     grid%start_year = start_year
     grid%start_month = start_month
     grid%start_day = start_day
@@ -1976,5 +1979,296 @@ contains
     grid%domain_clock_created = .true.
     
   end subroutine initialize_domain_clock
+
+  ! =============================================================================
+  ! NEW: WRFDA First Guess Initialization Functions
+  ! These functions implement the refactored WRFState initialization strategy
+  ! that leverages WRFDA's proven initialization pipeline
+  ! =============================================================================
+
+  !> @brief Load WRF first guess using WRFDA's da_med_initialdata_input and da_setup_firstguess
+  !> @details This function implements the complete WRFDA initialization pipeline:
+  !>          1. Calls da_med_initialdata_input to read NetCDF file into grid structure
+  !>          2. Calls da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
+  !>          3. All WRFDA diagnostics and derived fields are computed properly
+  !> @param[in] filename C string containing path to WRF NetCDF file
+  !> @param[in] filename_len Length of filename string
+  !> @return Integer status code (0 = success, non-zero = error)
+  integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len) &
+      bind(C, name="wrfda_load_first_guess")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer, c_char, c_int, c_null_char
+    use module_configure, only: grid_config_rec_type, model_config_rec, model_to_grid_config_rec
+    use module_domain, only: domain
+    use da_wrfvar_io, only: da_med_initialdata_input
+    use da_transfer_model, only: da_setup_firstguess_wrf
+    use da_wrf_interfaces, only: wrf_message
+    implicit none
+    
+    ! Input parameters
+    type(c_ptr), value, intent(in) :: grid_ptr
+    type(c_ptr), value, intent(in) :: filename
+    integer(c_int), value, intent(in) :: filename_len
+    
+    ! Local variables
+    type(domain), pointer :: grid
+    character(len=512) :: fg_filename
+    type(xbx_type) :: xbx
+    type(grid_config_rec_type) :: config_flags
+    integer :: i, max_len, io_status
+    character(len=256) :: msg
+    character(kind=c_char), pointer :: fptr(:)
+    
+    ! Initialize return code
+    wrfda_load_first_guess = 0
+    
+    ! Convert C grid pointer to Fortran pointer
+    call c_f_pointer(grid_ptr, grid)
+    
+    ! Validate input length to prevent buffer overflow
+    if (filename_len < 0 .or. filename_len > 1024) then
+      write(msg, '(A,I0)') "ERROR: Invalid filename_len: ", filename_len
+      call wrf_message(msg)
+      wrfda_load_first_guess = -1
+      return
+    end if
+    
+    ! Convert C filename pointer to Fortran string
+    ! Note: filename_len from C++ does NOT include null terminator
+    ! Limit copy to avoid buffer overflow
+    fg_filename = ""
+    call c_f_pointer(filename, fptr, [filename_len])
+    
+    max_len = min(filename_len, len(fg_filename))
+    do i = 1, max_len
+      ! Check for premature null terminator
+      if (fptr(i) == c_null_char) exit
+      fg_filename(i:i) = fptr(i)
+    end do
+    
+    write(msg, '(A,A)') "WRFDA: Loading first guess from file: ", trim(fg_filename)
+    call wrf_message(msg)
+    
+    ! One-time initialization of WRF I/O system
+    ! Note: initial_config() is already called by WRFGeometry/WRFConfigBridge
+    if (.not. wrfio_initialized) then
+      ! Initialize WRF I/O system (required before opening NetCDF files)
+      call ext_ncd_ioinit(" ", io_status)
+      if (io_status /= 0) then
+        write(msg, '(A,I0)') "ERROR: Failed to initialize WRF I/O system, status=", io_status
+        call wrf_message(msg)
+        wrfda_load_first_guess = -2
+        return
+      end if
+      
+      wrfio_initialized = .true.
+    end if
+    
+    ! Set persistent_grid to point to the grid from WRFGeometry
+    ! This allows legacy functions to continue working
+    persistent_grid => grid
+    grid_initialized = .true.
+    
+    ! Ensure grid%id is set (should be set by alloc_and_configure_domain, but verify)
+    if (grid%id <= 0) then
+      write(msg, '(A,I0)') "WARNING: grid%id not set, defaulting to 1. Current value: ", grid%id
+      call wrf_message(msg)
+      grid%id = 1
+    end if
+    
+    ! Initialize config_flags from model_config_rec for this grid domain
+    call model_to_grid_config_rec(grid%id, model_config_rec, config_flags)
+    
+    ! Step 1: Call da_med_initialdata_input to read NetCDF file into grid structure
+    ! This reads all variables from the NetCDF file and validates compatibility
+    call da_med_initialdata_input(grid, config_flags, trim(fg_filename))
+    
+    ! Step 2: Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
+    ! This sets up map projection, interpolates to mass points, and computes diagnostics
+    ! The .false. parameter indicates this is not for ensemble processing
+    call da_setup_firstguess_wrf(xbx, grid, config_flags, .false.)
+    
+    ! Step 3: Initialize WRFDA module-level variables
+    call da_copy_dims(grid)
+    call da_copy_tile_dims(grid)
+    sfc_assi_options = sfc_assi_options_1
+    
+    write(msg, '(A)') "WRFDA: First guess loaded successfully"
+    call wrf_message(msg)
+    
+  end function wrfda_load_first_guess
+
+  !> @brief Extract background state (xb) data from WRFDA grid to C++ arrays
+  !> @details Extracts the fully initialized background state from WRFDA's grid structure
+  !>          to flat C++ arrays for use in the WRFState class
+  !> @param[out] u U-wind component (3D: nx*ny*nz)
+  !> @param[out] v V-wind component (3D: nx*ny*nz)
+  !> @param[out] t Temperature perturbation (3D: nx*ny*nz)
+  !> @param[out] q Specific humidity (3D: nx*ny*nz)
+  !> @param[out] psfc Surface pressure (2D: nx*ny)
+  !> @param[out] p Full pressure (3D: nx*ny*nz)
+  !> @param[out] ph Geopotential perturbation (3D staggered: nx*ny*(nz+1))
+  !> @param[out] phb Base state geopotential (3D staggered: nx*ny*(nz+1))
+  !> @param[out] hgt Terrain height (2D: nx*ny)
+  !> @param[out] lats 2D latitude array (2D: nx*ny)
+  !> @param[out] lons 2D longitude array (2D: nx*ny)
+  !> @param[out] nx Grid x-dimension
+  !> @param[out] ny Grid y-dimension
+  !> @param[out] nz Grid z-dimension
+  !> @return Integer status code (0 = success, non-zero = error)
+  integer(c_int) function wrfda_extract_background_state( &
+      grid_ptr, u, v, t, q, psfc, p, ph, phb, hgt, lats, lons, &
+      nx, ny, nz) bind(C, name="wrfda_extract_background_state")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer
+    use module_domain, only: domain
+    implicit none
+    
+    ! Input parameters
+    type(c_ptr), value, intent(in) :: grid_ptr
+    
+    ! Output parameters
+    real(c_double), intent(out) :: u(*), v(*), t(*), q(*), psfc(*)
+    real(c_double), intent(out) :: p(*), ph(*), phb(*), hgt(*)
+    real(c_double), intent(out) :: lats(*), lons(*)
+    integer(c_int), intent(out) :: nx, ny, nz
+    
+    ! Local variables
+    integer :: i, j, k, idx, idx_3d, staggered_nz
+    type(domain), pointer :: grid
+    
+    ! Initialize return code
+    wrfda_extract_background_state = 0
+    
+    ! Convert C pointer to Fortran pointer
+    call c_f_pointer(grid_ptr, grid)
+    
+    ! Get grid dimensions
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
+    staggered_nz = nz + 1
+    
+    ! Check if xb is allocated
+    if (.not. associated(grid%xb%u) .or. .not. associated(grid%xb%v) .or. &
+        .not. associated(grid%xb%t) .or. .not. associated(grid%xb%q) .or. &
+        .not. associated(grid%xb%psfc)) then
+      wrfda_extract_background_state = 2
+      return
+    end if
+    
+    ! Extract 3D fields (U, V, T, Q, P)
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
+          ! But we're using 1-based Fortran indexing, so: (i-1) + (j-1)*nx + (k-1)*nx*ny
+          idx = (i-1) + (j-1)*nx + (k-1)*nx*ny + 1
+          u(idx) = real(grid%xb%u(i,j,k), kind=c_double)
+          v(idx) = real(grid%xb%v(i,j,k), kind=c_double)
+          t(idx) = real(grid%xb%t(i,j,k), kind=c_double)
+          q(idx) = real(grid%xb%q(i,j,k), kind=c_double)
+          p(idx) = real(grid%xb%p(i,j,k), kind=c_double)
+        end do
+      end do
+    end do
+    
+    ! Extract 2D surface fields (PSFC, HGT)
+    do j = 1, ny
+      do i = 1, nx
+        idx = (i-1) + (j-1)*nx + 1
+        psfc(idx) = real(grid%xb%psfc(i,j), kind=c_double)
+        hgt(idx) = real(grid%xb%terr(i,j), kind=c_double)
+        lats(idx) = real(grid%xb%lat(i,j), kind=c_double)
+        lons(idx) = real(grid%xb%lon(i,j), kind=c_double)
+      end do
+    end do
+    
+    ! Extract vertically staggered fields (PH, PHB) if available
+    if (associated(grid%ph_2) .and. associated(grid%phb)) then
+      do k = 1, staggered_nz
+        do j = 1, ny
+          do i = 1, nx
+            idx_3d = (i-1) + (j-1)*nx + (k-1)*nx*ny + 1
+            ph(idx_3d) = real(grid%ph_2(i,j,k), kind=c_double)
+            phb(idx_3d) = real(grid%phb(i,j,k), kind=c_double)
+          end do
+        end do
+      end do
+    end if
+    
+  end function wrfda_extract_background_state
+
+  !> @brief Extract additional WRF fields needed for full state representation
+  !> @details Extracts additional fields beyond core state variables
+  !> @param[out] w Vertical velocity (3D staggered: nx*ny*(nz+1))
+  !> @param[out] mu Dry air mass perturbation (2D: nx*ny)
+  !> @param[out] mub Base state dry air mass (2D: nx*ny)
+  !> @param[out] pb Base state pressure (3D: nx*ny*nz)
+  !> @param[out] t_init Initial temperature field (3D: nx*ny*nz)
+  !> @return Integer status code (0 = success, non-zero = error)
+  integer(c_int) function wrfda_extract_additional_fields( &
+      grid_ptr, w, mu, mub, pb, t_init) bind(C, name="wrfda_extract_additional_fields")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer
+    use module_domain, only: domain
+    implicit none
+    
+    ! Input parameters
+    type(c_ptr), value, intent(in) :: grid_ptr
+    
+    ! Output parameters
+    real(c_double), intent(out) :: w(*), mu(*), mub(*), pb(*), t_init(*)
+    
+    ! Local variables
+    integer :: i, j, k, idx, idx_3d, nx, ny, nz, staggered_nz
+    type(domain), pointer :: grid
+    
+    ! Initialize return code
+    wrfda_extract_additional_fields = 0
+    
+    ! Convert C pointer to Fortran pointer
+    call c_f_pointer(grid_ptr, grid)
+    
+    ! Get grid dimensions
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
+    staggered_nz = nz + 1
+    
+    ! Extract W field (vertically staggered)
+    if (associated(grid%w_2)) then
+      do k = 1, staggered_nz
+        do j = 1, ny
+          do i = 1, nx
+            idx_3d = (i-1) + (j-1)*nx + (k-1)*nx*ny + 1
+            w(idx_3d) = real(grid%w_2(i,j,k), kind=c_double)
+          end do
+        end do
+      end do
+    end if
+    
+    ! Extract MU and MUB fields (2D)
+    if (associated(grid%mu_2) .and. associated(grid%mub)) then
+      do j = 1, ny
+        do i = 1, nx
+          idx = (i-1) + (j-1)*nx + 1
+          mu(idx) = real(grid%mu_2(i,j), kind=c_double)
+          mub(idx) = real(grid%mub(i,j), kind=c_double)
+        end do
+      end do
+    end if
+    
+    ! Extract PB and T_INIT fields (3D)
+    if (associated(grid%pb) .and. associated(grid%t_init)) then
+      do k = 1, nz
+        do j = 1, ny
+          do i = 1, nx
+            idx = (i-1) + (j-1)*nx + (k-1)*nx*ny + 1
+            pb(idx) = real(grid%pb(i,j,k), kind=c_double)
+            t_init(idx) = real(grid%t_init(i,j,k), kind=c_double)
+          end do
+        end do
+      end do
+    end if
+    
+  end function wrfda_extract_additional_fields
 
 end module metada_wrfda_dispatch
