@@ -63,6 +63,7 @@ end_year=2000,
 end_month=01,
 end_day=24,
 end_hour=12,
+force_use_old_data=.true.,
 /
 &fdda
 /

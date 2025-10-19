@@ -21,6 +21,10 @@ void WRFConfigManager::initializeWRFModules() {
     // Phase 1: Core modules initialization
     wrf_init_modules_(1);
 
+    // Initialize WRFU time manager (must be between phase 1 and 2)
+    std::cout << "Initializing WRFU time utilities..." << std::endl;
+    wrf_wrfu_initialize_();
+
     // Phase 2: Advanced modules initialization
     wrf_init_modules_(2);
 

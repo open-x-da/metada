@@ -26,6 +26,17 @@ contains
   ! WRF Initialization Routines
   !============================================================================
   
+  ! Initialize WRFU (WRF ESMF time utilities)
+  subroutine wrf_wrfu_initialize() bind(C, name="wrf_wrfu_initialize_")
+    use module_utility, only: WRFU_Initialize, WRFU_CAL_GREGORIAN
+    implicit none
+    
+    ! Initialize WRFU time manager with Gregorian calendar
+    ! Note: Could add support for NO_LEAP_CALENDAR via a parameter if needed
+    call WRFU_Initialize(defaultCalKind=WRFU_CAL_GREGORIAN)
+    
+  end subroutine wrf_wrfu_initialize
+  
   ! Initialize WRF modules (call once at startup)
   subroutine wrf_init_modules(phase) bind(C, name="wrf_init_modules_")
     use module_bc, only: init_module_bc

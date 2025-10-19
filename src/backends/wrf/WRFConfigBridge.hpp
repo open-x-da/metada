@@ -16,6 +16,14 @@ extern "C" {
 //============================================================================
 
 /**
+ * @brief Initialize WRFU (WRF ESMF time utilities)
+ *
+ * @details Initializes the WRFU time manager with Gregorian calendar.
+ * Must be called between wrf_init_modules_(1) and wrf_init_modules_(2).
+ */
+void wrf_wrfu_initialize_();
+
+/**
  * @brief Initialize WRF modules
  *
  * @param[in] phase Initialization phase (1 or 2)

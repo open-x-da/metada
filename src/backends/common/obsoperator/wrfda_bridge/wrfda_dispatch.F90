@@ -2024,7 +2024,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     type(domain), pointer :: grid
     character(len=512) :: fg_filename
     type(xbx_type) :: xbx
-    type(grid_config_rec_type), pointer :: config_flags
+    type(grid_config_rec_type) :: config_flags
     integer :: i, max_len, io_status
     character(len=256) :: msg
     character(kind=c_char), pointer :: fptr(:)
@@ -2090,20 +2090,6 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     call nl_set_pole_lat(grid%id, 90.0)
     call nl_set_moad_cen_lat(grid%id, 34.830017)
     call nl_set_num_land_cat(grid%id, 24)     ! Match input file
-    ! CRITICAL: Set IO format directly (no nl_set function exists for these)
-    model_config_rec%io_form_input = 2        ! NetCDF format
-    model_config_rec%io_form_auxinput1 = 2    ! NetCDF format
-    model_config_rec%force_use_old_data = .true.  ! Allow pre-v4 WRF input files
-    ! Disable diagnostics that might require ESMF
-    model_config_rec%output_diagnostics = 0
-    model_config_rec%nwp_diagnostics = 0
-    ! Set hypsometric_opt=1 for older WRF input files (avoids ESMF requirement)
-    model_config_rec%hypsometric_opt = 1
-    ! Disable cycling mode which may require ESMF
-    model_config_rec%cycling = .false.
-    
-    ! Allocate config_flags on heap (large structure)
-    allocate(config_flags)
     
     ! Initialize config_flags from model_config_rec (after nl_set_* calls above)
     ! Projection parameters
@@ -2175,9 +2161,6 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
     ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
     call da_setup_firstguess_wrf(xbx, grid, config_flags, .false.)
-    
-    ! Deallocate config_flags
-    deallocate(config_flags)
     
     write(msg, '(A)') "WRFDA: First guess loaded successfully"
     call wrf_message(msg)
