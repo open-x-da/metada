@@ -133,5 +133,11 @@
         "syncstream": "cpp",
         "typeindex": "cpp",
         "*.inc": "fortran"
+    },
+    "files.exclude": {
+        "**/WRF/**/CMakeLists.txt": true,
+        "**/WRF/**/*.cmake": true,
+        "**/WRF/**/CMakeFiles": true,
+        "**/WRF/**/CMakeCache.txt": true
     }
 } 

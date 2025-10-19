@@ -1999,6 +1999,7 @@ contains
     use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer, c_char, c_int, c_null_char
     use module_configure, only: grid_config_rec_type, model_config_rec, model_to_grid_config_rec
     use module_domain, only: domain
+    use module_io, only: init_io_handles
     use da_wrfvar_io, only: da_med_initialdata_input
     use da_transfer_model, only: da_setup_firstguess_wrf
     use da_wrf_interfaces, only: wrf_message
@@ -2051,7 +2052,10 @@ contains
     ! One-time initialization of WRF I/O system
     ! Note: initial_config() is already called by WRFGeometry/WRFConfigBridge
     if (.not. wrfio_initialized) then
-      ! Initialize WRF I/O system (required before opening NetCDF files)
+      ! Initialize I/O handle management (required before any I/O operations)
+      call init_io_handles()
+      
+      ! Initialize NetCDF I/O system (required before opening NetCDF files)
       call ext_ncd_ioinit(" ", io_status)
       if (io_status /= 0) then
         write(msg, '(A,I0)') "ERROR: Failed to initialize WRF I/O system, status=", io_status
@@ -2076,7 +2080,7 @@ contains
     end if
     
     ! Initialize config_flags from model_config_rec for this grid domain
-    ! call model_to_grid_config_rec(grid%id, model_config_rec, config_flags)
+    call model_to_grid_config_rec(grid%id, model_config_rec, config_flags)
     
     ! Step 1: Call da_med_initialdata_input to read NetCDF file into grid structure
     ! This reads all variables from the NetCDF file and validates compatibility
