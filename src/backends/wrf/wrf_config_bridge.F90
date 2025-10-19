@@ -119,9 +119,7 @@ contains
         ! CRITICAL FIX: alloc_and_configure_domain doesn't set grid%id
         ! We must set it explicitly
         head_grid%id = domain_id
-        print *, "DEBUG: Set head_grid%id to ", head_grid%id
       else
-        print *, "ERROR: head_grid not associated after alloc_and_configure_domain"
         ierr = 1
         return
       endif
@@ -319,6 +317,13 @@ contains
     type(c_ptr) :: ptr
     type(domain), pointer :: grid
     
+    ! For domain 1, return head_grid directly (most common case)
+    if (domain_id == 1 .and. associated(head_grid)) then
+      ptr = c_loc(head_grid)
+      return
+    endif
+    
+    ! For other domains, use find_grid_by_id
     nullify(grid)
     call find_grid_by_id(domain_id, head_grid, grid)
     

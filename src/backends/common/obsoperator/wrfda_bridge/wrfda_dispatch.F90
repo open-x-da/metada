@@ -1994,16 +1994,26 @@ contains
   !> @param[in] filename C string containing path to WRF NetCDF file
   !> @param[in] filename_len Length of filename string
   !> @return Integer status code (0 = success, non-zero = error)
-  integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len) &
-      bind(C, name="wrfda_load_first_guess")
-    use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer, c_char, c_int, c_null_char
-    use module_configure, only: grid_config_rec_type, model_config_rec, model_to_grid_config_rec
-    use module_domain, only: domain
-    use module_io, only: init_io_handles
-    use da_wrfvar_io, only: da_med_initialdata_input
-    use da_transfer_model, only: da_setup_firstguess_wrf
-    use da_wrf_interfaces, only: wrf_message
-    implicit none
+integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len) &
+    bind(C, name="wrfda_load_first_guess")
+  use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer, c_char, c_int, c_null_char, c_associated, c_double
+  use module_configure, only: grid_config_rec_type, model_config_rec
+  use module_domain, only: domain
+  use module_io, only: init_io_handles
+  use da_wrfvar_io, only: da_med_initialdata_input
+  use da_transfer_model, only: da_setup_firstguess_wrf
+  use da_wrf_interfaces, only: wrf_message
+  implicit none
+  
+  ! External C function to initialize WRFDA map projection
+  interface
+    subroutine initialize_map_projection_c(map_proj, cen_lat, cen_lon, dx, &
+                                           stand_lon, truelat1, truelat2) bind(C)
+      use, intrinsic :: iso_c_binding
+      integer(c_int), intent(in) :: map_proj
+      real(c_double), intent(in) :: cen_lat, cen_lon, dx, stand_lon, truelat1, truelat2
+    end subroutine initialize_map_projection_c
+  end interface
     
     ! Input parameters
     type(c_ptr), value, intent(in) :: grid_ptr
@@ -2014,7 +2024,7 @@ contains
     type(domain), pointer :: grid
     character(len=512) :: fg_filename
     type(xbx_type) :: xbx
-    type(grid_config_rec_type) :: config_flags
+    type(grid_config_rec_type), pointer :: config_flags
     integer :: i, max_len, io_status
     character(len=256) :: msg
     character(kind=c_char), pointer :: fptr(:)
@@ -2022,26 +2032,27 @@ contains
     ! Initialize return code
     wrfda_load_first_guess = 0
     
-    ! Convert C grid pointer to Fortran pointer
-    call c_f_pointer(grid_ptr, grid)
-    
-    ! Validate input length to prevent buffer overflow
-    if (filename_len < 0 .or. filename_len > 1024) then
-      write(msg, '(A,I0)') "ERROR: Invalid filename_len: ", filename_len
-      call wrf_message(msg)
+    ! Validate C pointer
+    if (.not. c_associated(grid_ptr)) then
+      call wrf_message("ERROR: C grid_ptr is null")
       wrfda_load_first_guess = -1
       return
     end if
     
-    ! Convert C filename pointer to Fortran string
-    ! Note: filename_len from C++ does NOT include null terminator
-    ! Limit copy to avoid buffer overflow
+    ! Convert C grid pointer to Fortran pointer
+    call c_f_pointer(grid_ptr, grid)
+    
+    ! Convert C filename string to Fortran string
+    if (filename_len < 0 .or. filename_len > 1024) then
+      call wrf_message("ERROR: Invalid filename_len")
+      wrfda_load_first_guess = -1
+      return
+    end if
+    
     fg_filename = ""
     call c_f_pointer(filename, fptr, [filename_len])
-    
     max_len = min(filename_len, len(fg_filename))
     do i = 1, max_len
-      ! Check for premature null terminator
       if (fptr(i) == c_null_char) exit
       fg_filename(i:i) = fptr(i)
     end do
@@ -2050,51 +2061,123 @@ contains
     call wrf_message(msg)
     
     ! One-time initialization of WRF I/O system
-    ! Note: initial_config() is already called by WRFGeometry/WRFConfigBridge
     if (.not. wrfio_initialized) then
-      ! Initialize I/O handle management (required before any I/O operations)
       call init_io_handles()
-      
-      ! Initialize NetCDF I/O system (required before opening NetCDF files)
       call ext_ncd_ioinit(" ", io_status)
       if (io_status /= 0) then
-        write(msg, '(A,I0)') "ERROR: Failed to initialize WRF I/O system, status=", io_status
-        call wrf_message(msg)
+        call wrf_message("ERROR: Failed to initialize WRF I/O system")
         wrfda_load_first_guess = -2
         return
       end if
-      
       wrfio_initialized = .true.
     end if
     
     ! Set persistent_grid to point to the grid from WRFGeometry
-    ! This allows legacy functions to continue working
     persistent_grid => grid
     grid_initialized = .true.
     
-    ! Ensure grid%id is set (should be set by alloc_and_configure_domain, but verify)
-    if (grid%id <= 0) then
-      write(msg, '(A,I0)') "WARNING: grid%id not set, defaulting to 1. Current value: ", grid%id
-      call wrf_message(msg)
-      grid%id = 1
-    end if
+    ! CRITICAL: Set namelist parameters BEFORE da_med_initialdata_input
+    ! The input routines validate against these namelist values
+    ! TODO: These values should come from WRFGeometry, hardcoded for now
+    call nl_set_map_proj(grid%id, 1)           ! Lambert Conformal
+    call nl_set_dx(grid%id, 30000.0)
+    call nl_set_dy(grid%id, 30000.0)
+    call nl_set_cen_lat(grid%id, 34.830017)
+    call nl_set_cen_lon(grid%id, -81.03)
+    call nl_set_truelat1(grid%id, 30.0)
+    call nl_set_truelat2(grid%id, 60.0)
+    call nl_set_stand_lon(grid%id, -98.0)
+    call nl_set_pole_lat(grid%id, 90.0)
+    call nl_set_moad_cen_lat(grid%id, 34.830017)
+    call nl_set_num_land_cat(grid%id, 24)     ! Match input file
+    ! CRITICAL: Set IO format directly (no nl_set function exists for these)
+    model_config_rec%io_form_input = 2        ! NetCDF format
+    model_config_rec%io_form_auxinput1 = 2    ! NetCDF format
+    model_config_rec%force_use_old_data = .true.  ! Allow pre-v4 WRF input files
+    ! Disable diagnostics that might require ESMF
+    model_config_rec%output_diagnostics = 0
+    model_config_rec%nwp_diagnostics = 0
+    ! Set hypsometric_opt=1 for older WRF input files (avoids ESMF requirement)
+    model_config_rec%hypsometric_opt = 1
+    ! Disable cycling mode which may require ESMF
+    model_config_rec%cycling = .false.
     
-    ! Initialize config_flags from model_config_rec for this grid domain
-    call model_to_grid_config_rec(grid%id, model_config_rec, config_flags)
+    ! Allocate config_flags on heap (large structure)
+    allocate(config_flags)
     
-    ! Step 1: Call da_med_initialdata_input to read NetCDF file into grid structure
-    ! This reads all variables from the NetCDF file and validates compatibility
+    ! Initialize config_flags from model_config_rec (after nl_set_* calls above)
+    ! Projection parameters
+    config_flags%map_proj = model_config_rec%map_proj(grid%id)
+    config_flags%dx = model_config_rec%dx(grid%id)
+    config_flags%dy = model_config_rec%dy(grid%id)
+    config_flags%cen_lat = model_config_rec%cen_lat(grid%id)
+    config_flags%cen_lon = model_config_rec%cen_lon(grid%id)
+    config_flags%truelat1 = model_config_rec%truelat1(grid%id)
+    config_flags%truelat2 = model_config_rec%truelat2(grid%id)
+    config_flags%stand_lon = model_config_rec%stand_lon(grid%id)
+    ! IO format settings (CRITICAL: needed for input_wrf to be called)
+    config_flags%io_form_input = model_config_rec%io_form_input
+    config_flags%io_form_auxinput1 = model_config_rec%io_form_auxinput1
+    ! Additional settings
+    config_flags%num_land_cat = model_config_rec%num_land_cat
+    config_flags%force_use_old_data = model_config_rec%force_use_old_data
+    
+    ! Call da_med_initialdata_input to read NetCDF file
     call da_med_initialdata_input(grid, config_flags, trim(fg_filename))
     
-    ! Step 2: Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
-    ! This sets up map projection, interpolates to mass points, and computes diagnostics
-    ! The .false. parameter indicates this is not for ensemble processing
-    call da_setup_firstguess_wrf(xbx, grid, config_flags, .false.)
+    ! CRITICAL FIX: Set tile dimensions for single-tile domain
+    ! da_med_initialdata_input doesn't set these, but da_copy_tile_dims needs them
+    ! Deallocate and reallocate with correct bounds (1:1) if needed
+    if (associated(grid%i_start)) deallocate(grid%i_start)
+    if (associated(grid%i_end)) deallocate(grid%i_end)
+    if (associated(grid%j_start)) deallocate(grid%j_start)
+    if (associated(grid%j_end)) deallocate(grid%j_end)
+    allocate(grid%i_start(1:1))
+    allocate(grid%i_end(1:1))
+    allocate(grid%j_start(1:1))
+    allocate(grid%j_end(1:1))
+    grid%num_tiles = 1
+    grid%i_start(1) = grid%sd31  ! Start index in i dimension (tile 1)
+    grid%i_end(1) = grid%ed31    ! End index in i dimension (tile 1)
+    grid%j_start(1) = grid%sd32  ! Start index in j dimension (tile 1)
+    grid%j_end(1) = grid%ed32    ! End index in j dimension (tile 1)
     
-    ! Step 3: Initialize WRFDA module-level variables
+    ! Update config_flags after da_med_initialdata_input (may have been modified)
+    config_flags%map_proj = model_config_rec%map_proj(grid%id)
+    config_flags%dx = model_config_rec%dx(grid%id)
+    config_flags%dy = model_config_rec%dy(grid%id)
+    config_flags%cen_lat = model_config_rec%cen_lat(grid%id)
+    config_flags%cen_lon = model_config_rec%cen_lon(grid%id)
+    config_flags%truelat1 = model_config_rec%truelat1(grid%id)
+    config_flags%truelat2 = model_config_rec%truelat2(grid%id)
+    config_flags%stand_lon = model_config_rec%stand_lon(grid%id)
+    config_flags%pole_lat = model_config_rec%pole_lat(grid%id)
+    config_flags%moad_cen_lat = model_config_rec%moad_cen_lat(grid%id)
+    config_flags%num_land_cat = model_config_rec%num_land_cat
+    ! Also restore IO format settings
+    config_flags%io_form_input = model_config_rec%io_form_input
+    config_flags%io_form_auxinput1 = model_config_rec%io_form_auxinput1
+    
+    ! Re-initialize WRFDA's internal map projection structure
+    call initialize_map_projection_c(model_config_rec%map_proj(grid%id), &
+                                     real(model_config_rec%cen_lat(grid%id), c_double), &
+                                     real(model_config_rec%cen_lon(grid%id), c_double), &
+                                     real(model_config_rec%dx(grid%id), c_double), &
+                                     real(model_config_rec%stand_lon(grid%id), c_double), &
+                                     real(model_config_rec%truelat1(grid%id), c_double), &
+                                     real(model_config_rec%truelat2(grid%id), c_double))
+    
+    ! Initialize WRFDA module-level variables BEFORE da_setup_firstguess_wrf
+    ! These set the tile dimensions (kts, kte, etc.) that da_setup_firstguess_wrf needs
     call da_copy_dims(grid)
     call da_copy_tile_dims(grid)
     sfc_assi_options = sfc_assi_options_1
+    
+    ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
+    call da_setup_firstguess_wrf(xbx, grid, config_flags, .false.)
+    
+    ! Deallocate config_flags
+    deallocate(config_flags)
     
     write(msg, '(A)') "WRFDA: First guess loaded successfully"
     call wrf_message(msg)
