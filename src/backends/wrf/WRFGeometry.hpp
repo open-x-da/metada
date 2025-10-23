@@ -25,15 +25,6 @@
 #include "WRFConfigBridge.hpp"
 #include "WRFGeometryIterator.hpp"
 
-// Forward declaration for WRFDA map projection initialization
-extern "C" {
-void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
-                                 const double* cen_lon, const double* dx,
-                                 const double* stand_lon,
-                                 const double* truelat1,
-                                 const double* truelat2);
-}
-
 /**
  * @brief Grid dimension and coordinate information for WRF grids
  *
@@ -1166,18 +1157,6 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
         std::cout << "  True latitudes: " << truelat1 << "°, " << truelat2
                   << "°" << std::endl;
         std::cout << "  Standard longitude: " << stand_lon << "°" << std::endl;
-
-        // Initialize WRFDA map projection with the grid parameters
-        // This should be done here in Geometry, not in the observation operator
-        std::cout << "\nInitializing WRFDA map projection..." << std::endl;
-        double cen_lat_d = static_cast<double>(cen_lat);
-        double cen_lon_d = static_cast<double>(cen_lon);
-        double dx_d = static_cast<double>(dx);
-        double stand_lon_d = static_cast<double>(stand_lon);
-        double truelat1_d = static_cast<double>(truelat1);
-        double truelat2_d = static_cast<double>(truelat2);
-        initialize_map_projection_c(&map_proj, &cen_lat_d, &cen_lon_d, &dx_d,
-                                    &stand_lon_d, &truelat1_d, &truelat2_d);
       } catch (const netCDF::exceptions::NcException& e) {
         std::cerr << "Warning: Could not read all global attributes from "
                      "NetCDF file: "

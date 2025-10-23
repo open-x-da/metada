@@ -59,8 +59,8 @@ module metada_wrfda_dispatch
   ! Define proj_info type (simplified version of WRFDA's proj_info)
   ! Use WRFDA's proj_info type from da_tools module
   
+  ! Module-level map_info structure initialized by da_setup_firstguess_wrf → da_map_set
   type(proj_info), save :: map_info
-  logical, save :: map_info_initialized = .false.
   
   ! Persistent output array for tangent linear operator results
   real(c_double), allocatable, save :: persistent_out_y(:)
@@ -1920,19 +1920,6 @@ contains
     
   end subroutine initialize_wrfda_3dvar
   
-  ! C-callable function to initialize map projection with grid parameters
-  subroutine initialize_map_projection_c(map_proj, cen_lat, cen_lon, dx, stand_lon, truelat1, truelat2) bind(C, name="initialize_map_projection_c")
-    implicit none
-    integer(c_int), intent(in) :: map_proj
-    real(c_double), intent(in) :: cen_lat, cen_lon, dx, stand_lon, truelat1, truelat2
-    
-    if (.not. map_info_initialized) then
-      ! Initialize map projection using WRFDA's da_map_set function
-      ! Use the provided cen_lat and cen_lon instead of hardcoded values
-      call da_map_set(map_proj, real(cen_lat), real(cen_lon), 37.0, 30.5, real(dx), real(stand_lon), real(truelat1), real(truelat2), real(truelat1), real(stand_lon), map_info)
-      map_info_initialized = .true.
-    end if
-  end subroutine initialize_map_projection_c
 
   ! Initialize domain clock for WRFDA time management
   subroutine initialize_domain_clock(grid)
@@ -2146,111 +2133,92 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   use da_wrf_interfaces, only: wrf_message
   implicit none
   
-  ! External C function to initialize WRFDA map projection
-  interface
-    subroutine initialize_map_projection_c(map_proj, cen_lat, cen_lon, dx, &
-                                           stand_lon, truelat1, truelat2) bind(C)
-      use, intrinsic :: iso_c_binding
-      integer(c_int), intent(in) :: map_proj
-      real(c_double), intent(in) :: cen_lat, cen_lon, dx, stand_lon, truelat1, truelat2
-    end subroutine initialize_map_projection_c
-  end interface
-    
-    ! Input parameters
-    type(c_ptr), value, intent(in) :: grid_ptr
-    type(c_ptr), value, intent(in) :: filename
-    integer(c_int), value, intent(in) :: filename_len
-    
-    ! Local variables
-    type(domain), pointer :: grid
-    character(len=512) :: fg_filename
-    type(xbx_type) :: xbx
-    type(grid_config_rec_type) :: config_flags
-    integer :: i, max_len
-    character(len=256) :: msg
-    character(kind=c_char), pointer :: fptr(:)
-    
-    ! Initialize return code
-    wrfda_load_first_guess = 0
-    
-    ! Validate grid pointer (must be pre-allocated via wrfda_alloc_and_init_domain)
-    if (.not. c_associated(grid_ptr)) then
-      call wrf_message("ERROR: grid_ptr is null. Allocate domain first via wrfda_alloc_and_init_domain")
-      wrfda_load_first_guess = -1
-      return
-    end if
-    
-    ! Convert C pointer to Fortran pointer (this is head_grid from WRFConfigManager)
-    call c_f_pointer(grid_ptr, grid)
-    
-    ! Convert C filename string to Fortran string
-    if (filename_len < 0 .or. filename_len > 1024) then
-      call wrf_message("ERROR: Invalid filename_len")
-      wrfda_load_first_guess = -1
-      return
-    end if
-    
-    fg_filename = ""
-    call c_f_pointer(filename, fptr, [filename_len])
-    max_len = min(filename_len, len(fg_filename))
-    do i = 1, max_len
-      if (fptr(i) == c_null_char) exit
-      fg_filename(i:i) = fptr(i)
-    end do
-    
-    write(msg, '(A,A)') "WRFDA: Loading first guess from file: ", trim(fg_filename)
-    call wrf_message(msg)
-    
-    ! Extract domain-specific config in a single canonical call
-    ! Note: This was already called in wrfda_alloc_and_init_domain, but we need
-    ! a local config_flags for da_med_initialdata_input
-    call model_to_grid_config_rec(head_grid%id, model_config_rec, config_flags)
-    
-    ! Call da_med_initialdata_input to read NetCDF file
-    call da_med_initialdata_input(head_grid, config_flags, trim(fg_filename))
-    
-    ! CRITICAL FIX: Set tile dimensions for single-tile domain
-    ! da_med_initialdata_input doesn't set these, but da_copy_tile_dims needs them
-    ! Deallocate and reallocate with correct bounds (1:1) if needed
-    if (associated(head_grid%i_start)) deallocate(head_grid%i_start)
-    if (associated(head_grid%i_end)) deallocate(head_grid%i_end)
-    if (associated(head_grid%j_start)) deallocate(head_grid%j_start)
-    if (associated(head_grid%j_end)) deallocate(head_grid%j_end)
-    allocate(head_grid%i_start(1:1))
-    allocate(head_grid%i_end(1:1))
-    allocate(head_grid%j_start(1:1))
-    allocate(head_grid%j_end(1:1))
-    head_grid%num_tiles = 1
-    head_grid%i_start(1) = head_grid%sd31  ! Start index in i dimension (tile 1)
-    head_grid%i_end(1) = head_grid%ed31    ! End index in i dimension (tile 1)
-    head_grid%j_start(1) = head_grid%sd32  ! Start index in j dimension (tile 1)
-    head_grid%j_end(1) = head_grid%ed32    ! End index in j dimension (tile 1)
-    
-    ! Re-initialize WRFDA's internal map projection structure
-    call initialize_map_projection_c(model_config_rec%map_proj(head_grid%id), &
-                                     real(model_config_rec%cen_lat(head_grid%id), c_double), &
-                                     real(model_config_rec%cen_lon(head_grid%id), c_double), &
-                                     real(model_config_rec%dx(head_grid%id), c_double), &
-                                     real(model_config_rec%stand_lon(head_grid%id), c_double), &
-                                     real(model_config_rec%truelat1(head_grid%id), c_double), &
-                                     real(model_config_rec%truelat2(head_grid%id), c_double))
-    
-    ! Update da_control module variables (vertical coords + base state parameters)
-    ! This must be done AFTER da_med_initialdata_input (which populates grid structure)
-    ! and BEFORE da_setup_firstguess_wrf/da_transfer_wrftoxb (which use these module variables)
-    call update_da_control_from_grid(head_grid)
-    
-    ! Initialize WRFDA module-level variables BEFORE da_setup_firstguess_wrf
-    ! These set the tile dimensions (kts, kte, etc.) that da_setup_firstguess_wrf needs
-    call da_copy_dims(head_grid)
-    call da_copy_tile_dims(head_grid)
-    sfc_assi_options = sfc_assi_options_1
-    
-    ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
-    call da_setup_firstguess_wrf(xbx, head_grid, config_flags, .false.)
-    
-    write(msg, '(A)') "WRFDA: First guess loaded successfully"
-    call wrf_message(msg)
+  ! Input parameters
+  type(c_ptr), value, intent(in) :: grid_ptr
+  type(c_ptr), value, intent(in) :: filename
+  integer(c_int), value, intent(in) :: filename_len
+  
+  ! Local variables
+  type(domain), pointer :: grid
+  character(len=512) :: fg_filename
+  type(xbx_type) :: xbx
+  type(grid_config_rec_type) :: config_flags
+  integer :: i, max_len
+  character(len=256) :: msg
+  character(kind=c_char), pointer :: fptr(:)
+  
+  ! Initialize return code
+  wrfda_load_first_guess = 0
+  
+  ! Validate grid pointer (must be pre-allocated via wrfda_alloc_and_init_domain)
+  if (.not. c_associated(grid_ptr)) then
+    call wrf_message("ERROR: grid_ptr is null. Allocate domain first via wrfda_alloc_and_init_domain")
+    wrfda_load_first_guess = -1
+    return
+  end if
+  
+  ! Convert C pointer to Fortran pointer (this is head_grid from WRFConfigManager)
+  call c_f_pointer(grid_ptr, grid)
+  
+  ! Convert C filename string to Fortran string
+  if (filename_len < 0 .or. filename_len > 1024) then
+    call wrf_message("ERROR: Invalid filename_len")
+    wrfda_load_first_guess = -1
+    return
+  end if
+  
+  fg_filename = ""
+  call c_f_pointer(filename, fptr, [filename_len])
+  max_len = min(filename_len, len(fg_filename))
+  do i = 1, max_len
+    if (fptr(i) == c_null_char) exit
+    fg_filename(i:i) = fptr(i)
+  end do
+  
+  write(msg, '(A,A)') "WRFDA: Loading first guess from file: ", trim(fg_filename)
+  call wrf_message(msg)
+  
+  ! Extract domain-specific config in a single canonical call
+  ! Note: This was already called in wrfda_alloc_and_init_domain, but we need
+  ! a local config_flags for da_med_initialdata_input
+  call model_to_grid_config_rec(head_grid%id, model_config_rec, config_flags)
+  
+  ! Call da_med_initialdata_input to read NetCDF file
+  call da_med_initialdata_input(head_grid, config_flags, trim(fg_filename))
+  
+  ! CRITICAL FIX: Set tile dimensions for single-tile domain
+  ! da_med_initialdata_input doesn't set these, but da_copy_tile_dims needs them
+  ! Deallocate and reallocate with correct bounds (1:1) if needed
+  if (associated(head_grid%i_start)) deallocate(head_grid%i_start)
+  if (associated(head_grid%i_end)) deallocate(head_grid%i_end)
+  if (associated(head_grid%j_start)) deallocate(head_grid%j_start)
+  if (associated(head_grid%j_end)) deallocate(head_grid%j_end)
+  allocate(head_grid%i_start(1:1))
+  allocate(head_grid%i_end(1:1))
+  allocate(head_grid%j_start(1:1))
+  allocate(head_grid%j_end(1:1))
+  head_grid%num_tiles = 1
+  head_grid%i_start(1) = head_grid%sd31  ! Start index in i dimension (tile 1)
+  head_grid%i_end(1) = head_grid%ed31    ! End index in i dimension (tile 1)
+  head_grid%j_start(1) = head_grid%sd32  ! Start index in j dimension (tile 1)
+  head_grid%j_end(1) = head_grid%ed32    ! End index in j dimension (tile 1)
+  
+  ! Update da_control module variables (vertical coords + base state parameters)
+  ! This must be done AFTER da_med_initialdata_input (which populates grid structure)
+  ! and BEFORE da_setup_firstguess_wrf/da_transfer_wrftoxb (which use these module variables)
+  call update_da_control_from_grid(head_grid)
+  
+  ! Initialize WRFDA module-level variables BEFORE da_setup_firstguess_wrf
+  ! These set the tile dimensions (kts, kte, etc.) that da_setup_firstguess_wrf needs
+  call da_copy_dims(head_grid)
+  call da_copy_tile_dims(head_grid)
+  sfc_assi_options = sfc_assi_options_1
+  
+  ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
+  call da_setup_firstguess_wrf(xbx, head_grid, config_flags, .false.)
+  
+  write(msg, '(A)') "WRFDA: First guess loaded successfully"
+  call wrf_message(msg)
     
   end function wrfda_load_first_guess
 
