@@ -66,8 +66,6 @@ int wrfda_init_domain_from_wrf_fields(
     const double* p_top, const double* t_init, const double* moist,
     const int* num_moist, const double* psfc, const int* start_year,
     const int* start_month, const int* start_day, const int* start_hour);
-
-int initialize_wrfda_module_variables();
 }
 
 namespace metada::backends::wrf {
@@ -2629,100 +2627,6 @@ void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
         "Failed to initialize WRFDA domain with da_transfer_wrftoxb, code " +
         std::to_string(rc));
   }
-
-  /* ===== OLD MANUAL CONSTRUCTION CODE (COMMENTED OUT) =====
-  // Get observation operator data which contains all required state variables
-  const auto state_data = getObsOperatorData();
-
-  // Validate that we have all required variables
-  if (!state_data.u || !state_data.v || !state_data.t || !state_data.q ||
-      !state_data.psfc || !state_data.ph || !state_data.phb || !state_data.hf ||
-      !state_data.hgt || !state_data.p || !state_data.pb ||
-      !state_data.lats_2d || !state_data.lons_2d) {
-    throw std::runtime_error(
-        "WRFDA domain initialization failed: Missing required state "
-        "variables");
-  }
-
-  // Get grid dimensions
-  const int nx = static_cast<int>(geometry_.x_dim());
-  const int ny = static_cast<int>(geometry_.y_dim());
-  const int nz = static_cast<int>(geometry_.z_dim());
-
-  // Convert staggered U and V to unstaggered grids if needed
-  std::vector<double> u_unstaggered, v_unstaggered;
-  const double *u_final = state_data.u, *v_final = state_data.v;
-
-  if (state_data.u_dims.is_staggered) {
-    // U is staggered, convert to unstaggered
-    const auto& dims = state_data.u_dims;
-    std::vector<double> u_staggered_vec(
-        state_data.u, state_data.u + dims.nx * dims.ny * dims.nz);
-
-    // Convert from staggered to unstaggered grid
-    u_unstaggered.resize(nx * ny * nz);
-    for (int k = 0; k < nz; ++k) {
-      for (int j = 0; j < ny; ++j) {
-        for (int i = 0; i < nx; ++i) {
-          // Simple averaging for unstaggered conversion
-          // In a full implementation, this would use proper interpolation
-          int idx_staggered = k * dims.nx * dims.ny + j * dims.nx + i;
-          int idx_unstaggered = k * nx * ny + j * nx + i;
-          u_unstaggered[idx_unstaggered] = u_staggered_vec[idx_staggered];
-        }
-      }
-    }
-    u_final = u_unstaggered.data();
-  }
-
-  if (state_data.v_dims.is_staggered) {
-    // V is staggered, convert to unstaggered
-    const auto& dims = state_data.v_dims;
-    std::vector<double> v_staggered_vec(
-        state_data.v, state_data.v + dims.nx * dims.ny * dims.nz);
-
-    // Convert from staggered to unstaggered grid
-    v_unstaggered.resize(nx * ny * nz);
-    for (int k = 0; k < nz; ++k) {
-      for (int j = 0; j < ny; ++j) {
-        for (int i = 0; i < nx; ++i) {
-          // Simple averaging for unstaggered conversion
-          // In a full implementation, this would use proper interpolation
-          int idx_staggered = k * dims.nx * dims.ny + j * dims.nx + i;
-          int idx_unstaggered = k * nx * ny + j * nx + i;
-          v_unstaggered[idx_unstaggered] = v_staggered_vec[idx_staggered];
-        }
-      }
-    }
-    v_final = v_unstaggered.data();
-  }
-
-  // Construct WRFDA domain from state data
-  int rc = wrfda_construct_domain_from_arrays(
-      &nx, &ny, &nz, u_final, v_final, state_data.t, state_data.q,
-      state_data.psfc, state_data.ph, state_data.phb, state_data.hf,
-      state_data.hgt, state_data.p, state_data.pb, state_data.lats_2d,
-      state_data.lons_2d);
-
-  if (rc != 0) {
-    throw std::runtime_error(
-        "Failed to construct WRFDA domain structure with code " +
-        std::to_string(rc));
-  }
-
-  // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options,
-  // etc.)
-  rc = initialize_wrfda_module_variables();
-  if (rc != 0) {
-    throw std::runtime_error(
-        "Failed to initialize WRFDA module variables with code " +
-        std::to_string(rc));
-  }
-
-  // NOTE: Map projection initialization removed - now properly handled in
-  // WRFGeometry constructor which reads values from NetCDF file global
-  attributes
-  ===== END OLD MANUAL CONSTRUCTION CODE ===== */
 }
 
 template <typename ConfigBackend, typename GeometryBackend>

@@ -772,27 +772,6 @@ contains
     
   end function wrfda_get_innov_vector
 
-  ! Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
-  integer(c_int) function initialize_wrfda_module_variables() bind(C, name="initialize_wrfda_module_variables")
-    implicit none
-    type(domain), pointer :: grid
-
-    grid => persistent_grid 
-    
-    ! Initialize return code
-    initialize_wrfda_module_variables = 0
-    
-    ! CRITICAL FIX: Initialize WRFDA module-level variables
-    call da_copy_dims(grid)
-     
-    ! CRITICAL FIX: Call da_copy_tile_dims to set up module-level tile bounds
-    ! This ensures that kts, kte, its, ite, jts, jte are properly set
-    call da_copy_tile_dims(grid)
-    call da_copy_tile_dims(grid)
-    sfc_assi_options = sfc_assi_options_1
-    sfc_assi_options = sfc_assi_options_1
-    
-  end function initialize_wrfda_module_variables
 
   ! Helper function to construct WRFDA domain structure from flat arrays
   integer(c_int) function wrfda_construct_domain_from_arrays(nx, ny, nz, u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d) bind(C, name="wrfda_construct_domain_from_arrays")

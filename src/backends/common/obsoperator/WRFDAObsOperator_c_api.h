@@ -110,9 +110,6 @@ int wrfda_extract_observations(const char* family, double* observations,
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();
 
-// Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
-int initialize_wrfda_module_variables();
-
 // Update analysis increments in WRFDA grid structure
 void wrfda_update_analysis_increments(const double* u, const double* v,
                                       const double* t, const double* q,
