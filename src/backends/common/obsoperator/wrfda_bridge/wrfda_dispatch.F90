@@ -1991,13 +1991,20 @@ contains
   !> @param[in] filename C string containing path to WRF NetCDF file
   !> @param[in] filename_len Length of filename string
   !> @return Integer status code (0 = success, non-zero = error)
-!> @brief Update da_control module vertical coordinate variables from grid
-!> @details Copies hybrid vertical coordinate coefficients from grid structure
-!>          to da_control module variables, which are used by WRFDA observation operators
-!> @param[in] grid Domain structure with populated vertical coordinates
-subroutine update_da_control_vertical_coords(grid)
+!> @brief Update da_control module variables from grid structure
+!> @details Sets all grid-dependent da_control module variables after da_med_initialdata_input.
+!>          This includes:
+!>            (1) Vertical coordinate coefficients (c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h)
+!>            (2) Base state parameters (base_pres, base_temp, base_lapse, iso_temp, etc.)
+!>          Map projection variables are set separately by da_setup_firstguess_wrf.
+!>          This function must be called AFTER da_med_initialdata_input and BEFORE
+!>          da_setup_firstguess_wrf/da_transfer_wrftoxb.
+!> @param[in] grid Pointer to WRFDA grid structure with populated state from NetCDF
+subroutine update_da_control_from_grid(grid)
   use module_domain, only: domain
-  use da_control, only: c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h
+  use da_control, only: c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h, &
+                        base_pres, base_temp, base_lapse, iso_temp, &
+                        base_pres_strat, base_lapse_strat
   use da_wrf_interfaces, only: wrf_message
   implicit none
   
@@ -2005,7 +2012,11 @@ subroutine update_da_control_vertical_coords(grid)
   integer :: kms, kme
   character(len=256) :: msg
   
-  ! Get vertical dimension bounds
+  call wrf_message("======== Updating da_control module variables from grid ========")
+  
+  ! -------------------------------------------------------------------------
+  ! [1] Update vertical coordinate coefficients
+  ! -------------------------------------------------------------------------
   kms = grid%sm33
   kme = grid%em33
   
@@ -2019,7 +2030,7 @@ subroutine update_da_control_vertical_coords(grid)
   if (.not. allocated(c3h)) allocate(c3h(kms:kme))
   if (.not. allocated(c4h)) allocate(c4h(kms:kme))
   
-  write(msg, '(A,I3,A,I3,A)') "Updating da_control vertical coords (kms:kme = ", kms, ":", kme, ")"
+  write(msg, '(A,I3,A,I3,A)') "[1] Vertical coordinates (kms:kme = ", kms, ":", kme, ")"
   call wrf_message(msg)
   
   ! Copy from grid structure (populated by da_med_initialdata_input)
@@ -2035,7 +2046,7 @@ subroutine update_da_control_vertical_coords(grid)
   ! Handle non-hybrid coordinates (backward compatibility)
   ! For input files prior to V3.9, grid%hybrid_opt is set to 0 by da_med_initialdata_input
   if (grid%hybrid_opt <= 0) then
-    write(msg, '(A,I2,A)') "Hybrid coordinate option = ", grid%hybrid_opt, ", using pure eta coordinates"
+    write(msg, '(A,I2,A)') "    Hybrid_opt = ", grid%hybrid_opt, " -> using pure eta coordinates"
     call wrf_message(msg)
     
     ! Fall back to pure eta coordinates
@@ -2048,31 +2059,16 @@ subroutine update_da_control_vertical_coords(grid)
     c2f = 0.0
     c2h = 0.0
   else
-    write(msg, '(A,I2,A)') "Hybrid coordinate option = ", grid%hybrid_opt, ", using hybrid coordinates"
+    write(msg, '(A,I2,A)') "    Hybrid_opt = ", grid%hybrid_opt, " -> using hybrid coordinates"
     call wrf_message(msg)
   end if
   
-  call wrf_message("da_control vertical coordinates updated successfully")
+  ! -------------------------------------------------------------------------
+  ! [2] Update base state parameters
+  ! -------------------------------------------------------------------------
+  write(msg, '(A)') "[2] Base state parameters"
+  call wrf_message(msg)
   
-end subroutine update_da_control_vertical_coords
-
-!> @brief Update da_control module base state parameters
-!> @details Copies base state parameters from grid to da_control module variables.
-!>          These parameters (base_pres, base_temp, base_lapse, etc.) are read from
-!>          the NetCDF input file and must be set in da_control before calling
-!>          da_transfer_wrftoxb, which uses them for pressure/temperature calculations.
-!> @param[in] grid Pointer to the WRFDA grid structure containing base state parameters
-subroutine update_da_control_base_state(grid)
-  use module_domain, only: domain
-  use da_control, only: base_pres, base_temp, base_lapse, iso_temp, &
-                        base_pres_strat, base_lapse_strat
-  use da_wrf_interfaces, only: wrf_message
-  implicit none
-  
-  type(domain), pointer, intent(in) :: grid
-  character(len=256) :: msg
-  
-  ! Set base state parameters from grid (read from NetCDF)
   base_pres  = grid%p00
   base_temp  = grid%t00
   base_lapse = grid%tlp
@@ -2080,13 +2076,17 @@ subroutine update_da_control_base_state(grid)
   base_pres_strat  = grid%p_strat
   base_lapse_strat = grid%tlp_strat
   
-  write(msg, '(A,F10.1,A)') "base_pres = ", base_pres, " Pa"
+  write(msg, '(A,F10.1,A)') "    base_pres        = ", base_pres, " Pa"
   call wrf_message(msg)
-  write(msg, '(A,F10.2,A)') "base_temp = ", base_temp, " K"
+  write(msg, '(A,F10.2,A)') "    base_temp        = ", base_temp, " K"
   call wrf_message(msg)
-  write(msg, '(A,F10.6)') "base_lapse = ", base_lapse
+  write(msg, '(A,F10.6)') "    base_lapse       = ", base_lapse
   call wrf_message(msg)
-  write(msg, '(A,F10.2,A)') "iso_temp = ", iso_temp, " K"
+  write(msg, '(A,F10.2,A)') "    iso_temp         = ", iso_temp, " K"
+  call wrf_message(msg)
+  write(msg, '(A,F10.1,A)') "    base_pres_strat  = ", base_pres_strat, " Pa"
+  call wrf_message(msg)
+  write(msg, '(A,F10.6)') "    base_lapse_strat = ", base_lapse_strat
   call wrf_message(msg)
   
   ! Validate - base_temp should be > 100 K and base_pres > 10000 Pa
@@ -2100,9 +2100,9 @@ subroutine update_da_control_base_state(grid)
     stop "FATAL: Missing or invalid base state parameters"
   end if
   
-  call wrf_message("da_control base state parameters updated successfully")
+  call wrf_message("======== da_control module variables updated successfully ========")
   
-end subroutine update_da_control_base_state
+end subroutine update_da_control_from_grid
 
 !> @brief Cleanup da_control module vertical coordinate variables
 !> @details Deallocates vertical coordinate arrays in da_control module
@@ -2235,15 +2235,10 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
                                      real(model_config_rec%truelat1(head_grid%id), c_double), &
                                      real(model_config_rec%truelat2(head_grid%id), c_double))
     
-    ! Update da_control module vertical coordinate variables
-    ! This must be done AFTER da_med_initialdata_input (which populates grid%c*)
-    ! and BEFORE any WRFDA routines that use these module variables
-    call update_da_control_vertical_coords(head_grid)
-    
-    ! Update da_control module base state parameters
-    ! This must be done AFTER da_med_initialdata_input (which reads grid%p00, grid%t00, etc.)
-    ! and BEFORE da_setup_firstguess_wrf/da_transfer_wrftoxb (which use base_pres, base_temp, etc.)
-    call update_da_control_base_state(head_grid)
+    ! Update da_control module variables (vertical coords + base state parameters)
+    ! This must be done AFTER da_med_initialdata_input (which populates grid structure)
+    ! and BEFORE da_setup_firstguess_wrf/da_transfer_wrftoxb (which use these module variables)
+    call update_da_control_from_grid(head_grid)
     
     ! Initialize WRFDA module-level variables BEFORE da_setup_firstguess_wrf
     ! These set the tile dimensions (kts, kte, etc.) that da_setup_firstguess_wrf needs
