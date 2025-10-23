@@ -1,33 +1,37 @@
-! Fortran bridge for WRF configuration system and domain management
-! Provides C-callable wrappers for WRF initialization and domain lifecycle
+! Fortran bridge for WRFDA configuration system and domain management
+! Provides C-callable wrappers for WRFDA initialization following the standard workflow
+! from da_wrfvar_init1.inc and da_wrfvar_init2.inc
 
 module metada_wrf_config_bridge
   use iso_c_binding
   use module_configure, only: initial_config, model_to_grid_config_rec, &
                                grid_config_rec_type, model_config_rec, &
                                model_config_rec_type
-  use module_domain, only: domain, head_grid, find_grid_by_id, &
-                           alloc_and_configure_domain, dealloc_space_domain, &
-                           init_module_domain
+  use module_domain, only: domain, head_grid, alloc_and_configure_domain
+  use da_wrf_interfaces, only: set_scalar_indices_from_config, setup_timekeeping, &
+                                init_wrfio
   implicit none
 
   ! Module-level storage for config_flags (not C-interoperable, so kept in Fortran)
-  ! This is ALWAYS derived from WRF's authoritative model_config_rec via model_to_grid_config_rec
-  ! NEVER manually update this variable - it must stay synchronized with WRF's configuration space
-  ! TARGET attribute allows taking C pointers for passing to WRF observation operators
+  ! This is ALWAYS derived from WRFDA's authoritative model_config_rec via model_to_grid_config_rec
+  ! NEVER manually update this variable - it must stay synchronized with WRFDA's configuration space
+  ! TARGET attribute allows taking C pointers for passing to WRFDA observation operators
   type(grid_config_rec_type), save, target :: config_flags_
   
-  ! Module-level flag to track WRF initialization state
-  logical, save :: wrf_initialized_ = .false.
+  ! Module-level pointer to null domain for grid allocation
+  type(domain), pointer, save :: null_domain => null()
+  
+  ! Module-level flag to track WRFDA initialization state
+  logical, save :: wrfda_initialized_ = .false.
 
 contains
 
   !============================================================================
-  ! WRF Initialization Routines
+  ! WRFDA Initialization Routines
   !============================================================================
   
   ! Initialize WRFU (WRF ESMF time utilities)
-  subroutine wrf_wrfu_initialize() bind(C, name="wrf_wrfu_initialize_")
+  subroutine wrfda_wrfu_initialize() bind(C, name="wrfda_wrfu_initialize_")
     use module_utility, only: WRFU_Initialize, WRFU_CAL_GREGORIAN
     implicit none
     
@@ -35,10 +39,11 @@ contains
     ! Note: Could add support for NO_LEAP_CALENDAR via a parameter if needed
     call WRFU_Initialize(defaultCalKind=WRFU_CAL_GREGORIAN)
     
-  end subroutine wrf_wrfu_initialize
+  end subroutine wrfda_wrfu_initialize
   
-  ! Initialize WRF modules (call once at startup)
-  subroutine wrf_init_modules(phase) bind(C, name="wrf_init_modules_")
+  ! Initialize WRFDA modules (call once at startup)
+  ! Note: Domain management is handled separately by WRFDA itself
+  subroutine wrfda_init_modules(phase) bind(C, name="wrfda_init_modules_")
     use module_bc, only: init_module_bc
     use module_configure, only: init_module_configure
     use module_driver_constants, only: init_module_driver_constants
@@ -50,29 +55,28 @@ contains
     integer(c_int), intent(in), value :: phase
     
     if (phase == 1) then
-      ! Phase 1: Basic initialization
+      ! Phase 1: Basic initialization (configuration and constants only)
       call init_module_bc()
       call init_module_configure()
       call init_module_driver_constants()
       call init_module_model_constants()
-      call init_module_domain()
       call init_module_machine()
-      wrf_initialized_ = .true.
+      wrfda_initialized_ = .true.
     else
       ! Phase 2: Advanced initialization (if needed)
       call init_module_wrf_error()
       call init_module_tiles()
     endif
     
-  end subroutine wrf_init_modules
+  end subroutine wrfda_init_modules
   
-  ! Check if WRF has been initialized
-  function wrf_is_initialized() bind(C, name="wrf_is_initialized_") result(initialized)
+  ! Check if WRFDA has been initialized
+  function wrfda_is_initialized() bind(C, name="wrfda_is_initialized_") result(initialized)
     implicit none
     logical(c_bool) :: initialized
     
-    initialized = logical(wrf_initialized_, kind=c_bool)
-  end function wrf_is_initialized
+    initialized = logical(wrfda_initialized_, kind=c_bool)
+  end function wrfda_is_initialized
 
   ! C-callable wrapper for initial_config()
   ! Reads namelist.input and populates module-level model_config_rec
@@ -86,14 +90,14 @@ contains
   end subroutine wrf_initial_config
 
   ! C-callable wrapper for model_to_grid_config_rec()
-  ! Extracts domain-specific configuration from WRF's authoritative model_config_rec
+  ! Extracts domain-specific configuration from WRFDA's authoritative model_config_rec
   ! This is the ONLY way config_flags_ should be populated - ensuring we always
-  ! use WRF's configuration space, not a parallel MetaDA configuration
+  ! use WRFDA's configuration space, not a parallel MetaDA configuration
   subroutine wrf_model_to_grid_config(domain_id) bind(C, name="wrf_model_to_grid_config_")
     implicit none
     integer(c_int), intent(in) :: domain_id
     
-    ! Call WRF's model_to_grid_config_rec to extract domain-specific config
+    ! Call WRFDA's model_to_grid_config_rec to extract domain-specific config
     ! This copies values from model_config_rec(domain_id) to module-level config_flags_
     ! All other code that needs to update config_flags_ must do so by:
     !   1. Updating model_config_rec first
@@ -103,130 +107,84 @@ contains
   end subroutine wrf_model_to_grid_config
 
   !============================================================================
-  ! WRF Domain Management Routines
+  ! WRFDA Domain Allocation (following da_wrfvar_init2.inc workflow)
   !============================================================================
   
-  ! Allocate and initialize a WRF domain
-  ! Returns 0 on success, non-zero on error
-  function wrf_alloc_domain(domain_id) bind(C, name="wrf_alloc_domain_") result(ierr)
+  !> @brief Allocate and configure WRFDA domain following standard workflow
+  !> @details Follows the exact sequence from da_wrfvar_init2.inc:
+  !>   1. alloc_and_configure_domain (allocates head_grid)
+  !>   2. model_to_grid_config_rec (extracts domain config)
+  !>   3. set_scalar_indices_from_config (sets tracer indices)
+  !>   4. init_wrfio (initializes WRF I/O system)
+  !>   5. setup_timekeeping (sets up domain clock)
+  !> @param[in] domain_id Domain ID (typically 1 for single-domain)
+  !> @return Integer status code (0 = success, non-zero = error)
+  integer(c_int) function wrfda_alloc_and_init_domain(domain_id) &
+      bind(C, name="wrfda_alloc_and_init_domain_") result(ierr)
     implicit none
     integer(c_int), intent(in), value :: domain_id
-    integer(c_int) :: ierr
-    type(domain), pointer :: parent
-    logical :: active_this_task
+    integer :: idum1, idum2
     
     ierr = 0
-    active_this_task = .true.
-    nullify(parent)
     
-    ! For domain 1 (root domain), parent is not used
-    ! For nested domains, we would need to find the parent
-    if (domain_id == 1) then
-      ! Pass head_grid directly - alloc_and_configure_domain will allocate and set it
-      call alloc_and_configure_domain(domain_id, active_this_task, head_grid, parent, -1)
-      
-      ! Verify that head_grid was successfully allocated
-      if (associated(head_grid)) then
-        ! CRITICAL FIX: alloc_and_configure_domain doesn't set grid%id
-        ! We must set it explicitly
-        head_grid%id = domain_id
-      else
-        ierr = 1
-        return
-      endif
-    else
-      ! For nested domains, find parent (parent_id = domain_id - 1 for simplicity)
-      ! In a more complex setup, this would need proper parent tracking
-      ierr = 1  ! Not yet implemented for nested domains
-      return
-    endif
+    ! Ensure null_domain is nullified
+    if (.not. associated(null_domain)) then
+      nullify(null_domain)
+    end if
     
-    ! Verify that head_grid was successfully allocated
+    ! STEP 1: Allocate and configure domain (WRFDA standard workflow)
+    call alloc_and_configure_domain(domain_id=domain_id, &
+                                     grid=head_grid, &
+                                     parent=null_domain, &
+                                     kid=-1)
+    
+    ! Verify allocation succeeded
     if (.not. associated(head_grid)) then
       ierr = 1
-    endif
+      return
+    end if
     
-  end function wrf_alloc_domain
+    ! STEP 2: Extract domain-specific config
+    call model_to_grid_config_rec(head_grid%id, model_config_rec, config_flags_)
+    
+    ! STEP 3: Set scalar indices from config
+    call set_scalar_indices_from_config(head_grid%id, idum1, idum2)
+    
+    ! STEP 4: Initialize WRF I/O system
+    call init_wrfio()
+    
+    ! STEP 5: Setup timekeeping for the domain
+    call setup_timekeeping(head_grid)
+    
+  end function wrfda_alloc_and_init_domain
   
-  ! Deallocate a WRF domain
-  subroutine wrf_dealloc_domain(domain_id) bind(C, name="wrf_dealloc_domain_")
+  !> @brief Get pointer to WRFDA's head_grid
+  !> @return C pointer to head_grid, or c_null_ptr if not allocated
+  type(c_ptr) function wrfda_get_head_grid_ptr() bind(C, name="wrfda_get_head_grid_ptr_")
     implicit none
-    integer(c_int), intent(in), value :: domain_id
     
-    call dealloc_space_domain(domain_id)
+    if (associated(head_grid)) then
+      wrfda_get_head_grid_ptr = c_loc(head_grid)
+    else
+      wrfda_get_head_grid_ptr = c_null_ptr
+    end if
     
-  end subroutine wrf_dealloc_domain
+  end function wrfda_get_head_grid_ptr
   
-  ! Check if a domain exists
-  function wrf_domain_exists(domain_id) bind(C, name="wrf_domain_exists_") result(exists)
+  !> @brief Check if head_grid has been allocated
+  !> @return True if head_grid is allocated
+  logical(c_bool) function wrfda_head_grid_allocated() bind(C, name="wrfda_head_grid_allocated_")
     implicit none
-    integer(c_int), intent(in), value :: domain_id
-    logical(c_bool) :: exists
-    type(domain), pointer :: grid
     
-    nullify(grid)
-    call find_grid_by_id(domain_id, head_grid, grid)
-    exists = logical(associated(grid), kind=c_bool)
+    wrfda_head_grid_allocated = logical(associated(head_grid), kind=c_bool)
     
-  end function wrf_domain_exists
-  
+  end function wrfda_head_grid_allocated
+
   !============================================================================
-  ! WRF Grid Geometry Setters (write to WRF domain structures)
+  ! WRFDA Grid Geometry Getters (read from model_config_rec)
   !============================================================================
   
-  ! Set grid geometry parameters in WRF structures
-  ! Stores in WRF's model_config_rec (authoritative source) and grid domain structure
-  ! Then syncs config_flags_ from model_config_rec to ensure consistency
-  subroutine wrf_set_grid_geometry(domain_id, dx, dy, map_proj, &
-                                    cen_lat, cen_lon, truelat1, truelat2, &
-                                    stand_lon) bind(C, name="wrf_set_grid_geometry_")
-    implicit none
-    integer(c_int), intent(in), value :: domain_id
-    real(c_float), intent(in), value :: dx, dy
-    integer(c_int), intent(in), value :: map_proj
-    real(c_float), intent(in), value :: cen_lat, cen_lon
-    real(c_float), intent(in), value :: truelat1, truelat2, stand_lon
-    
-    type(domain), pointer :: grid
-    
-    ! 1. Store in WRF's model_config_rec (authoritative source for all WRF subsystems)
-    !    This is indexed by domain_id and is the master configuration storage
-    model_config_rec%dx(domain_id) = dx
-    model_config_rec%dy(domain_id) = dy
-    model_config_rec%map_proj(domain_id) = map_proj
-    model_config_rec%cen_lat(domain_id) = cen_lat
-    model_config_rec%cen_lon(domain_id) = cen_lon
-    model_config_rec%truelat1(domain_id) = truelat1
-    model_config_rec%truelat2(domain_id) = truelat2
-    model_config_rec%stand_lon(domain_id) = stand_lon
-    
-    ! 2. Find and update the grid domain structure if it exists
-    nullify(grid)
-    call find_grid_by_id(domain_id, head_grid, grid)
-    
-    if (associated(grid)) then
-      ! Set grid geometry in domain structure (for WRF routines that use grid%)
-      grid%dx = dx
-      grid%dy = dy
-      grid%map_proj = map_proj
-      grid%cen_lat = cen_lat
-      grid%cen_lon = cen_lon
-      grid%truelat1 = truelat1
-      grid%truelat2 = truelat2
-      grid%stand_lon = stand_lon
-    endif
-    
-    ! 3. Sync config_flags_ from model_config_rec (NEVER manually update config_flags_)
-    !    This ensures config_flags_ always reflects WRF's authoritative configuration
-    call model_to_grid_config_rec(domain_id, model_config_rec, config_flags_)
-    
-  end subroutine wrf_set_grid_geometry
-  
-  !============================================================================
-  ! WRF Grid Geometry Getters (read from WRF domain structures)
-  !============================================================================
-  
-  ! Get grid geometry from WRF's model_config_rec (authoritative source)
+  ! Get grid geometry from WRFDA's model_config_rec (authoritative source)
   ! These getters read from model_config_rec which is the master configuration storage
   
   function wrf_get_grid_dx(domain_id) bind(C, name="wrf_get_grid_dx_") result(dx)
@@ -317,36 +275,7 @@ contains
   end function wrf_get_config_flags_size
   
   !============================================================================
-  ! Grid Domain Pointer Access (for passing to WRF observation operators)
-  !============================================================================
-  
-  ! Get C pointer to WRF grid/domain structure for a specific domain
-  ! This allows METADA C++ code to pass grid to WRF Fortran routines
-  function wrf_get_grid_ptr(domain_id) bind(C, name="wrf_get_grid_ptr_") result(ptr)
-    implicit none
-    integer(c_int), intent(in), value :: domain_id
-    type(c_ptr) :: ptr
-    type(domain), pointer :: grid
-    
-    ! For domain 1, return head_grid directly (most common case)
-    if (domain_id == 1 .and. associated(head_grid)) then
-      ptr = c_loc(head_grid)
-      return
-    endif
-    
-    ! For other domains, use find_grid_by_id
-    nullify(grid)
-    call find_grid_by_id(domain_id, head_grid, grid)
-    
-    if (associated(grid)) then
-      ptr = c_loc(grid)
-    else
-      ptr = c_null_ptr
-    endif
-  end function wrf_get_grid_ptr
-  
-  !============================================================================
-  ! Config Accessor Functions (for namelist values)
+  ! Config Accessor Functions (for namelist values from config_flags_)
   !============================================================================
   ! Accessor functions for config_flags_ members
   ! These access the module-level config_flags_ variable

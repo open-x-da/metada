@@ -12,109 +12,79 @@
 namespace metada::backends::wrf {
 
 // Initialize static member
-bool WRFConfigManager::wrf_modules_initialized_ = false;
+bool WRFConfigManager::wrfda_modules_initialized_ = false;
 
-void WRFConfigManager::initializeWRFModules() {
-  if (!wrf_modules_initialized_) {
-    std::cout << "Initializing WRF modules..." << std::endl;
+void WRFConfigManager::initializeWRFDAModules() {
+  if (!wrfda_modules_initialized_) {
+    std::cout << "Initializing WRFDA modules..." << std::endl;
 
-    // Phase 1: Core modules initialization
-    wrf_init_modules_(1);
+    // Phase 1: Core modules initialization (configuration and constants only)
+    wrfda_init_modules_(1);
 
     // Initialize WRFU time manager (must be between phase 1 and 2)
     std::cout << "Initializing WRFU time utilities..." << std::endl;
-    wrf_wrfu_initialize_();
+    wrfda_wrfu_initialize_();
 
     // Phase 2: Advanced modules initialization
-    wrf_init_modules_(2);
+    wrfda_init_modules_(2);
 
-    wrf_modules_initialized_ = true;
+    wrfda_modules_initialized_ = true;
 
     // Verify initialization
-    if (!wrf_is_initialized_()) {
-      throw std::runtime_error("WRF module initialization failed");
+    if (!wrfda_is_initialized_()) {
+      throw std::runtime_error("WRFDA module initialization failed");
     }
 
-    std::cout << "WRF modules initialized successfully" << std::endl;
+    std::cout << "WRFDA modules initialized successfully" << std::endl;
   }
 }
 
 WRFConfigManager::WRFConfigManager(int domain_id, bool allocate_domain)
     : domain_id_(domain_id), domain_allocated_(false) {
-  // Step 1: Initialize WRF modules (once per process)
+  // Step 1: Initialize WRFDA modules (once per process)
   try {
-    initializeWRFModules();
+    initializeWRFDAModules();
   } catch (const std::exception& e) {
-    throw std::runtime_error(std::string("Failed to initialize WRF modules: ") +
-                             e.what());
+    throw std::runtime_error(
+        std::string("Failed to initialize WRFDA modules: ") + e.what());
   }
 
   // Step 2: Read namelist.input configuration
   // This populates the module-level model_config_rec
-  // Note: These values are mainly for WRF internal consistency.
-  // The actual grid geometry comes from the NetCDF file global attributes.
+  // Note: namelist.input values MUST match the NetCDF file global attributes
   try {
     std::cout << "Reading namelist.input configuration..." << std::endl;
     wrf_initial_config_();
   } catch (const std::exception& e) {
     throw std::runtime_error(
-        std::string("Failed to initialize WRF configuration: ") + e.what());
+        std::string("Failed to initialize WRFDA configuration: ") + e.what());
   }
 
-  // Step 3: Extract domain-specific configuration into module-level
-  // config_flags_
-  try {
-    std::cout << "Extracting configuration for domain " << domain_id_ << "..."
-              << std::endl;
-    wrf_model_to_grid_config_(&domain_id_);
-    initialized_ = true;
-  } catch (const std::exception& e) {
-    throw std::runtime_error(
-        std::string("Failed to extract domain configuration: ") + e.what());
-  }
-
-  // Step 4: Allocate WRF domain structure (if requested)
+  // Step 3: Allocate and initialize WRFDA domain (following
+  // da_wrfvar_init2.inc)
   if (allocate_domain) {
-    std::cout << "Allocating WRF domain structure for domain " << domain_id_
-              << "..." << std::endl;
-
-    int ierr = wrf_alloc_domain_(domain_id_);
+    std::cout << "Allocating WRFDA domain following standard workflow..."
+              << std::endl;
+    int ierr = wrfda_alloc_and_init_domain_(domain_id_);
     if (ierr != 0) {
-      throw std::runtime_error(
-          "Failed to allocate WRF domain structure for domain " +
-          std::to_string(domain_id_) + ", error code: " + std::to_string(ierr));
+      throw std::runtime_error("Failed to allocate WRFDA domain, error code: " +
+                               std::to_string(ierr));
     }
 
     // Verify domain was allocated
-    if (!wrf_domain_exists_(domain_id_)) {
-      throw std::runtime_error("WRF domain " + std::to_string(domain_id_) +
-                               " was not allocated successfully");
+    if (!wrfda_head_grid_allocated_()) {
+      throw std::runtime_error(
+          "WRFDA head_grid was not allocated successfully");
     }
 
     domain_allocated_ = true;
-    std::cout << "WRF domain " << domain_id_ << " allocated successfully"
+    std::cout << "WRFDA domain allocated and initialized successfully"
               << std::endl;
   }
-}
 
-WRFConfigManager::~WRFConfigManager() {
-  // Deallocate WRF domain if we allocated it
-  if (domain_allocated_) {
-    try {
-      std::cout << "Deallocating WRF domain " << domain_id_ << "..."
-                << std::endl;
-      wrf_dealloc_domain_(domain_id_);
-      domain_allocated_ = false;
-    } catch (...) {
-      // Suppress exceptions in destructor
-      std::cerr << "Warning: Exception during WRF domain deallocation"
-                << std::endl;
-    }
-  }
-}
-
-bool WRFConfigManager::domainExists() const {
-  return wrf_domain_exists_(domain_id_);
+  initialized_ = true;
+  std::cout << "WRFDA configuration initialized for domain " << domain_id_
+            << std::endl;
 }
 
 void* WRFConfigManager::getConfigFlagsPtr() const {
@@ -126,7 +96,7 @@ size_t WRFConfigManager::getConfigFlagsSize() const {
 }
 
 void* WRFConfigManager::getGridPtr() const {
-  return wrf_get_grid_ptr_(domain_id_);
+  return wrfda_get_head_grid_ptr_();
 }
 
 }  // namespace metada::backends::wrf

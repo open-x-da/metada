@@ -36,11 +36,8 @@ module metada_wrfda_dispatch
 
   implicit none
   
-  ! One-time initialization flag for WRF I/O system  
-  logical, save :: wrfio_initialized = .false.
-  
-  ! Grid pointer: points to grid allocated in WRFGeometry (not allocated here!)
-  ! This allows legacy functions to continue working
+  ! Grid pointer: points to grid allocated via wrfda_alloc_and_init_domain
+  ! This allows observation operators to access the grid
   type(domain), pointer, save :: persistent_grid => null()
   logical, save :: grid_initialized = .false.
   
@@ -86,9 +83,9 @@ contains
   ! - xa (analysis increments): start at zero, updated by each iteration
   ! - Total state: x_total = xb + xa (computed internally)
   ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(ob_ptr, iv_ptr) bind(C, name="wrfda_xtoy_apply_grid")
+  integer(c_int) function wrfda_xtoy_apply_grid(grid_ptr, ob_ptr, iv_ptr) bind(C, name="wrfda_xtoy_apply_grid")
     implicit none
-    type(c_ptr), value :: ob_ptr, iv_ptr
+    type(c_ptr), value :: grid_ptr, ob_ptr, iv_ptr
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
@@ -98,7 +95,7 @@ contains
     integer :: fam_id
     
     ! Convert C pointers to Fortran pointers
-    grid => persistent_grid
+    call c_f_pointer(grid_ptr, grid)
     call c_f_pointer(iv_ptr, iv)
     call c_f_pointer(ob_ptr, y)
     
@@ -231,9 +228,9 @@ contains
   ! - delta_y: gradient in observation space (passed via persistent arrays)
   ! - inout_u, inout_v, inout_t, inout_q, inout_psfc: gradient in state space (accumulated in persistent arrays)
   ! - The adjoint operator accumulates gradients into the state space arrays
-  integer(c_int) function wrfda_xtoy_adjoint_grid(iv_ptr) bind(C, name="wrfda_xtoy_adjoint_grid")
+  integer(c_int) function wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr) bind(C, name="wrfda_xtoy_adjoint_grid")
     implicit none
-    type(c_ptr), value :: iv_ptr
+    type(c_ptr), value :: grid_ptr, iv_ptr
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
@@ -244,7 +241,7 @@ contains
     integer :: fam_id
     
     ! Convert C pointers to Fortran pointers
-    grid => persistent_grid
+    call c_f_pointer(grid_ptr, grid)
     call c_f_pointer(iv_ptr, iv)
     
     if (.not. associated(iv)) then
@@ -252,10 +249,10 @@ contains
       return
     end if
     
-    ! Get grid dimensions from persistent grid
-    nx = persistent_grid%xp%ide - persistent_grid%xp%ids + 1
-    ny = persistent_grid%xp%jde - persistent_grid%xp%jds + 1
-    nz = persistent_grid%xp%kde - persistent_grid%xp%kds + 1
+    ! Get grid dimensions
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
     
     ! Zero out analysis increments for adjoint computation
     grid%xa%u = 0.0
@@ -1968,7 +1965,7 @@ contains
     end if
     
     ! Create the domain clock using WRFU_ClockCreate
-    allocate(grid%domain_clock)
+    ! Note: domain_clock is a TYPE(WRFU_Clock), not a pointer, so no allocation needed
     grid%domain_clock = WRFU_ClockCreate(TimeStep=time_step, StartTime=start_time, StopTime=stop_time, rc=rc)
     if (rc /= WRFU_SUCCESS) then
       print *, "WRFDA ERROR: Failed to create domain clock"
@@ -1994,12 +1991,156 @@ contains
   !> @param[in] filename C string containing path to WRF NetCDF file
   !> @param[in] filename_len Length of filename string
   !> @return Integer status code (0 = success, non-zero = error)
+!> @brief Update da_control module vertical coordinate variables from grid
+!> @details Copies hybrid vertical coordinate coefficients from grid structure
+!>          to da_control module variables, which are used by WRFDA observation operators
+!> @param[in] grid Domain structure with populated vertical coordinates
+subroutine update_da_control_vertical_coords(grid)
+  use module_domain, only: domain
+  use da_control, only: c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h
+  use da_wrf_interfaces, only: wrf_message
+  implicit none
+  
+  type(domain), pointer, intent(in) :: grid
+  integer :: kms, kme
+  character(len=256) :: msg
+  
+  ! Get vertical dimension bounds
+  kms = grid%sm33
+  kme = grid%em33
+  
+  ! Allocate da_control module arrays if not already allocated
+  if (.not. allocated(c1f)) allocate(c1f(kms:kme))
+  if (.not. allocated(c2f)) allocate(c2f(kms:kme))
+  if (.not. allocated(c3f)) allocate(c3f(kms:kme))
+  if (.not. allocated(c4f)) allocate(c4f(kms:kme))
+  if (.not. allocated(c1h)) allocate(c1h(kms:kme))
+  if (.not. allocated(c2h)) allocate(c2h(kms:kme))
+  if (.not. allocated(c3h)) allocate(c3h(kms:kme))
+  if (.not. allocated(c4h)) allocate(c4h(kms:kme))
+  
+  write(msg, '(A,I3,A,I3,A)') "Updating da_control vertical coords (kms:kme = ", kms, ":", kme, ")"
+  call wrf_message(msg)
+  
+  ! Copy from grid structure (populated by da_med_initialdata_input)
+  c1f = grid%c1f
+  c2f = grid%c2f
+  c3f = grid%c3f
+  c4f = grid%c4f
+  c1h = grid%c1h
+  c2h = grid%c2h
+  c3h = grid%c3h
+  c4h = grid%c4h
+  
+  ! Handle non-hybrid coordinates (backward compatibility)
+  ! For input files prior to V3.9, grid%hybrid_opt is set to 0 by da_med_initialdata_input
+  if (grid%hybrid_opt <= 0) then
+    write(msg, '(A,I2,A)') "Hybrid coordinate option = ", grid%hybrid_opt, ", using pure eta coordinates"
+    call wrf_message(msg)
+    
+    ! Fall back to pure eta coordinates
+    c3f = grid%znw  ! Eta levels on full (w) layers
+    c3h = grid%znu  ! Eta levels on half (mass) layers
+    c4f = 0.0
+    c4h = 0.0
+    c1f = 1.0
+    c1h = 1.0
+    c2f = 0.0
+    c2h = 0.0
+  else
+    write(msg, '(A,I2,A)') "Hybrid coordinate option = ", grid%hybrid_opt, ", using hybrid coordinates"
+    call wrf_message(msg)
+  end if
+  
+  call wrf_message("da_control vertical coordinates updated successfully")
+  
+end subroutine update_da_control_vertical_coords
+
+!> @brief Update da_control module base state parameters
+!> @details Copies base state parameters from grid to da_control module variables.
+!>          These parameters (base_pres, base_temp, base_lapse, etc.) are read from
+!>          the NetCDF input file and must be set in da_control before calling
+!>          da_transfer_wrftoxb, which uses them for pressure/temperature calculations.
+!> @param[in] grid Pointer to the WRFDA grid structure containing base state parameters
+subroutine update_da_control_base_state(grid)
+  use module_domain, only: domain
+  use da_control, only: base_pres, base_temp, base_lapse, iso_temp, &
+                        base_pres_strat, base_lapse_strat
+  use da_wrf_interfaces, only: wrf_message
+  implicit none
+  
+  type(domain), pointer, intent(in) :: grid
+  character(len=256) :: msg
+  
+  ! Set base state parameters from grid (read from NetCDF)
+  base_pres  = grid%p00
+  base_temp  = grid%t00
+  base_lapse = grid%tlp
+  iso_temp   = grid%tiso
+  base_pres_strat  = grid%p_strat
+  base_lapse_strat = grid%tlp_strat
+  
+  write(msg, '(A,F10.1,A)') "base_pres = ", base_pres, " Pa"
+  call wrf_message(msg)
+  write(msg, '(A,F10.2,A)') "base_temp = ", base_temp, " K"
+  call wrf_message(msg)
+  write(msg, '(A,F10.6)') "base_lapse = ", base_lapse
+  call wrf_message(msg)
+  write(msg, '(A,F10.2,A)') "iso_temp = ", iso_temp, " K"
+  call wrf_message(msg)
+  
+  ! Validate - base_temp should be > 100 K and base_pres > 10000 Pa
+  if ( base_temp < 100.0 .or. base_pres < 10000.0 ) then
+    write(msg, '(A)') "ERROR: Base state parameters not found in NetCDF file!"
+    call wrf_message(msg)
+    write(msg, '(A)') "Add use_baseparam_fr_nml = .true. in namelist.input &dynamics"
+    call wrf_message(msg)
+    write(msg, '(A,F10.2,A,F10.1)') "Got: base_temp = ", base_temp, " K, base_pres = ", base_pres
+    call wrf_message(msg)
+    stop "FATAL: Missing or invalid base state parameters"
+  end if
+  
+  call wrf_message("da_control base state parameters updated successfully")
+  
+end subroutine update_da_control_base_state
+
+!> @brief Cleanup da_control module vertical coordinate variables
+!> @details Deallocates vertical coordinate arrays in da_control module
+!>          Should be called when MetaDA is done with the grid
+subroutine cleanup_da_control_vertical_coords()
+  use da_control, only: c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h
+  use da_wrf_interfaces, only: wrf_message
+  implicit none
+  
+  call wrf_message("Cleaning up da_control vertical coordinates")
+  
+  if (allocated(c1f)) deallocate(c1f)
+  if (allocated(c2f)) deallocate(c2f)
+  if (allocated(c3f)) deallocate(c3f)
+  if (allocated(c4f)) deallocate(c4f)
+  if (allocated(c1h)) deallocate(c1h)
+  if (allocated(c2h)) deallocate(c2h)
+  if (allocated(c3h)) deallocate(c3h)
+  if (allocated(c4h)) deallocate(c4h)
+  
+  call wrf_message("da_control vertical coordinates cleaned up")
+  
+end subroutine cleanup_da_control_vertical_coords
+
+!> @brief C-callable wrapper for cleanup_da_control_vertical_coords
+!> @details Allows C++ code to cleanup da_control module vertical coordinates
+subroutine wrfda_cleanup_vertical_coords() bind(C, name="wrfda_cleanup_vertical_coords")
+  implicit none
+  
+  call cleanup_da_control_vertical_coords()
+  
+end subroutine wrfda_cleanup_vertical_coords
+
 integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len) &
     bind(C, name="wrfda_load_first_guess")
   use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer, c_char, c_int, c_null_char, c_associated, c_double
-  use module_configure, only: grid_config_rec_type, model_config_rec
-  use module_domain, only: domain
-  use module_io, only: init_io_handles
+  use module_configure, only: grid_config_rec_type, model_config_rec, model_to_grid_config_rec
+  use module_domain, only: domain, head_grid
   use da_wrfvar_io, only: da_med_initialdata_input
   use da_transfer_model, only: da_setup_firstguess_wrf
   use da_wrf_interfaces, only: wrf_message
@@ -2025,21 +2166,21 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     character(len=512) :: fg_filename
     type(xbx_type) :: xbx
     type(grid_config_rec_type) :: config_flags
-    integer :: i, max_len, io_status
+    integer :: i, max_len
     character(len=256) :: msg
     character(kind=c_char), pointer :: fptr(:)
     
     ! Initialize return code
     wrfda_load_first_guess = 0
     
-    ! Validate C pointer
+    ! Validate grid pointer (must be pre-allocated via wrfda_alloc_and_init_domain)
     if (.not. c_associated(grid_ptr)) then
-      call wrf_message("ERROR: C grid_ptr is null")
+      call wrf_message("ERROR: grid_ptr is null. Allocate domain first via wrfda_alloc_and_init_domain")
       wrfda_load_first_guess = -1
       return
     end if
     
-    ! Convert C grid pointer to Fortran pointer
+    ! Convert C pointer to Fortran pointer (this is head_grid from WRFConfigManager)
     call c_f_pointer(grid_ptr, grid)
     
     ! Convert C filename string to Fortran string
@@ -2060,107 +2201,58 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     write(msg, '(A,A)') "WRFDA: Loading first guess from file: ", trim(fg_filename)
     call wrf_message(msg)
     
-    ! One-time initialization of WRF I/O system
-    if (.not. wrfio_initialized) then
-      call init_io_handles()
-      call ext_ncd_ioinit(" ", io_status)
-      if (io_status /= 0) then
-        call wrf_message("ERROR: Failed to initialize WRF I/O system")
-        wrfda_load_first_guess = -2
-        return
-      end if
-      wrfio_initialized = .true.
-    end if
-    
-    ! Set persistent_grid to point to the grid from WRFGeometry
-    persistent_grid => grid
-    grid_initialized = .true.
-    
-    ! CRITICAL: Set namelist parameters BEFORE da_med_initialdata_input
-    ! The input routines validate against these namelist values
-    ! TODO: These values should come from WRFGeometry, hardcoded for now
-    call nl_set_map_proj(grid%id, 1)           ! Lambert Conformal
-    call nl_set_dx(grid%id, 30000.0)
-    call nl_set_dy(grid%id, 30000.0)
-    call nl_set_cen_lat(grid%id, 34.830017)
-    call nl_set_cen_lon(grid%id, -81.03)
-    call nl_set_truelat1(grid%id, 30.0)
-    call nl_set_truelat2(grid%id, 60.0)
-    call nl_set_stand_lon(grid%id, -98.0)
-    call nl_set_pole_lat(grid%id, 90.0)
-    call nl_set_moad_cen_lat(grid%id, 34.830017)
-    call nl_set_num_land_cat(grid%id, 24)     ! Match input file
-    
-    ! Initialize config_flags from model_config_rec (after nl_set_* calls above)
-    ! Projection parameters
-    config_flags%map_proj = model_config_rec%map_proj(grid%id)
-    config_flags%dx = model_config_rec%dx(grid%id)
-    config_flags%dy = model_config_rec%dy(grid%id)
-    config_flags%cen_lat = model_config_rec%cen_lat(grid%id)
-    config_flags%cen_lon = model_config_rec%cen_lon(grid%id)
-    config_flags%truelat1 = model_config_rec%truelat1(grid%id)
-    config_flags%truelat2 = model_config_rec%truelat2(grid%id)
-    config_flags%stand_lon = model_config_rec%stand_lon(grid%id)
-    ! IO format settings (CRITICAL: needed for input_wrf to be called)
-    config_flags%io_form_input = model_config_rec%io_form_input
-    config_flags%io_form_auxinput1 = model_config_rec%io_form_auxinput1
-    ! Additional settings
-    config_flags%num_land_cat = model_config_rec%num_land_cat
-    config_flags%force_use_old_data = model_config_rec%force_use_old_data
+    ! Extract domain-specific config in a single canonical call
+    ! Note: This was already called in wrfda_alloc_and_init_domain, but we need
+    ! a local config_flags for da_med_initialdata_input
+    call model_to_grid_config_rec(head_grid%id, model_config_rec, config_flags)
     
     ! Call da_med_initialdata_input to read NetCDF file
-    call da_med_initialdata_input(grid, config_flags, trim(fg_filename))
+    call da_med_initialdata_input(head_grid, config_flags, trim(fg_filename))
     
     ! CRITICAL FIX: Set tile dimensions for single-tile domain
     ! da_med_initialdata_input doesn't set these, but da_copy_tile_dims needs them
     ! Deallocate and reallocate with correct bounds (1:1) if needed
-    if (associated(grid%i_start)) deallocate(grid%i_start)
-    if (associated(grid%i_end)) deallocate(grid%i_end)
-    if (associated(grid%j_start)) deallocate(grid%j_start)
-    if (associated(grid%j_end)) deallocate(grid%j_end)
-    allocate(grid%i_start(1:1))
-    allocate(grid%i_end(1:1))
-    allocate(grid%j_start(1:1))
-    allocate(grid%j_end(1:1))
-    grid%num_tiles = 1
-    grid%i_start(1) = grid%sd31  ! Start index in i dimension (tile 1)
-    grid%i_end(1) = grid%ed31    ! End index in i dimension (tile 1)
-    grid%j_start(1) = grid%sd32  ! Start index in j dimension (tile 1)
-    grid%j_end(1) = grid%ed32    ! End index in j dimension (tile 1)
-    
-    ! Update config_flags after da_med_initialdata_input (may have been modified)
-    config_flags%map_proj = model_config_rec%map_proj(grid%id)
-    config_flags%dx = model_config_rec%dx(grid%id)
-    config_flags%dy = model_config_rec%dy(grid%id)
-    config_flags%cen_lat = model_config_rec%cen_lat(grid%id)
-    config_flags%cen_lon = model_config_rec%cen_lon(grid%id)
-    config_flags%truelat1 = model_config_rec%truelat1(grid%id)
-    config_flags%truelat2 = model_config_rec%truelat2(grid%id)
-    config_flags%stand_lon = model_config_rec%stand_lon(grid%id)
-    config_flags%pole_lat = model_config_rec%pole_lat(grid%id)
-    config_flags%moad_cen_lat = model_config_rec%moad_cen_lat(grid%id)
-    config_flags%num_land_cat = model_config_rec%num_land_cat
-    ! Also restore IO format settings
-    config_flags%io_form_input = model_config_rec%io_form_input
-    config_flags%io_form_auxinput1 = model_config_rec%io_form_auxinput1
+    if (associated(head_grid%i_start)) deallocate(head_grid%i_start)
+    if (associated(head_grid%i_end)) deallocate(head_grid%i_end)
+    if (associated(head_grid%j_start)) deallocate(head_grid%j_start)
+    if (associated(head_grid%j_end)) deallocate(head_grid%j_end)
+    allocate(head_grid%i_start(1:1))
+    allocate(head_grid%i_end(1:1))
+    allocate(head_grid%j_start(1:1))
+    allocate(head_grid%j_end(1:1))
+    head_grid%num_tiles = 1
+    head_grid%i_start(1) = head_grid%sd31  ! Start index in i dimension (tile 1)
+    head_grid%i_end(1) = head_grid%ed31    ! End index in i dimension (tile 1)
+    head_grid%j_start(1) = head_grid%sd32  ! Start index in j dimension (tile 1)
+    head_grid%j_end(1) = head_grid%ed32    ! End index in j dimension (tile 1)
     
     ! Re-initialize WRFDA's internal map projection structure
-    call initialize_map_projection_c(model_config_rec%map_proj(grid%id), &
-                                     real(model_config_rec%cen_lat(grid%id), c_double), &
-                                     real(model_config_rec%cen_lon(grid%id), c_double), &
-                                     real(model_config_rec%dx(grid%id), c_double), &
-                                     real(model_config_rec%stand_lon(grid%id), c_double), &
-                                     real(model_config_rec%truelat1(grid%id), c_double), &
-                                     real(model_config_rec%truelat2(grid%id), c_double))
+    call initialize_map_projection_c(model_config_rec%map_proj(head_grid%id), &
+                                     real(model_config_rec%cen_lat(head_grid%id), c_double), &
+                                     real(model_config_rec%cen_lon(head_grid%id), c_double), &
+                                     real(model_config_rec%dx(head_grid%id), c_double), &
+                                     real(model_config_rec%stand_lon(head_grid%id), c_double), &
+                                     real(model_config_rec%truelat1(head_grid%id), c_double), &
+                                     real(model_config_rec%truelat2(head_grid%id), c_double))
+    
+    ! Update da_control module vertical coordinate variables
+    ! This must be done AFTER da_med_initialdata_input (which populates grid%c*)
+    ! and BEFORE any WRFDA routines that use these module variables
+    call update_da_control_vertical_coords(head_grid)
+    
+    ! Update da_control module base state parameters
+    ! This must be done AFTER da_med_initialdata_input (which reads grid%p00, grid%t00, etc.)
+    ! and BEFORE da_setup_firstguess_wrf/da_transfer_wrftoxb (which use base_pres, base_temp, etc.)
+    call update_da_control_base_state(head_grid)
     
     ! Initialize WRFDA module-level variables BEFORE da_setup_firstguess_wrf
     ! These set the tile dimensions (kts, kte, etc.) that da_setup_firstguess_wrf needs
-    call da_copy_dims(grid)
-    call da_copy_tile_dims(grid)
+    call da_copy_dims(head_grid)
+    call da_copy_tile_dims(head_grid)
     sfc_assi_options = sfc_assi_options_1
     
     ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
-    call da_setup_firstguess_wrf(xbx, grid, config_flags, .false.)
+    call da_setup_firstguess_wrf(xbx, head_grid, config_flags, .false.)
     
     write(msg, '(A)') "WRFDA: First guess loaded successfully"
     call wrf_message(msg)
@@ -2208,8 +2300,16 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     ! Initialize return code
     wrfda_extract_background_state = 0
     
-    ! Convert C pointer to Fortran pointer
-    call c_f_pointer(grid_ptr, grid)
+    ! Handle grid pointer: use persistent_grid if grid_ptr is null
+    if (.not. c_associated(grid_ptr)) then
+      if (.not. grid_initialized .or. .not. associated(persistent_grid)) then
+        wrfda_extract_background_state = -1
+        return
+      end if
+      grid => persistent_grid
+    else
+      call c_f_pointer(grid_ptr, grid)
+    end if
     
     ! Get grid dimensions
     nx = grid%xp%ide - grid%xp%ids + 1
@@ -2294,8 +2394,16 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     ! Initialize return code
     wrfda_extract_additional_fields = 0
     
-    ! Convert C pointer to Fortran pointer
-    call c_f_pointer(grid_ptr, grid)
+    ! Handle grid pointer: use persistent_grid if grid_ptr is null
+    if (.not. c_associated(grid_ptr)) then
+      if (.not. grid_initialized .or. .not. associated(persistent_grid)) then
+        wrfda_extract_additional_fields = -1
+        return
+      end if
+      grid => persistent_grid
+    else
+      call c_f_pointer(grid_ptr, grid)
+    end if
     
     ! Get grid dimensions
     nx = grid%xp%ide - grid%xp%ids + 1

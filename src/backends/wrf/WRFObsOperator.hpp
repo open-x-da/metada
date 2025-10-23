@@ -5,6 +5,11 @@
 
 #include "WRFDAObsOperator_c_api.h"
 
+// Forward declaration for WRFDA grid accessor
+extern "C" {
+void* wrfda_get_head_grid_ptr_();
+}
+
 namespace metada::backends::wrf {
 
 /**
@@ -242,9 +247,10 @@ class WRFObsOperator {
                                      state_data.q, state_data.psfc);
 
     // Apply tangent linear operator: H'(xb)·xa
+    void* grid_ptr = wrfda_get_head_grid_ptr_();
     void* ob_ptr = obs.getYTypeData();
     void* iv_ptr = iv_type_data_;
-    int rc = wrfda_xtoy_apply_grid(ob_ptr, iv_ptr);
+    int rc = wrfda_xtoy_apply_grid(grid_ptr, ob_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA tangent linear failed with code " +
                                std::to_string(rc));
@@ -310,11 +316,12 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // Get innovation vector structure
+    // Get WRFDA head_grid pointer
+    void* grid_ptr = wrfda_get_head_grid_ptr_();
     void* iv_ptr = iv_type_data_;
 
     // Call WRFDA adjoint directly
-    rc = wrfda_xtoy_adjoint_grid(iv_ptr);
+    rc = wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA adjoint failed with code " +
                                std::to_string(rc));

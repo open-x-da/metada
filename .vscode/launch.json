@@ -179,6 +179,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
             "preLaunchTask": "Copy WRF namelist.input",
+            "preLaunchTask": "Copy WRF LANDUSE.TBL",
             "environment": [
                 {
                     "name": "GLOG_logtostderr",

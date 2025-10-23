@@ -18,11 +18,13 @@ extern "C" {
 #endif
 
 // Array-based (grid) API for real WRFDA call with per-variable fields
-// Grid and observation location metadata is handled internally via iv structure
+// Grid pointer must be passed (allocated via wrfda_alloc_and_init_domain)
+// Observation location metadata is handled via iv structure
 // Family is determined automatically from iv structure
 // Output is stored internally and extracted via
 // wrfda_extract_tangent_linear_output
-int wrfda_xtoy_apply_grid(const void* ob_ptr, const void* iv_ptr);
+int wrfda_xtoy_apply_grid(const void* grid_ptr, const void* ob_ptr,
+                          const void* iv_ptr);
 
 // Get count of tangent linear output values (count-only call)
 int wrfda_get_tangent_linear_count(int* num_innovations);
@@ -30,7 +32,7 @@ int wrfda_get_tangent_linear_count(int* num_innovations);
 // Extract output values from the tangent linear operator
 int wrfda_extract_tangent_linear_output(double* out_y, int* num_innovations);
 
-int wrfda_xtoy_adjoint_grid(const void* iv_ptr);
+int wrfda_xtoy_adjoint_grid(const void* grid_ptr, const void* iv_ptr);
 
 // Set delta_y input for adjoint operator
 int wrfda_set_delta_y(const double* delta_y, int num_obs);
@@ -108,13 +110,6 @@ int wrfda_extract_observations(const char* family, double* observations,
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();
 
-// Initialize map projection with grid parameters
-void initialize_map_projection_c(const int* map_proj, const double* cen_lat,
-                                 const double* cen_lon, const double* dx,
-                                 const double* stand_lon,
-                                 const double* truelat1,
-                                 const double* truelat2);
-
 // Initialize WRFDA module-level variables (kts, kte, sfc_assi_options, etc.)
 int initialize_wrfda_module_variables();
 
@@ -134,6 +129,10 @@ void wrfda_update_background_state(const double* u, const double* v,
 
 // Get available observation families from iv structure
 int wrfda_get_available_families(char* families_buffer, int* buffer_size);
+
+// Cleanup da_control module vertical coordinates (should be called in
+// destructor)
+void wrfda_cleanup_vertical_coords();
 
 #ifdef __cplusplus
 }

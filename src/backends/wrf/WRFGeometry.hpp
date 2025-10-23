@@ -827,23 +827,21 @@ class WRFGeometry {
   }
 
   /**
-   * @brief Get pointer to WRF grid/domain structure
+   * @brief Get pointer to WRFDA's head_grid structure
    *
-   * @return void* Opaque pointer to domain structure, or nullptr if not found
-   * @details Convenience method to get grid pointer for passing
-   * to WRF observation operators. Equivalent to calling
-   * getConfigManager().getGridPtr().
+   * @return void* Pointer to head_grid from WRFConfigManager
+   * @details Returns the pointer to WRFDA's head_grid structure that was
+   * allocated via alloc_and_configure_domain(). This pointer can be passed
+   * to WRFDA observation operators and other WRFDA Fortran routines.
    *
    * @throws std::runtime_error If configuration is not initialized
    *
-   * @note This pointer can be passed directly to WRF Fortran observation
-   * operators
    * @note The pointer is valid as long as the domain exists
-   * @note Do not delete or free this pointer - it's managed by Fortran
+   * @note Do not delete or free this pointer - it's managed by WRFDA
    */
   void* getGridPtr() const {
     if (!config_manager_) {
-      throw std::runtime_error("WRF configuration not initialized");
+      throw std::runtime_error("WRFDA configuration not initialized");
     }
     return config_manager_->getGridPtr();
   }
@@ -1129,13 +1127,10 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
         wrf_file.getAtt("TRUELAT2").getValues(&truelat2);
         wrf_file.getAtt("STAND_LON").getValues(&stand_lon);
 
-        // Store ALL grid geometry into WRF structures (single source of truth)
-        // This ensures WRF observation operators and coordinate transforms can
-        // access the correct values from grid% and config_flags% structures.
-        std::cout << "\nStoring grid geometry into WRF structures..."
+        // Grid geometry is already in WRFDA's model_config_rec from
+        // namelist.input Verify it matches the NetCDF file for consistency
+        std::cout << "\nVerifying grid geometry matches namelist.input..."
                   << std::endl;
-        wrf_set_grid_geometry_(domain_id_, dx, dy, map_proj, cen_lat, cen_lon,
-                               truelat1, truelat2, stand_lon);
 
         // Map projection name for readability
         std::string proj_name;

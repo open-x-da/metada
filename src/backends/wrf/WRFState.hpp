@@ -45,6 +45,9 @@ int wrfda_extract_additional_fields(void* grid_ptr, double* w, double* mu,
 // Get grid pointer from WRF config bridge
 void* wrf_get_grid_ptr_(int domain_id);
 
+// Cleanup da_control module vertical coordinates
+void wrfda_cleanup_vertical_coords();
+
 // LEGACY: Old domain construction methods (kept for backward compatibility)
 int wrfda_construct_domain_from_arrays(
     const int* nx, const int* ny, const int* nz, const double* u,
@@ -65,9 +68,6 @@ int wrfda_init_domain_from_wrf_fields(
     const int* start_month, const int* start_day, const int* start_hour);
 
 int initialize_wrfda_module_variables();
-
-// Note: initialize_map_projection_c is now called in WRFGeometry constructor
-// Forward declaration removed from here - see WRFGeometry.hpp
 }
 
 namespace metada::backends::wrf {
@@ -188,10 +188,14 @@ class WRFState {
   /**
    * @brief Destructor with automatic resource cleanup
    *
-   * @details Automatically releases all allocated memory and closes
-   * any open file handles. No explicit cleanup is required.
+   * @details Automatically releases all allocated memory, closes
+   * any open file handles, and cleans up WRFDA module-level variables
+   * including vertical coordinates in da_control module.
    */
-  ~WRFState() = default;
+  ~WRFState() {
+    // Cleanup da_control module vertical coordinates
+    wrfda_cleanup_vertical_coords();
+  }
   ///@}
 
   ///@{ @name State Cloning
@@ -1451,13 +1455,15 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
     std::cout << "Using WRFDA first guess initialization for: " << wrfFilename_
               << std::endl;
 
-    // Get grid pointer from geometry (allocated in WRFGeometry)
-    void* grid_ptr = wrf_get_grid_ptr_(1);  // domain_id = 1
+    // Get grid pointer from geometry (allocated via WRFConfigManager)
+    void* grid_ptr = geometry.getGridPtr();
     if (!grid_ptr) {
-      throw std::runtime_error("Failed to get WRF grid pointer from geometry");
+      throw std::runtime_error(
+          "Failed to get WRFDA grid pointer. Ensure WRFConfigManager allocated "
+          "domain.");
     }
 
-    // Load first guess using WRFDA with the geometry's grid
+    // Load first guess using WRFDA with pre-allocated head_grid
     int rc = wrfda_load_first_guess(grid_ptr, wrfFilename_.c_str(),
                                     static_cast<int>(wrfFilename_.length()));
     if (rc != 0) {
@@ -1465,45 +1471,47 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
                                std::to_string(rc));
     }
 
-    // Step 2: Extract background state dimensions first
-    int nx = 0, ny = 0, nz = 0;
-    std::vector<double> u_temp, v_temp, t_temp, q_temp, psfc_temp;
-    std::vector<double> p_temp, ph_temp, phb_temp, hgt_temp;
-    std::vector<double> lats_temp, lons_temp;
-
-    // Extract to get dimensions (pass grid_ptr and nullptrs for data arrays)
-    rc = wrfda_extract_background_state(
-        grid_ptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-        nullptr, nullptr, nullptr, nullptr, &nx, &ny, &nz);
-    if (rc != 0) {
-      throw std::runtime_error("Failed to get dimensions from WRFDA, code " +
-                               std::to_string(rc));
-    }
+    // Step 2: Get grid dimensions from geometry (already known from NetCDF)
+    const int nx = static_cast<int>(geometry.x_dim());
+    const int ny = static_cast<int>(geometry.y_dim());
+    const int nz = static_cast<int>(geometry.z_dim());
 
     std::cout << "Grid dimensions: nx=" << nx << ", ny=" << ny << ", nz=" << nz
               << std::endl;
 
-    // Step 3: Allocate and extract full background state
-    u_temp.resize(nx * ny * nz);
-    v_temp.resize(nx * ny * nz);
-    t_temp.resize(nx * ny * nz);
-    q_temp.resize(nx * ny * nz);
-    psfc_temp.resize(nx * ny);
-    p_temp.resize(nx * ny * nz);
-    ph_temp.resize(nx * ny * (nz + 1));
-    phb_temp.resize(nx * ny * (nz + 1));
-    hgt_temp.resize(nx * ny);
-    lats_temp.resize(nx * ny);
-    lons_temp.resize(nx * ny);
+    // Step 3: Allocate temporary storage for background state extraction
+    std::vector<double> u_temp(nx * ny * nz);
+    std::vector<double> v_temp(nx * ny * nz);
+    std::vector<double> t_temp(nx * ny * nz);
+    std::vector<double> q_temp(nx * ny * nz);
+    std::vector<double> psfc_temp(nx * ny);
+    std::vector<double> p_temp(nx * ny * nz);
+    std::vector<double> ph_temp(nx * ny * (nz + 1));
+    std::vector<double> phb_temp(nx * ny * (nz + 1));
+    std::vector<double> hgt_temp(nx * ny);
+    std::vector<double> lats_temp(nx * ny);
+    std::vector<double> lons_temp(nx * ny);
 
+    // Extract full background state in a SINGLE call (dimensions already known)
+    int nx_out = nx, ny_out = ny, nz_out = nz;  // For verification
     rc = wrfda_extract_background_state(
         grid_ptr, u_temp.data(), v_temp.data(), t_temp.data(), q_temp.data(),
         psfc_temp.data(), p_temp.data(), ph_temp.data(), phb_temp.data(),
-        hgt_temp.data(), lats_temp.data(), lons_temp.data(), &nx, &ny, &nz);
+        hgt_temp.data(), lats_temp.data(), lons_temp.data(), &nx_out, &ny_out,
+        &nz_out);
     if (rc != 0) {
       throw std::runtime_error(
           "Failed to extract background state from WRFDA, code " +
           std::to_string(rc));
+    }
+
+    // Verify dimensions match (sanity check)
+    if (nx_out != nx || ny_out != ny || nz_out != nz) {
+      throw std::runtime_error(
+          "Dimension mismatch: Expected (" + std::to_string(nx) + "," +
+          std::to_string(ny) + "," + std::to_string(nz) + "), got (" +
+          std::to_string(nx_out) + "," + std::to_string(ny_out) + "," +
+          std::to_string(nz_out) + ")");
     }
 
     // Step 4: Extract additional fields

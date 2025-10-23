@@ -7,37 +7,38 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstddef>
 
 extern "C" {
 
 //============================================================================
-// WRF Initialization Functions
+// WRFDA Initialization Functions
 //============================================================================
 
 /**
  * @brief Initialize WRFU (WRF ESMF time utilities)
  *
  * @details Initializes the WRFU time manager with Gregorian calendar.
- * Must be called between wrf_init_modules_(1) and wrf_init_modules_(2).
+ * Must be called between wrfda_init_modules_(1) and wrfda_init_modules_(2).
  */
-void wrf_wrfu_initialize_();
+void wrfda_wrfu_initialize_();
 
 /**
- * @brief Initialize WRF modules
+ * @brief Initialize WRFDA modules
  *
  * @param[in] phase Initialization phase (1 or 2)
- * @details Phase 1 initializes core modules, Phase 2 initializes advanced
- * features
+ * @details Phase 1 initializes core modules (configuration and constants),
+ * Phase 2 initializes advanced features. Domain management is handled
+ * separately by WRFDA itself.
  */
-void wrf_init_modules_(int phase);
+void wrfda_init_modules_(int phase);
 
 /**
- * @brief Check if WRF has been initialized
+ * @brief Check if WRFDA has been initialized
  *
- * @return bool True if WRF modules have been initialized
+ * @return bool True if WRFDA modules have been initialized
  */
-bool wrf_is_initialized_();
+bool wrfda_is_initialized_();
 
 /**
  * @brief Initialize WRF configuration by reading namelist.input
@@ -74,59 +75,49 @@ void wrf_initial_config_();
 void wrf_model_to_grid_config_(const int* domain_id);
 
 //============================================================================
-// WRF Domain Management Functions
+// WRFDA Domain Allocation and Management
 //============================================================================
 
 /**
- * @brief Allocate and initialize a WRF domain
+ * @brief Allocate and initialize WRFDA domain following standard workflow
  *
- * @param[in] domain_id Domain ID (1-based)
+ * @param[in] domain_id Domain ID (typically 1 for single-domain)
  * @return int Error code (0 = success, non-zero = error)
- */
-int wrf_alloc_domain_(int domain_id);
-
-/**
- * @brief Deallocate a WRF domain
  *
- * @param[in] domain_id Domain ID (1-based)
- */
-void wrf_dealloc_domain_(int domain_id);
-
-/**
- * @brief Check if a domain exists
+ * @details Follows the exact sequence from da_wrfvar_init2.inc:
+ * 1. alloc_and_configure_domain (allocates head_grid)
+ * 2. model_to_grid_config_rec (extracts domain config)
+ * 3. set_scalar_indices_from_config (sets tracer indices)
+ * 4. init_wrfio (initializes WRF I/O system)
+ * 5. setup_timekeeping (sets up domain clock)
  *
- * @param[in] domain_id Domain ID (1-based)
- * @return bool True if domain exists
+ * @note This must be called after wrf_initial_config_()
  */
-bool wrf_domain_exists_(int domain_id);
-
-//============================================================================
-// WRF Grid Geometry Setters
-//============================================================================
+int wrfda_alloc_and_init_domain_(int domain_id);
 
 /**
- * @brief Set grid geometry parameters in WRF domain structures
+ * @brief Get pointer to WRFDA's head_grid structure
  *
- * @param[in] domain_id Domain ID (1-based)
- * @param[in] dx Grid spacing in X direction (meters)
- * @param[in] dy Grid spacing in Y direction (meters)
- * @param[in] map_proj Map projection type
- * @param[in] cen_lat Center latitude (degrees)
- * @param[in] cen_lon Center longitude (degrees)
- * @param[in] truelat1 First true latitude (degrees)
- * @param[in] truelat2 Second true latitude (degrees)
- * @param[in] stand_lon Standard longitude (degrees)
+ * @return void* Pointer to head_grid, or nullptr if not allocated
+ *
+ * @note The pointer is valid as long as head_grid exists
+ * @note Do not free this pointer - it's managed by WRFDA
  */
-void wrf_set_grid_geometry_(int domain_id, float dx, float dy, int map_proj,
-                            float cen_lat, float cen_lon, float truelat1,
-                            float truelat2, float stand_lon);
+void* wrfda_get_head_grid_ptr_();
+
+/**
+ * @brief Check if WRFDA's head_grid has been allocated
+ *
+ * @return bool True if head_grid is allocated
+ */
+bool wrfda_head_grid_allocated_();
 
 //============================================================================
-// WRF Grid Geometry Getters
+// WRFDA Grid Geometry Getters
 //============================================================================
 
 /**
- * @brief Get dx from WRF domain structure
+ * @brief Get dx from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return float Grid spacing in X direction (meters)
@@ -134,7 +125,7 @@ void wrf_set_grid_geometry_(int domain_id, float dx, float dy, int map_proj,
 float wrf_get_grid_dx_(int domain_id);
 
 /**
- * @brief Get dy from WRF domain structure
+ * @brief Get dy from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return float Grid spacing in Y direction (meters)
@@ -142,7 +133,7 @@ float wrf_get_grid_dx_(int domain_id);
 float wrf_get_grid_dy_(int domain_id);
 
 /**
- * @brief Get map_proj from WRF domain structure
+ * @brief Get map_proj from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return int Map projection type
@@ -150,7 +141,7 @@ float wrf_get_grid_dy_(int domain_id);
 int wrf_get_grid_map_proj_(int domain_id);
 
 /**
- * @brief Get center latitude from WRF config_flags
+ * @brief Get center latitude from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return float Center latitude (degrees)
@@ -158,7 +149,7 @@ int wrf_get_grid_map_proj_(int domain_id);
 float wrf_get_grid_cen_lat_(int domain_id);
 
 /**
- * @brief Get center longitude from WRF config_flags
+ * @brief Get center longitude from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return float Center longitude (degrees)
@@ -166,7 +157,7 @@ float wrf_get_grid_cen_lat_(int domain_id);
 float wrf_get_grid_cen_lon_(int domain_id);
 
 /**
- * @brief Get first true latitude from WRF config_flags
+ * @brief Get first true latitude from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return float First true latitude (degrees)
@@ -174,7 +165,7 @@ float wrf_get_grid_cen_lon_(int domain_id);
 float wrf_get_grid_truelat1_(int domain_id);
 
 /**
- * @brief Get second true latitude from WRF config_flags
+ * @brief Get second true latitude from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return float Second true latitude (degrees)
@@ -182,7 +173,7 @@ float wrf_get_grid_truelat1_(int domain_id);
 float wrf_get_grid_truelat2_(int domain_id);
 
 /**
- * @brief Get standard longitude from WRF config_flags
+ * @brief Get standard longitude from WRFDA's model_config_rec
  *
  * @param[in] domain_id Domain ID (1-based)
  * @return float Standard longitude (degrees)
@@ -214,56 +205,46 @@ void* wrf_get_config_flags_ptr_();
  */
 size_t wrf_get_config_flags_size_();
 
-/**
- * @brief Get C pointer to WRF grid/domain structure
- *
- * @param[in] domain_id Domain ID (1-based)
- * @return void* Opaque pointer to domain structure, or nullptr if not found
- * @details This pointer can be passed to WRF observation operators and
- * other WRF Fortran routines that require grid as a parameter.
- *
- * @note The pointer is valid as long as the domain exists
- * @note Do not delete or free this pointer - it's managed by Fortran
- */
-void* wrf_get_grid_ptr_(int domain_id);
-
 }  // extern "C"
 
 namespace metada::backends::wrf {
 
 /**
- * @brief RAII wrapper for WRF configuration and domain initialization
+ * @brief RAII wrapper for WRFDA initialization and domain allocation
  *
- * @details Manages complete WRF domain lifecycle including:
- * - WRF module initialization
+ * @details Manages complete WRFDA initialization lifecycle following the
+ * standard workflow from da_wrfvar_init1.inc and da_wrfvar_init2.inc:
+ * - WRFDA module initialization
  * - Namelist configuration reading
- * - Domain structure allocation
- * - Domain deallocation on destruction
+ * - Domain allocation and configuration
+ * - WRF I/O initialization
+ * - Timekeeping setup
  *
- * This ensures WRF's internal state is properly initialized and cleaned up
- * for WRFDA operations.
+ * This ensures WRFDA's internal state is properly initialized for
+ * observation operators and data assimilation operations.
  *
- * @note This class does NOT provide map projection parameters. Those should
- * be obtained from WRFGeometry, which reads the authoritative values from
- * NetCDF file global attributes. The namelist.input values may be incorrect
- * or zeros, so always use WRFGeometry for grid parameters.
+ * @note Grid geometry parameters come from namelist.input, which MUST match
+ * the NetCDF input file. Use WRFGeometry to verify/validate these values.
  *
- * @see WRFGeometry::getDx(), WRFGeometry::getMapProj(), etc.
+ * @see WRFGeometry for grid parameter validation
  */
 class WRFConfigManager {
  public:
   /**
-   * @brief Initialize WRF configuration system and allocate domain
+   * @brief Initialize WRFDA configuration system and allocate domain
    *
    * @param[in] domain_id Domain ID (default: 1 for outermost domain)
-   * @param[in] allocate_domain Whether to allocate WRF domain structure
-   * (default: true)
+   * @param[in] allocate_domain Whether to allocate domain (default: true)
    *
-   * @details Performs the following steps:
-   * 1. Initializes WRF modules (if not already initialized)
+   * @details Performs the following steps (matching WRFDA workflow):
+   * 1. Initializes WRFDA modules (if not already initialized)
    * 2. Calls initial_config() to read namelist.input
-   * 3. Calls model_to_grid_config_rec() for domain-specific config
-   * 4. Optionally allocates WRF domain structure
+   * 3. If allocate_domain:
+   *    a. Calls alloc_and_configure_domain()
+   *    b. Calls model_to_grid_config_rec()
+   *    c. Calls set_scalar_indices_from_config()
+   *    d. Calls init_wrfio()
+   *    e. Calls setup_timekeeping()
    *
    * @throws std::runtime_error If initialization fails
    */
@@ -278,9 +259,11 @@ class WRFConfigManager {
   WRFConfigManager& operator=(WRFConfigManager&&) noexcept = default;
 
   /**
-   * @brief Destructor - deallocates WRF domain if allocated
+   * @brief Destructor - cleanup (no domain deallocation needed)
+   *
+   * @note WRFDA's head_grid persists and is not deallocated
    */
-  ~WRFConfigManager();
+  ~WRFConfigManager() = default;
 
   /**
    * @brief Get domain ID
@@ -292,16 +275,21 @@ class WRFConfigManager {
   /**
    * @brief Check if domain was allocated
    *
-   * @return bool True if WRF domain structure was allocated
+   * @return bool True if WRFDA domain structure was allocated
    */
   bool isDomainAllocated() const { return domain_allocated_; }
 
   /**
-   * @brief Check if domain exists in WRF
+   * @brief Get pointer to WRFDA's head_grid structure
    *
-   * @return bool True if WRF domain exists
+   * @return void* Pointer to head_grid, or nullptr if not allocated
+   * @details This pointer can be passed to WRFDA observation operators
+   * and other WRFDA Fortran routines that require grid as a parameter.
+   *
+   * @note The pointer is valid as long as the domain exists
+   * @note Do not delete or free this pointer - it's managed by WRFDA
    */
-  bool domainExists() const;
+  void* getGridPtr() const;
 
   /**
    * @brief Get pointer to WRF config_flags structure
@@ -332,34 +320,22 @@ class WRFConfigManager {
   size_t getConfigFlagsSize() const;
 
   /**
-   * @brief Get pointer to WRF grid/domain structure
-   *
-   * @return void* Opaque pointer to domain structure, or nullptr if not found
-   * @details Returns a pointer to the WRF domain structure for this domain_id.
-   * This can be passed to WRF observation operators.
-   *
-   * @note The pointer is valid as long as the domain exists
-   * @note Do not delete or free this pointer - it's managed by Fortran
-   */
-  void* getGridPtr() const;
-
-  /**
    * @note Map projection parameters (dx, dy, map_proj, etc.) are NOT provided
    * by this class. Those values should be obtained from WRFGeometry, which
    * reads them from the NetCDF file global attributes (the authoritative
-   * source). This class only handles WRF internal configuration initialization.
+   * source). This class only handles WRFDA internal initialization.
    */
 
  private:
   int domain_id_;                  ///< Domain ID for this configuration
   bool initialized_ = false;       ///< Initialization status
-  bool domain_allocated_ = false;  ///< Whether WRF domain was allocated
+  bool domain_allocated_ = false;  ///< Whether WRFDA domain was allocated
 
-  /// Initialize WRF modules (called once globally)
-  static void initializeWRFModules();
+  /// Initialize WRFDA modules (called once globally)
+  static void initializeWRFDAModules();
 
-  /// Static flag to track global WRF initialization
-  static bool wrf_modules_initialized_;
+  /// Static flag to track global WRFDA initialization
+  static bool wrfda_modules_initialized_;
 };
 
 }  // namespace metada::backends::wrf

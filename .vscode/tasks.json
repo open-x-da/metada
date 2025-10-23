@@ -26,6 +26,27 @@
                 }
             },
             "problemMatcher": []
+        },
+        {
+            "type": "shell",
+            "label": "Copy WRF LANDUSE.TBL",
+            "command": "cp -f /d/linux/WRF/var/test/tutorial/LANDUSE.TBL /d/linux/metada/build/LANDUSE.TBL",
+            "options": {
+                "shell": {
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-c"]
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "type": "shell",
+            "label": "Prepare WRF Runtime Environment",
+            "dependsOn": [
+                "Copy WRF namelist.input",
+                "Copy WRF LANDUSE.TBL"
+            ],
+            "problemMatcher": []
         }
     ],
     "version": "2.0.0"
