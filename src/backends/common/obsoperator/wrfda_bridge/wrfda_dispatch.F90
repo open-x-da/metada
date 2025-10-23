@@ -19,7 +19,8 @@ module metada_wrfda_dispatch
   use da_control, only: metar, synop, ships, buoy, airep, pilot, sound, sonde_sfc, &
                         sfc_assi_options, sfc_assi_options_1, trace_use_dull, &
                         var4d_run, num_fgat_time, missing_r, missing_data, num_ob_indexes, &
-                        kts, kte, its, ite, jts, jte, Max_StHeight_Diff, kms, kme
+                        kts, kte, its, ite, jts, jte, Max_StHeight_Diff, kms, kme, &
+                        ids, ide, jds, jde, ims, ime, jms, jme, ips, ipe, jps, jpe, kds, kde, kps, kpe
   use da_tools, only: proj_info, da_map_set, da_llxy_wrf, da_togrid
   use da_metar,  only: da_transform_xtoy_metar,  da_transform_xtoy_metar_adj
   use da_synop,  only: da_transform_xtoy_synop,  da_transform_xtoy_synop_adj
@@ -2107,6 +2108,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   use, intrinsic :: iso_c_binding, only: c_ptr, c_f_pointer, c_char, c_int, c_null_char, c_associated, c_double
   use module_configure, only: grid_config_rec_type, model_config_rec, model_to_grid_config_rec
   use module_domain, only: domain, head_grid
+  use module_tiles, only: set_tiles
   use da_wrfvar_io, only: da_med_initialdata_input
   use da_transfer_model, only: da_setup_firstguess_wrf
   use da_wrf_interfaces, only: wrf_message
@@ -2165,32 +2167,26 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   ! Call da_med_initialdata_input to read NetCDF file
   call da_med_initialdata_input(head_grid, config_flags, trim(fg_filename))
   
-  ! CRITICAL FIX: Set tile dimensions for single-tile domain
-  ! da_med_initialdata_input doesn't set these, but da_copy_tile_dims needs them
-  ! Deallocate and reallocate with correct bounds (1:1) if needed
-  if (associated(head_grid%i_start)) deallocate(head_grid%i_start)
-  if (associated(head_grid%i_end)) deallocate(head_grid%i_end)
-  if (associated(head_grid%j_start)) deallocate(head_grid%j_start)
-  if (associated(head_grid%j_end)) deallocate(head_grid%j_end)
-  allocate(head_grid%i_start(1:1))
-  allocate(head_grid%i_end(1:1))
-  allocate(head_grid%j_start(1:1))
-  allocate(head_grid%j_end(1:1))
-  head_grid%num_tiles = 1
-  head_grid%i_start(1) = head_grid%sd31  ! Start index in i dimension (tile 1)
-  head_grid%i_end(1) = head_grid%ed31    ! End index in i dimension (tile 1)
-  head_grid%j_start(1) = head_grid%sd32  ! Start index in j dimension (tile 1)
-  head_grid%j_end(1) = head_grid%ed32    ! End index in j dimension (tile 1)
-  
   ! Update da_control module variables (vertical coords + base state parameters)
   ! This must be done AFTER da_med_initialdata_input (which populates grid structure)
   ! and BEFORE da_setup_firstguess_wrf/da_transfer_wrftoxb (which use these module variables)
   call update_da_control_from_grid(head_grid)
   
-  ! Initialize WRFDA module-level variables BEFORE da_setup_firstguess_wrf
-  ! These set the tile dimensions (kts, kte, etc.) that da_setup_firstguess_wrf needs
+  ! Initialize WRFDA module-level variables following standard WRFDA sequence
+  ! This matches the exact sequence used in da_solve_init.inc (lines 33-40)
+  ! Step 1: De-reference dimension information from grid structure
+  !         Sets module variables: ids, ide, jds, jde, ips, ipe, jps, jpe, kms, kme, etc.
   call da_copy_dims(head_grid)
+  
+  ! Step 2: Compute tile starting/stopping locations
+  !         Sets grid%i_start, grid%i_end, grid%j_start, grid%j_end, grid%num_tiles
+  call set_tiles(head_grid, ids, ide, jds, jde, ips, ipe, jps, jpe)
+  
+  ! Step 3: Copy tile dimensions to module-level variables
+  !         Sets module variables: its, ite, jts, jte, kts, kte
   call da_copy_tile_dims(head_grid)
+  
+  ! Set surface assimilation options
   sfc_assi_options = sfc_assi_options_1
   
   ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb

@@ -113,11 +113,10 @@ if(WITH_WRFDA)
             )
             
             # Link additional WRF object files needed for linking
-            # Note: module_domain.o and module_io.o are already included in libwrfvar.a
+            # Note: module_domain.o, module_io.o, and module_machine.o are already in libwrfvar.a
             # Only include object files that are NOT in the main WRFDA library
             set(WRF_OBJECT_FILES
                 "${WRF_ROOT_DIR}/frame/pack_utils.o"
-                "${WRF_ROOT_DIR}/var/build/module_machine.o"
                 "${WRF_ROOT_DIR}/var/build/module_internal_header_util.o"
             )
             
