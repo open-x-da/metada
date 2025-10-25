@@ -131,6 +131,43 @@ int wrfda_get_available_families(char* families_buffer, int* buffer_size);
 // destructor)
 void wrfda_cleanup_vertical_coords();
 
+// ============================================================================
+// Observation Reading and Setup Functions
+// ============================================================================
+
+/**
+ * @brief Read and allocate observations using WRFDA's standard pipeline
+ * @details Reads observations from BUFR file and allocates WRFDA structures.
+ *          Calls: da_setup_obs_structures_bufr → da_read_obs_bufr
+ *          Does NOT compute innovations (happens later in ObsOperator)
+ * @param[in] grid_ptr Pointer to WRFDA grid structure
+ * @param[in] ob_filename Path to BUFR observation file
+ * @param[in] ob_filename_len Length of filename string
+ * @param[out] iv_ptr Output pointer to iv_type structure
+ * @param[out] ob_ptr Output pointer to y_type structure
+ * @return 0 on success, non-zero on error
+ */
+int wrfda_read_and_allocate_observations(void* grid_ptr,
+                                         const char* ob_filename,
+                                         int ob_filename_len, void** iv_ptr,
+                                         void** ob_ptr);
+
+/**
+ * @brief Get observation counts for all observation types
+ * @param[in] iv_ptr Pointer to WRFDA iv_type structure
+ * @param[out] obs_counts Array to receive counts (size: num_ob_indexes)
+ * @return 0 on success, non-zero on error
+ */
+int wrfda_get_obs_type_counts(void* iv_ptr, int* obs_counts);
+
+/**
+ * @brief Get total observation count across all types
+ * @param[in] iv_ptr Pointer to WRFDA iv_type structure
+ * @param[out] total_count Total number of observations
+ * @return 0 on success, non-zero on error
+ */
+int wrfda_get_total_obs_count(void* iv_ptr, int* total_count);
+
 #ifdef __cplusplus
 }
 #endif

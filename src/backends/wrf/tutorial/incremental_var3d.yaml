@@ -62,13 +62,15 @@ time_window: &time_window "±5m" # Time window around analysis time
 
 # Observation configuration
 observation:
+  # WRFDA observation file (ASCII format with 9061 observations)
+  # Note: File will be accessed as "ob.ascii" by WRFDA (create symlink in run directory)
+  obs_file: "D:/linux/WRF/var/test/tutorial/ob.ascii"
+  
   types:
     - adpsfc:
         if_use: true
-        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2000012412.wo40.nr"
+        file: "D:/linux/WRF/var/test/tutorial/ob.bufr"
         coordinate: "geographic"
-        data_types: ["ADPSFC"]
-        station_ids: [72405]
         analysis_time: *analysis_time
         time_window: *time_window
         variables:

@@ -15,14 +15,11 @@
         {
             "type": "shell",
             "label": "Copy WRF namelist.input",
-            "command": "powershell",
-            "args": [
-                "-Command",
-                "Copy-Item -Force '${workspaceFolder}\\src\\backends\\wrf\\tutorial\\namelist.input' '${workspaceFolder}\\build\\namelist.input'"
-            ],
+            "command": "cp -f /d/linux/metada/src/backends/wrf/tutorial/namelist.input /d/linux/metada/build/namelist.input",
             "options": {
                 "shell": {
-                    "executable": "powershell.exe"
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-c"]
                 }
             },
             "problemMatcher": []

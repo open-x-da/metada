@@ -56,6 +56,43 @@ bool wrfda_is_initialized_();
 void wrf_initial_config_();
 
 /**
+ * @brief Copy namelist configuration from model_config_rec to da_control module
+ *
+ * @details This function performs the same configuration copy as WRFDA's
+ * da_wrfvar_init1.inc by including config_assigns.inc. It copies all namelist
+ * variables (like use_synopobs, use_metarobs, etc.) from model_config_rec
+ * to the module-level variables in da_control.
+ *
+ * This MUST be called after wrf_initial_config_() and before any WRFDA
+ * operations that access da_control module variables.
+ *
+ * @pre wrf_initial_config_() must have been called first
+ */
+void copy_config_to_da_control();
+
+/**
+ * @brief Validate WRFDA configuration for common conflicts and errors
+ *
+ * @details This function performs the same sanity checks as WRFDA's
+ * da_solve.inc to catch configuration errors early. It validates:
+ * - GPS observation conflicts (use_gpsrefobs vs use_gpsephobs)
+ * - Radar observation conflicts (use_radar_rf vs use_radar_rhv)
+ * - Control variable option validity
+ * - Vertical interpolation parameters
+ * - Cloud CV and alpha CV compatibility
+ * - Dual-resolution hybrid constraints
+ *
+ * This catches user errors before they cause cryptic failures during DA.
+ *
+ * @param[out] error_code Error code (0=success, 1-9=specific validation
+ * failure)
+ *
+ * @pre copy_config_to_da_control() must have been called first
+ * @see da_solve.inc lines 168-252 in WRFDA source
+ */
+void validate_wrfda_config(int* error_code);
+
+/**
  * @brief Convert model config to domain-specific grid config
  *
  * @details This function calls WRF's model_to_grid_config_rec() subroutine

@@ -30,6 +30,15 @@ if(WITH_WRFDA)
         message(STATUS "WRFDA bridge: using module dir ${WRFDA_MOD_DIR}")
         target_include_directories(wrfda_bridge PUBLIC ${WRFDA_MOD_DIR})
         
+        # Add WRF inc directory for config_assigns.inc and other registry-generated includes
+        get_filename_component(WRF_INC_DIR "${WRFDA_MOD_DIR}/../../inc" ABSOLUTE)
+        if(EXISTS ${WRF_INC_DIR})
+            message(STATUS "WRFDA bridge: adding WRF inc directory: ${WRF_INC_DIR}")
+            target_include_directories(wrfda_bridge PUBLIC ${WRF_INC_DIR})
+        else()
+            message(WARNING "WRFDA bridge: WRF inc directory not found at ${WRF_INC_DIR}")
+        endif()
+        
         # Check if we have a complete WRFDA build environment
         set(WRFDA_COMPLETE_BUILD FALSE CACHE BOOL "Whether WRFDA has complete build environment")
         if(EXISTS "${WRFDA_MOD_DIR}/libwrfvar.a" AND EXISTS "${WRFDA_MOD_DIR}/da_control.o")

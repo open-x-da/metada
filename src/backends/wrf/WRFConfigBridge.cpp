@@ -55,6 +55,24 @@ WRFConfigManager::WRFConfigManager(int domain_id, bool allocate_domain)
   try {
     std::cout << "Reading namelist.input configuration..." << std::endl;
     wrf_initial_config_();
+
+    // Step 2a: Copy configuration from model_config_rec to da_control module
+    // This replicates the logic from da_wrfvar_init1.inc that includes
+    // config_assigns.inc
+    std::cout << "Copying configuration to da_control module..." << std::endl;
+    copy_config_to_da_control();
+
+    // Step 2b: Validate configuration for common conflicts
+    // This replicates the sanity checks from da_solve.inc
+    std::cout << "Validating WRFDA configuration..." << std::endl;
+    int error_code = 0;
+    validate_wrfda_config(&error_code);
+    if (error_code != 0) {
+      throw std::runtime_error(
+          "WRFDA configuration validation failed with error code: " +
+          std::to_string(error_code) + ". Check output above for details.");
+    }
+    std::cout << "WRFDA configuration validated successfully" << std::endl;
   } catch (const std::exception& e) {
     throw std::runtime_error(
         std::string("Failed to initialize WRFDA configuration: ") + e.what());
