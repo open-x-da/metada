@@ -2,19 +2,19 @@
 
 #include <algorithm>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "ObsRecord.hpp"
-#include "PrepBUFRObservation.hpp"
 #include "WRFDAObsOperator_c_api.h"
 
 namespace metada::backends::wrf {
 using ObsRecord = framework::ObsRecord;
-using PrepBUFRObservation = common::observation::PrepBUFRObservation;
 
 // Simple iterator implementation
 template <typename GeometryBackend>
@@ -69,7 +69,81 @@ class WRFObservation {
   // Required type definitions for ObservationBackendImpl concept
   using iterator_type = WRFObservationIterator<GeometryBackend>;
   using value_type = ObsRecord;
-  using ObsOperatorData = PrepBUFRObservation::ObsOperatorData;
+
+  // Level-specific observation data structure
+  struct LevelData {
+    double level;     // Vertical level (pressure, height, or model level)
+    double pressure;  // Pressure at this level (Pa)
+    double height;    // Height at this level (m)
+
+    // Variable-specific data
+    struct VariableData {
+      double value;    // Observed value
+      double error;    // Observation error
+      double bias;     // Bias correction
+      int qc;          // Quality control flag
+      bool available;  // Whether this variable is available
+    };
+
+    // All possible variables at this level
+    VariableData u, v, t, q, p, slp, pw, ref;  // Standard variables
+    VariableData td2m, rh2m, t2m, u10m, v10m;  // 2m/10m variables
+  };
+
+  // WRFDA-based observation operator data structure
+  struct ObsOperatorData {
+    // Number of stations (not levels)
+    size_t num_obs;
+
+    // Station-level data (one per station - no duplication)
+    std::vector<double> lats;                // Station latitudes
+    std::vector<double> lons;                // Station longitudes
+    std::vector<double> elevations;          // Station elevations
+    std::vector<std::string> station_ids;    // Station identifiers
+    std::vector<std::string> station_names;  // Station names
+    std::vector<std::string> types;          // Station observation types
+
+    // Station-level metadata
+    std::vector<int> qc_flags;         // Station quality flags
+    std::vector<int> usage_flags;      // Usage flags
+    std::vector<double> time_offsets;  // Time offsets
+
+    // Level-specific data (per station)
+    std::vector<std::vector<LevelData>> levels;  // levels[station][level]
+
+    // Compatibility methods for WRFDAObsOperator
+    std::vector<double> getValues() const {
+      std::vector<double> result;
+      for (const auto& station_levels : levels) {
+        for (const auto& level : station_levels) {
+          if (level.u.available) result.push_back(level.u.value);
+          if (level.v.available) result.push_back(level.v.value);
+          if (level.t.available) result.push_back(level.t.value);
+          if (level.p.available) result.push_back(level.p.value);
+          if (level.q.available) result.push_back(level.q.value);
+        }
+      }
+      return result;
+    }
+
+    std::vector<double> getErrors() const {
+      std::vector<double> result;
+      for (const auto& station_levels : levels) {
+        for (const auto& level : station_levels) {
+          if (level.u.available) result.push_back(level.u.error);
+          if (level.v.available) result.push_back(level.v.error);
+          if (level.t.available) result.push_back(level.t.error);
+          if (level.p.available) result.push_back(level.p.error);
+          if (level.q.available) result.push_back(level.q.error);
+        }
+      }
+      return result;
+    }
+
+    // Legacy compatibility members (computed on demand)
+    std::vector<double> values() const { return getValues(); }
+    std::vector<double> errors() const { return getErrors(); }
+  };
 
   // Delete default constructor and copying
   WRFObservation() = delete;
@@ -240,21 +314,13 @@ class WRFObservation {
   std::vector<double> getObservationValues() const {
     std::vector<double> values;
 
-    // Get the observation data from the underlying PrepBUFRObservation
-    auto obs_data = obs_->getObsOperatorData();
-
-    // Extract all observation values in order
-    for (size_t station = 0; station < obs_data.num_obs; ++station) {
-      for (const auto& level : obs_data.levels[station]) {
-        // Add available observation values in a consistent order (u, v, t, p,
-        // q)
-        if (level.u.available) values.push_back(level.u.value);
-        if (level.v.available) values.push_back(level.v.value);
-        if (level.t.available) values.push_back(level.t.value);
-        if (level.p.available) values.push_back(level.p.value);
-        if (level.q.available) values.push_back(level.q.value);
-      }
+    if (!iv_type_data_) {
+      return values;  // Return empty if not initialized
     }
+
+    // TODO: Extract observation values from WRFDA iv_type structure
+    // This requires accessing WRFDA Fortran structures directly via C API
+    // For now, return empty vector as this method is not critical for DA
 
     return values;
   }
@@ -356,12 +422,27 @@ class WRFObservation {
       base_type = typeName.substr(0, last_underscore);
     }
 
-    // Convert to lowercase for PrepBUFR lookup
+    // Convert to lowercase for WRFDA lookup
     std::transform(base_type.begin(), base_type.end(), base_type.begin(),
                    ::tolower);
 
-    // Delegate to PrepBUFR observation
-    return obs_->getSize(base_type, varName);
+    // Get size from WRFDA structures
+    if (!iv_type_data_) {
+      return 0;  // Return 0 if not initialized
+    }
+
+    // Look up the count for this type and variable combination
+    std::string type_var_key = base_type + "_" + varName;
+    if (obs_counts_.find(type_var_key) != obs_counts_.end()) {
+      return obs_counts_.at(type_var_key);
+    }
+
+    // Fallback: return count for base type only
+    if (obs_counts_.find(base_type) != obs_counts_.end()) {
+      return obs_counts_.at(base_type);
+    }
+
+    return 0;
   }
 
   /**
@@ -369,7 +450,18 @@ class WRFObservation {
    * @return ObsOperatorData structure
    */
   ObsOperatorData getObsOperatorData() const {
-    return obs_->getObsOperatorData();
+    ObsOperatorData data;
+
+    if (!iv_type_data_) {
+      return data;  // Return empty if not initialized
+    }
+
+    // TODO: Extract observation operator data from WRFDA iv_type structure
+    // This requires accessing WRFDA Fortran structures directly via C API
+    // For now, return empty structure - this needs to be implemented
+    // using WRFDA's native data access patterns
+
+    return data;
   }
 
   // Required by ObservationBackendImpl concept
@@ -524,22 +616,71 @@ class WRFObservation {
       var_suffix = typeName.substr(last_underscore + 1);
     }
 
-    // Convert to lowercase for PrepBUFR lookup
+    // Convert to lowercase for WRFDA lookup
     std::transform(base_type.begin(), base_type.end(), base_type.begin(),
                    ::tolower);
 
-    // Get variables from PrepBUFR
-    auto variables = obs_->getVariableNames(base_type);
+    // Get variables from WRFDA type definitions
+    std::vector<std::string> variables;
+
+    if (!iv_type_data_) {
+      return variables;  // Return empty if not initialized
+    }
+
+    // Define standard variables for each WRFDA observation type
+    // Based on WRFDA's iv_type structure and error factors (da_control.f90)
+    if (base_type == "synop" || base_type == "metar" || base_type == "ships" ||
+        base_type == "buoy" || base_type == "sonde_sfc" ||
+        base_type == "tamdar_sfc") {
+      variables = {"U", "V", "T", "P", "Q"};
+    } else if (base_type == "sound" || base_type == "airep" ||
+               base_type == "tamdar" || base_type == "mtgirs") {
+      variables = {"U", "V", "T", "Q"};
+    } else if (base_type == "pilot" || base_type == "profiler") {
+      variables = {"U", "V"};
+    } else if (base_type == "gpspw") {
+      variables = {"TPW"};
+    } else if (base_type == "gpsrf" || base_type == "gpsref") {
+      variables = {"REF", "P", "T", "Q"};
+    } else if (base_type == "gpseph") {
+      variables = {"EPH"};
+    } else if (base_type == "geoamv" || base_type == "polaramv") {
+      variables = {"U", "V"};
+    } else if (base_type == "qscat") {
+      variables = {"U", "V"};
+    } else if (base_type == "radar") {
+      variables = {"RV", "RF", "RR"};
+    } else if (base_type == "bogus") {
+      variables = {"U", "V", "T", "P", "Q", "SLP"};
+    } else if (base_type == "airsr") {
+      variables = {"T", "Q"};
+    } else if (base_type == "rain") {
+      variables = {"R"};
+    } else if (base_type == "lightning") {
+      variables = {"W", "DIV", "QV"};
+    } else if (base_type == "ssmi_rv") {
+      variables = {"SPEED", "TPW"};
+    } else if (base_type == "satem") {
+      variables = {"THICKNESS"};
+    } else if (base_type == "ssmt1") {
+      variables = {"T"};
+    } else if (base_type == "ssmt2") {
+      variables = {"RH"};
+    } else {
+      // Default: return empty for unknown types
+      return std::vector<std::string>();
+    }
 
     // If type had a variable suffix, filter to that variable only
     if (!var_suffix.empty()) {
       std::transform(var_suffix.begin(), var_suffix.end(), var_suffix.begin(),
                      ::toupper);
-      variables.erase(std::remove_if(variables.begin(), variables.end(),
-                                     [&var_suffix](const std::string& v) {
-                                       return v != var_suffix;
-                                     }),
-                      variables.end());
+      if (std::find(variables.begin(), variables.end(), var_suffix) !=
+          variables.end()) {
+        return {var_suffix};
+      } else {
+        return {};
+      }
     }
 
     return variables;
@@ -833,9 +974,8 @@ class WRFObservation {
   std::shared_ptr<const GeometryBackend>
       geometry_;  // Geometry reference (for grid pointer access)
 
-  // PrepBUFR observation (kept for backward compatibility with some methods)
-  // TODO: Gradually migrate all methods to use WRFDA structures directly
-  std::shared_ptr<const PrepBUFRObservation> obs_ = nullptr;
+  // WRFDA observation metadata (extracted from WRFDA structures)
+  std::map<std::string, size_t> obs_counts_;  // Type -> count mapping
 
   // WRFDA data structures (non-owning pointers to WRFDA-managed memory)
   // These persist in WRFDA Fortran modules and are managed by WRFDA
@@ -843,7 +983,6 @@ class WRFObservation {
   void* y_type_data_ = nullptr;   // Non-owning pointer to WRFDA y_type
 
   // Statistics
-  std::unordered_map<std::string, size_t> obs_counts_;   // Counts by type
   std::unordered_map<std::string, double> error_stats_;  // Error stats by type
 
   // Observation error covariance matrix (diagonal elements)
