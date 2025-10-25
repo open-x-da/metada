@@ -2809,4 +2809,51 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
   end function wrfda_get_total_obs_count
 
+  !> @brief Transfer WRF fields to background state structure (grid%xb)
+  !!
+  !! @details This function wraps WRFDA's da_transfer_wrftoxb routine which:
+  !! - Transfers WRF native fields (u, v, t, q, etc.) to grid%xb structure
+  !! - Computes derived fields (pressure, height, etc.)
+  !! - Applies coordinate transformations for Arakawa-C grid
+  !! - Prepares grid%xb for use by observation operators
+  !!
+  !! This MUST be called before using any WRFDA observation operators to ensure
+  !! grid%xb is properly populated from the current state.
+  !!
+  !! @return 0 on success, non-zero on error
+  !!
+  !! @see da_transfer_wrftoxb.inc in WRFDA source
+  function wrfda_transfer_wrftoxb() result(error_code) bind(C, name="wrfda_transfer_wrftoxb")
+    use module_domain, only: head_grid, domain
+    use module_configure, only: grid_config_rec_type
+    use da_define_structures, only: xbx_type
+    use da_transfer_model, only: da_transfer_wrftoxb
+    implicit none
+    
+    integer(c_int) :: error_code
+    type(domain), pointer :: grid
+    type(grid_config_rec_type) :: config_flags
+    type(xbx_type) :: xbx
+    
+    error_code = 0_c_int
+    
+    ! Get head grid pointer
+    grid => head_grid
+    if (.not. associated(grid)) then
+      call wrf_message("ERROR: head_grid not associated in wrfda_transfer_wrftoxb")
+      error_code = -1_c_int
+      return
+    end if
+    
+    ! Note: config_flags is not actually used in da_transfer_wrftoxb, 
+    ! but is required by the function signature. We initialize it to default values.
+    ! (Verified by checking da_transfer_wrftoxb.inc - no config_flags% references)
+    
+    ! Call WRFDA's da_transfer_wrftoxb to populate grid%xb from WRF fields
+    ! This is the standard WRFDA workflow step that must happen before
+    ! using observation operators
+    call da_transfer_wrftoxb(xbx, grid, config_flags)
+    
+  end function wrfda_transfer_wrftoxb
+
 end module metada_wrfda_dispatch

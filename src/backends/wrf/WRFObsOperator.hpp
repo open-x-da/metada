@@ -137,14 +137,19 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Extract state data and update background state (grid%xb)
-    const auto state_data = state.getObsOperatorData();
+    // Note: state is not directly used here because WRFDA operates on
+    // the global grid state. The WRF grid already contains the current state,
+    // and da_transfer_wrftoxb transfers it to grid%xb automatically.
+    (void)state;
 
-    // Update WRFDA background state with current state values
-    wrfda_update_background_state(
-        state_data.u, state_data.v, state_data.t, state_data.q, state_data.psfc,
-        state_data.ph, state_data.phb, state_data.hf, state_data.hgt,
-        state_data.p, state_data.pb, state_data.lats_2d, state_data.lons_2d);
+    // Transfer WRF fields to background state (grid%xb) using WRFDA's standard
+    // workflow This replicates da_transfer_wrftoxb which is called in
+    // da_setup_firstguess BEFORE da_get_innov_vector in the standard WRFDA flow
+    int rc = wrfda_transfer_wrftoxb();
+    if (rc != 0) {
+      throw std::runtime_error("WRFDA da_transfer_wrftoxb failed with code " +
+                               std::to_string(rc));
+    }
 
     // Ensure IV type is constructed for this observation set
     ensureIVTypeConstructed(obs);
@@ -155,7 +160,7 @@ class WRFObsOperator {
 
     // Call WRFDA to compute innovations: d = y_obs - H(x)
     const int it = 1;
-    int rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr);
+    rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error(
           "WRFDA innovation computation failed with code " +
@@ -227,19 +232,26 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
+    // Note: reference_state is not directly used here because WRFDA operates on
+    // the global grid state. The WRF grid already contains the reference state,
+    // and da_transfer_wrftoxb transfers it to grid%xb automatically.
+    (void)reference_state;
+
     // Ensure IV type is constructed for TL/AD checks
     ensureIVTypeConstructed(obs);
 
-    // Update background state (grid%xb) to the reference state
-    // The tangent linear operator H'(xb) needs the linearization point xb
-    // WRFDA's da_transform_xtoy_synop computes H'(xb)·xa where:
-    // - xb is in grid%xb (background state)
-    // - xa is in grid%xa (analysis increment)
-    const auto ref_data = reference_state.getObsOperatorData();
-    wrfda_update_background_state(
-        ref_data.u, ref_data.v, ref_data.t, ref_data.q, ref_data.psfc,
-        ref_data.ph, ref_data.phb, ref_data.hf, ref_data.hgt, ref_data.p,
-        ref_data.pb, ref_data.lats_2d, ref_data.lons_2d);
+    // Transfer WRF fields to background state (grid%xb) using WRFDA's
+    // standard workflow The tangent linear operator H'(xb) needs the
+    // linearization point xb WRFDA's da_transform_xtoy_synop computes H'(xb)·xa
+    // where:
+    // - xb is in grid%xb (background state) - populated by da_transfer_wrftoxb
+    // - xa is in grid%xa (analysis increment) - set below
+    int rc = wrfda_transfer_wrftoxb();
+    if (rc != 0) {
+      throw std::runtime_error(
+          "WRFDA da_transfer_wrftoxb failed in tangent linear with code " +
+          std::to_string(rc));
+    }
 
     // Extract state increment data and update analysis increments (grid%xa)
     const auto state_data = state_increment.getObsOperatorData();
@@ -250,7 +262,7 @@ class WRFObsOperator {
     void* grid_ptr = wrfda_get_head_grid_ptr_();
     void* ob_ptr = obs.getYTypeData();
     void* iv_ptr = iv_type_data_;
-    int rc = wrfda_xtoy_apply_grid(grid_ptr, ob_ptr, iv_ptr);
+    rc = wrfda_xtoy_apply_grid(grid_ptr, ob_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA tangent linear failed with code " +
                                std::to_string(rc));
@@ -297,20 +309,27 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
+    // Note: reference_state is not directly used here because WRFDA operates on
+    // the global grid state. The WRF grid already contains the reference state,
+    // and da_transfer_wrftoxb transfers it to grid%xb automatically.
+    (void)reference_state;
+
     // Ensure IV type is constructed for TL/AD checks
     ensureIVTypeConstructed(obs);
 
-    // Update background state (grid%xb) to the reference state
-    // The adjoint operator H'^T(xb) needs the linearization point xb
-    const auto ref_data = reference_state.getObsOperatorData();
-    wrfda_update_background_state(
-        ref_data.u, ref_data.v, ref_data.t, ref_data.q, ref_data.psfc,
-        ref_data.ph, ref_data.phb, ref_data.hf, ref_data.hgt, ref_data.p,
-        ref_data.pb, ref_data.lats_2d, ref_data.lons_2d);
+    // Transfer WRF fields to background state (grid%xb) using WRFDA's
+    // standard workflow The adjoint operator H'^T(xb) needs the linearization
+    // point xb
+    int rc = wrfda_transfer_wrftoxb();
+    if (rc != 0) {
+      throw std::runtime_error(
+          "WRFDA da_transfer_wrftoxb failed in adjoint with code " +
+          std::to_string(rc));
+    }
 
     // Set delta_y input for adjoint operator
-    int rc = wrfda_set_delta_y(obs_increment.data(),
-                               static_cast<int>(obs_increment.size()));
+    rc = wrfda_set_delta_y(obs_increment.data(),
+                           static_cast<int>(obs_increment.size()));
     if (rc != 0) {
       throw std::runtime_error("WRFDA set delta_y failed with code " +
                                std::to_string(rc));

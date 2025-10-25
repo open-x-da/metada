@@ -124,6 +124,27 @@ void wrfda_update_background_state(const double* u, const double* v,
                                    const double* pb, const double* lats2d,
                                    const double* lons2d);
 
+/**
+ * @brief Transfer WRF fields to background state structure (grid%xb)
+ *
+ * @details Wraps WRFDA's da_transfer_wrftoxb routine which:
+ * - Transfers WRF native fields (u, v, t, q, etc.) to grid%xb structure
+ * - Computes derived fields (pressure, height, etc.)
+ * - Applies coordinate transformations for Arakawa-C grid
+ * - Prepares grid%xb for use by observation operators
+ *
+ * This MUST be called before using any WRFDA observation operators to ensure
+ * grid%xb is properly populated from the current state. This follows the
+ * standard WRFDA workflow where da_transfer_wrftoxb is called before
+ * da_get_innov_vector.
+ *
+ * @return 0 on success, non-zero on error
+ *
+ * @see da_transfer_wrftoxb.inc in WRFDA source
+ * @see da_setup_firstguess_wrf.inc which calls da_transfer_wrftoxb
+ */
+int wrfda_transfer_wrftoxb(void);
+
 // Get available observation families from iv structure
 int wrfda_get_available_families(char* families_buffer, int* buffer_size);
 
