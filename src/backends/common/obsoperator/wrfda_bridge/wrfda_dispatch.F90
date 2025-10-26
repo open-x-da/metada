@@ -21,7 +21,7 @@ module metada_wrfda_dispatch
                         var4d_run, num_fgat_time, missing_r, missing_data, num_ob_indexes, &
                         kts, kte, its, ite, jts, jte, Max_StHeight_Diff, kms, kme, &
                         ids, ide, jds, jde, ims, ime, jms, jme, ips, ipe, jps, jpe, kds, kde, kps, kpe, &
-                        myproc, num_procs, rootproc, comm
+                        myproc, num_procs, rootproc, comm, num_qcstat_conv
   use da_tools, only: proj_info, da_map_set, da_llxy_wrf, da_togrid
   use da_metar,  only: da_transform_xtoy_metar,  da_transform_xtoy_metar_adj
   use da_synop,  only: da_transform_xtoy_synop,  da_transform_xtoy_synop_adj
@@ -577,44 +577,54 @@ contains
 
   ! Update only analysis increments (xa) for incremental 3D-Var
   ! This subroutine updates the analysis increments while keeping background state constant
-  subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc) bind(C, name="wrfda_update_analysis_increments")
+  subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc, grid_ptr) bind(C, name="wrfda_update_analysis_increments")
     implicit none
     real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
+    type(c_ptr), value :: grid_ptr
+    type(domain), pointer :: grid
     integer :: i,j,k, nx, ny, nz
     
-    ! Get grid dimensions from persistent_grid
-    nx = persistent_grid%xp%ide - persistent_grid%xp%ids + 1
-    ny = persistent_grid%xp%jde - persistent_grid%xp%jds + 1
-    nz = persistent_grid%xp%kde - persistent_grid%xp%kds + 1
+    ! Convert C pointer to Fortran pointer
+    call c_f_pointer(grid_ptr, grid)
+    
+    ! Get grid dimensions from grid
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
     
     ! Update only the xa fields (analysis increments)
     do k=1,nz; do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      persistent_grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
-      persistent_grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
-      persistent_grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
-      persistent_grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
+      grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
+      grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
+      grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
+      grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
     end do; end do; end do
     do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j] -> i + j*nx
-      persistent_grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx), kind=4)
+      grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx), kind=4)
     end do; end do
     
   end subroutine wrfda_update_analysis_increments
 
   ! Update background state (xb) from state data
   ! This subroutine updates the background state with the current state values
-  subroutine wrfda_update_background_state(u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d) bind(C, name="wrfda_update_background_state")
+  subroutine wrfda_update_background_state(u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d, grid_ptr) bind(C, name="wrfda_update_background_state")
     implicit none
     real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
     real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*), p(*), pb(*)
     real(c_double), intent(in) :: lats2d(*), lons2d(*)
+    type(c_ptr), value :: grid_ptr
+    type(domain), pointer :: grid
     integer :: i, j, k, nx, ny, nz, idx, idx_3d, staggered_nz
     
-    ! Get grid dimensions from persistent_grid
-    nx = persistent_grid%xp%ide - persistent_grid%xp%ids + 1
-    ny = persistent_grid%xp%jde - persistent_grid%xp%jds + 1
-    nz = persistent_grid%xp%kde - persistent_grid%xp%kds + 1
+    ! Convert C pointer to Fortran pointer
+    call c_f_pointer(grid_ptr, grid)
+    
+    ! Get grid dimensions from grid
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
     staggered_nz = nz + 1  ! Height field has nz+1 vertical levels
     
     ! Update background state (xb) with current state values
@@ -623,12 +633,12 @@ contains
         do i = 1, nx
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx = i + (j-1)*nx + (k-1)*nx*ny
-          persistent_grid%xb%u(i,j,k) = real(u(idx), kind=4)
-          persistent_grid%xb%v(i,j,k) = real(v(idx), kind=4)
-          persistent_grid%xb%t(i,j,k) = real(t(idx), kind=4)
-          persistent_grid%xb%q(i,j,k) = real(q(idx), kind=4)
+          grid%xb%u(i,j,k) = real(u(idx), kind=4)
+          grid%xb%v(i,j,k) = real(v(idx), kind=4)
+          grid%xb%t(i,j,k) = real(t(idx), kind=4)
+          grid%xb%q(i,j,k) = real(q(idx), kind=4)
           ! Calculate pressure from P and PB: grid%xb%p = pb + p
-          persistent_grid%xb%p(i,j,k) = real(pb(idx) + p(idx), kind=4)
+          grid%xb%p(i,j,k) = real(pb(idx) + p(idx), kind=4)
         end do
       end do
     end do
@@ -638,7 +648,7 @@ contains
       do i = 1, nx
         ! C++ row-major indexing: [i][j] -> i + j*nx
         idx = i + (j-1)*nx
-        persistent_grid%xb%psfc(i,j) = real(psfc(idx), kind=4)
+        grid%xb%psfc(i,j) = real(psfc(idx), kind=4)
       end do
     end do
     
@@ -648,8 +658,8 @@ contains
         do i = 1, nx
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          persistent_grid%ph_2(i,j,k) = real(ph(idx_3d), kind=4)
-          persistent_grid%phb(i,j,k) = real(phb(idx_3d), kind=4)
+          grid%ph_2(i,j,k) = real(ph(idx_3d), kind=4)
+          grid%phb(i,j,k) = real(phb(idx_3d), kind=4)
         end do
       end do
     end do
@@ -659,16 +669,16 @@ contains
       do i = 1, nx
         ! C++ row-major indexing: [i][j] -> i + j*nx
         idx = i + (j-1)*nx
-        persistent_grid%xb%lat(i,j) = real(lats2d(idx), kind=4)
-        persistent_grid%xb%lon(i,j) = real(lons2d(idx), kind=4)
+        grid%xb%lat(i,j) = real(lats2d(idx), kind=4)
+        grid%xb%lon(i,j) = real(lons2d(idx), kind=4)
         ! Assign terrain height from HGT field
-        persistent_grid%ht(i,j) = real(hgt(idx), kind=4)
-        persistent_grid%xb%terr(i,j) = real(hgt(idx), kind=4)
+        grid%ht(i,j) = real(hgt(idx), kind=4)
+        grid%xb%terr(i,j) = real(hgt(idx), kind=4)
         do k = 1, staggered_nz
           ! Use calculated height field instead of levels array
           ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
           idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          persistent_grid%xb%h(i,j,k) = real(hf(idx_3d), kind=4)
+          grid%xb%h(i,j,k) = real(hf(idx_3d), kind=4)
         end do
       end do
     end do
@@ -741,27 +751,24 @@ contains
   end function wrfda_get_available_families
 
   ! New function to call da_get_innov_vector directly
-  integer(c_int) function wrfda_get_innov_vector(it, ob_ptr, iv_ptr) bind(C, name="wrfda_get_innov_vector")
+  integer(c_int) function wrfda_get_innov_vector(it, ob_ptr, iv_ptr, grid_ptr) bind(C, name="wrfda_get_innov_vector")
     implicit none
     integer(c_int), intent(in) :: it
-    type(c_ptr), value :: ob_ptr, iv_ptr
+    type(c_ptr), value :: ob_ptr, iv_ptr, grid_ptr
     type(domain), pointer :: grid
     type(y_type), pointer :: ob
     type(iv_type), pointer :: iv
     type(grid_config_rec_type), pointer :: config_flags
     
-    ! Quality control statistics array (simplified for now)
-    integer, dimension(1,1,1,1) :: num_qcstat_conv
-    
     ! Convert C pointers to Fortran pointers
-    grid => persistent_grid
+    call c_f_pointer(grid_ptr, grid)
     call c_f_pointer(ob_ptr, ob)
     call c_f_pointer(iv_ptr, iv)
     
     ! config_flags is required by WRFDA interface - allocate it
     allocate(config_flags)
     
-    ! Initialize QC statistics array
+    ! Initialize QC statistics array (imported from da_control module)
     num_qcstat_conv = 0
     
     ! Call the main WRFDA innovation vector computation routine

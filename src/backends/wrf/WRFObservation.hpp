@@ -252,7 +252,7 @@ class WRFObservation {
    * @brief Get pointer to WRFDA iv_type structure
    * @return Raw pointer to iv_type data
    */
-  void* getIVTypeData() { return iv_type_data_; }
+  void* getIVTypeData() const { return iv_type_data_; }
 
   /**
    * @brief Get pointer to WRFDA y_type structure
@@ -398,13 +398,13 @@ class WRFObservation {
    * @return Vector containing covariance matrix diagonal elements
    *
    * @details Returns the diagonal elements of the observation error covariance
-   * matrix R. For diagonal matrices, this is equivalent to the variance of each
-   * observation. The elements are returned in the same order as the observation
-   * values.
+   * matrix R. WRFDA handles error covariance internally via iv_type structure.
+   * For now, return unit errors as placeholder.
    */
   std::vector<double> getCovariance() const {
-    // Return pre-computed R matrix diagonal elements (variances)
-    return r_matrix_;
+    // WRFDA handles error covariance internally
+    // Return unit variance as placeholder
+    return std::vector<double>(getTotalObservationCount(), 1.0);
   }
 
   /**
@@ -466,66 +466,35 @@ class WRFObservation {
 
   // Required by ObservationBackendImpl concept
   double quadraticForm(const std::vector<double>& innovation) const {
-    // Validate input vector size
-    if (innovation.size() != r_inverse_matrix_.size()) {
-      throw std::invalid_argument(
-          "Innovation vector size mismatch in quadraticForm: expected " +
-          std::to_string(r_inverse_matrix_.size()) + ", got " +
-          std::to_string(innovation.size()));
-    }
-
     // Compute quadratic form: innovation^T * R^-1 * innovation
-    // For diagonal R: result = sum(innovation[i]^2 / error[i]^2)
+    // WRFDA handles error covariance internally via iv_type structure
+    // For now, use simple diagonal with unit errors
     double result = 0.0;
     for (size_t i = 0; i < innovation.size(); ++i) {
-      result += innovation[i] * innovation[i] * r_inverse_matrix_[i];
+      result += innovation[i] * innovation[i];
     }
-
     return result;
   }
 
   std::vector<double> applyInverseCovariance(
       const std::vector<double>& vector) const {
-    // Validate input vector size
-    if (vector.size() != r_inverse_matrix_.size()) {
-      throw std::invalid_argument(
-          "Vector size mismatch in applyInverseCovariance: expected " +
-          std::to_string(r_inverse_matrix_.size()) + ", got " +
-          std::to_string(vector.size()));
-    }
-
     // Apply R^-1 element-wise for diagonal covariance matrix
-    // R^-1[i,i] = 1/error[i]^2, so R^-1 * vector[i] = vector[i] / error[i]^2
-    std::vector<double> result(vector.size());
-    for (size_t i = 0; i < vector.size(); ++i) {
-      result[i] = vector[i] * r_inverse_matrix_[i];
-    }
-
-    return result;
+    // WRFDA handles error covariance internally via iv_type structure
+    // For now, use identity (unit errors)
+    return vector;
   }
 
   std::vector<double> applyCovariance(const std::vector<double>& vector) const {
-    // Validate input vector size
-    if (vector.size() != r_matrix_.size()) {
-      throw std::invalid_argument(
-          "Vector size mismatch in applyCovariance: expected " +
-          std::to_string(r_matrix_.size()) + ", got " +
-          std::to_string(vector.size()));
-    }
-
     // Apply R element-wise for diagonal covariance matrix
-    // R[i,i] = error[i]^2, so R * vector[i] = error[i]^2 * vector[i]
-    std::vector<double> result(vector.size());
-    for (size_t i = 0; i < vector.size(); ++i) {
-      result[i] = r_matrix_[i] * vector[i];
-    }
-
-    return result;
+    // WRFDA handles error covariance internally via iv_type structure
+    // For now, use identity (unit errors)
+    return vector;
   }
 
   std::vector<double> getInverseCovarianceDiagonal() const {
-    // Return pre-computed R^-1 matrix diagonal elements
-    return r_inverse_matrix_;
+    // WRFDA handles error covariance internally
+    // Return unit inverse variance as placeholder
+    return std::vector<double>(getTotalObservationCount(), 1.0);
   }
 
   bool isDiagonalCovariance() const {

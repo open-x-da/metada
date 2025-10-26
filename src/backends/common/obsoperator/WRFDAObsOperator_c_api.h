@@ -61,7 +61,7 @@ int wrfda_construct_iv_from_observations(
 // Main WRFDA innovation vector computation (calls da_get_innov_vector)
 // This is the comprehensive driver routine that handles all observation types
 int wrfda_get_innov_vector(const int* it, const void* ob_ptr,
-                           const void* iv_ptr);
+                           const void* iv_ptr, const void* grid_ptr);
 
 // Helper function to construct WRFDA domain structure from flat arrays
 int wrfda_construct_domain_from_arrays(
@@ -113,7 +113,7 @@ void initialize_wrfda_3dvar();
 // Update analysis increments in WRFDA grid structure
 void wrfda_update_analysis_increments(const double* u, const double* v,
                                       const double* t, const double* q,
-                                      const double* psfc);
+                                      const double* psfc, const void* grid_ptr);
 
 // Update background state (xb) from state data
 void wrfda_update_background_state(const double* u, const double* v,
@@ -122,7 +122,7 @@ void wrfda_update_background_state(const double* u, const double* v,
                                    const double* phb, const double* hf,
                                    const double* hgt, const double* p,
                                    const double* pb, const double* lats2d,
-                                   const double* lons2d);
+                                   const double* lons2d, const void* grid_ptr);
 
 /**
  * @brief Transfer WRF fields to background state structure (grid%xb)

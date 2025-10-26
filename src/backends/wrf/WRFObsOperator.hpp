@@ -46,8 +46,7 @@ class WRFObsOperator {
    * configuration and calls WRFDA initialization directly.
    */
   template <typename ConfigBackend>
-  explicit WRFObsOperator(const ConfigBackend& config)
-      : initialized_(false), iv_type_data_(nullptr) {
+  explicit WRFObsOperator(const ConfigBackend& config) : initialized_(false) {
     initialize(config);
   }
 
@@ -57,10 +56,8 @@ class WRFObsOperator {
    */
   WRFObsOperator(WRFObsOperator&& other) noexcept
       : initialized_(other.initialized_),
-        iv_type_data_(other.iv_type_data_),
         operator_families_(std::move(other.operator_families_)) {
     other.initialized_ = false;
-    other.iv_type_data_ = nullptr;
   }
 
   /**
@@ -71,10 +68,8 @@ class WRFObsOperator {
   WRFObsOperator& operator=(WRFObsOperator&& other) noexcept {
     if (this != &other) {
       initialized_ = other.initialized_;
-      iv_type_data_ = other.iv_type_data_;
       operator_families_ = std::move(other.operator_families_);
       other.initialized_ = false;
-      other.iv_type_data_ = nullptr;
     }
     return *this;
   }
@@ -137,30 +132,26 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Note: state is not directly used here because WRFDA operates on
-    // the global grid state. The WRF grid already contains the current state,
-    // and da_transfer_wrftoxb transfers it to grid%xb automatically.
-    (void)state;
-
     // Transfer WRF fields to background state (grid%xb) using WRFDA's standard
-    // workflow This replicates da_transfer_wrftoxb which is called in
-    // da_setup_firstguess BEFORE da_get_innov_vector in the standard WRFDA flow
+    // workflow This is called in da_setup_firstguess BEFORE da_get_innov_vector
     int rc = wrfda_transfer_wrftoxb();
     if (rc != 0) {
       throw std::runtime_error("WRFDA da_transfer_wrftoxb failed with code " +
                                std::to_string(rc));
     }
 
-    // Ensure IV type is constructed for this observation set
-    ensureIVTypeConstructed(obs);
-
-    // Get observation structure from observation backend
+    // Get observation structures from observation backend
+    // iv_type and y_type are already allocated and populated by WRFObservation
     void* ob_ptr = obs.getYTypeData();
-    void* iv_ptr = iv_type_data_;
+    void* iv_ptr = obs.getIVTypeData();
+
+    // Get grid pointer from geometry (allocated during WRFGeometry
+    // construction)
+    void* grid_ptr = state.geometry().getGridPtr();
 
     // Call WRFDA to compute innovations: d = y_obs - H(x)
     const int it = 1;
-    rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr);
+    rc = wrfda_get_innov_vector(&it, ob_ptr, iv_ptr, grid_ptr);
     if (rc != 0) {
       throw std::runtime_error(
           "WRFDA innovation computation failed with code " +
@@ -173,8 +164,15 @@ class WRFObsOperator {
     // Extract innovations: d = y_obs - H(x)
     int num_innovations = 0;
     rc = wrfda_count_innovations(family.c_str(), &num_innovations);
-    if (rc != 0 || num_innovations <= 0) {
-      return std::vector<double>(obs.size(), 0.0);
+    if (rc != 0) {
+      throw std::runtime_error("Failed to count innovations with code " +
+                               std::to_string(rc));
+    }
+    if (num_innovations <= 0) {
+      throw std::runtime_error(
+          "No innovations computed by WRFDA. Check that observations are "
+          "within "
+          "the domain and that use_* flags are enabled in namelist.input");
     }
 
     std::vector<double> innovations(num_innovations);
@@ -232,20 +230,12 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Note: reference_state is not directly used here because WRFDA operates on
-    // the global grid state. The WRF grid already contains the reference state,
-    // and da_transfer_wrftoxb transfers it to grid%xb automatically.
+    // Note: reference_state parameter is not used because WRF grid already
+    // contains the state
     (void)reference_state;
 
-    // Ensure IV type is constructed for TL/AD checks
-    ensureIVTypeConstructed(obs);
-
-    // Transfer WRF fields to background state (grid%xb) using WRFDA's
-    // standard workflow The tangent linear operator H'(xb) needs the
-    // linearization point xb WRFDA's da_transform_xtoy_synop computes H'(xb)·xa
-    // where:
-    // - xb is in grid%xb (background state) - populated by da_transfer_wrftoxb
-    // - xa is in grid%xa (analysis increment) - set below
+    // Transfer WRF fields to background state (grid%xb) using WRFDA's standard
+    // workflow
     int rc = wrfda_transfer_wrftoxb();
     if (rc != 0) {
       throw std::runtime_error(
@@ -253,15 +243,19 @@ class WRFObsOperator {
           std::to_string(rc));
     }
 
+    // Get grid pointer from geometry (allocated during WRFGeometry
+    // construction)
+    void* grid_ptr = reference_state.geometry().getGridPtr();
+
     // Extract state increment data and update analysis increments (grid%xa)
     const auto state_data = state_increment.getObsOperatorData();
     wrfda_update_analysis_increments(state_data.u, state_data.v, state_data.t,
-                                     state_data.q, state_data.psfc);
+                                     state_data.q, state_data.psfc, grid_ptr);
 
     // Apply tangent linear operator: H'(xb)·xa
-    void* grid_ptr = wrfda_get_head_grid_ptr_();
+    // Get observation structures from observation backend (already allocated)
     void* ob_ptr = obs.getYTypeData();
-    void* iv_ptr = iv_type_data_;
+    void* iv_ptr = obs.getIVTypeData();
     rc = wrfda_xtoy_apply_grid(grid_ptr, ob_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA tangent linear failed with code " +
@@ -309,17 +303,12 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Note: reference_state is not directly used here because WRFDA operates on
-    // the global grid state. The WRF grid already contains the reference state,
-    // and da_transfer_wrftoxb transfers it to grid%xb automatically.
+    // Note: reference_state parameter is not used because WRF grid already
+    // contains the state
     (void)reference_state;
 
-    // Ensure IV type is constructed for TL/AD checks
-    ensureIVTypeConstructed(obs);
-
-    // Transfer WRF fields to background state (grid%xb) using WRFDA's
-    // standard workflow The adjoint operator H'^T(xb) needs the linearization
-    // point xb
+    // Transfer WRF fields to background state (grid%xb) using WRFDA's standard
+    // workflow
     int rc = wrfda_transfer_wrftoxb();
     if (rc != 0) {
       throw std::runtime_error(
@@ -335,9 +324,9 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // Get WRFDA head_grid pointer
+    // Get observation structures from observation backend (already allocated)
     void* grid_ptr = wrfda_get_head_grid_ptr_();
-    void* iv_ptr = iv_type_data_;
+    void* iv_ptr = obs.getIVTypeData();
 
     // Call WRFDA adjoint directly
     rc = wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr);
@@ -410,135 +399,8 @@ class WRFObsOperator {
   }
 
  private:
-  /**
-   * @brief Ensure IV type is constructed for the given observation set
-   * @param obs Observation backend containing observation data
-   *
-   * @details Constructs WRFDA iv_type structure once and caches it for reuse
-   * in TL/AD checks. This ensures the IV structure is ready before any
-   * operator methods are called.
-   */
-  void ensureIVTypeConstructed(const ObsBackend& obs) const {
-    if (iv_type_data_ == nullptr) {
-      constructIVType(obs);
-    }
-  }
-
-  /**
-   * @brief Construct IV type (innovation vector) from observation data
-   * @param obs Observation backend containing observation data
-   *
-   * @details Constructs WRFDA iv_type structure by calling
-   * wrfda_construct_iv_type from the WRFDA bridge. The IV type contains
-   * innovation vectors (O-B) and is used by WRFDA for data assimilation
-   * computations.
-   */
-  void constructIVType(const ObsBackend& obs) const {
-    const auto obs_data = obs.getObsOperatorData();
-
-    if (obs_data.num_obs == 0) {
-      return;
-    }
-
-    // Determine the operator family (default to "synop" for surface
-    // observations)
-    std::string family = "synop";
-
-    // Extract structured data for WRFDA iv_type construction
-    std::vector<double> u_values, v_values, t_values, p_values, q_values;
-    std::vector<double> u_errors, v_errors, t_errors, p_errors, q_errors;
-    std::vector<double> lats, lons, levels;
-    std::vector<int> u_qc, v_qc, t_qc, p_qc, q_qc;
-    std::vector<int> u_available, v_available, t_available, p_available,
-        q_available;
-
-    // Prepare observation types as a flat string
-    std::string obs_types_flat;
-    for (size_t i = 0; i < obs_data.num_obs; ++i) {
-      std::string obs_type =
-          (i < obs_data.types.size()) ? obs_data.types[i] : "ADPSFC";
-      obs_types_flat += obs_type + std::string(20 - obs_type.length(), '\0');
-    }
-
-    // Extract data from the hierarchical structure
-    for (size_t station = 0; station < obs_data.num_obs; ++station) {
-      lats.push_back(obs_data.lats[station]);
-      lons.push_back(obs_data.lons[station]);
-
-      // Process each level for this station
-      for (const auto& level : obs_data.levels[station]) {
-        levels.push_back(level.level);
-
-        // Use WRFDA standard missing value (-888888.0) for unavailable
-        // observations
-        const double missing_r = -888888.0;
-        u_values.push_back(level.u.available ? level.u.value : missing_r);
-        v_values.push_back(level.v.available ? level.v.value : missing_r);
-        t_values.push_back(level.t.available ? level.t.value : missing_r);
-        p_values.push_back(level.p.available ? level.p.value : missing_r);
-        q_values.push_back(level.q.available ? level.q.value : missing_r);
-
-        u_errors.push_back(level.u.available ? level.u.error : 1.0);
-        v_errors.push_back(level.v.available ? level.v.error : 1.0);
-        t_errors.push_back(level.t.available ? level.t.error : 1.0);
-        p_errors.push_back(level.p.available ? level.p.error : 1.0);
-        q_errors.push_back(level.q.available ? level.q.error : 1.0);
-
-        const int missing_data = -88;
-        u_qc.push_back(level.u.available ? level.u.qc : missing_data);
-        v_qc.push_back(level.v.available ? level.v.qc : missing_data);
-        t_qc.push_back(level.t.available ? level.t.qc : missing_data);
-        p_qc.push_back(level.p.available ? level.p.qc : missing_data);
-        q_qc.push_back(level.q.available ? level.q.qc : missing_data);
-
-        // Extract availability flags
-        u_available.push_back(level.u.available ? 1 : 0);
-        v_available.push_back(level.v.available ? 1 : 0);
-        t_available.push_back(level.t.available ? 1 : 0);
-        p_available.push_back(level.p.available ? 1 : 0);
-        q_available.push_back(level.q.available ? 1 : 0);
-      }
-    }
-
-    // Call the WRFDA bridge function to construct iv_type
-    int num_obs_int = static_cast<int>(obs_data.num_obs);
-    int num_levels_int =
-        static_cast<int>(u_values.size());  // Total number of level records
-
-    void* iv_ptr = wrfda_construct_iv_type(
-        &num_obs_int, &num_levels_int, const_cast<double*>(u_values.data()),
-        const_cast<double*>(v_values.data()),
-        const_cast<double*>(t_values.data()),
-        const_cast<double*>(p_values.data()),
-        const_cast<double*>(q_values.data()),
-        const_cast<double*>(u_errors.data()),
-        const_cast<double*>(v_errors.data()),
-        const_cast<double*>(t_errors.data()),
-        const_cast<double*>(p_errors.data()),
-        const_cast<double*>(q_errors.data()), const_cast<int*>(u_qc.data()),
-        const_cast<int*>(v_qc.data()), const_cast<int*>(t_qc.data()),
-        const_cast<int*>(p_qc.data()), const_cast<int*>(q_qc.data()),
-        const_cast<int*>(u_available.data()),
-        const_cast<int*>(v_available.data()),
-        const_cast<int*>(t_available.data()),
-        const_cast<int*>(p_available.data()),
-        const_cast<int*>(q_available.data()), const_cast<double*>(lats.data()),
-        const_cast<double*>(lons.data()), const_cast<double*>(levels.data()),
-        const_cast<double*>(obs_data.elevations.data()),
-        const_cast<char*>(obs_types_flat.c_str()),
-        const_cast<char*>(family.c_str()));
-
-    // Store the pointer (memory is managed by Fortran persistent structures)
-    if (iv_ptr) {
-      iv_type_data_ = iv_ptr;
-    }
-  }
-
   /// Initialization status flag
   bool initialized_;
-
-  /// IV type data (non-owning pointer to Fortran-managed memory)
-  mutable void* iv_type_data_;
 
   /// Configured operator families
   std::vector<std::string> operator_families_;
