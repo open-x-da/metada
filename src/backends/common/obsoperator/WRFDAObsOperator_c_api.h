@@ -99,13 +99,13 @@ void* wrfda_construct_config_flags();
 // Count innovation values from iv_type structure for all observation types
 int wrfda_count_innovations(const void* iv_ptr, int* num_innovations);
 
-// Extract innovation values from iv_type structure
-int wrfda_extract_innovations(const char* family, double* innovations,
+// Extract innovation values from iv_type structure for all families
+int wrfda_extract_innovations(const void* iv_ptr, double* innovations,
                               int* num_innovations);
 
-// Extract observation values from y_type structure
-int wrfda_extract_observations(const char* family, double* observations,
-                               int* num_observations);
+// Extract observation values from y_type structure for all families
+int wrfda_extract_observations(const void* iv_ptr, const void* ob_ptr,
+                               double* observations, int* num_observations);
 
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();

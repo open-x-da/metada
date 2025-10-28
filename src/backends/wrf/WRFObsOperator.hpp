@@ -55,8 +55,7 @@ class WRFObsOperator {
    * @param other WRFObsOperator to move from
    */
   WRFObsOperator(WRFObsOperator&& other) noexcept
-      : initialized_(other.initialized_),
-        operator_families_(std::move(other.operator_families_)) {
+      : initialized_(other.initialized_) {
     other.initialized_ = false;
   }
 
@@ -68,7 +67,6 @@ class WRFObsOperator {
   WRFObsOperator& operator=(WRFObsOperator&& other) noexcept {
     if (this != &other) {
       initialized_ = other.initialized_;
-      operator_families_ = std::move(other.operator_families_);
       other.initialized_ = false;
     }
     return *this;
@@ -81,24 +79,13 @@ class WRFObsOperator {
    * @details Initializes WRFDA directly via C API calls.
    */
   template <typename ConfigBackend>
-  void initialize(const ConfigBackend& config) {
+  void initialize(const ConfigBackend& /* config */) {
     if (initialized_) {
       throw std::runtime_error("WRFObsOperator already initialized");
     }
 
-    // Extract operator family configuration
-    try {
-      auto family_value = config.Get("operator_family");
-      if (family_value.isVectorString()) {
-        operator_families_ = family_value.asVectorString();
-      } else if (family_value.isString()) {
-        operator_families_ = {family_value.asString()};
-      } else {
-        operator_families_ = {"synop"};  // Default to synop
-      }
-    } catch (...) {
-      operator_families_ = {"synop"};  // Default fallback
-    }
+    // Note: operator_family configuration is no longer needed
+    // The refactored extract functions automatically handle all families
 
     // Initialize WRFDA 3D-Var system directly
     initialize_wrfda_3dvar();
@@ -172,58 +159,45 @@ class WRFObsOperator {
           "the domain and that use_* flags are enabled in namelist.input");
     }
 
-    // Extract innovations and observations for all families
-    // TODO: Refactor extract functions to also handle all families at once
-    // For now, we process configured families individually
-    std::vector<std::string> families = operator_families_.empty()
-                                            ? std::vector<std::string>{"synop"}
-                                            : operator_families_;
+    // Extract innovations for all families at once
+    std::vector<double> innovations(num_innovations);
+    int actual_innovations = 0;
+    rc = wrfda_extract_innovations(iv_ptr, innovations.data(),
+                                   &actual_innovations);
+    if (rc != 0) {
+      throw std::runtime_error("Failed to extract innovations with code " +
+                               std::to_string(rc));
+    }
 
+    if (actual_innovations != num_innovations) {
+      throw std::runtime_error(
+          "Mismatch between counted and extracted innovations: " +
+          std::to_string(num_innovations) + " vs " +
+          std::to_string(actual_innovations));
+    }
+
+    // Extract observations for all families at once
+    std::vector<double> observations(num_innovations);
+    int actual_observations = 0;
+    rc = wrfda_extract_observations(iv_ptr, ob_ptr, observations.data(),
+                                    &actual_observations);
+    if (rc != 0) {
+      throw std::runtime_error("Failed to extract observations with code " +
+                               std::to_string(rc));
+    }
+
+    if (actual_observations != num_innovations) {
+      throw std::runtime_error(
+          "Mismatch between number of observations and innovations: " +
+          std::to_string(actual_observations) + " vs " +
+          std::to_string(num_innovations));
+    }
+
+    // Compute H(x) = y_obs - d for all observations
     std::vector<double> all_simulated_obs;
     all_simulated_obs.reserve(num_innovations);
-
-    for (const auto& family : families) {
-      // Count innovations for this specific family
-      // TODO: This is inefficient - refactor extract functions to not need
-      // family
-      int family_innovations = 0;
-      rc = wrfda_extract_innovations(family.c_str(), nullptr,
-                                     &family_innovations);
-
-      // Skip families with no observations
-      if (family_innovations <= 0) {
-        continue;
-      }
-
-      std::vector<double> innovations(family_innovations);
-      rc = wrfda_extract_innovations(family.c_str(), innovations.data(),
-                                     &family_innovations);
-      if (rc != 0) {
-        throw std::runtime_error("Failed to extract innovations for " + family +
-                                 " with code " + std::to_string(rc));
-      }
-
-      // Extract observations: y_obs
-      int num_observations = 0;
-      std::vector<double> observations(family_innovations);
-      rc = wrfda_extract_observations(family.c_str(), observations.data(),
-                                      &num_observations);
-      if (rc != 0) {
-        throw std::runtime_error("Failed to extract observations for " +
-                                 family + " with code " + std::to_string(rc));
-      }
-
-      if (num_observations != family_innovations) {
-        throw std::runtime_error(
-            "Mismatch between number of observations and innovations for " +
-            family + ": " + std::to_string(num_observations) + " vs " +
-            std::to_string(family_innovations));
-      }
-
-      // Compute H(x) = y_obs - d for this family
-      for (int i = 0; i < family_innovations; ++i) {
-        all_simulated_obs.push_back(observations[i] - innovations[i]);
-      }
+    for (int i = 0; i < num_innovations; ++i) {
+      all_simulated_obs.push_back(observations[i] - innovations[i]);
     }
 
     return all_simulated_obs;
@@ -410,20 +384,9 @@ class WRFObsOperator {
    */
   bool isLinear() const { return true; }
 
-  /**
-   * @brief Get configured operator families
-   * @return Reference to vector of operator family names
-   */
-  const std::vector<std::string>& getOperatorFamilies() const {
-    return operator_families_;
-  }
-
  private:
   /// Initialization status flag
   bool initialized_;
-
-  /// Configured operator families
-  std::vector<std::string> operator_families_;
 };
 
 }  // namespace metada::backends::wrf

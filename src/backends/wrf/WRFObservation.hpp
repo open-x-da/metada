@@ -314,13 +314,27 @@ class WRFObservation {
   std::vector<double> getObservationValues() const {
     std::vector<double> values;
 
-    if (!iv_type_data_) {
+    if (!iv_type_data_ || !y_type_data_) {
       return values;  // Return empty if not initialized
     }
 
-    // TODO: Extract observation values from WRFDA iv_type structure
-    // This requires accessing WRFDA Fortran structures directly via C API
-    // For now, return empty vector as this method is not critical for DA
+    // Extract observation values from WRFDA y_type and iv_type structures
+    // First, get the count from wrfda_count_innovations
+    int num_obs = 0;
+    int rc = wrfda_count_innovations(iv_type_data_, &num_obs);
+    if (rc != 0 || num_obs <= 0) {
+      return values;  // Return empty if no observations
+    }
+
+    // Allocate and extract observations
+    values.resize(num_obs);
+    int actual_obs = 0;
+    rc = wrfda_extract_observations(iv_type_data_, y_type_data_, values.data(),
+                                    &actual_obs);
+    if (rc != 0 || actual_obs != num_obs) {
+      values.clear();  // Return empty if extraction failed
+      return values;
+    }
 
     return values;
   }

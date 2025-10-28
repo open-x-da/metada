@@ -1899,65 +1899,31 @@ contains
   end function wrfda_count_innovations
 
   ! Extract innovation values from iv_type structure
-  integer(c_int) function wrfda_extract_innovations(family, innovations, num_innovations) bind(C, name="wrfda_extract_innovations")
+  integer(c_int) function wrfda_extract_innovations(iv_ptr, innovations, num_innovations) bind(C, name="wrfda_extract_innovations")
     implicit none
-    character(c_char), intent(in) :: family(*)
+    type(c_ptr), value :: iv_ptr
     real(c_double), intent(out) :: innovations(*)
     integer(c_int), intent(out) :: num_innovations
     
     type(iv_type), pointer :: iv
-    character(len=20) :: family_str
-    integer :: i, count
-    integer :: family_index
+    integer :: i, k, count
     
-    ! Convert C string to Fortran string
-    family_str = ""
-    do i = 1, 20
-      if (family(i) == c_null_char) exit
-      family_str(i:i) = family(i)
-    end do
+    ! Convert C pointer to Fortran pointer
+    call c_f_pointer(iv_ptr, iv)
     
-    ! Use global persistent iv structure instead of converting iv_ptr
-    if (.not. iv_allocated) then
+    if (.not. associated(iv)) then
       num_innovations = 0
-      wrfda_extract_innovations = 0
+      wrfda_extract_innovations = 1
       return
     end if
     
-    if (.not. associated(persistent_iv)) then
-      num_innovations = 0
-      wrfda_extract_innovations = 0
-      return
-    end if
-    
-    ! Point local iv to global persistent structure
-    iv => persistent_iv
-    
-    ! Determine family index (simplified mapping)
-    family_index = 0
-    
-    if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
-      family_index = 2  ! synop index (metar uses synop structure)
-    else if (trim(family_str) == "sound") then
-      family_index = 3  ! sound index
-    else if (trim(family_str) == "gpspw") then
-      family_index = 4  ! gpspw index
-    end if
-    
-    if (family_index == 0) then
-      wrfda_extract_innovations = -2
-      return
-    end if
-    
-    ! Extract innovations based on family
+    ! Extract innovations for all families
     count = 0
     
-    if (family_index == 2 .and. family_index <= size(iv%info) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
-      ! Extract from synop array (all variables with good QC only)
-      do i = 1, iv%info(2)%nlocal
-        if (i > size(iv%synop)) then
-          exit
-        end if
+    ! SYNOP family
+    if (associated(iv%synop) .and. iv%info(synop)%nlocal > 0) then
+      do i = 1, iv%info(synop)%nlocal
+        if (i > size(iv%synop)) exit
         
         ! Extract U component innovation if QC is good and innovation is non-zero
         if (iv%synop(i)%u%qc == 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
@@ -1988,83 +1954,141 @@ contains
           count = count + 1
           innovations(count) = iv%synop(i)%q%inv
         end if
-        
       end do
-      
-    else
-      count = 0
     end if
+    
+    ! METAR family
+    if (associated(iv%metar) .and. iv%info(metar)%nlocal > 0) then
+      do i = 1, iv%info(metar)%nlocal
+        if (i > size(iv%metar)) exit
+        
+        if (iv%metar(i)%u%qc == 0 .and. abs(iv%metar(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%metar(i)%u%inv
+        end if
+        if (iv%metar(i)%v%qc == 0 .and. abs(iv%metar(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%metar(i)%v%inv
+        end if
+        if (iv%metar(i)%t%qc == 0 .and. abs(iv%metar(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%metar(i)%t%inv
+        end if
+        if (iv%metar(i)%p%qc == 0 .and. abs(iv%metar(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%metar(i)%p%inv
+        end if
+        if (iv%metar(i)%q%qc == 0 .and. abs(iv%metar(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%metar(i)%q%inv
+        end if
+      end do
+    end if
+    
+    ! SHIPS family
+    if (associated(iv%ships) .and. iv%info(ships)%nlocal > 0) then
+      do i = 1, iv%info(ships)%nlocal
+        if (i > size(iv%ships)) exit
+        
+        if (iv%ships(i)%u%qc == 0 .and. abs(iv%ships(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ships(i)%u%inv
+        end if
+        if (iv%ships(i)%v%qc == 0 .and. abs(iv%ships(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ships(i)%v%inv
+        end if
+        if (iv%ships(i)%t%qc == 0 .and. abs(iv%ships(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ships(i)%t%inv
+        end if
+        if (iv%ships(i)%p%qc == 0 .and. abs(iv%ships(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ships(i)%p%inv
+        end if
+        if (iv%ships(i)%q%qc == 0 .and. abs(iv%ships(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ships(i)%q%inv
+        end if
+      end do
+    end if
+    
+    ! SOUND family - if available and allocated
+    ! Note: sound observations have multiple levels per station
+    if (associated(iv%sound) .and. iv%info(sound)%nlocal > 0) then
+      do i = 1, iv%info(sound)%nlocal
+        if (i > size(iv%sound)) exit
+        
+        ! Loop through levels for this station
+        do k = 1, iv%info(sound)%levels(i)
+          ! Extract U component if QC is good and innovation is non-zero
+          if (iv%sound(i)%u(k)%qc == 0 .and. abs(iv%sound(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%sound(i)%u(k)%inv
+          end if
+          
+          ! Extract V component if QC is good and innovation is non-zero
+          if (iv%sound(i)%v(k)%qc == 0 .and. abs(iv%sound(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%sound(i)%v(k)%inv
+          end if
+          
+          ! Extract T component if QC is good and innovation is non-zero
+          if (iv%sound(i)%t(k)%qc == 0 .and. abs(iv%sound(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%sound(i)%t(k)%inv
+          end if
+          
+          ! Extract Q component if QC is good and innovation is non-zero
+          if (iv%sound(i)%q(k)%qc == 0 .and. abs(iv%sound(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%sound(i)%q(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! Add more families here as needed (buoy, airep, pilot, etc.)
     
     num_innovations = count
     wrfda_extract_innovations = 0
     
   end function wrfda_extract_innovations
 
-  ! Extract observation values from y_type structure
-  integer(c_int) function wrfda_extract_observations(family, observations, num_observations) bind(C, name="wrfda_extract_observations")
+  ! Extract observation values from y_type structure for all families
+  integer(c_int) function wrfda_extract_observations(iv_ptr, ob_ptr, observations, num_observations) bind(C, name="wrfda_extract_observations")
     implicit none
-    character(c_char), intent(in) :: family(*)
+    type(c_ptr), value :: iv_ptr
+    type(c_ptr), value :: ob_ptr
     real(c_double), intent(out) :: observations(*)
     integer(c_int), intent(out) :: num_observations
     
     type(y_type), pointer :: y
     type(iv_type), pointer :: iv
-    character(len=20) :: family_str
-    integer :: i, count
-    integer :: family_index
+    integer :: i, k, count
     
-    ! Convert C string to Fortran string
-    family_str = ""
-    do i = 1, 20
-      if (family(i) == c_null_char) exit
-      family_str(i:i) = family(i)
-    end do
+    ! Convert C pointers to Fortran pointers
+    call c_f_pointer(iv_ptr, iv)
+    call c_f_pointer(ob_ptr, y)
     
-    ! Use global persistent y structure
-    if (.not. y_allocated) then
+    if (.not. associated(iv)) then
       num_observations = 0
-      wrfda_extract_observations = 0
+      wrfda_extract_observations = 1
       return
     end if
     
-    if (.not. associated(persistent_y)) then
+    if (.not. associated(y)) then
       num_observations = 0
-      wrfda_extract_observations = 0
+      wrfda_extract_observations = 1
       return
     end if
     
-    ! Also need iv to determine which observations have good QC
-    if (.not. iv_allocated .or. .not. associated(persistent_iv)) then
-      num_observations = 0
-      wrfda_extract_observations = 0
-      return
-    end if
-    
-    ! Point local pointers to global persistent structures
-    y => persistent_y
-    iv => persistent_iv
-    
-    ! Determine family index
-    family_index = 0
-    if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
-      family_index = 2  ! synop index
-    else if (trim(family_str) == "sound") then
-      family_index = 3  ! sound index
-    else if (trim(family_str) == "gpspw") then
-      family_index = 4  ! gpspw index
-    end if
-    
-    if (family_index == 0) then
-      wrfda_extract_observations = -2
-      return
-    end if
-    
-    ! Extract observations based on family
+    ! Extract observations for all families
     count = 0
     
-    if (family_index == 2 .and. associated(y%synop) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
-      ! Extract from synop array (only variables with good QC)
-      do i = 1, min(size(y%synop), iv%info(2)%nlocal)
+    ! SYNOP family
+    if (associated(y%synop) .and. associated(iv%synop) .and. iv%info(synop)%nlocal > 0) then
+      do i = 1, min(size(y%synop), iv%info(synop)%nlocal)
         ! Extract U component if QC is good and innovation is non-zero
         if (iv%synop(i)%u%qc == 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
           count = count + 1
@@ -2095,9 +2119,94 @@ contains
           observations(count) = y%synop(i)%q
         end if
       end do
-    else
-      count = 0
     end if
+    
+    ! METAR family
+    if (associated(y%metar) .and. associated(iv%metar) .and. iv%info(metar)%nlocal > 0) then
+      do i = 1, min(size(y%metar), iv%info(metar)%nlocal)
+        if (iv%metar(i)%u%qc == 0 .and. abs(iv%metar(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%metar(i)%u
+        end if
+        if (iv%metar(i)%v%qc == 0 .and. abs(iv%metar(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%metar(i)%v
+        end if
+        if (iv%metar(i)%t%qc == 0 .and. abs(iv%metar(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%metar(i)%t
+        end if
+        if (iv%metar(i)%p%qc == 0 .and. abs(iv%metar(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%metar(i)%p
+        end if
+        if (iv%metar(i)%q%qc == 0 .and. abs(iv%metar(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%metar(i)%q
+        end if
+      end do
+    end if
+    
+    ! SHIPS family
+    if (associated(y%ships) .and. associated(iv%ships) .and. iv%info(ships)%nlocal > 0) then
+      do i = 1, min(size(y%ships), iv%info(ships)%nlocal)
+        if (iv%ships(i)%u%qc == 0 .and. abs(iv%ships(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ships(i)%u
+        end if
+        if (iv%ships(i)%v%qc == 0 .and. abs(iv%ships(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ships(i)%v
+        end if
+        if (iv%ships(i)%t%qc == 0 .and. abs(iv%ships(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ships(i)%t
+        end if
+        if (iv%ships(i)%p%qc == 0 .and. abs(iv%ships(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ships(i)%p
+        end if
+        if (iv%ships(i)%q%qc == 0 .and. abs(iv%ships(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ships(i)%q
+        end if
+      end do
+    end if
+    
+    ! SOUND family - if available and allocated
+    ! Note: sound observations have multiple levels per station
+    if (associated(y%sound) .and. associated(iv%sound) .and. iv%info(sound)%nlocal > 0) then
+      do i = 1, min(size(y%sound), iv%info(sound)%nlocal)
+        ! Loop through levels for this station
+        do k = 1, iv%info(sound)%levels(i)
+          ! Extract U component if QC is good and innovation is non-zero
+          if (iv%sound(i)%u(k)%qc == 0 .and. abs(iv%sound(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%sound(i)%u(k)
+          end if
+          
+          ! Extract V component if QC is good and innovation is non-zero
+          if (iv%sound(i)%v(k)%qc == 0 .and. abs(iv%sound(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%sound(i)%v(k)
+          end if
+          
+          ! Extract T component if QC is good and innovation is non-zero
+          if (iv%sound(i)%t(k)%qc == 0 .and. abs(iv%sound(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%sound(i)%t(k)
+          end if
+          
+          ! Extract Q component if QC is good and innovation is non-zero
+          if (iv%sound(i)%q(k)%qc == 0 .and. abs(iv%sound(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%sound(i)%q(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! Add more families here as needed (buoy, airep, pilot, etc.)
     
     num_observations = count
     wrfda_extract_observations = 0
