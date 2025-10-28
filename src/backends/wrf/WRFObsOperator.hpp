@@ -158,12 +158,9 @@ class WRFObsOperator {
           std::to_string(rc));
     }
 
-    std::string family =
-        operator_families_.empty() ? "synop" : operator_families_[0];
-
-    // Extract innovations: d = y_obs - H(x)
+    // Count innovations across ALL observation types
     int num_innovations = 0;
-    rc = wrfda_count_innovations(family.c_str(), &num_innovations);
+    rc = wrfda_count_innovations(iv_ptr, &num_innovations);
     if (rc != 0) {
       throw std::runtime_error("Failed to count innovations with code " +
                                std::to_string(rc));
@@ -175,38 +172,61 @@ class WRFObsOperator {
           "the domain and that use_* flags are enabled in namelist.input");
     }
 
-    std::vector<double> innovations(num_innovations);
-    rc = wrfda_extract_innovations(family.c_str(), innovations.data(),
-                                   &num_innovations);
-    if (rc != 0) {
-      throw std::runtime_error("Failed to extract innovations with code " +
-                               std::to_string(rc));
+    // Extract innovations and observations for all families
+    // TODO: Refactor extract functions to also handle all families at once
+    // For now, we process configured families individually
+    std::vector<std::string> families = operator_families_.empty()
+                                            ? std::vector<std::string>{"synop"}
+                                            : operator_families_;
+
+    std::vector<double> all_simulated_obs;
+    all_simulated_obs.reserve(num_innovations);
+
+    for (const auto& family : families) {
+      // Count innovations for this specific family
+      // TODO: This is inefficient - refactor extract functions to not need
+      // family
+      int family_innovations = 0;
+      rc = wrfda_extract_innovations(family.c_str(), nullptr,
+                                     &family_innovations);
+
+      // Skip families with no observations
+      if (family_innovations <= 0) {
+        continue;
+      }
+
+      std::vector<double> innovations(family_innovations);
+      rc = wrfda_extract_innovations(family.c_str(), innovations.data(),
+                                     &family_innovations);
+      if (rc != 0) {
+        throw std::runtime_error("Failed to extract innovations for " + family +
+                                 " with code " + std::to_string(rc));
+      }
+
+      // Extract observations: y_obs
+      int num_observations = 0;
+      std::vector<double> observations(family_innovations);
+      rc = wrfda_extract_observations(family.c_str(), observations.data(),
+                                      &num_observations);
+      if (rc != 0) {
+        throw std::runtime_error("Failed to extract observations for " +
+                                 family + " with code " + std::to_string(rc));
+      }
+
+      if (num_observations != family_innovations) {
+        throw std::runtime_error(
+            "Mismatch between number of observations and innovations for " +
+            family + ": " + std::to_string(num_observations) + " vs " +
+            std::to_string(family_innovations));
+      }
+
+      // Compute H(x) = y_obs - d for this family
+      for (int i = 0; i < family_innovations; ++i) {
+        all_simulated_obs.push_back(observations[i] - innovations[i]);
+      }
     }
 
-    // Extract observations: y_obs
-    int num_observations = 0;
-    std::vector<double> observations(num_innovations);
-    rc = wrfda_extract_observations(family.c_str(), observations.data(),
-                                    &num_observations);
-    if (rc != 0) {
-      throw std::runtime_error("Failed to extract observations with code " +
-                               std::to_string(rc));
-    }
-
-    if (num_observations != num_innovations) {
-      throw std::runtime_error(
-          "Mismatch between number of observations and innovations: " +
-          std::to_string(num_observations) + " vs " +
-          std::to_string(num_innovations));
-    }
-
-    // Compute H(x) = y_obs - d
-    std::vector<double> simulated_obs(num_innovations);
-    for (int i = 0; i < num_innovations; ++i) {
-      simulated_obs[i] = observations[i] - innovations[i];
-    }
-
-    return simulated_obs;
+    return all_simulated_obs;
   }
 
   /**

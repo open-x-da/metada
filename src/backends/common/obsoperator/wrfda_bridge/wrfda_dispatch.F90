@@ -16,7 +16,10 @@ module metada_wrfda_dispatch
   use da_define_structures, only: iv_type, y_type, xbx_type, da_allocate_y, da_allocate_obs_info
   use module_symbols_util,  only: wrfu_initialize, wrfu_finalize, wrfu_cal_gregorian
   use module_symbols_util, only: WRFU_ClockCreate, WRFU_TimeIntervalSet, WRFU_SUCCESS, WRFU_Time, WRFU_TimeInterval, WRFU_INITIALIZE, WRFU_CAL_GREGORIAN
-  use da_control, only: metar, synop, ships, buoy, airep, pilot, sound, sonde_sfc, &
+  use da_control, only: sound, synop, pilot, satem, geoamv, polaramv, airep, gpspw, gpsref, &
+                        metar, ships, ssmi_rv, ssmi_tb, ssmt1, ssmt2, qscat, profiler, buoy, &
+                        bogus, pseudo, radar, radiance, airsr, sonde_sfc, mtgirs, tamdar, &
+                        tamdar_sfc, rain, gpseph, lightning, &
                         sfc_assi_options, sfc_assi_options_1, trace_use_dull, &
                         var4d_run, num_fgat_time, missing_r, missing_data, num_ob_indexes, &
                         kts, kte, its, ite, jts, jte, Max_StHeight_Diff, kms, kme, &
@@ -1567,75 +1570,327 @@ contains
     
   end function wrfda_construct_config_flags
 
-  ! Count innovation values from iv_type structure
-  integer(c_int) function wrfda_count_innovations(family, num_innovations) bind(C, name="wrfda_count_innovations")
+  ! Count innovation values from iv_type structure for all observation types
+  integer(c_int) function wrfda_count_innovations(iv_ptr, num_innovations) bind(C, name="wrfda_count_innovations")
     implicit none
-    character(c_char), intent(in) :: family(*)
+    type(c_ptr), value :: iv_ptr
     integer(c_int), intent(out) :: num_innovations
     
     type(iv_type), pointer :: iv
-    character(len=20) :: family_str
-    integer :: i, count
-    integer :: family_index
+    integer :: i, n, count
     
-    ! Convert C string to Fortran string
-    family_str = ""
-    do i = 1, 20
-      if (family(i) == c_null_char) exit
-      family_str(i:i) = family(i)
-    end do
+    ! Convert C pointer to Fortran pointer
+    call c_f_pointer(iv_ptr, iv)
     
-    ! Use global persistent iv structure
-    if (.not. iv_allocated) then
+    if (.not. associated(iv)) then
       num_innovations = 0
-      wrfda_count_innovations = 0
+      wrfda_count_innovations = 1
       return
-    end if
-    
-    if (.not. associated(persistent_iv)) then
-      num_innovations = 0
-      wrfda_count_innovations = 0
-      return
-    end if
-    
-    ! Point local iv to global persistent structure
-    iv => persistent_iv
-    
-    ! Determine family index
-    family_index = 0
-    if (trim(family_str) == "synop" .or. trim(family_str) == "adpsfc" .or. trim(family_str) == "metar") then
-      family_index = 2  ! synop index (adpsfc and metar use synop structure)
     end if
     
     count = 0
     
-    if (family_index == 2 .and. family_index <= size(iv%info) .and. associated(iv%synop) .and. iv%info(2)%nlocal > 0) then
-      ! Count innovations from synop array based on QC flags and non-zero innovations
-      count = 0
-      do i = 1, iv%info(2)%nlocal
-        ! Count U innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%u%qc == 0 .and. abs(iv%synop(i)%u%inv) > 1.0e-10) then
-          count = count + 1
-        end if
-        ! Count V innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%v%qc == 0 .and. abs(iv%synop(i)%v%inv) > 1.0e-10) then
-          count = count + 1
-        end if
-        ! Count T innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%t%qc == 0 .and. abs(iv%synop(i)%t%inv) > 1.0e-10) then
-          count = count + 1
-        end if
-        ! Count P innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%p%qc == 0 .and. abs(iv%synop(i)%p%inv) > 1.0e-10) then
-          count = count + 1
-        end if
-        ! Count Q innovation if QC is good and innovation is non-zero
-        if (iv%synop(i)%q%qc == 0 .and. abs(iv%synop(i)%q%inv) > 1.0e-10) then
-          count = count + 1
-        end if
+    ! Count innovations for ALL observation families
+    ! Each family has its own observation structure with variables that have .inv field
+    
+    ! Synop observations
+    if (associated(iv%synop) .and. iv%info(synop)%nlocal > 0) then
+      do n = 1, iv%info(synop)%nlocal
+        if (iv%synop(n)%u%qc == 0 .and. abs(iv%synop(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%synop(n)%v%qc == 0 .and. abs(iv%synop(n)%v%inv) > 1.0e-10) count = count + 1
+        if (iv%synop(n)%t%qc == 0 .and. abs(iv%synop(n)%t%inv) > 1.0e-10) count = count + 1
+        if (iv%synop(n)%p%qc == 0 .and. abs(iv%synop(n)%p%inv) > 1.0e-10) count = count + 1
+        if (iv%synop(n)%q%qc == 0 .and. abs(iv%synop(n)%q%inv) > 1.0e-10) count = count + 1
       end do
-    else
-      count = 0
+    end if
+    
+    ! Metar observations
+    if (associated(iv%metar) .and. iv%info(metar)%nlocal > 0) then
+      do n = 1, iv%info(metar)%nlocal
+        if (iv%metar(n)%u%qc == 0 .and. abs(iv%metar(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%metar(n)%v%qc == 0 .and. abs(iv%metar(n)%v%inv) > 1.0e-10) count = count + 1
+        if (iv%metar(n)%t%qc == 0 .and. abs(iv%metar(n)%t%inv) > 1.0e-10) count = count + 1
+        if (iv%metar(n)%p%qc == 0 .and. abs(iv%metar(n)%p%inv) > 1.0e-10) count = count + 1
+        if (iv%metar(n)%q%qc == 0 .and. abs(iv%metar(n)%q%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Ships observations
+    if (associated(iv%ships) .and. iv%info(ships)%nlocal > 0) then
+      do n = 1, iv%info(ships)%nlocal
+        if (iv%ships(n)%u%qc == 0 .and. abs(iv%ships(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%ships(n)%v%qc == 0 .and. abs(iv%ships(n)%v%inv) > 1.0e-10) count = count + 1
+        if (iv%ships(n)%t%qc == 0 .and. abs(iv%ships(n)%t%inv) > 1.0e-10) count = count + 1
+        if (iv%ships(n)%p%qc == 0 .and. abs(iv%ships(n)%p%inv) > 1.0e-10) count = count + 1
+        if (iv%ships(n)%q%qc == 0 .and. abs(iv%ships(n)%q%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Buoy observations
+    if (associated(iv%buoy) .and. iv%info(buoy)%nlocal > 0) then
+      do n = 1, iv%info(buoy)%nlocal
+        if (iv%buoy(n)%u%qc == 0 .and. abs(iv%buoy(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%buoy(n)%v%qc == 0 .and. abs(iv%buoy(n)%v%inv) > 1.0e-10) count = count + 1
+        if (iv%buoy(n)%t%qc == 0 .and. abs(iv%buoy(n)%t%inv) > 1.0e-10) count = count + 1
+        if (iv%buoy(n)%p%qc == 0 .and. abs(iv%buoy(n)%p%inv) > 1.0e-10) count = count + 1
+        if (iv%buoy(n)%q%qc == 0 .and. abs(iv%buoy(n)%q%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Sound (radiosonde) observations - multi-level
+    if (associated(iv%sound) .and. iv%info(sound)%nlocal > 0) then
+      do n = 1, iv%info(sound)%nlocal
+        do i = 1, iv%info(sound)%levels(n)
+          if (iv%sound(n)%u(i)%qc == 0 .and. abs(iv%sound(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%sound(n)%v(i)%qc == 0 .and. abs(iv%sound(n)%v(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%sound(n)%t(i)%qc == 0 .and. abs(iv%sound(n)%t(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%sound(n)%q(i)%qc == 0 .and. abs(iv%sound(n)%q(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! Airep (aircraft) observations - multi-level
+    if (associated(iv%airep) .and. iv%info(airep)%nlocal > 0) then
+      do n = 1, iv%info(airep)%nlocal
+        do i = 1, iv%info(airep)%levels(n)
+          if (iv%airep(n)%u(i)%qc == 0 .and. abs(iv%airep(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%airep(n)%v(i)%qc == 0 .and. abs(iv%airep(n)%v(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%airep(n)%t(i)%qc == 0 .and. abs(iv%airep(n)%t(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! Pilot (balloon) observations - multi-level
+    if (associated(iv%pilot) .and. iv%info(pilot)%nlocal > 0) then
+      do n = 1, iv%info(pilot)%nlocal
+        do i = 1, iv%info(pilot)%levels(n)
+          if (iv%pilot(n)%u(i)%qc == 0 .and. abs(iv%pilot(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%pilot(n)%v(i)%qc == 0 .and. abs(iv%pilot(n)%v(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! Sonde surface observations
+    if (associated(iv%sonde_sfc) .and. iv%info(sonde_sfc)%nlocal > 0) then
+      do n = 1, iv%info(sonde_sfc)%nlocal
+        if (iv%sonde_sfc(n)%u%qc == 0 .and. abs(iv%sonde_sfc(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%sonde_sfc(n)%v%qc == 0 .and. abs(iv%sonde_sfc(n)%v%inv) > 1.0e-10) count = count + 1
+        if (iv%sonde_sfc(n)%t%qc == 0 .and. abs(iv%sonde_sfc(n)%t%inv) > 1.0e-10) count = count + 1
+        if (iv%sonde_sfc(n)%p%qc == 0 .and. abs(iv%sonde_sfc(n)%p%inv) > 1.0e-10) count = count + 1
+        if (iv%sonde_sfc(n)%q%qc == 0 .and. abs(iv%sonde_sfc(n)%q%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Geostationary satellite AMV observations - multi-level
+    if (associated(iv%geoamv) .and. iv%info(geoamv)%nlocal > 0) then
+      do n = 1, iv%info(geoamv)%nlocal
+        do i = 1, iv%info(geoamv)%levels(n)
+          if (iv%geoamv(n)%u(i)%qc == 0 .and. abs(iv%geoamv(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%geoamv(n)%v(i)%qc == 0 .and. abs(iv%geoamv(n)%v(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! Polar satellite AMV observations - multi-level
+    if (associated(iv%polaramv) .and. iv%info(polaramv)%nlocal > 0) then
+      do n = 1, iv%info(polaramv)%nlocal
+        do i = 1, iv%info(polaramv)%levels(n)
+          if (iv%polaramv(n)%u(i)%qc == 0 .and. abs(iv%polaramv(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%polaramv(n)%v(i)%qc == 0 .and. abs(iv%polaramv(n)%v(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! GPS precipitable water observations
+    if (associated(iv%gpspw) .and. iv%info(gpspw)%nlocal > 0) then
+      do n = 1, iv%info(gpspw)%nlocal
+        if (iv%gpspw(n)%tpw%qc == 0 .and. abs(iv%gpspw(n)%tpw%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! GPS refractivity observations - multi-level
+    if (associated(iv%gpsref) .and. iv%info(gpsref)%nlocal > 0) then
+      do n = 1, iv%info(gpsref)%nlocal
+        do i = 1, iv%info(gpsref)%levels(n)
+          if (iv%gpsref(n)%ref(i)%qc == 0 .and. abs(iv%gpsref(n)%ref(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%gpsref(n)%p(i)%qc == 0 .and. abs(iv%gpsref(n)%p(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%gpsref(n)%t(i)%qc == 0 .and. abs(iv%gpsref(n)%t(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%gpsref(n)%q(i)%qc == 0 .and. abs(iv%gpsref(n)%q(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! GPS excess phase observations - multi-level
+    if (associated(iv%gpseph) .and. iv%info(gpseph)%nlocal > 0) then
+      do n = 1, iv%info(gpseph)%nlocal
+        do i = 1, iv%info(gpseph)%levels(n)
+          if (iv%gpseph(n)%eph(i)%qc == 0 .and. abs(iv%gpseph(n)%eph(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! QuikSCAT wind observations
+    if (associated(iv%qscat) .and. iv%info(qscat)%nlocal > 0) then
+      do n = 1, iv%info(qscat)%nlocal
+        if (iv%qscat(n)%u%qc == 0 .and. abs(iv%qscat(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%qscat(n)%v%qc == 0 .and. abs(iv%qscat(n)%v%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Wind profiler observations - multi-level (uses pilot_type)
+    if (associated(iv%profiler) .and. iv%info(profiler)%nlocal > 0) then
+      do n = 1, iv%info(profiler)%nlocal
+        do i = 1, iv%info(profiler)%levels(n)
+          if (iv%profiler(n)%u(i)%qc == 0 .and. abs(iv%profiler(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%profiler(n)%v(i)%qc == 0 .and. abs(iv%profiler(n)%v(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! SSM/I rain rate observations
+    if (associated(iv%ssmi_rv) .and. iv%info(ssmi_rv)%nlocal > 0) then
+      do n = 1, iv%info(ssmi_rv)%nlocal
+        if (iv%ssmi_rv(n)%Speed%qc == 0 .and. abs(iv%ssmi_rv(n)%Speed%inv) > 1.0e-10) count = count + 1
+        if (iv%ssmi_rv(n)%tpw%qc == 0 .and. abs(iv%ssmi_rv(n)%tpw%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! SSM/I brightness temperature observations - single level, multiple channels
+    if (associated(iv%ssmi_tb) .and. iv%info(ssmi_tb)%nlocal > 0) then
+      do n = 1, iv%info(ssmi_tb)%nlocal
+        if (iv%ssmi_tb(n)%tb19h%qc == 0 .and. abs(iv%ssmi_tb(n)%tb19h%inv) > 1.0e-10) count = count + 1
+        if (iv%ssmi_tb(n)%tb19v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb19v%inv) > 1.0e-10) count = count + 1
+        if (iv%ssmi_tb(n)%tb22v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb22v%inv) > 1.0e-10) count = count + 1
+        if (iv%ssmi_tb(n)%tb37h%qc == 0 .and. abs(iv%ssmi_tb(n)%tb37h%inv) > 1.0e-10) count = count + 1
+        if (iv%ssmi_tb(n)%tb37v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb37v%inv) > 1.0e-10) count = count + 1
+        if (iv%ssmi_tb(n)%tb85h%qc == 0 .and. abs(iv%ssmi_tb(n)%tb85h%inv) > 1.0e-10) count = count + 1
+        if (iv%ssmi_tb(n)%tb85v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb85v%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! SSM/T1 observations - multi-level
+    if (associated(iv%ssmt1) .and. iv%info(ssmt1)%nlocal > 0) then
+      do n = 1, iv%info(ssmt1)%nlocal
+        do i = 1, iv%info(ssmt1)%levels(n)
+          if (iv%ssmt1(n)%t(i)%qc == 0 .and. abs(iv%ssmt1(n)%t(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! SSM/T2 observations - multi-level
+    if (associated(iv%ssmt2) .and. iv%info(ssmt2)%nlocal > 0) then
+      do n = 1, iv%info(ssmt2)%nlocal
+        do i = 1, iv%info(ssmt2)%levels(n)
+          if (iv%ssmt2(n)%rh(i)%qc == 0 .and. abs(iv%ssmt2(n)%rh(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! SATEM observations - multi-level
+    if (associated(iv%satem) .and. iv%info(satem)%nlocal > 0) then
+      do n = 1, iv%info(satem)%nlocal
+        do i = 1, iv%info(satem)%levels(n)
+          if (iv%satem(n)%thickness(i)%qc == 0 .and. abs(iv%satem(n)%thickness(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! Pseudo observations - single level
+    if (associated(iv%pseudo) .and. iv%info(pseudo)%nlocal > 0) then
+      do n = 1, iv%info(pseudo)%nlocal
+        if (iv%pseudo(n)%u%qc == 0 .and. abs(iv%pseudo(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%pseudo(n)%v%qc == 0 .and. abs(iv%pseudo(n)%v%inv) > 1.0e-10) count = count + 1
+        if (iv%pseudo(n)%t%qc == 0 .and. abs(iv%pseudo(n)%t%inv) > 1.0e-10) count = count + 1
+        if (iv%pseudo(n)%p%qc == 0 .and. abs(iv%pseudo(n)%p%inv) > 1.0e-10) count = count + 1
+        if (iv%pseudo(n)%q%qc == 0 .and. abs(iv%pseudo(n)%q%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Bogus (tropical cyclone) observations - multi-level
+    if (associated(iv%bogus) .and. iv%info(bogus)%nlocal > 0) then
+      do n = 1, iv%info(bogus)%nlocal
+        do i = 1, iv%info(bogus)%levels(n)
+          if (iv%bogus(n)%u(i)%qc == 0 .and. abs(iv%bogus(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%bogus(n)%v(i)%qc == 0 .and. abs(iv%bogus(n)%v(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%bogus(n)%t(i)%qc == 0 .and. abs(iv%bogus(n)%t(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%bogus(n)%q(i)%qc == 0 .and. abs(iv%bogus(n)%q(i)%inv) > 1.0e-10) count = count + 1
+        end do
+        ! Surface level
+        if (iv%bogus(n)%slp%qc == 0 .and. abs(iv%bogus(n)%slp%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! AIRS retrievals - multi-level
+    if (associated(iv%airsr) .and. iv%info(airsr)%nlocal > 0) then
+      do n = 1, iv%info(airsr)%nlocal
+        do i = 1, iv%info(airsr)%levels(n)
+          if (iv%airsr(n)%t(i)%qc == 0 .and. abs(iv%airsr(n)%t(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%airsr(n)%q(i)%qc == 0 .and. abs(iv%airsr(n)%q(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! MTGIRS observations - multi-level
+    if (associated(iv%mtgirs) .and. iv%info(mtgirs)%nlocal > 0) then
+      do n = 1, iv%info(mtgirs)%nlocal
+        do i = 1, iv%info(mtgirs)%levels(n)
+          if (iv%mtgirs(n)%u(i)%qc == 0 .and. abs(iv%mtgirs(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%mtgirs(n)%v(i)%qc == 0 .and. abs(iv%mtgirs(n)%v(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%mtgirs(n)%t(i)%qc == 0 .and. abs(iv%mtgirs(n)%t(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%mtgirs(n)%q(i)%qc == 0 .and. abs(iv%mtgirs(n)%q(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! TAMDAR aircraft observations - multi-level
+    if (associated(iv%tamdar) .and. iv%info(tamdar)%nlocal > 0) then
+      do n = 1, iv%info(tamdar)%nlocal
+        do i = 1, iv%info(tamdar)%levels(n)
+          if (iv%tamdar(n)%u(i)%qc == 0 .and. abs(iv%tamdar(n)%u(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%tamdar(n)%v(i)%qc == 0 .and. abs(iv%tamdar(n)%v(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%tamdar(n)%t(i)%qc == 0 .and. abs(iv%tamdar(n)%t(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%tamdar(n)%q(i)%qc == 0 .and. abs(iv%tamdar(n)%q(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! TAMDAR surface observations (uses synop_type)
+    if (associated(iv%tamdar_sfc) .and. iv%info(tamdar_sfc)%nlocal > 0) then
+      do n = 1, iv%info(tamdar_sfc)%nlocal
+        if (iv%tamdar_sfc(n)%u%qc == 0 .and. abs(iv%tamdar_sfc(n)%u%inv) > 1.0e-10) count = count + 1
+        if (iv%tamdar_sfc(n)%v%qc == 0 .and. abs(iv%tamdar_sfc(n)%v%inv) > 1.0e-10) count = count + 1
+        if (iv%tamdar_sfc(n)%t%qc == 0 .and. abs(iv%tamdar_sfc(n)%t%inv) > 1.0e-10) count = count + 1
+        if (iv%tamdar_sfc(n)%p%qc == 0 .and. abs(iv%tamdar_sfc(n)%p%inv) > 1.0e-10) count = count + 1
+        if (iv%tamdar_sfc(n)%q%qc == 0 .and. abs(iv%tamdar_sfc(n)%q%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Rain gauge observations
+    if (associated(iv%rain) .and. iv%info(rain)%nlocal > 0) then
+      do n = 1, iv%info(rain)%nlocal
+        if (iv%rain(n)%rain%qc == 0 .and. abs(iv%rain(n)%rain%inv) > 1.0e-10) count = count + 1
+      end do
+    end if
+    
+    ! Radar observations - multi-level
+    if (associated(iv%radar) .and. iv%info(radar)%nlocal > 0) then
+      do n = 1, iv%info(radar)%nlocal
+        do i = 1, iv%info(radar)%levels(n)
+          if (iv%radar(n)%rv(i)%qc == 0 .and. abs(iv%radar(n)%rv(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%radar(n)%rf(i)%qc == 0 .and. abs(iv%radar(n)%rf(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
+    end if
+    
+    ! Lightning observations
+    if (associated(iv%lightning) .and. iv%info(lightning)%nlocal > 0) then
+      do n = 1, iv%info(lightning)%nlocal
+        do i = 1, iv%info(lightning)%levels(n)
+          if (iv%lightning(n)%w(i)%qc == 0 .and. abs(iv%lightning(n)%w(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%lightning(n)%div(i)%qc == 0 .and. abs(iv%lightning(n)%div(i)%inv) > 1.0e-10) count = count + 1
+          if (iv%lightning(n)%qv(i)%qc == 0 .and. abs(iv%lightning(n)%qv(i)%inv) > 1.0e-10) count = count + 1
+        end do
+      end do
     end if
     
     num_innovations = count

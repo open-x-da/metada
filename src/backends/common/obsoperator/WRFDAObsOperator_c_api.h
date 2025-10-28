@@ -96,8 +96,8 @@ void* wrfda_construct_iv_type(
 // Construct config_flags for WRFDA
 void* wrfda_construct_config_flags();
 
-// Count innovation values from iv_type structure
-int wrfda_count_innovations(const char* family, int* num_innovations);
+// Count innovation values from iv_type structure for all observation types
+int wrfda_count_innovations(const void* iv_ptr, int* num_innovations);
 
 // Extract innovation values from iv_type structure
 int wrfda_extract_innovations(const char* family, double* innovations,
