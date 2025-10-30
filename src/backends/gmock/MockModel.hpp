@@ -54,7 +54,8 @@ namespace metada::backends::gmock {
  * @note All mock methods use Google Mock's MOCK_METHOD macro to enable
  * setting expectations and verifying calls.
  */
-template <typename ConfigBackend, typename StateBackend>
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
 class MockModel {
  public:
   /**
@@ -122,23 +123,18 @@ class MockModel {
                StateBackend& adjoint_result),
               (const));
 
-  // Template wrapper for runAdjoint to accept Increment types
-  template <typename StateOrIncrement>
+  // Wrapper for runAdjoint to accept Increment types
   void runAdjoint(const StateBackend& initial_state,
                   const StateBackend& final_state,
-                  const StateOrIncrement& adjoint_forcing,
-                  StateOrIncrement& adjoint_result) const {
-    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
-      runAdjoint(initial_state, final_state, adjoint_forcing, adjoint_result);
-    } else {
-      // For increment, use temporary state
-      StateBackend temp_forcing(config_, initial_state.geometry());
-      StateBackend temp_result(config_, initial_state.geometry());
-      temp_forcing.zero();
-      temp_forcing.addIncrement(adjoint_forcing);
-      runAdjoint(initial_state, final_state, temp_forcing, temp_result);
-      adjoint_result.transferFromState(temp_result);
-    }
+                  const IncrementBackend& adjoint_forcing,
+                  IncrementBackend& adjoint_result) const {
+    // Convert increment to state for mock method
+    StateBackend temp_forcing(config_, initial_state.geometry());
+    StateBackend temp_result(config_, initial_state.geometry());
+    temp_forcing.zero();
+    temp_forcing.addIncrement(adjoint_forcing);
+    runAdjoint(initial_state, final_state, temp_forcing, temp_result);
+    adjoint_result.transferFromState(temp_result);
   }
 
   MOCK_METHOD(void, runTangentLinear,

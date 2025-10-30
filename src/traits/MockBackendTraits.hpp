@@ -73,7 +73,7 @@ struct BackendTraits<MockBackendTag> {
   using IncrementBackend = backends::gmock::MockIncrement;
   
   /** @brief Mock model backend implementation for testing */
-  using ModelBackend = backends::gmock::MockModel<ConfigBackend, StateBackend>;
+  using ModelBackend = backends::gmock::MockModel<ConfigBackend, StateBackend, IncrementBackend>;
   
   /** @brief Mock observation backend implementation for testing */
   using ObservationBackend = backends::gmock::MockObservation<ConfigBackend>;
@@ -82,7 +82,7 @@ struct BackendTraits<MockBackendTag> {
   using ObservationIteratorBackend = metada::backends::gmock::MockObservationIterator;
 
   /** @brief Mock observation operator backend implementation for testing */
-  using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
+  using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend, IncrementBackend>;
   
   /** @brief Mock implementation of observation I/O backend */
   using ObsIOBackend = backends::gmock::MockObsIO<ConfigBackend>;

@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "LiteIncrement.hpp"
 #include "LiteObs.hpp"
 #include "LiteState.hpp"
 
@@ -52,15 +53,13 @@ class LiteObsOperator {
     return result;
   }
 
-  // Tangent linear: dy = H*dx
-  template <typename StateOrIncrement>
+  // Tangent linear: dy = H*dx (operates on increments)
   std::vector<double> applyTangentLinear(
-      const StateOrIncrement& state_increment,
+      const LiteIncrement& increment,
       [[maybe_unused]] const LiteState& reference_state,
       const LiteObs& obs) const {
     // For linear operator, tangent linear is same as forward
-    // Get data from either State or Increment
-    auto data = state_increment.getData();
+    auto data = increment.getData();
     std::vector<double> result(obs.size());
     for (int i = 0; i < 2; ++i) {
       result[i] = 0.0;
@@ -71,11 +70,10 @@ class LiteObsOperator {
     return result;
   }
 
-  // Adjoint: dx = H^T*dy
-  template <typename StateOrIncrement>
+  // Adjoint: dx = H^T*dy (outputs an increment)
   void applyAdjoint(const std::vector<double>& obs_increment,
                     [[maybe_unused]] const LiteState& reference_state,
-                    StateOrIncrement& state_increment,
+                    LiteIncrement& increment_result,
                     [[maybe_unused]] const LiteObs& obs) const {
     std::vector<double> result(3, 0.0);
 
@@ -86,14 +84,8 @@ class LiteObsOperator {
       }
     }
 
-    // Update the state/increment with new data
-    if constexpr (requires { state_increment.setData(result); }) {
-      // LiteState has setData
-      state_increment.setData(result);
-    } else {
-      // LiteIncrement doesn't have setData, use update method
-      state_increment.update(result.data(), nullptr, nullptr, nullptr, nullptr);
-    }
+    // Update increment with computed result
+    increment_result.update(result.data(), nullptr, nullptr, nullptr, nullptr);
   }
 
   // Required variables

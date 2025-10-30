@@ -13,6 +13,7 @@ namespace metada::backends::gmock {
  * @tparam ConfigBackend Type of the configuration backend
  * @tparam StateBackend Type of the state backend
  * @tparam ObsBackend Type of the observation backend
+ * @tparam IncrementBackend Type of the increment backend
  *
  * This class provides mock methods for all observation operator operations:
  * - Initialization and configuration
@@ -22,7 +23,8 @@ namespace metada::backends::gmock {
  * It is primarily intended for unit testing components that depend on
  * observation operators.
  */
-template <typename ConfigBackend, typename StateBackend, typename ObsBackend>
+template <typename ConfigBackend, typename StateBackend, typename ObsBackend,
+          typename IncrementBackend>
 class MockObsOperator {
  public:
   /**
@@ -130,35 +132,26 @@ class MockObsOperator {
                StateBackend& state_increment, const ObsBackend& obs),
               (const));
 
-  // Template wrappers to accept Increment types
-  template <typename StateOrIncrement>
-  std::vector<double> applyTangentLinear(
-      const StateOrIncrement& state_increment,
-      const StateBackend& reference_state, const ObsBackend& obs) const {
-    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
-      return applyTangentLinear(state_increment, reference_state, obs);
-    } else {
-      // Convert increment to state via getData
-      StateBackend temp_state(config_, reference_state.geometry());
-      temp_state.zero();
-      temp_state.addIncrement(state_increment);
-      return applyTangentLinear(temp_state, reference_state, obs);
-    }
+  // Tangent linear for increments (converts to state for mock)
+  std::vector<double> applyTangentLinear(const IncrementBackend& increment,
+                                         const StateBackend& reference_state,
+                                         const ObsBackend& obs) const {
+    // Convert increment to state for mock method
+    StateBackend temp_state(config_, reference_state.geometry());
+    temp_state.zero();
+    temp_state.addIncrement(increment);
+    return applyTangentLinear(temp_state, reference_state, obs);
   }
 
-  template <typename StateOrIncrement>
+  // Adjoint for increments (converts via state for mock)
   void applyAdjoint(const std::vector<double>& obs_increment,
                     const StateBackend& reference_state,
-                    StateOrIncrement& state_increment,
+                    IncrementBackend& increment_result,
                     const ObsBackend& obs) const {
-    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
-      applyAdjoint(obs_increment, reference_state, state_increment, obs);
-    } else {
-      StateBackend temp_state(config_, reference_state.geometry());
-      temp_state.zero();
-      applyAdjoint(obs_increment, reference_state, temp_state, obs);
-      state_increment.transferFromState(temp_state);
-    }
+    StateBackend temp_state(config_, reference_state.geometry());
+    temp_state.zero();
+    applyAdjoint(obs_increment, reference_state, temp_state, obs);
+    increment_result.transferFromState(temp_state);
   }
 
   /**

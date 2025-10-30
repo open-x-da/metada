@@ -27,7 +27,8 @@ class WRFState;
  * Forecasting) model. It provides methods for time stepping and integration of
  * the WRF dynamical core.
  */
-template <typename ConfigBackend, typename StateBackend>
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
 class WRFModel {
  public:
   /**
@@ -126,24 +127,18 @@ class WRFModel {
    * @param forcing_increment Forcing increment for adjoint
    * @param result_increment Resulting increment from adjoint integration
    */
-  template <typename StateOrIncrement>
   void runAdjoint([[maybe_unused]] const StateBackend& initial_state,
                   [[maybe_unused]] const StateBackend& final_state,
-                  [[maybe_unused]] const StateOrIncrement& forcing_increment,
-                  [[maybe_unused]] StateOrIncrement& result_increment) const {
+                  [[maybe_unused]] const IncrementBackend& forcing_increment,
+                  [[maybe_unused]] IncrementBackend& result_increment) const {
     // Placeholder implementation - in practice this would be a complex
     // adjoint model integration
 
     // For now, just copy the forcing increment to the result
     // This is obviously not a correct adjoint implementation, but allows
     // the code to compile and run for testing purposes
-    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
-      result_increment = std::move(*(forcing_increment.clone()));
-    } else {
-      // For increment, use axpy to copy
-      result_increment.zero();
-      result_increment.axpy(1.0, forcing_increment);
-    }
+    result_increment.zero();
+    result_increment.axpy(1.0, forcing_increment);
 
     // In a real implementation, this would:
     // 1. Load the trajectory from the forward model run
@@ -197,17 +192,20 @@ class WRFModel {
 };
 
 // Constructor implementation with ConfigBackend and StateBackend
-template <typename ConfigBackend, typename StateBackend>
-WRFModel<ConfigBackend, StateBackend>::WRFModel(const ConfigBackend& config)
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+WRFModel<ConfigBackend, StateBackend, IncrementBackend>::WRFModel(
+    const ConfigBackend& config)
     : initialized_(false) {
   // Initialize the model with the provided config
   initialize(config);
 }
 
 // Move constructor implementation
-template <typename ConfigBackend, typename StateBackend>
-WRFModel<ConfigBackend, StateBackend>::WRFModel(
-    WRFModel<ConfigBackend, StateBackend>&& other) noexcept
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+WRFModel<ConfigBackend, StateBackend, IncrementBackend>::WRFModel(
+    WRFModel<ConfigBackend, StateBackend, IncrementBackend>&& other) noexcept
     : initialized_(other.initialized_),
       currentTime_(other.currentTime_),
       timeStep_(other.timeStep_),
@@ -226,10 +224,11 @@ WRFModel<ConfigBackend, StateBackend>::WRFModel(
 }
 
 // Move assignment operator implementation
-template <typename ConfigBackend, typename StateBackend>
-WRFModel<ConfigBackend, StateBackend>&
-WRFModel<ConfigBackend, StateBackend>::operator=(
-    WRFModel<ConfigBackend, StateBackend>&& other) noexcept {
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+WRFModel<ConfigBackend, StateBackend, IncrementBackend>&
+WRFModel<ConfigBackend, StateBackend, IncrementBackend>::operator=(
+    WRFModel<ConfigBackend, StateBackend, IncrementBackend>&& other) noexcept {
   if (this != &other) {
     initialized_ = other.initialized_;
     currentTime_ = other.currentTime_;
@@ -252,8 +251,9 @@ WRFModel<ConfigBackend, StateBackend>::operator=(
 }
 
 // Destructor implementation
-template <typename ConfigBackend, typename StateBackend>
-WRFModel<ConfigBackend, StateBackend>::~WRFModel() {
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+WRFModel<ConfigBackend, StateBackend, IncrementBackend>::~WRFModel() {
   if (initialized_) {
     try {
       finalize();
@@ -269,8 +269,9 @@ WRFModel<ConfigBackend, StateBackend>::~WRFModel() {
  *
  * @param config Configuration containing model options
  */
-template <typename ConfigBackend, typename StateBackend>
-void WRFModel<ConfigBackend, StateBackend>::initialize(
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+void WRFModel<ConfigBackend, StateBackend, IncrementBackend>::initialize(
     const ConfigBackend& config) {
   if (initialized_) {
     return;  // Already initialized
@@ -345,8 +346,9 @@ void WRFModel<ConfigBackend, StateBackend>::initialize(
 }
 
 // Reset implementation
-template <typename ConfigBackend, typename StateBackend>
-void WRFModel<ConfigBackend, StateBackend>::reset() {
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+void WRFModel<ConfigBackend, StateBackend, IncrementBackend>::reset() {
   if (!initialized_) {
     throw std::runtime_error("Cannot reset uninitialized WRF model");
   }
@@ -358,8 +360,9 @@ void WRFModel<ConfigBackend, StateBackend>::reset() {
 }
 
 // Finalize implementation
-template <typename ConfigBackend, typename StateBackend>
-void WRFModel<ConfigBackend, StateBackend>::finalize() {
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+void WRFModel<ConfigBackend, StateBackend, IncrementBackend>::finalize() {
   if (!initialized_) {
     return;  // Nothing to finalize
   }
@@ -371,8 +374,9 @@ void WRFModel<ConfigBackend, StateBackend>::finalize() {
 }
 
 // Run implementation
-template <typename ConfigBackend, typename StateBackend>
-void WRFModel<ConfigBackend, StateBackend>::run(
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+void WRFModel<ConfigBackend, StateBackend, IncrementBackend>::run(
     const StateBackend& initialState, StateBackend& finalState) const {
   if (!initialized_) {
     throw std::runtime_error("Cannot run uninitialized WRF model");
@@ -440,8 +444,9 @@ void WRFModel<ConfigBackend, StateBackend>::run(
 }
 
 // Time step implementation
-template <typename ConfigBackend, typename StateBackend>
-void WRFModel<ConfigBackend, StateBackend>::timeStep(
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+void WRFModel<ConfigBackend, StateBackend, IncrementBackend>::timeStep(
     const StateBackend& inState, StateBackend& outState,
     [[maybe_unused]] Duration dt) const {
   // Clone input state to output state first
@@ -533,9 +538,11 @@ void WRFModel<ConfigBackend, StateBackend>::timeStep(
 }
 
 // Apply boundary conditions implementation
-template <typename ConfigBackend, typename StateBackend>
-void WRFModel<ConfigBackend, StateBackend>::applyBoundaryConditions(
-    StateBackend& state) const {
+template <typename ConfigBackend, typename StateBackend,
+          typename IncrementBackend>
+void WRFModel<ConfigBackend, StateBackend,
+              IncrementBackend>::applyBoundaryConditions(StateBackend& state)
+    const {
   // Apply appropriate boundary conditions to each variable
   // For demonstration purposes, we'll just apply simple conditions
 

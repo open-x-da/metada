@@ -95,10 +95,10 @@ struct BackendTraits<WRFBackendTag> {
   using ObservationIteratorBackend = metada::backends::common::observation::PrepBUFRObservationIterator;
   
   /** @brief WRF observation operator backend implementation */
-  using ObsOperatorBackend = backends::wrf::WRFObsOperator<StateBackend, ObservationBackend>;
+  using ObsOperatorBackend = backends::wrf::WRFObsOperator<StateBackend, ObservationBackend, IncrementBackend>;
   
   /** @brief WRF-specific model backend implementation */
-  using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend>;
+  using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend, IncrementBackend>;
   
   /** @brief WRF-specific background error covariance backend implementation */
   using BackgroundErrorCovarianceBackend = backends::wrf::WRFBackgroundErrorCovariance<ConfigBackend>;
