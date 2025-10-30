@@ -91,3 +91,6 @@ fort.*
 
 # index files
 *.idx
+metada.code-workspace
+src/backends/wrf/tutorial/namelist.input
+src/backends/wrf/tutorial/wrfinput_d01

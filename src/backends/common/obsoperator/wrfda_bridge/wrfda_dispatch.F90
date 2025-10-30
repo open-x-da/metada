@@ -2048,7 +2048,525 @@ contains
       end do
     end if
     
-    ! Add more families here as needed (buoy, airep, pilot, etc.)
+    ! BUOY family
+    if (associated(iv%buoy) .and. iv%info(buoy)%nlocal > 0) then
+      do i = 1, iv%info(buoy)%nlocal
+        if (i > size(iv%buoy)) exit
+        
+        if (iv%buoy(i)%u%qc == 0 .and. abs(iv%buoy(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%buoy(i)%u%inv
+        end if
+        if (iv%buoy(i)%v%qc == 0 .and. abs(iv%buoy(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%buoy(i)%v%inv
+        end if
+        if (iv%buoy(i)%t%qc == 0 .and. abs(iv%buoy(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%buoy(i)%t%inv
+        end if
+        if (iv%buoy(i)%p%qc == 0 .and. abs(iv%buoy(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%buoy(i)%p%inv
+        end if
+        if (iv%buoy(i)%q%qc == 0 .and. abs(iv%buoy(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%buoy(i)%q%inv
+        end if
+      end do
+    end if
+    
+    ! AIREP family - multi-level
+    if (associated(iv%airep) .and. iv%info(airep)%nlocal > 0) then
+      do i = 1, iv%info(airep)%nlocal
+        if (i > size(iv%airep)) exit
+        
+        do k = 1, iv%info(airep)%levels(i)
+          if (iv%airep(i)%u(k)%qc == 0 .and. abs(iv%airep(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%airep(i)%u(k)%inv
+          end if
+          if (iv%airep(i)%v(k)%qc == 0 .and. abs(iv%airep(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%airep(i)%v(k)%inv
+          end if
+          if (iv%airep(i)%t(k)%qc == 0 .and. abs(iv%airep(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%airep(i)%t(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! PILOT family - multi-level
+    if (associated(iv%pilot) .and. iv%info(pilot)%nlocal > 0) then
+      do i = 1, iv%info(pilot)%nlocal
+        if (i > size(iv%pilot)) exit
+        
+        do k = 1, iv%info(pilot)%levels(i)
+          if (iv%pilot(i)%u(k)%qc == 0 .and. abs(iv%pilot(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%pilot(i)%u(k)%inv
+          end if
+          if (iv%pilot(i)%v(k)%qc == 0 .and. abs(iv%pilot(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%pilot(i)%v(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! SONDE_SFC family
+    if (associated(iv%sonde_sfc) .and. iv%info(sonde_sfc)%nlocal > 0) then
+      do i = 1, iv%info(sonde_sfc)%nlocal
+        if (i > size(iv%sonde_sfc)) exit
+        
+        if (iv%sonde_sfc(i)%u%qc == 0 .and. abs(iv%sonde_sfc(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%sonde_sfc(i)%u%inv
+        end if
+        if (iv%sonde_sfc(i)%v%qc == 0 .and. abs(iv%sonde_sfc(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%sonde_sfc(i)%v%inv
+        end if
+        if (iv%sonde_sfc(i)%t%qc == 0 .and. abs(iv%sonde_sfc(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%sonde_sfc(i)%t%inv
+        end if
+        if (iv%sonde_sfc(i)%p%qc == 0 .and. abs(iv%sonde_sfc(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%sonde_sfc(i)%p%inv
+        end if
+        if (iv%sonde_sfc(i)%q%qc == 0 .and. abs(iv%sonde_sfc(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%sonde_sfc(i)%q%inv
+        end if
+      end do
+    end if
+    
+    ! GEOAMV family - multi-level
+    if (associated(iv%geoamv) .and. iv%info(geoamv)%nlocal > 0) then
+      do i = 1, iv%info(geoamv)%nlocal
+        if (i > size(iv%geoamv)) exit
+        
+        do k = 1, iv%info(geoamv)%levels(i)
+          if (iv%geoamv(i)%u(k)%qc == 0 .and. abs(iv%geoamv(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%geoamv(i)%u(k)%inv
+          end if
+          if (iv%geoamv(i)%v(k)%qc == 0 .and. abs(iv%geoamv(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%geoamv(i)%v(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! POLARAMV family - multi-level
+    if (associated(iv%polaramv) .and. iv%info(polaramv)%nlocal > 0) then
+      do i = 1, iv%info(polaramv)%nlocal
+        if (i > size(iv%polaramv)) exit
+        
+        do k = 1, iv%info(polaramv)%levels(i)
+          if (iv%polaramv(i)%u(k)%qc == 0 .and. abs(iv%polaramv(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%polaramv(i)%u(k)%inv
+          end if
+          if (iv%polaramv(i)%v(k)%qc == 0 .and. abs(iv%polaramv(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%polaramv(i)%v(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! GPSPW family
+    if (associated(iv%gpspw) .and. iv%info(gpspw)%nlocal > 0) then
+      do i = 1, iv%info(gpspw)%nlocal
+        if (i > size(iv%gpspw)) exit
+        
+        if (iv%gpspw(i)%tpw%qc == 0 .and. abs(iv%gpspw(i)%tpw%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%gpspw(i)%tpw%inv
+        end if
+      end do
+    end if
+    
+    ! GPSREF family - multi-level
+    if (associated(iv%gpsref) .and. iv%info(gpsref)%nlocal > 0) then
+      do i = 1, iv%info(gpsref)%nlocal
+        if (i > size(iv%gpsref)) exit
+        
+        do k = 1, iv%info(gpsref)%levels(i)
+          if (iv%gpsref(i)%ref(k)%qc == 0 .and. abs(iv%gpsref(i)%ref(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%gpsref(i)%ref(k)%inv
+          end if
+          if (iv%gpsref(i)%p(k)%qc == 0 .and. abs(iv%gpsref(i)%p(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%gpsref(i)%p(k)%inv
+          end if
+          if (iv%gpsref(i)%t(k)%qc == 0 .and. abs(iv%gpsref(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%gpsref(i)%t(k)%inv
+          end if
+          if (iv%gpsref(i)%q(k)%qc == 0 .and. abs(iv%gpsref(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%gpsref(i)%q(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! GPSEPH family - multi-level
+    if (associated(iv%gpseph) .and. iv%info(gpseph)%nlocal > 0) then
+      do i = 1, iv%info(gpseph)%nlocal
+        if (i > size(iv%gpseph)) exit
+        
+        do k = 1, iv%info(gpseph)%levels(i)
+          if (iv%gpseph(i)%eph(k)%qc == 0 .and. abs(iv%gpseph(i)%eph(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%gpseph(i)%eph(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! QSCAT family
+    if (associated(iv%qscat) .and. iv%info(qscat)%nlocal > 0) then
+      do i = 1, iv%info(qscat)%nlocal
+        if (i > size(iv%qscat)) exit
+        
+        if (iv%qscat(i)%u%qc == 0 .and. abs(iv%qscat(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%qscat(i)%u%inv
+        end if
+        if (iv%qscat(i)%v%qc == 0 .and. abs(iv%qscat(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%qscat(i)%v%inv
+        end if
+      end do
+    end if
+    
+    ! PROFILER family - multi-level
+    if (associated(iv%profiler) .and. iv%info(profiler)%nlocal > 0) then
+      do i = 1, iv%info(profiler)%nlocal
+        if (i > size(iv%profiler)) exit
+        
+        do k = 1, iv%info(profiler)%levels(i)
+          if (iv%profiler(i)%u(k)%qc == 0 .and. abs(iv%profiler(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%profiler(i)%u(k)%inv
+          end if
+          if (iv%profiler(i)%v(k)%qc == 0 .and. abs(iv%profiler(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%profiler(i)%v(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! SSMI_RV family
+    if (associated(iv%ssmi_rv) .and. iv%info(ssmi_rv)%nlocal > 0) then
+      do i = 1, iv%info(ssmi_rv)%nlocal
+        if (i > size(iv%ssmi_rv)) exit
+        
+        if (iv%ssmi_rv(i)%Speed%qc == 0 .and. abs(iv%ssmi_rv(i)%Speed%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_rv(i)%Speed%inv
+        end if
+        if (iv%ssmi_rv(i)%tpw%qc == 0 .and. abs(iv%ssmi_rv(i)%tpw%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_rv(i)%tpw%inv
+        end if
+      end do
+    end if
+    
+    ! SSMI_TB family
+    if (associated(iv%ssmi_tb) .and. iv%info(ssmi_tb)%nlocal > 0) then
+      do i = 1, iv%info(ssmi_tb)%nlocal
+        if (i > size(iv%ssmi_tb)) exit
+        
+        if (iv%ssmi_tb(i)%tb19h%qc == 0 .and. abs(iv%ssmi_tb(i)%tb19h%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_tb(i)%tb19h%inv
+        end if
+        if (iv%ssmi_tb(i)%tb19v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb19v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_tb(i)%tb19v%inv
+        end if
+        if (iv%ssmi_tb(i)%tb22v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb22v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_tb(i)%tb22v%inv
+        end if
+        if (iv%ssmi_tb(i)%tb37h%qc == 0 .and. abs(iv%ssmi_tb(i)%tb37h%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_tb(i)%tb37h%inv
+        end if
+        if (iv%ssmi_tb(i)%tb37v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb37v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_tb(i)%tb37v%inv
+        end if
+        if (iv%ssmi_tb(i)%tb85h%qc == 0 .and. abs(iv%ssmi_tb(i)%tb85h%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_tb(i)%tb85h%inv
+        end if
+        if (iv%ssmi_tb(i)%tb85v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb85v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%ssmi_tb(i)%tb85v%inv
+        end if
+      end do
+    end if
+    
+    ! SSMT1 family - multi-level
+    if (associated(iv%ssmt1) .and. iv%info(ssmt1)%nlocal > 0) then
+      do i = 1, iv%info(ssmt1)%nlocal
+        if (i > size(iv%ssmt1)) exit
+        
+        do k = 1, iv%info(ssmt1)%levels(i)
+          if (iv%ssmt1(i)%t(k)%qc == 0 .and. abs(iv%ssmt1(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%ssmt1(i)%t(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! SSMT2 family - multi-level
+    if (associated(iv%ssmt2) .and. iv%info(ssmt2)%nlocal > 0) then
+      do i = 1, iv%info(ssmt2)%nlocal
+        if (i > size(iv%ssmt2)) exit
+        
+        do k = 1, iv%info(ssmt2)%levels(i)
+          if (iv%ssmt2(i)%rh(k)%qc == 0 .and. abs(iv%ssmt2(i)%rh(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%ssmt2(i)%rh(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! SATEM family - multi-level
+    if (associated(iv%satem) .and. iv%info(satem)%nlocal > 0) then
+      do i = 1, iv%info(satem)%nlocal
+        if (i > size(iv%satem)) exit
+        
+        do k = 1, iv%info(satem)%levels(i)
+          if (iv%satem(i)%thickness(k)%qc == 0 .and. abs(iv%satem(i)%thickness(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%satem(i)%thickness(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! PSEUDO family
+    if (associated(iv%pseudo) .and. iv%info(pseudo)%nlocal > 0) then
+      do i = 1, iv%info(pseudo)%nlocal
+        if (i > size(iv%pseudo)) exit
+        
+        if (iv%pseudo(i)%u%qc == 0 .and. abs(iv%pseudo(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%pseudo(i)%u%inv
+        end if
+        if (iv%pseudo(i)%v%qc == 0 .and. abs(iv%pseudo(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%pseudo(i)%v%inv
+        end if
+        if (iv%pseudo(i)%t%qc == 0 .and. abs(iv%pseudo(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%pseudo(i)%t%inv
+        end if
+        if (iv%pseudo(i)%p%qc == 0 .and. abs(iv%pseudo(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%pseudo(i)%p%inv
+        end if
+        if (iv%pseudo(i)%q%qc == 0 .and. abs(iv%pseudo(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%pseudo(i)%q%inv
+        end if
+      end do
+    end if
+    
+    ! BOGUS family - multi-level
+    if (associated(iv%bogus) .and. iv%info(bogus)%nlocal > 0) then
+      do i = 1, iv%info(bogus)%nlocal
+        if (i > size(iv%bogus)) exit
+        
+        do k = 1, iv%info(bogus)%levels(i)
+          if (iv%bogus(i)%u(k)%qc == 0 .and. abs(iv%bogus(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%bogus(i)%u(k)%inv
+          end if
+          if (iv%bogus(i)%v(k)%qc == 0 .and. abs(iv%bogus(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%bogus(i)%v(k)%inv
+          end if
+          if (iv%bogus(i)%t(k)%qc == 0 .and. abs(iv%bogus(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%bogus(i)%t(k)%inv
+          end if
+          if (iv%bogus(i)%q(k)%qc == 0 .and. abs(iv%bogus(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%bogus(i)%q(k)%inv
+          end if
+        end do
+        if (iv%bogus(i)%slp%qc == 0 .and. abs(iv%bogus(i)%slp%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%bogus(i)%slp%inv
+        end if
+      end do
+    end if
+    
+    ! AIRSR family - multi-level
+    if (associated(iv%airsr) .and. iv%info(airsr)%nlocal > 0) then
+      do i = 1, iv%info(airsr)%nlocal
+        if (i > size(iv%airsr)) exit
+        
+        do k = 1, iv%info(airsr)%levels(i)
+          if (iv%airsr(i)%t(k)%qc == 0 .and. abs(iv%airsr(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%airsr(i)%t(k)%inv
+          end if
+          if (iv%airsr(i)%q(k)%qc == 0 .and. abs(iv%airsr(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%airsr(i)%q(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! MTGIRS family - multi-level
+    if (associated(iv%mtgirs) .and. iv%info(mtgirs)%nlocal > 0) then
+      do i = 1, iv%info(mtgirs)%nlocal
+        if (i > size(iv%mtgirs)) exit
+        
+        do k = 1, iv%info(mtgirs)%levels(i)
+          if (iv%mtgirs(i)%u(k)%qc == 0 .and. abs(iv%mtgirs(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%mtgirs(i)%u(k)%inv
+          end if
+          if (iv%mtgirs(i)%v(k)%qc == 0 .and. abs(iv%mtgirs(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%mtgirs(i)%v(k)%inv
+          end if
+          if (iv%mtgirs(i)%t(k)%qc == 0 .and. abs(iv%mtgirs(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%mtgirs(i)%t(k)%inv
+          end if
+          if (iv%mtgirs(i)%q(k)%qc == 0 .and. abs(iv%mtgirs(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%mtgirs(i)%q(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! TAMDAR family - multi-level
+    if (associated(iv%tamdar) .and. iv%info(tamdar)%nlocal > 0) then
+      do i = 1, iv%info(tamdar)%nlocal
+        if (i > size(iv%tamdar)) exit
+        
+        do k = 1, iv%info(tamdar)%levels(i)
+          if (iv%tamdar(i)%u(k)%qc == 0 .and. abs(iv%tamdar(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%tamdar(i)%u(k)%inv
+          end if
+          if (iv%tamdar(i)%v(k)%qc == 0 .and. abs(iv%tamdar(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%tamdar(i)%v(k)%inv
+          end if
+          if (iv%tamdar(i)%t(k)%qc == 0 .and. abs(iv%tamdar(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%tamdar(i)%t(k)%inv
+          end if
+          if (iv%tamdar(i)%q(k)%qc == 0 .and. abs(iv%tamdar(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%tamdar(i)%q(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! TAMDAR_SFC family
+    if (associated(iv%tamdar_sfc) .and. iv%info(tamdar_sfc)%nlocal > 0) then
+      do i = 1, iv%info(tamdar_sfc)%nlocal
+        if (i > size(iv%tamdar_sfc)) exit
+        
+        if (iv%tamdar_sfc(i)%u%qc == 0 .and. abs(iv%tamdar_sfc(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%tamdar_sfc(i)%u%inv
+        end if
+        if (iv%tamdar_sfc(i)%v%qc == 0 .and. abs(iv%tamdar_sfc(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%tamdar_sfc(i)%v%inv
+        end if
+        if (iv%tamdar_sfc(i)%t%qc == 0 .and. abs(iv%tamdar_sfc(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%tamdar_sfc(i)%t%inv
+        end if
+        if (iv%tamdar_sfc(i)%p%qc == 0 .and. abs(iv%tamdar_sfc(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%tamdar_sfc(i)%p%inv
+        end if
+        if (iv%tamdar_sfc(i)%q%qc == 0 .and. abs(iv%tamdar_sfc(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%tamdar_sfc(i)%q%inv
+        end if
+      end do
+    end if
+    
+    ! RAIN family
+    if (associated(iv%rain) .and. iv%info(rain)%nlocal > 0) then
+      do i = 1, iv%info(rain)%nlocal
+        if (i > size(iv%rain)) exit
+        
+        if (iv%rain(i)%rain%qc == 0 .and. abs(iv%rain(i)%rain%inv) > 1.0e-10) then
+          count = count + 1
+          innovations(count) = iv%rain(i)%rain%inv
+        end if
+      end do
+    end if
+    
+    ! RADAR family - multi-level
+    if (associated(iv%radar) .and. iv%info(radar)%nlocal > 0) then
+      do i = 1, iv%info(radar)%nlocal
+        if (i > size(iv%radar)) exit
+        
+        do k = 1, iv%info(radar)%levels(i)
+          if (iv%radar(i)%rv(k)%qc == 0 .and. abs(iv%radar(i)%rv(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%radar(i)%rv(k)%inv
+          end if
+          if (iv%radar(i)%rf(k)%qc == 0 .and. abs(iv%radar(i)%rf(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%radar(i)%rf(k)%inv
+          end if
+        end do
+      end do
+    end if
+    
+    ! LIGHTNING family - multi-level
+    if (associated(iv%lightning) .and. iv%info(lightning)%nlocal > 0) then
+      do i = 1, iv%info(lightning)%nlocal
+        if (i > size(iv%lightning)) exit
+        
+        do k = 1, iv%info(lightning)%levels(i)
+          if (iv%lightning(i)%w(k)%qc == 0 .and. abs(iv%lightning(i)%w(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%lightning(i)%w(k)%inv
+          end if
+          if (iv%lightning(i)%div(k)%qc == 0 .and. abs(iv%lightning(i)%div(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%lightning(i)%div(k)%inv
+          end if
+          if (iv%lightning(i)%qv(k)%qc == 0 .and. abs(iv%lightning(i)%qv(k)%inv) > 1.0e-10) then
+            count = count + 1
+            innovations(count) = iv%lightning(i)%qv(k)%inv
+          end if
+        end do
+      end do
+    end if
     
     num_innovations = count
     wrfda_extract_innovations = 0
@@ -2206,7 +2724,475 @@ contains
       end do
     end if
     
-    ! Add more families here as needed (buoy, airep, pilot, etc.)
+    ! BUOY family
+    if (associated(y%buoy) .and. associated(iv%buoy) .and. iv%info(buoy)%nlocal > 0) then
+      do i = 1, min(size(y%buoy), iv%info(buoy)%nlocal)
+        if (iv%buoy(i)%u%qc == 0 .and. abs(iv%buoy(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%buoy(i)%u
+        end if
+        if (iv%buoy(i)%v%qc == 0 .and. abs(iv%buoy(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%buoy(i)%v
+        end if
+        if (iv%buoy(i)%t%qc == 0 .and. abs(iv%buoy(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%buoy(i)%t
+        end if
+        if (iv%buoy(i)%p%qc == 0 .and. abs(iv%buoy(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%buoy(i)%p
+        end if
+        if (iv%buoy(i)%q%qc == 0 .and. abs(iv%buoy(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%buoy(i)%q
+        end if
+      end do
+    end if
+    
+    ! AIREP family - multi-level
+    if (associated(y%airep) .and. associated(iv%airep) .and. iv%info(airep)%nlocal > 0) then
+      do i = 1, min(size(y%airep), iv%info(airep)%nlocal)
+        do k = 1, iv%info(airep)%levels(i)
+          if (iv%airep(i)%u(k)%qc == 0 .and. abs(iv%airep(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%airep(i)%u(k)
+          end if
+          if (iv%airep(i)%v(k)%qc == 0 .and. abs(iv%airep(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%airep(i)%v(k)
+          end if
+          if (iv%airep(i)%t(k)%qc == 0 .and. abs(iv%airep(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%airep(i)%t(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! PILOT family - multi-level
+    if (associated(y%pilot) .and. associated(iv%pilot) .and. iv%info(pilot)%nlocal > 0) then
+      do i = 1, min(size(y%pilot), iv%info(pilot)%nlocal)
+        do k = 1, iv%info(pilot)%levels(i)
+          if (iv%pilot(i)%u(k)%qc == 0 .and. abs(iv%pilot(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%pilot(i)%u(k)
+          end if
+          if (iv%pilot(i)%v(k)%qc == 0 .and. abs(iv%pilot(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%pilot(i)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SONDE_SFC family
+    if (associated(y%sonde_sfc) .and. associated(iv%sonde_sfc) .and. iv%info(sonde_sfc)%nlocal > 0) then
+      do i = 1, min(size(y%sonde_sfc), iv%info(sonde_sfc)%nlocal)
+        if (iv%sonde_sfc(i)%u%qc == 0 .and. abs(iv%sonde_sfc(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%sonde_sfc(i)%u
+        end if
+        if (iv%sonde_sfc(i)%v%qc == 0 .and. abs(iv%sonde_sfc(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%sonde_sfc(i)%v
+        end if
+        if (iv%sonde_sfc(i)%t%qc == 0 .and. abs(iv%sonde_sfc(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%sonde_sfc(i)%t
+        end if
+        if (iv%sonde_sfc(i)%p%qc == 0 .and. abs(iv%sonde_sfc(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%sonde_sfc(i)%p
+        end if
+        if (iv%sonde_sfc(i)%q%qc == 0 .and. abs(iv%sonde_sfc(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%sonde_sfc(i)%q
+        end if
+      end do
+    end if
+    
+    ! GEOAMV family - multi-level
+    if (associated(y%geoamv) .and. associated(iv%geoamv) .and. iv%info(geoamv)%nlocal > 0) then
+      do i = 1, min(size(y%geoamv), iv%info(geoamv)%nlocal)
+        do k = 1, iv%info(geoamv)%levels(i)
+          if (iv%geoamv(i)%u(k)%qc == 0 .and. abs(iv%geoamv(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%geoamv(i)%u(k)
+          end if
+          if (iv%geoamv(i)%v(k)%qc == 0 .and. abs(iv%geoamv(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%geoamv(i)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! POLARAMV family - multi-level
+    if (associated(y%polaramv) .and. associated(iv%polaramv) .and. iv%info(polaramv)%nlocal > 0) then
+      do i = 1, min(size(y%polaramv), iv%info(polaramv)%nlocal)
+        do k = 1, iv%info(polaramv)%levels(i)
+          if (iv%polaramv(i)%u(k)%qc == 0 .and. abs(iv%polaramv(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%polaramv(i)%u(k)
+          end if
+          if (iv%polaramv(i)%v(k)%qc == 0 .and. abs(iv%polaramv(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%polaramv(i)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! GPSPW family
+    if (associated(y%gpspw) .and. associated(iv%gpspw) .and. iv%info(gpspw)%nlocal > 0) then
+      do i = 1, min(size(y%gpspw), iv%info(gpspw)%nlocal)
+        if (iv%gpspw(i)%tpw%qc == 0 .and. abs(iv%gpspw(i)%tpw%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%gpspw(i)%tpw
+        end if
+      end do
+    end if
+    
+    ! GPSREF family - multi-level
+    if (associated(y%gpsref) .and. associated(iv%gpsref) .and. iv%info(gpsref)%nlocal > 0) then
+      do i = 1, min(size(y%gpsref), iv%info(gpsref)%nlocal)
+        do k = 1, iv%info(gpsref)%levels(i)
+          if (iv%gpsref(i)%ref(k)%qc == 0 .and. abs(iv%gpsref(i)%ref(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%gpsref(i)%ref(k)
+          end if
+          if (iv%gpsref(i)%p(k)%qc == 0 .and. abs(iv%gpsref(i)%p(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%gpsref(i)%p(k)
+          end if
+          if (iv%gpsref(i)%t(k)%qc == 0 .and. abs(iv%gpsref(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%gpsref(i)%t(k)
+          end if
+          if (iv%gpsref(i)%q(k)%qc == 0 .and. abs(iv%gpsref(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%gpsref(i)%q(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! GPSEPH family - multi-level
+    if (associated(y%gpseph) .and. associated(iv%gpseph) .and. iv%info(gpseph)%nlocal > 0) then
+      do i = 1, min(size(y%gpseph), iv%info(gpseph)%nlocal)
+        do k = 1, iv%info(gpseph)%levels(i)
+          if (iv%gpseph(i)%eph(k)%qc == 0 .and. abs(iv%gpseph(i)%eph(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%gpseph(i)%eph(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! QSCAT family
+    if (associated(y%qscat) .and. associated(iv%qscat) .and. iv%info(qscat)%nlocal > 0) then
+      do i = 1, min(size(y%qscat), iv%info(qscat)%nlocal)
+        if (iv%qscat(i)%u%qc == 0 .and. abs(iv%qscat(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%qscat(i)%u
+        end if
+        if (iv%qscat(i)%v%qc == 0 .and. abs(iv%qscat(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%qscat(i)%v
+        end if
+      end do
+    end if
+    
+    ! PROFILER family - multi-level
+    if (associated(y%profiler) .and. associated(iv%profiler) .and. iv%info(profiler)%nlocal > 0) then
+      do i = 1, min(size(y%profiler), iv%info(profiler)%nlocal)
+        do k = 1, iv%info(profiler)%levels(i)
+          if (iv%profiler(i)%u(k)%qc == 0 .and. abs(iv%profiler(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%profiler(i)%u(k)
+          end if
+          if (iv%profiler(i)%v(k)%qc == 0 .and. abs(iv%profiler(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%profiler(i)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SSMI_RV family
+    if (associated(y%ssmi_rv) .and. associated(iv%ssmi_rv) .and. iv%info(ssmi_rv)%nlocal > 0) then
+      do i = 1, min(size(y%ssmi_rv), iv%info(ssmi_rv)%nlocal)
+        if (iv%ssmi_rv(i)%Speed%qc == 0 .and. abs(iv%ssmi_rv(i)%Speed%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_rv(i)%Speed
+        end if
+        if (iv%ssmi_rv(i)%tpw%qc == 0 .and. abs(iv%ssmi_rv(i)%tpw%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_rv(i)%tpw
+        end if
+      end do
+    end if
+    
+    ! SSMI_TB family
+    if (associated(y%ssmi_tb) .and. associated(iv%ssmi_tb) .and. iv%info(ssmi_tb)%nlocal > 0) then
+      do i = 1, min(size(y%ssmi_tb), iv%info(ssmi_tb)%nlocal)
+        if (iv%ssmi_tb(i)%tb19h%qc == 0 .and. abs(iv%ssmi_tb(i)%tb19h%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_tb(i)%tb19h
+        end if
+        if (iv%ssmi_tb(i)%tb19v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb19v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_tb(i)%tb19v
+        end if
+        if (iv%ssmi_tb(i)%tb22v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb22v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_tb(i)%tb22v
+        end if
+        if (iv%ssmi_tb(i)%tb37h%qc == 0 .and. abs(iv%ssmi_tb(i)%tb37h%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_tb(i)%tb37h
+        end if
+        if (iv%ssmi_tb(i)%tb37v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb37v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_tb(i)%tb37v
+        end if
+        if (iv%ssmi_tb(i)%tb85h%qc == 0 .and. abs(iv%ssmi_tb(i)%tb85h%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_tb(i)%tb85h
+        end if
+        if (iv%ssmi_tb(i)%tb85v%qc == 0 .and. abs(iv%ssmi_tb(i)%tb85v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%ssmi_tb(i)%tb85v
+        end if
+      end do
+    end if
+    
+    ! SSMT1 family - multi-level
+    if (associated(y%ssmt1) .and. associated(iv%ssmt1) .and. iv%info(ssmt1)%nlocal > 0) then
+      do i = 1, min(size(y%ssmt1), iv%info(ssmt1)%nlocal)
+        do k = 1, iv%info(ssmt1)%levels(i)
+          if (iv%ssmt1(i)%t(k)%qc == 0 .and. abs(iv%ssmt1(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%ssmt1(i)%t(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SSMT2 family - multi-level
+    if (associated(y%ssmt2) .and. associated(iv%ssmt2) .and. iv%info(ssmt2)%nlocal > 0) then
+      do i = 1, min(size(y%ssmt2), iv%info(ssmt2)%nlocal)
+        do k = 1, iv%info(ssmt2)%levels(i)
+          if (iv%ssmt2(i)%rh(k)%qc == 0 .and. abs(iv%ssmt2(i)%rh(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%ssmt2(i)%rh(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SATEM family - multi-level
+    if (associated(y%satem) .and. associated(iv%satem) .and. iv%info(satem)%nlocal > 0) then
+      do i = 1, min(size(y%satem), iv%info(satem)%nlocal)
+        do k = 1, iv%info(satem)%levels(i)
+          if (iv%satem(i)%thickness(k)%qc == 0 .and. abs(iv%satem(i)%thickness(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%satem(i)%thickness(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! PSEUDO family
+    if (associated(y%pseudo) .and. associated(iv%pseudo) .and. iv%info(pseudo)%nlocal > 0) then
+      do i = 1, min(size(y%pseudo), iv%info(pseudo)%nlocal)
+        if (iv%pseudo(i)%u%qc == 0 .and. abs(iv%pseudo(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%pseudo(i)%u
+        end if
+        if (iv%pseudo(i)%v%qc == 0 .and. abs(iv%pseudo(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%pseudo(i)%v
+        end if
+        if (iv%pseudo(i)%t%qc == 0 .and. abs(iv%pseudo(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%pseudo(i)%t
+        end if
+        if (iv%pseudo(i)%p%qc == 0 .and. abs(iv%pseudo(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%pseudo(i)%p
+        end if
+        if (iv%pseudo(i)%q%qc == 0 .and. abs(iv%pseudo(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%pseudo(i)%q
+        end if
+      end do
+    end if
+    
+    ! BOGUS family - multi-level
+    if (associated(y%bogus) .and. associated(iv%bogus) .and. iv%info(bogus)%nlocal > 0) then
+      do i = 1, min(size(y%bogus), iv%info(bogus)%nlocal)
+        do k = 1, iv%info(bogus)%levels(i)
+          if (iv%bogus(i)%u(k)%qc == 0 .and. abs(iv%bogus(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%bogus(i)%u(k)
+          end if
+          if (iv%bogus(i)%v(k)%qc == 0 .and. abs(iv%bogus(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%bogus(i)%v(k)
+          end if
+          if (iv%bogus(i)%t(k)%qc == 0 .and. abs(iv%bogus(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%bogus(i)%t(k)
+          end if
+          if (iv%bogus(i)%q(k)%qc == 0 .and. abs(iv%bogus(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%bogus(i)%q(k)
+          end if
+        end do
+        if (iv%bogus(i)%slp%qc == 0 .and. abs(iv%bogus(i)%slp%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%bogus(i)%slp
+        end if
+      end do
+    end if
+    
+    ! AIRSR family - multi-level
+    if (associated(y%airsr) .and. associated(iv%airsr) .and. iv%info(airsr)%nlocal > 0) then
+      do i = 1, min(size(y%airsr), iv%info(airsr)%nlocal)
+        do k = 1, iv%info(airsr)%levels(i)
+          if (iv%airsr(i)%t(k)%qc == 0 .and. abs(iv%airsr(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%airsr(i)%t(k)
+          end if
+          if (iv%airsr(i)%q(k)%qc == 0 .and. abs(iv%airsr(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%airsr(i)%q(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! MTGIRS family - multi-level
+    if (associated(y%mtgirs) .and. associated(iv%mtgirs) .and. iv%info(mtgirs)%nlocal > 0) then
+      do i = 1, min(size(y%mtgirs), iv%info(mtgirs)%nlocal)
+        do k = 1, iv%info(mtgirs)%levels(i)
+          if (iv%mtgirs(i)%u(k)%qc == 0 .and. abs(iv%mtgirs(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%mtgirs(i)%u(k)
+          end if
+          if (iv%mtgirs(i)%v(k)%qc == 0 .and. abs(iv%mtgirs(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%mtgirs(i)%v(k)
+          end if
+          if (iv%mtgirs(i)%t(k)%qc == 0 .and. abs(iv%mtgirs(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%mtgirs(i)%t(k)
+          end if
+          if (iv%mtgirs(i)%q(k)%qc == 0 .and. abs(iv%mtgirs(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%mtgirs(i)%q(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! TAMDAR family - multi-level
+    if (associated(y%tamdar) .and. associated(iv%tamdar) .and. iv%info(tamdar)%nlocal > 0) then
+      do i = 1, min(size(y%tamdar), iv%info(tamdar)%nlocal)
+        do k = 1, iv%info(tamdar)%levels(i)
+          if (iv%tamdar(i)%u(k)%qc == 0 .and. abs(iv%tamdar(i)%u(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%tamdar(i)%u(k)
+          end if
+          if (iv%tamdar(i)%v(k)%qc == 0 .and. abs(iv%tamdar(i)%v(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%tamdar(i)%v(k)
+          end if
+          if (iv%tamdar(i)%t(k)%qc == 0 .and. abs(iv%tamdar(i)%t(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%tamdar(i)%t(k)
+          end if
+          if (iv%tamdar(i)%q(k)%qc == 0 .and. abs(iv%tamdar(i)%q(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%tamdar(i)%q(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! TAMDAR_SFC family
+    if (associated(y%tamdar_sfc) .and. associated(iv%tamdar_sfc) .and. iv%info(tamdar_sfc)%nlocal > 0) then
+      do i = 1, min(size(y%tamdar_sfc), iv%info(tamdar_sfc)%nlocal)
+        if (iv%tamdar_sfc(i)%u%qc == 0 .and. abs(iv%tamdar_sfc(i)%u%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%tamdar_sfc(i)%u
+        end if
+        if (iv%tamdar_sfc(i)%v%qc == 0 .and. abs(iv%tamdar_sfc(i)%v%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%tamdar_sfc(i)%v
+        end if
+        if (iv%tamdar_sfc(i)%t%qc == 0 .and. abs(iv%tamdar_sfc(i)%t%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%tamdar_sfc(i)%t
+        end if
+        if (iv%tamdar_sfc(i)%p%qc == 0 .and. abs(iv%tamdar_sfc(i)%p%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%tamdar_sfc(i)%p
+        end if
+        if (iv%tamdar_sfc(i)%q%qc == 0 .and. abs(iv%tamdar_sfc(i)%q%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%tamdar_sfc(i)%q
+        end if
+      end do
+    end if
+    
+    ! RAIN family
+    if (associated(y%rain) .and. associated(iv%rain) .and. iv%info(rain)%nlocal > 0) then
+      do i = 1, min(size(y%rain), iv%info(rain)%nlocal)
+        if (iv%rain(i)%rain%qc == 0 .and. abs(iv%rain(i)%rain%inv) > 1.0e-10) then
+          count = count + 1
+          observations(count) = y%rain(i)%rain
+        end if
+      end do
+    end if
+    
+    ! RADAR family - multi-level
+    if (associated(y%radar) .and. associated(iv%radar) .and. iv%info(radar)%nlocal > 0) then
+      do i = 1, min(size(y%radar), iv%info(radar)%nlocal)
+        do k = 1, iv%info(radar)%levels(i)
+          if (iv%radar(i)%rv(k)%qc == 0 .and. abs(iv%radar(i)%rv(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%radar(i)%rv(k)
+          end if
+          if (iv%radar(i)%rf(k)%qc == 0 .and. abs(iv%radar(i)%rf(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%radar(i)%rf(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! LIGHTNING family - multi-level
+    if (associated(y%lightning) .and. associated(iv%lightning) .and. iv%info(lightning)%nlocal > 0) then
+      do i = 1, min(size(y%lightning), iv%info(lightning)%nlocal)
+        do k = 1, iv%info(lightning)%levels(i)
+          if (iv%lightning(i)%w(k)%qc == 0 .and. abs(iv%lightning(i)%w(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%lightning(i)%w(k)
+          end if
+          if (iv%lightning(i)%div(k)%qc == 0 .and. abs(iv%lightning(i)%div(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%lightning(i)%div(k)
+          end if
+          if (iv%lightning(i)%qv(k)%qc == 0 .and. abs(iv%lightning(i)%qv(k)%inv) > 1.0e-10) then
+            count = count + 1
+            observations(count) = y%lightning(i)%qv(k)
+          end if
+        end do
+      end do
+    end if
     
     num_observations = count
     wrfda_extract_observations = 0

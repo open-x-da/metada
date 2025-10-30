@@ -15,7 +15,7 @@
         {
             "type": "shell",
             "label": "Copy WRF namelist.input",
-            "command": "cp -f /d/linux/metada/src/backends/wrf/tutorial/namelist.input /d/linux/metada/build/namelist.input",
+            "command": "/usr/bin/cp -f /d/linux/WRF/var/test/tutorial/namelist.input /d/linux/metada/build/namelist.input",
             "options": {
                 "shell": {
                     "executable": "C:\\msys64\\usr\\bin\\bash.exe",
@@ -27,7 +27,31 @@
         {
             "type": "shell",
             "label": "Copy WRF LANDUSE.TBL",
-            "command": "cp -f /d/linux/WRF/var/test/tutorial/LANDUSE.TBL /d/linux/metada/build/LANDUSE.TBL",
+            "command": "/usr/bin/cp -f /d/linux/WRF/run/LANDUSE.TBL /d/linux/metada/build/LANDUSE.TBL",
+            "options": {
+                "shell": {
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-c"]
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "type": "shell",
+            "label": "Copy WRF wrfinput_d01",
+            "command": "/usr/bin/cp -f /d/linux/WRF/var/test/tutorial/rc/2008020512/wrfinput_d01 /d/linux/metada/build/wrfinput_d01",
+            "options": {
+                "shell": {
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-c"]
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "type": "shell",
+            "label": "Copy WRF observation file",
+            "command": "/usr/bin/cp -f '/d/linux/WRF/var/test/tutorial/ob/2008020512/obs_gts_2008-02-05_12:00:00.3DVAR' /d/linux/metada/build/ob.ascii",
             "options": {
                 "shell": {
                     "executable": "C:\\msys64\\usr\\bin\\bash.exe",
@@ -41,7 +65,9 @@
             "label": "Prepare WRF Runtime Environment",
             "dependsOn": [
                 "Copy WRF namelist.input",
-                "Copy WRF LANDUSE.TBL"
+                "Copy WRF LANDUSE.TBL",
+                "Copy WRF wrfinput_d01",
+                "Copy WRF observation file"
             ],
             "problemMatcher": []
         }
