@@ -121,6 +121,26 @@ class MockModel {
                const StateBackend& adjoint_forcing,
                StateBackend& adjoint_result),
               (const));
+
+  // Template wrapper for runAdjoint to accept Increment types
+  template <typename StateOrIncrement>
+  void runAdjoint(const StateBackend& initial_state,
+                  const StateBackend& final_state,
+                  const StateOrIncrement& adjoint_forcing,
+                  StateOrIncrement& adjoint_result) const {
+    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
+      runAdjoint(initial_state, final_state, adjoint_forcing, adjoint_result);
+    } else {
+      // For increment, use temporary state
+      StateBackend temp_forcing(config_, initial_state.geometry());
+      StateBackend temp_result(config_, initial_state.geometry());
+      temp_forcing.zero();
+      temp_forcing.addIncrement(adjoint_forcing);
+      runAdjoint(initial_state, final_state, temp_forcing, temp_result);
+      adjoint_result.transferFromState(temp_result);
+    }
+  }
+
   MOCK_METHOD(void, runTangentLinear,
               (const StateBackend& reference_initial,
                const StateBackend& reference_final,

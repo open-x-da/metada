@@ -135,8 +135,8 @@ int main(int argc, char** argv) {
     // Optional: Perform gradient test if requested
     if (config.Get("perform_gradient_test").asBool()) {
       // Create a small test increment
-      auto test_increment =
-          fwk::Increment<BackendTag>::createFromEntity(background);
+      auto test_increment = fwk::Increment<BackendTag>::createFromGeometry(
+          background.geometry()->backend());
       test_increment.randomize();
       test_increment *= 0.01;  // Small perturbation
 

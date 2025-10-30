@@ -230,8 +230,8 @@ class Model : private NonCopyable {
 
     try {
       backend_.runAdjoint(initial_state.backend(), final_state.backend(),
-                          adjoint_forcing.state().backend(),
-                          adjoint_result.state().backend());
+                          adjoint_forcing.incrementBackend(),
+                          adjoint_result.incrementBackend());
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model adjoint run failed: ") +
                                e.what());

@@ -154,6 +154,15 @@ class MockState {
     return std::sqrt(result);
   }
 
+  // Increment operations
+  template <typename IncrementBackend>
+  void addIncrement(const IncrementBackend& increment) {
+    auto inc_data = increment.getData();
+    for (size_t i = 0; i < std::min(data_.size(), inc_data.size()); ++i) {
+      data_[i] += inc_data[i];
+    }
+  }
+
   // File I/O operations
   MOCK_METHOD(void, saveToFile, (const std::string& filename), (const));
 

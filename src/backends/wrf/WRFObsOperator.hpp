@@ -217,9 +217,10 @@ class WRFObsOperator {
    * Implementation: Since apply() now returns H(x), the tangent linear
    * returns H'(xb)·δx directly without sign changes.
    */
-  std::vector<double> applyTangentLinear(const StateBackend& state_increment,
-                                         const StateBackend& reference_state,
-                                         const ObsBackend& obs) const {
+  template <typename StateOrIncrement>
+  std::vector<double> applyTangentLinear(
+      const StateOrIncrement& state_increment,
+      const StateBackend& reference_state, const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
@@ -241,10 +242,28 @@ class WRFObsOperator {
     // construction)
     void* grid_ptr = reference_state.geometry().getGridPtr();
 
-    // Extract state increment data and update analysis increments (grid%xa)
-    const auto state_data = state_increment.getObsOperatorData();
-    wrfda_update_analysis_increments(state_data.u, state_data.v, state_data.t,
-                                     state_data.q, state_data.psfc, grid_ptr);
+    // Extract increment data and update analysis increments (grid%xa)
+    // Handle both WRFState and WRFIncrement types
+    if constexpr (requires { state_increment.getObsOperatorData(); }) {
+      // WRFState path
+      const auto state_data = state_increment.getObsOperatorData();
+      wrfda_update_analysis_increments(state_data.u, state_data.v, state_data.t,
+                                       state_data.q, state_data.psfc, grid_ptr);
+    } else {
+      // WRFIncrement path - extract the 5 increment fields
+      int nx = state_increment.getNx();
+      int ny = state_increment.getNy();
+      int nz = state_increment.getNz();
+      std::vector<double> u(nx * ny * nz);
+      std::vector<double> v(nx * ny * nz);
+      std::vector<double> t(nx * ny * nz);
+      std::vector<double> q(nx * ny * nz);
+      std::vector<double> psfc(nx * ny);
+      state_increment.extract(u.data(), v.data(), t.data(), q.data(),
+                              psfc.data());
+      wrfda_update_analysis_increments(u.data(), v.data(), t.data(), q.data(),
+                                       psfc.data(), grid_ptr);
+    }
 
     // Apply tangent linear operator: H'(xb)·xa
     // Get observation structures from observation backend (already allocated)
@@ -290,9 +309,11 @@ class WRFObsOperator {
    * Implementation: Since apply() now returns H(x), the adjoint returns
    * H'^T(xb) directly without sign changes.
    */
+  template <typename StateOrIncrement>
   void applyAdjoint(const std::vector<double>& obs_increment,
                     const StateBackend& reference_state,
-                    StateBackend& result_state, const ObsBackend& obs) const {
+                    StateOrIncrement& result_state,
+                    const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
@@ -329,18 +350,43 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // Get state variable pointers
-    double* u = static_cast<double*>(result_state.getData("U"));
-    double* v = static_cast<double*>(result_state.getData("V"));
-    double* t = static_cast<double*>(result_state.getData("T"));
-    double* q = static_cast<double*>(result_state.getData("QVAPOR"));
-    double* psfc = static_cast<double*>(result_state.getData("PSFC"));
+    // Handle both WRFState and WRFIncrement types
+    if constexpr (requires { result_state.getData("U"); }) {
+      // WRFState path - has getData(string)
+      double* u = static_cast<double*>(result_state.getData("U"));
+      double* v = static_cast<double*>(result_state.getData("V"));
+      double* t = static_cast<double*>(result_state.getData("T"));
+      double* q = static_cast<double*>(result_state.getData("QVAPOR"));
+      double* psfc = static_cast<double*>(result_state.getData("PSFC"));
 
-    // Retrieve adjoint gradients from persistent arrays
-    rc = wrfda_get_adjoint_gradients(u, v, t, q, psfc);
-    if (rc != 0) {
-      throw std::runtime_error("WRFDA get adjoint gradients failed with code " +
-                               std::to_string(rc));
+      // Retrieve adjoint gradients from persistent arrays
+      rc = wrfda_get_adjoint_gradients(u, v, t, q, psfc);
+      if (rc != 0) {
+        throw std::runtime_error(
+            "WRFDA get adjoint gradients failed with code " +
+            std::to_string(rc));
+      }
+    } else {
+      // WRFIncrement path - use update method
+      int nx = result_state.getNx();
+      int ny = result_state.getNy();
+      int nz = result_state.getNz();
+      std::vector<double> u(nx * ny * nz);
+      std::vector<double> v(nx * ny * nz);
+      std::vector<double> t(nx * ny * nz);
+      std::vector<double> q(nx * ny * nz);
+      std::vector<double> psfc(nx * ny);
+
+      // Retrieve adjoint gradients from persistent arrays
+      rc = wrfda_get_adjoint_gradients(u.data(), v.data(), t.data(), q.data(),
+                                       psfc.data());
+      if (rc != 0) {
+        throw std::runtime_error(
+            "WRFDA get adjoint gradients failed with code " +
+            std::to_string(rc));
+      }
+
+      result_state.update(u.data(), v.data(), t.data(), q.data(), psfc.data());
     }
 
     // WRFDA's adjoint computes +H'^T(xb), which is exactly what we need

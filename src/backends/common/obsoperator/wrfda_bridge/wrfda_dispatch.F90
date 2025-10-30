@@ -4247,4 +4247,226 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
   end function wrfda_zero_xa
 
+  ! Extract analysis increments from grid%xa to flat arrays
+  integer(c_int) function wrfda_extract_analysis_increments(grid_ptr, u, v, t, q, psfc, nx, ny, nz) &
+      bind(C, name="wrfda_extract_analysis_increments")
+    implicit none
+    type(c_ptr), value :: grid_ptr
+    real(c_double), intent(out) :: u(*), v(*), t(*), q(*), psfc(*)
+    integer(c_int), intent(out) :: nx, ny, nz
+    
+    type(domain), pointer :: grid
+    integer :: i, j, k, idx
+    
+    call c_f_pointer(grid_ptr, grid)
+    
+    if (.not. associated(grid)) then
+      wrfda_extract_analysis_increments = -1_c_int
+      return
+    end if
+    
+    ! Get dimensions
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
+    
+    ! Extract 3D fields from grid%xa to flat arrays (column-major for C++)
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          idx = i + (j-1)*nx + (k-1)*nx*ny
+          u(idx) = real(grid%xa%u(i,j,k), kind=8)
+          v(idx) = real(grid%xa%v(i,j,k), kind=8)
+          t(idx) = real(grid%xa%t(i,j,k), kind=8)
+          q(idx) = real(grid%xa%q(i,j,k), kind=8)
+        end do
+      end do
+    end do
+    
+    ! Extract 2D surface field
+    do j = 1, ny
+      do i = 1, nx
+        idx = i + (j-1)*nx
+        psfc(idx) = real(grid%xa%psfc(i,j), kind=8)
+      end do
+    end do
+    
+    wrfda_extract_analysis_increments = 0_c_int
+    
+  end function wrfda_extract_analysis_increments
+
+  ! Compute L2 norm of analysis increments
+  function wrfda_xa_norm(grid_ptr) bind(C, name="wrfda_xa_norm") result(norm_val)
+    implicit none
+    type(c_ptr), value :: grid_ptr
+    real(c_double) :: norm_val
+    
+    type(domain), pointer :: grid
+    integer :: i, j, k
+    real(kind=8) :: sum_sq
+    integer :: nx, ny, nz
+    
+    call c_f_pointer(grid_ptr, grid)
+    
+    if (.not. associated(grid)) then
+      norm_val = 0.0_c_double
+      return
+    end if
+    
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
+    
+    sum_sq = 0.0_8
+    
+    ! Sum squares of all 3D fields
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          sum_sq = sum_sq + grid%xa%u(i,j,k)**2
+          sum_sq = sum_sq + grid%xa%v(i,j,k)**2
+          sum_sq = sum_sq + grid%xa%t(i,j,k)**2
+          sum_sq = sum_sq + grid%xa%q(i,j,k)**2
+        end do
+      end do
+    end do
+    
+    ! Add 2D surface field
+    do j = 1, ny
+      do i = 1, nx
+        sum_sq = sum_sq + grid%xa%psfc(i,j)**2
+      end do
+    end do
+    
+    norm_val = sqrt(sum_sq)
+    
+  end function wrfda_xa_norm
+
+  ! Compute dot product of two grid%xa structures
+  function wrfda_xa_dot(grid_ptr1, grid_ptr2) bind(C, name="wrfda_xa_dot") result(dot_val)
+    implicit none
+    type(c_ptr), value :: grid_ptr1, grid_ptr2
+    real(c_double) :: dot_val
+    
+    type(domain), pointer :: grid1, grid2
+    integer :: i, j, k
+    real(kind=8) :: sum_prod
+    integer :: nx, ny, nz
+    
+    call c_f_pointer(grid_ptr1, grid1)
+    call c_f_pointer(grid_ptr2, grid2)
+    
+    if (.not. associated(grid1) .or. .not. associated(grid2)) then
+      dot_val = 0.0_c_double
+      return
+    end if
+    
+    nx = grid1%xp%ide - grid1%xp%ids + 1
+    ny = grid1%xp%jde - grid1%xp%jds + 1
+    nz = grid1%xp%kde - grid1%xp%kds + 1
+    
+    sum_prod = 0.0_8
+    
+    ! Dot product of all 3D fields
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          sum_prod = sum_prod + grid1%xa%u(i,j,k) * grid2%xa%u(i,j,k)
+          sum_prod = sum_prod + grid1%xa%v(i,j,k) * grid2%xa%v(i,j,k)
+          sum_prod = sum_prod + grid1%xa%t(i,j,k) * grid2%xa%t(i,j,k)
+          sum_prod = sum_prod + grid1%xa%q(i,j,k) * grid2%xa%q(i,j,k)
+        end do
+      end do
+    end do
+    
+    ! Add 2D surface field
+    do j = 1, ny
+      do i = 1, nx
+        sum_prod = sum_prod + grid1%xa%psfc(i,j) * grid2%xa%psfc(i,j)
+      end do
+    end do
+    
+    dot_val = sum_prod
+    
+  end function wrfda_xa_dot
+
+  !============================================================================
+  ! Increment Vector Operations
+  !============================================================================
+  
+  ! AXPY operation on analysis increments: grid1%xa = grid1%xa + alpha * grid2%xa
+  subroutine wrfda_xa_axpy(alpha, grid_ptr1, grid_ptr2) bind(C, name="wrfda_xa_axpy")
+    implicit none
+    real(c_double), value :: alpha
+    type(c_ptr), value :: grid_ptr1, grid_ptr2
+    type(domain), pointer :: grid1, grid2
+    integer :: i, j, k, nx, ny, nz
+    real(kind=4) :: alpha_real
+    
+    call c_f_pointer(grid_ptr1, grid1)
+    call c_f_pointer(grid_ptr2, grid2)
+    
+    if (.not. associated(grid1) .or. .not. associated(grid2)) return
+    
+    nx = grid1%xp%ide - grid1%xp%ids + 1
+    ny = grid1%xp%jde - grid1%xp%jds + 1
+    nz = grid1%xp%kde - grid1%xp%kds + 1
+    alpha_real = real(alpha, kind=4)
+    
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          grid1%xa%u(i,j,k) = grid1%xa%u(i,j,k) + alpha_real * grid2%xa%u(i,j,k)
+          grid1%xa%v(i,j,k) = grid1%xa%v(i,j,k) + alpha_real * grid2%xa%v(i,j,k)
+          grid1%xa%t(i,j,k) = grid1%xa%t(i,j,k) + alpha_real * grid2%xa%t(i,j,k)
+          grid1%xa%q(i,j,k) = grid1%xa%q(i,j,k) + alpha_real * grid2%xa%q(i,j,k)
+        end do
+      end do
+    end do
+    
+    do j = 1, ny
+      do i = 1, nx
+        grid1%xa%psfc(i,j) = grid1%xa%psfc(i,j) + alpha_real * grid2%xa%psfc(i,j)
+      end do
+    end do
+    
+  end subroutine wrfda_xa_axpy
+
+  ! Scale analysis increments: grid%xa = alpha * grid%xa
+  subroutine wrfda_xa_scale(alpha, grid_ptr) bind(C, name="wrfda_xa_scale")
+    implicit none
+    real(c_double), value :: alpha
+    type(c_ptr), value :: grid_ptr
+    type(domain), pointer :: grid
+    integer :: i, j, k, nx, ny, nz
+    real(kind=4) :: alpha_real
+    
+    call c_f_pointer(grid_ptr, grid)
+    
+    if (.not. associated(grid)) return
+    
+    nx = grid%xp%ide - grid%xp%ids + 1
+    ny = grid%xp%jde - grid%xp%jds + 1
+    nz = grid%xp%kde - grid%xp%kds + 1
+    alpha_real = real(alpha, kind=4)
+    
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          grid%xa%u(i,j,k) = alpha_real * grid%xa%u(i,j,k)
+          grid%xa%v(i,j,k) = alpha_real * grid%xa%v(i,j,k)
+          grid%xa%t(i,j,k) = alpha_real * grid%xa%t(i,j,k)
+          grid%xa%q(i,j,k) = alpha_real * grid%xa%q(i,j,k)
+        end do
+      end do
+    end do
+    
+    do j = 1, ny
+      do i = 1, nx
+        grid%xa%psfc(i,j) = alpha_real * grid%xa%psfc(i,j)
+      end do
+    end do
+    
+  end subroutine wrfda_xa_scale
+
 end module metada_wrfda_dispatch

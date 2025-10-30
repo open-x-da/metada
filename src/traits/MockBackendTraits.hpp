@@ -27,6 +27,7 @@
 #include "../backends/gmock/MockObsOperator.hpp"
 #include "../backends/gmock/MockObsIO.hpp"
 #include "../backends/gmock/MockBackgroundErrorCovariance.hpp"
+#include "../backends/gmock/MockIncrement.hpp"
 
 namespace metada::traits {
 
@@ -67,6 +68,9 @@ struct BackendTraits<MockBackendTag> {
   
   /** @brief Mock state vector backend implementation for testing */
   using StateBackend = backends::gmock::MockState<ConfigBackend, GeometryBackend>;
+  
+  /** @brief Mock increment backend implementation for testing */
+  using IncrementBackend = backends::gmock::MockIncrement;
   
   /** @brief Mock model backend implementation for testing */
   using ModelBackend = backends::gmock::MockModel<ConfigBackend, StateBackend>;

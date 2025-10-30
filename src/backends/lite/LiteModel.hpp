@@ -51,12 +51,20 @@ class LiteModel {
   }
 
   // Adjoint model: dx(t) = M^T*dx(t+1)
+  template <typename StateOrIncrement>
   void runAdjoint([[maybe_unused]] const LiteState& initial_state,
                   [[maybe_unused]] const LiteState& final_state,
-                  const LiteState& adjoint_forcing,
-                  LiteState& adjoint_result) const {
+                  const StateOrIncrement& adjoint_forcing,
+                  StateOrIncrement& adjoint_result) const {
     // For identity model, adjoint is same as forward
-    run(adjoint_forcing, adjoint_result);
+    // Handle both LiteState and LiteIncrement
+    if constexpr (std::is_same_v<StateOrIncrement, LiteState>) {
+      run(adjoint_forcing, adjoint_result);
+    } else {
+      // For increment, just copy data (identity model)
+      auto data = adjoint_forcing.getData();
+      adjoint_result.update(data.data(), nullptr, nullptr, nullptr, nullptr);
+    }
   }
 
   // Capability checks

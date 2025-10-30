@@ -19,7 +19,7 @@ template <typename BackendTag>
 class Config;
 
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
+  requires IncrementBackendType<BackendTag>
 class Increment;
 
 /**
@@ -106,8 +106,7 @@ class CostFunction : public NonCopyable {
     double total_cost = 0.0;
 
     // Background term: 1/2 * (x - xb)^T B^-1 (x - xb)
-    auto background_increment =
-        Increment<BackendTag>::createFromDifference(state, background_);
+    auto background_increment = computeStateDifference(state, background_);
     double bg_cost = 0.5 * bg_error_cov_.quadraticForm(background_increment);
     total_cost += bg_cost;
 
@@ -144,8 +143,7 @@ class CostFunction : public NonCopyable {
     gradient.zero();
 
     // Background term gradient: B^-1 (x - xb)
-    auto background_increment =
-        Increment<BackendTag>::createFromDifference(state, background_);
+    auto background_increment = computeStateDifference(state, background_);
     auto bg_gradient = bg_error_cov_.applyInverse(background_increment);
     gradient += bg_gradient;
 
@@ -188,6 +186,27 @@ class CostFunction : public NonCopyable {
     FGAT,       ///< FGAT: Obs at proper times, single trajectory
     FourDVAR    ///< 4DVAR: Full time window with adjoint
   };
+
+  /**
+   * @brief Compute state difference as an increment
+   * @param a First state
+   * @param b Second state
+   * @return Increment representing a - b
+   */
+  Increment<BackendTag> computeStateDifference(
+      const State<BackendTag>& a, const State<BackendTag>& b) const {
+    // Compute difference in state space
+    auto diff_state = a.clone();
+    diff_state -= b;
+
+    // Create increment from geometry and transfer difference using backend
+    // method
+    auto increment =
+        Increment<BackendTag>::createFromGeometry(a.geometry()->backend());
+    increment.incrementBackend().transferFromState(diff_state.backend());
+
+    return increment;
+  }
 
   /**
    * @brief Determine variational type from configuration
@@ -331,7 +350,8 @@ class CostFunction : public NonCopyable {
     }
 
     // Backward pass with adjoint
-    auto adjoint_forcing = Increment<BackendTag>::createFromEntity(state);
+    auto adjoint_forcing =
+        Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
     adjoint_forcing.zero();
 
     // Process observations in reverse order
@@ -350,8 +370,8 @@ class CostFunction : public NonCopyable {
 
       // Adjoint model integration (if not at initial time)
       if (i > 0) {
-        auto next_adjoint_forcing =
-            Increment<BackendTag>::createFromEntity(trajectory[i - 1]);
+        auto next_adjoint_forcing = Increment<BackendTag>::createFromGeometry(
+            trajectory[i - 1].geometry()->backend());
         model_.runAdjoint(trajectory[i - 1], trajectory[i], adjoint_forcing,
                           next_adjoint_forcing);
         adjoint_forcing = std::move(next_adjoint_forcing);

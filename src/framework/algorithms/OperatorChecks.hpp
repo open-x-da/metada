@@ -61,7 +61,8 @@ bool checkObsOperatorTLAD(
   }
 
   // 1. Create random state increment dx and obs increment dy
-  auto dx = Increment<BackendTag>::createFromEntity(state);
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   dx.randomize();
 
   // Create observation increments for all observations
@@ -164,7 +165,8 @@ bool checkObsOperatorTangentLinear(
   std::vector<double> convergence_rates;
 
   // 1. Create random state increment
-  auto dx = Increment<BackendTag>::createFromEntity(state);
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   dx.randomize();
 
   // 2. Apply tangent linear: H dx for all operators
@@ -307,10 +309,12 @@ bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
                                double tol = 1e-6, double epsilon = 1e-2) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
-  auto grad = Increment<BackendTag>::createFromEntity(state);
+  auto grad =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   cost_func.gradient(state, grad);
 
-  auto dx = Increment<BackendTag>::createFromEntity(state);
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   dx.randomize();
 
   auto state_perturbed = state.clone();
@@ -340,11 +344,13 @@ bool checkCostFunctionGradientImproved(
     double tol = 1e-6) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
-  auto grad = Increment<BackendTag>::createFromEntity(state);
+  auto grad =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   cost_func.gradient(state, grad);
 
   // Create perturbation with variable-specific scaling
-  auto dx = Increment<BackendTag>::createFromEntity(state);
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   dx.randomize();
 
   // Scale perturbation by variable magnitudes for better numerical stability
@@ -393,11 +399,13 @@ bool checkCostFunctionGradientMultipleDirections(
   std::vector<double> analytic_values;
 
   for (size_t i = 0; i < num_directions; ++i) {
-    auto grad = Increment<BackendTag>::createFromEntity(state);
+    auto grad =
+        Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
     cost_func.gradient(state, grad);
 
     // Create perturbation with variable-specific scaling
-    auto dx = Increment<BackendTag>::createFromEntity(state);
+    auto dx =
+        Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
     dx.randomize();
 
     // Scale perturbation by variable magnitudes for better numerical stability
@@ -468,21 +476,29 @@ bool checkCostFunctionGradientUnitDirections(
 
   logger.Info() << "Testing gradient with unit vector directions...";
 
-  auto grad = Increment<BackendTag>::createFromEntity(state);
+  auto grad =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   cost_func.gradient(state, grad);
 
   std::vector<double> rel_errors;
   size_t state_size = state.size();
 
-  // Create dx and data pointer once outside the loop
-  auto dx = Increment<BackendTag>::createFromEntity(state);
-  auto* data = dx.state().template getDataPtr<double>();
+  // Create dx and a temporary state for setting unit vectors
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
+  auto temp_state = state.clone();
+  temp_state.zero();
 
   // Test unit vectors along each dimension
   for (size_t i = 0; i < std::min(state_size, size_t(10));
        ++i) {  // Limit to first 10 dimensions
-    dx.zero();
-    data[i] = 1.0;  // Unit vector in direction i
+    // Create unit vector in direction i using temporary state
+    temp_state.zero();
+    auto* data = temp_state.template getDataPtr<double>();
+    data[i] = 1.0;
+
+    // Transfer to increment
+    dx.incrementBackend().transferFromState(temp_state.backend());
 
     // Scale the unit vector
     double state_norm = state.norm();

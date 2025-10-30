@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 #include "BackendTraits.hpp"
@@ -46,7 +47,7 @@ bool checkIncrementalCostFunctionGradient(
                 << tolerance;
 
   // Create a random direction for the finite difference test
-  auto direction = Increment<BackendTag>(test_increment.state());
+  auto direction = Increment<BackendTag>(test_increment.geometry());
   direction.randomize();
 
   // Normalize the direction
@@ -63,7 +64,7 @@ bool checkIncrementalCostFunctionGradient(
   }
 
   // Compute analytical gradient at test_increment
-  auto analytical_gradient = Increment<BackendTag>(test_increment.state());
+  auto analytical_gradient = Increment<BackendTag>(test_increment.geometry());
   cost_function.gradient(test_increment, analytical_gradient);
 
   // Compute finite difference gradient
@@ -71,8 +72,8 @@ bool checkIncrementalCostFunctionGradient(
   // Rule of thumb: epsilon ~ sqrt(machine_precision) * scale
   double epsilon = 1e-5;
 
-  auto perturbed_plus = Increment<BackendTag>(test_increment.state());
-  auto perturbed_minus = Increment<BackendTag>(test_increment.state());
+  auto perturbed_plus = Increment<BackendTag>(test_increment.geometry());
+  auto perturbed_minus = Increment<BackendTag>(test_increment.geometry());
 
   // Perturb: (test_increment ± ε*d)
   perturbed_plus += direction * epsilon;
@@ -140,7 +141,7 @@ bool checkIncrementalCostFunctionGradientMultipleDirections(
 
   for (int i = 0; i < num_directions; ++i) {
     // Create a random direction
-    auto direction = Increment<BackendTag>(test_increment.state());
+    auto direction = Increment<BackendTag>(test_increment.geometry());
     direction.randomize();
 
     // Normalize the direction
@@ -152,13 +153,13 @@ bool checkIncrementalCostFunctionGradientMultipleDirections(
     }
 
     // Compute analytical gradient
-    auto analytical_gradient = Increment<BackendTag>(test_increment.state());
+    auto analytical_gradient = Increment<BackendTag>(test_increment.geometry());
     cost_function.gradient(test_increment, analytical_gradient);
 
     // Compute finite difference gradient
     double epsilon = 1e-8;
-    auto perturbed_plus = Increment<BackendTag>(test_increment.state());
-    auto perturbed_minus = Increment<BackendTag>(test_increment.state());
+    auto perturbed_plus = Increment<BackendTag>(test_increment.geometry());
+    auto perturbed_minus = Increment<BackendTag>(test_increment.geometry());
 
     perturbed_plus += direction * epsilon;
     perturbed_minus -= direction * epsilon;
@@ -246,7 +247,8 @@ bool checkIncrementalObsOperatorTLAD(
                 << obs_operators.size() << " operators";
 
   // 1. Create random state increment dx
-  auto dx = Increment<BackendTag>::createFromEntity(background_state);
+  auto dx = Increment<BackendTag>::createFromGeometry(
+      background_state.geometry()->backend());
   dx.randomize();
 
   // Normalize the increment for numerical stability
@@ -380,7 +382,8 @@ bool checkIncrementalObsOperatorTangentLinear(
   std::vector<double> convergence_rates;
 
   // 1. Create random state increment
-  auto dx = Increment<BackendTag>::createFromEntity(background_state);
+  auto dx = Increment<BackendTag>::createFromGeometry(
+      background_state.geometry()->backend());
   dx.randomize();
 
   // Normalize the increment for numerical stability

@@ -136,7 +136,7 @@ class WRFBackgroundErrorCovariance {
       size_ = state_size;  // Update to actual state size
     }
 
-    const double* data = static_cast<const double*>(increment.getData());
+    auto data = increment.getData();
 
     double result = 0.0;
     // Use average error standard deviation across all variables as fallback
@@ -240,17 +240,13 @@ class WRFBackgroundErrorCovariance {
   template <typename StateType>
   void applyInverseDiagonal(const StateType& increment,
                             StateType& result) const {
-    // Clone the increment to get the same structure
-    result = std::move(*increment.clone());
-
-    size_t state_size = increment.size();
+    auto inc_data = increment.getData();
+    size_t state_size = inc_data.size();
 
     // Update size to match actual state if needed
     if (size_ != state_size) {
       size_ = state_size;  // Update to actual state size
     }
-
-    double* result_data = static_cast<double*>(result.getData());
 
     // Use average error standard deviation across all variables as fallback
     double avg_error_std = 1.0;
@@ -264,9 +260,8 @@ class WRFBackgroundErrorCovariance {
 
     // For diagonal covariance: B^-1 = diag(1/sigma_i^2)
     double variance = avg_error_std * avg_error_std;
-    for (size_t i = 0; i < state_size; ++i) {
-      result_data[i] /= variance;
-    }
+    result.zero();
+    result.axpy(1.0 / variance, increment);
   }
 
  private:

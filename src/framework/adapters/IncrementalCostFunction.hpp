@@ -198,6 +198,14 @@ class IncrementalCostFunction : public NonCopyable {
   };
 
   /**
+   * @brief Add increment to state: state = state + increment
+   */
+  void addIncrementToState(const Increment<BackendTag>& increment,
+                           State<BackendTag>& state) const {
+    state += increment;
+  }
+
+  /**
    * @brief Determine variational type from configuration
    */
   VariationalType determineVariationalType(const Config<BackendTag>& config) {
@@ -397,7 +405,7 @@ class IncrementalCostFunction : public NonCopyable {
     trajectory.reserve(observations_.size());
 
     auto current_state = background_.clone();
-    current_state += increment.state();
+    addIncrementToState(increment, current_state);
     trajectory.push_back(current_state.clone());
 
     for (size_t i = 1; i < observations_.size(); ++i) {
@@ -408,7 +416,8 @@ class IncrementalCostFunction : public NonCopyable {
     }
 
     // Backward pass with adjoint
-    auto adjoint_forcing = Increment<BackendTag>::createFromEntity(background_);
+    auto adjoint_forcing = Increment<BackendTag>::createFromGeometry(
+        background_.geometry()->backend());
     adjoint_forcing.zero();
 
     // Process observations in reverse order
@@ -428,8 +437,8 @@ class IncrementalCostFunction : public NonCopyable {
 
       // Adjoint model integration (if not at initial time)
       if (i > 0) {
-        auto next_adjoint_forcing =
-            Increment<BackendTag>::createFromEntity(trajectory[i - 1]);
+        auto next_adjoint_forcing = Increment<BackendTag>::createFromGeometry(
+            trajectory[i - 1].geometry()->backend());
         model_.runAdjoint(trajectory[i - 1], trajectory[i], adjoint_forcing,
                           next_adjoint_forcing);
         adjoint_forcing = std::move(next_adjoint_forcing);

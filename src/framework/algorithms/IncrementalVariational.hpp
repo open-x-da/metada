@@ -145,8 +145,8 @@ class IncrementalVariational {
     };
 
     // Start with zero increment as initial guess
-    auto initial_increment =
-        Increment<BackendTag>::createFromEntity(background_);
+    auto initial_increment = Increment<BackendTag>::createFromGeometry(
+        background_.geometry()->backend());
     initial_increment.zero();
 
     // Evaluate initial cost (should be just background term)
@@ -154,13 +154,15 @@ class IncrementalVariational {
     logger_.Info() << "Initial cost (background only): " << initial_cost;
 
     // Perform minimization over increments
-    auto final_increment = Increment<BackendTag>::createFromEntity(background_);
+    auto final_increment = Increment<BackendTag>::createFromGeometry(
+        background_.geometry()->backend());
     auto convergence_info = minimizer_.minimize(initial_increment, cost_func,
                                                 gradient_func, final_increment);
 
     // Create final analysis state: xa = xb + δx*
+    // Extract increment and add to background
     auto analysis_state = background_.clone();
-    analysis_state += final_increment.state();
+    addIncrementToState(final_increment, analysis_state);
 
     // Create results structure
     AnalysisResults results{
@@ -433,9 +435,22 @@ class IncrementalVariational {
    */
   void saveIncrement(const Increment<BackendTag>& increment,
                      const std::string& filename) const {
-    // For now, we'll save the increment as a state file
-    // In the future, we might want a dedicated increment file format
-    increment.state().saveToFile(filename);
+    // Convert increment to state for saving
+    // This creates a temporary state and adds the increment to it
+    auto temp_state = background_.clone();
+    temp_state.zero();  // Start with zero state
+    addIncrementToState(increment, temp_state);
+    temp_state.saveToFile(filename);
+  }
+
+  /**
+   * @brief Add increment to state: state = state + increment
+   *
+   * @details Simple wrapper using State::operator+= for clarity
+   */
+  void addIncrementToState(const Increment<BackendTag>& increment,
+                           State<BackendTag>& state) const {
+    state += increment;
   }
 
   const Config<BackendTag>& config_;

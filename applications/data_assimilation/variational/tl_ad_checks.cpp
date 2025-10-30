@@ -156,7 +156,8 @@ int main(int argc, char** argv) {
       logger.Info() << "Incremental cost function initialized";
 
       // Create a test increment
-      auto test_increment = fwk::Increment<BackendTag>::createFromEntity(state);
+      auto test_increment = fwk::Increment<BackendTag>::createFromGeometry(
+          state.geometry()->backend());
       test_increment.randomize();
       logger.Info() << "Test increment created and randomized";
 

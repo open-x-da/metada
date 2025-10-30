@@ -84,6 +84,21 @@ concept StateBackendImpl =
     };
 
 /**
+ * @brief Additional concept to check for increment addition support
+ *
+ * @details This concept checks if a state backend can add an increment to
+ * itself. This is separated from StateBackendImpl to avoid circular
+ * dependencies since IncrementBackend is defined in the same BackendTraits.
+ *
+ * @tparam T The state backend implementation type
+ * @tparam IncrementBackend The increment backend type
+ */
+template <typename T, typename IncrementBackend>
+concept HasAddIncrement = requires(T& t, const IncrementBackend& inc) {
+  { t.addIncrement(inc) } -> std::same_as<void>;
+};
+
+/**
  * @brief Concept that defines requirements for a state backend tag type
  *
  * @details A valid backend tag must:

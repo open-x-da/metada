@@ -130,6 +130,37 @@ class MockObsOperator {
                StateBackend& state_increment, const ObsBackend& obs),
               (const));
 
+  // Template wrappers to accept Increment types
+  template <typename StateOrIncrement>
+  std::vector<double> applyTangentLinear(
+      const StateOrIncrement& state_increment,
+      const StateBackend& reference_state, const ObsBackend& obs) const {
+    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
+      return applyTangentLinear(state_increment, reference_state, obs);
+    } else {
+      // Convert increment to state via getData
+      StateBackend temp_state(config_, reference_state.geometry());
+      temp_state.zero();
+      temp_state.addIncrement(state_increment);
+      return applyTangentLinear(temp_state, reference_state, obs);
+    }
+  }
+
+  template <typename StateOrIncrement>
+  void applyAdjoint(const std::vector<double>& obs_increment,
+                    const StateBackend& reference_state,
+                    StateOrIncrement& state_increment,
+                    const ObsBackend& obs) const {
+    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
+      applyAdjoint(obs_increment, reference_state, state_increment, obs);
+    } else {
+      StateBackend temp_state(config_, reference_state.geometry());
+      temp_state.zero();
+      applyAdjoint(obs_increment, reference_state, temp_state, obs);
+      state_increment.transferFromState(temp_state);
+    }
+  }
+
   /**
    * @brief Check if tangent linear and adjoint operators are available
    * @return True if linearization is supported

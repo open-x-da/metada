@@ -1,6 +1,7 @@
 #pragma once
 #include <Eigen/Dense>
 #include <cmath>
+#include <random>
 
 #include "Config.hpp"
 #include "Ensemble.hpp"

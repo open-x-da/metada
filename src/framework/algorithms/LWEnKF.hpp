@@ -2,6 +2,8 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
+#include <numeric>
+#include <random>
 
 #include "Config.hpp"
 #include "Ensemble.hpp"

@@ -1,5 +1,7 @@
 #pragma once
 #include <Eigen/Dense>
+#include <numeric>
+#include <random>
 #include <vector>
 
 #include "Config.hpp"

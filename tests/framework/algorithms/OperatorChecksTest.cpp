@@ -125,12 +125,14 @@ TEST_F(OperatorChecksTest, IncrementCreation) {
   }
 
   auto increment =
-      framework::Increment<traits::MockBackendTag>::createFromEntity(*state_);
-  EXPECT_NE(increment.state().size(), 0);
+      framework::Increment<traits::MockBackendTag>::createFromGeometry(
+          state_->geometry()->backend());
+  auto inc_data = increment.getData<std::vector<double>>();
+  EXPECT_NE(inc_data.size(), 0);
 
   // Test that increment can be randomized
   increment.randomize();
-  auto inc_data = increment.state().template getDataPtr<double>();
+  inc_data = increment.getData<std::vector<double>>();
   EXPECT_NE(inc_data[0], 0.0);  // Should be randomized
 }
 
@@ -162,10 +164,10 @@ TEST_F(OperatorChecksTest, IncrementOperations) {
     GTEST_SKIP() << "Setup failed - skipping test";
   }
 
-  auto inc1 =
-      framework::Increment<traits::MockBackendTag>::createFromEntity(*state_);
-  auto inc2 =
-      framework::Increment<traits::MockBackendTag>::createFromEntity(*state_);
+  auto inc1 = framework::Increment<traits::MockBackendTag>::createFromGeometry(
+      state_->geometry()->backend());
+  auto inc2 = framework::Increment<traits::MockBackendTag>::createFromGeometry(
+      state_->geometry()->backend());
 
   // Test dot product
   double dot_product = inc1.dot(inc2);
@@ -190,7 +192,8 @@ TEST_F(OperatorChecksTest, OperatorChecksInterface) {
   // proper implementation of the framework types
 
   auto increment =
-      framework::Increment<traits::MockBackendTag>::createFromEntity(*state_);
+      framework::Increment<traits::MockBackendTag>::createFromGeometry(
+          state_->geometry()->backend());
   increment.randomize();
 
   // Test that we can create vectors of the expected types
@@ -260,7 +263,8 @@ TEST_F(OperatorChecksTest, CostFunctionInterface) {
 
     // Test that we can compute gradient
     auto grad =
-        framework::Increment<traits::MockBackendTag>::createFromEntity(*state_);
+        framework::Increment<traits::MockBackendTag>::createFromGeometry(
+            state_->geometry()->backend());
     cost_func.gradient(*state_, grad);
 
     EXPECT_TRUE(true);  // If we get here, the interface works

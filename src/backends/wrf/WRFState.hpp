@@ -741,6 +741,19 @@ class WRFState {
    * @param[in] scalar Value to multiply all elements by
    */
   void multiply(double scalar);
+
+  /**
+   * @brief Add increment to this state
+   *
+   * @details Adds increment fields to the corresponding state fields.
+   * This is the fundamental operation for combining analysis increments
+   * with background states: state = state + increment.
+   *
+   * @tparam IncrementBackend The increment backend type
+   * @param[in] increment Increment to add to this state
+   */
+  template <typename IncrementBackend>
+  void addIncrement(const IncrementBackend& increment);
   ///@}
 
   ///@{ @name State Comparison
@@ -1993,6 +2006,45 @@ void WRFState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
   // Multiply only core state variables by the scalar
   for (size_t i = 0; i < core_state_size_; ++i) {
     flattened_data_[i] *= scalar;
+  }
+}
+
+// Add increment implementation
+template <typename ConfigBackend, typename GeometryBackend>
+template <typename IncrementBackend>
+void WRFState<ConfigBackend, GeometryBackend>::addIncrement(
+    const IncrementBackend& increment) {
+  auto nx = increment.getNx();
+  auto ny = increment.getNy();
+  auto nz = increment.getNz();
+
+  std::vector<double> u_inc(nx * ny * nz);
+  std::vector<double> v_inc(nx * ny * nz);
+  std::vector<double> t_inc(nx * ny * nz);
+  std::vector<double> q_inc(nx * ny * nz);
+  std::vector<double> psfc_inc(nx * ny);
+
+  increment.extract(u_inc.data(), v_inc.data(), t_inc.data(), q_inc.data(),
+                    psfc_inc.data());
+
+  auto* u = static_cast<double*>(getData("U"));
+  auto* v = static_cast<double*>(getData("V"));
+  auto* t = static_cast<double*>(getData("T"));
+  auto* q = static_cast<double*>(getData("QVAPOR"));
+  auto* psfc = static_cast<double*>(getData("PSFC"));
+
+  size_t size_3d = static_cast<size_t>(nx) * static_cast<size_t>(ny) *
+                   static_cast<size_t>(nz);
+  size_t size_2d = static_cast<size_t>(nx) * static_cast<size_t>(ny);
+
+  for (size_t i = 0; i < size_3d; ++i) {
+    u[i] += u_inc[i];
+    v[i] += v_inc[i];
+    t[i] += t_inc[i];
+    q[i] += q_inc[i];
+  }
+  for (size_t i = 0; i < size_2d; ++i) {
+    psfc[i] += psfc_inc[i];
   }
 }
 

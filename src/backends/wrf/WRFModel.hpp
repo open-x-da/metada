@@ -126,17 +126,24 @@ class WRFModel {
    * @param forcing_increment Forcing increment for adjoint
    * @param result_increment Resulting increment from adjoint integration
    */
+  template <typename StateOrIncrement>
   void runAdjoint([[maybe_unused]] const StateBackend& initial_state,
                   [[maybe_unused]] const StateBackend& final_state,
-                  [[maybe_unused]] const StateBackend& forcing_increment,
-                  [[maybe_unused]] StateBackend& result_increment) const {
+                  [[maybe_unused]] const StateOrIncrement& forcing_increment,
+                  [[maybe_unused]] StateOrIncrement& result_increment) const {
     // Placeholder implementation - in practice this would be a complex
     // adjoint model integration
 
     // For now, just copy the forcing increment to the result
     // This is obviously not a correct adjoint implementation, but allows
     // the code to compile and run for testing purposes
-    result_increment = std::move(*(forcing_increment.clone()));
+    if constexpr (std::is_same_v<StateOrIncrement, StateBackend>) {
+      result_increment = std::move(*(forcing_increment.clone()));
+    } else {
+      // For increment, use axpy to copy
+      result_increment.zero();
+      result_increment.axpy(1.0, forcing_increment);
+    }
 
     // In a real implementation, this would:
     // 1. Load the trajectory from the forward model run

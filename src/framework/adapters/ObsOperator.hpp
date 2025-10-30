@@ -269,7 +269,7 @@ class ObsOperator : public NonCopyable {
       const Observation<ObsBackend>& obs) const {
     logger_.Debug() << "Applying tangent linear observation operator";
 
-    return backend_.applyTangentLinear(state_increment.state().backend(),
+    return backend_.applyTangentLinear(state_increment.incrementBackend(),
                                        reference_state.backend(),
                                        obs.backend());
   }
@@ -323,11 +323,12 @@ Increment<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
     const std::vector<double>& obs_increment,
     const State<BackendTag>& reference_state,
     const Observation<BackendTag>& obs) const {
-  // Create an increment from the reference state
-  auto increment = Increment<BackendTag>::createFromEntity(reference_state);
+  // Create an increment from geometry
+  auto increment = Increment<BackendTag>::createFromGeometry(
+      reference_state.geometry()->backend());
   increment.zero();
   backend_.applyAdjoint(obs_increment, reference_state.backend(),
-                        increment.state().backend(), obs.backend());
+                        increment.incrementBackend(), obs.backend());
   return increment;
 }
 

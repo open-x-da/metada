@@ -131,7 +131,8 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
   test_state.backend().setData({1.0, 2.0, 3.0});
 
   // Compute gradient
-  auto gradient = Increment<BackendTag>::createFromEntity(test_state);
+  auto gradient = Increment<BackendTag>::createFromGeometry(
+      test_state.geometry()->backend());
   cost_func.gradient(test_state, gradient);
 
   // Compute cost at test state
@@ -139,6 +140,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
 
   // Test gradient using finite differences
   double epsilon = 1e-6;
+  auto grad_data = gradient.getData<std::vector<double>>();
   for (size_t i = 0; i < 3; ++i) {
     // Create perturbed state
     auto perturbed_state = test_state.clone();
@@ -152,7 +154,6 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
     double finite_diff_grad = (cost_at_x_plus_dx - cost_at_x) / epsilon;
 
     // Compare with computed gradient
-    auto* grad_data = gradient.state().template getDataPtr<double>();
     EXPECT_NEAR(grad_data[i], finite_diff_grad, 1e-5);
   }
 }

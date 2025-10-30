@@ -22,6 +22,7 @@
 #include "../backends/simple/SimpleGeometry.hpp"
 #include "../backends/simple/SimpleGeometryIterator.hpp"
 #include "../backends/simple/SimpleState.hpp"
+#include "../backends/simple/SimpleIncrement.hpp"
 #include "../backends/common/observation/GridObservation.hpp"
 #include "../backends/common/obsoperator/IdentityObsOperator.hpp"
 #include "../backends/simple/SimpleModel.hpp"
@@ -75,6 +76,9 @@ struct BackendTraits<SimpleBackendTag> {
   
   /** @brief Simple state vector backend implementation */
   using StateBackend = backends::simple::SimpleState;
+  
+  /** @brief Simple increment backend implementation */
+  using IncrementBackend = backends::simple::SimpleIncrement;
   
   /** @brief Simple observation backend implementation */
   using ObservationBackend = backends::common::observation::GridObservation;

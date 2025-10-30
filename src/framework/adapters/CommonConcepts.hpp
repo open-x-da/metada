@@ -92,6 +92,21 @@ concept HasStateBackend =
     requires { typename traits::BackendTraits<T>::StateBackend; };
 
 /**
+ * @brief Checks if a type provides an IncrementBackend type through
+ * BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines an IncrementBackend type through the BackendTraits specialization.
+ * The IncrementBackend is responsible for handling analysis increments
+ * in variational data assimilation, independent of state representations.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasIncrementBackend =
+    requires { typename traits::BackendTraits<T>::IncrementBackend; };
+
+/**
  * @brief Checks if a type provides a ModelBackend type through BackendTraits
  *
  * @details This concept is used to verify that a backend tag type correctly
