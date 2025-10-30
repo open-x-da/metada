@@ -4213,4 +4213,38 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
   end function wrfda_transfer_wrftoxb
 
+  !============================================================================
+  ! State Operations - Zero Increment
+  !============================================================================
+  
+  !> @brief Zero the analysis increment (xa) using WRFDA's da_zero_x
+  !> @details This function wraps WRFDA's proven da_zero_x subroutine which
+  !> zeros all fields in the analysis increment structure. This is used to
+  !> initialize the increment at the start of each outer loop iteration.
+  !> @param[in] grid_ptr C pointer to domain structure
+  !> @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_zero_xa(grid_ptr) bind(C, name="wrfda_zero_xa")
+    use da_define_structures, only: da_zero_x
+    implicit none
+    
+    type(c_ptr), value :: grid_ptr
+    type(domain), pointer :: grid
+    
+    ! Convert C pointer to Fortran pointer
+    call c_f_pointer(grid_ptr, grid)
+    
+    if (.not. associated(grid)) then
+      call wrf_message("ERROR: grid not associated in wrfda_zero_xa")
+      wrfda_zero_xa = -1_c_int
+      return
+    end if
+    
+    ! Call WRFDA's da_zero_x to zero all increment fields
+    ! Note: xa is a member of the grid structure, not a pointer
+    call da_zero_x(grid%xa)
+    
+    wrfda_zero_xa = 0_c_int
+    
+  end function wrfda_zero_xa
+
 end module metada_wrfda_dispatch

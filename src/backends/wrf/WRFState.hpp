@@ -42,9 +42,6 @@ int wrfda_extract_background_state(void* grid_ptr, double* u, double* v,
 int wrfda_extract_additional_fields(void* grid_ptr, double* w, double* mu,
                                     double* mub, double* pb, double* t_init);
 
-// Get grid pointer from WRF config bridge
-void* wrf_get_grid_ptr_(int domain_id);
-
 // Cleanup da_control module vertical coordinates
 void wrfda_cleanup_vertical_coords();
 

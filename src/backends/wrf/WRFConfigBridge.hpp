@@ -242,6 +242,29 @@ void* wrf_get_config_flags_ptr_();
  */
 size_t wrf_get_config_flags_size_();
 
+//============================================================================
+// State Operations - Zero Increment
+//============================================================================
+
+/**
+ * @brief Zero the analysis increment (xa) using WRFDA's da_zero_x
+ *
+ * @details Wraps WRFDA's proven da_zero_x subroutine which zeros all fields
+ * in the analysis increment structure (grid%xa). This includes:
+ * - 3D fields: u, v, w, t, q, p, geoh, rh, wh, rho, ref
+ * - Hydrometeors: qcw, qrn, qt, qci, qsn, qgr
+ * - 2D fields: tgrn, psfc, mu, u10, v10, t2, q2
+ * - Derived fields: ztd, tpw, speed, brightness temperatures
+ *
+ * @param[in] grid_ptr Pointer to WRF domain structure
+ * @return int Error code: 0 on success, -1 if grid not initialized
+ *
+ * @note The grid must be initialized via wrfda_alloc_and_init_domain
+ *
+ * @see da_zero_x in WRF/var/da/da_define_structures/da_zero_x.inc
+ */
+int wrfda_zero_xa(void* grid_ptr);
+
 }  // extern "C"
 
 namespace metada::backends::wrf {
