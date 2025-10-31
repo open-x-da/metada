@@ -5,9 +5,11 @@
 
 #include "WRFDAObsOperator_c_api.h"
 
-// Forward declaration for WRFDA grid accessor
+// Forward declarations for WRFDA structure accessors
 extern "C" {
 void* wrfda_get_head_grid_ptr_();
+void* wrfda_get_iv_ptr(void);
+void* wrfda_get_y_ptr(void);
 }
 
 namespace metada::backends::wrf {
@@ -225,41 +227,34 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Note: reference_state parameter is not used because WRF grid already
-    // contains the state
-    (void)reference_state;
+    // Note: increment parameter is a WRFIncrement which operates directly on
+    // grid%xa. When the increment is updated through WRFIncrement's operators
+    // (axpy, scale, etc.), grid%xa is already modified. WRFDA's
+    // da_transform_xtoy_synop reads grid%xa directly, so we don't need to
+    // explicitly use the increment parameter here.
+    (void)increment;
 
-    // Transfer WRF fields to background state (grid%xb) using WRFDA's standard
-    // workflow
-    int rc = wrfda_transfer_wrftoxb();
-    if (rc != 0) {
+    // Note: reference_state parameter is not used because WRF grid already
+    // contains the state. Background state (grid%xb) is already set up during
+    // the nonlinear apply() call in cost function initialization.
+    (void)reference_state;
+    (void)obs;
+
+    // Get WRFDA structures directly (grid, iv, y are allocated and managed by
+    // WRFDA)
+    void* grid_ptr = wrfda_get_head_grid_ptr_();
+    void* iv_ptr = wrfda_get_iv_ptr();
+    void* y_ptr = wrfda_get_y_ptr();
+
+    if (!grid_ptr || !iv_ptr || !y_ptr) {
       throw std::runtime_error(
-          "WRFDA da_transfer_wrftoxb failed in tangent linear with code " +
-          std::to_string(rc));
+          "WRFDA structures not available. Ensure observations are read and "
+          "domain is initialized.");
     }
 
-    // Get grid pointer from geometry (allocated during WRFGeometry
-    // construction)
-    void* grid_ptr = reference_state.geometry().getGridPtr();
-
-    // Extract increment data and update analysis increments (grid%xa)
-    int nx = increment.getNx();
-    int ny = increment.getNy();
-    int nz = increment.getNz();
-    std::vector<double> u(nx * ny * nz);
-    std::vector<double> v(nx * ny * nz);
-    std::vector<double> t(nx * ny * nz);
-    std::vector<double> q(nx * ny * nz);
-    std::vector<double> psfc(nx * ny);
-    increment.extract(u.data(), v.data(), t.data(), q.data(), psfc.data());
-    wrfda_update_analysis_increments(u.data(), v.data(), t.data(), q.data(),
-                                     psfc.data(), grid_ptr);
-
     // Apply tangent linear operator: H'(xb)·xa
-    // Get observation structures from observation backend (already allocated)
-    void* ob_ptr = obs.getYTypeData();
-    void* iv_ptr = obs.getIVTypeData();
-    rc = wrfda_xtoy_apply_grid(grid_ptr, ob_ptr, iv_ptr);
+    // Use WRFDA-side structures directly (iv and y are already allocated)
+    int rc = wrfda_xtoy_apply_grid(grid_ptr, y_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA tangent linear failed with code " +
                                std::to_string(rc));
@@ -308,29 +303,29 @@ class WRFObsOperator {
     }
 
     // Note: reference_state parameter is not used because WRF grid already
-    // contains the state
+    // contains the state. Background state (grid%xb) is already set up during
+    // the nonlinear apply() call in cost function initialization.
     (void)reference_state;
-
-    // Transfer WRF fields to background state (grid%xb) using WRFDA's standard
-    // workflow
-    int rc = wrfda_transfer_wrftoxb();
-    if (rc != 0) {
-      throw std::runtime_error(
-          "WRFDA da_transfer_wrftoxb failed in adjoint with code " +
-          std::to_string(rc));
-    }
+    (void)obs;
 
     // Set delta_y input for adjoint operator
-    rc = wrfda_set_delta_y(obs_increment.data(),
-                           static_cast<int>(obs_increment.size()));
+    int rc = wrfda_set_delta_y(obs_increment.data(),
+                               static_cast<int>(obs_increment.size()));
     if (rc != 0) {
       throw std::runtime_error("WRFDA set delta_y failed with code " +
                                std::to_string(rc));
     }
 
-    // Get observation structures from observation backend (already allocated)
+    // Get WRFDA structures directly (grid and iv are allocated and managed by
+    // WRFDA)
     void* grid_ptr = wrfda_get_head_grid_ptr_();
-    void* iv_ptr = obs.getIVTypeData();
+    void* iv_ptr = wrfda_get_iv_ptr();
+
+    if (!grid_ptr || !iv_ptr) {
+      throw std::runtime_error(
+          "WRFDA structures not available. Ensure observations are read and "
+          "domain is initialized.");
+    }
 
     // Call WRFDA adjoint directly
     rc = wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr);

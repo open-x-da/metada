@@ -46,13 +46,11 @@ module metada_wrfda_dispatch
   type(domain), pointer, save :: persistent_grid => null()
   logical, save :: grid_initialized = .false.
   
-  ! CRITICAL FIX: Add persistent iv structure to avoid deallocation issues
-  type(iv_type), pointer, save :: persistent_iv
-  logical, save :: iv_allocated = .false.
-  
-  ! CRITICAL FIX: Add persistent y structure to avoid repeated allocation
-  type(y_type), pointer, save :: persistent_y
-  logical, save :: y_allocated = .false.
+  ! Module-level WRFDA observation structures (persistent across calls)
+  ! These are allocated once and reused by all observation operator calls
+  type(iv_type), pointer, save :: wrfda_iv => null()
+  type(y_type), pointer, save :: wrfda_ob => null()
+  logical, save :: wrfda_obs_allocated = .false.
   
   ! Map projection information for WRFDA coordinate conversion
   ! Define projection constants
@@ -340,9 +338,9 @@ contains
     real(c_double), parameter :: missing_r = -888888.0_c_double
     
     ! Calculate number of observations from innovations
-    ! For synop observations, we need to get the actual number of observations from persistent_iv
-    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
-      num_obs = persistent_iv%info(2)%nlocal
+    ! For synop observations, we need to get the actual number of observations from wrfda_iv
+    if (associated(wrfda_iv) .and. associated(wrfda_iv%synop)) then
+      num_obs = wrfda_iv%info(2)%nlocal
     else
       ! Fallback: assume we have 1 observation per 5 innovations
       num_obs = max(1, num_innovations / 5)
@@ -439,9 +437,9 @@ contains
     real(c_double), parameter :: missing_r = -888888.0_c_double
     
     ! Calculate number of observations from innovations
-    ! For synop observations, we need to get the actual number of observations from persistent_iv
-    if (associated(persistent_iv) .and. associated(persistent_iv%synop)) then
-      num_obs = persistent_iv%info(2)%nlocal
+    ! For synop observations, we need to get the actual number of observations from wrfda_iv
+    if (associated(wrfda_iv) .and. associated(wrfda_iv%synop)) then
+      num_obs = wrfda_iv%info(2)%nlocal
     else
       ! Fallback: assume we have 1 observation per 5 innovations
       num_obs = max(1, num_innovations / 5)
@@ -687,71 +685,6 @@ contains
     end do
     
   end subroutine wrfda_update_background_state
-
-  ! Get available observation families from iv structure
-  integer(c_int) function wrfda_get_available_families(families_buffer, buffer_size) bind(C, name="wrfda_get_available_families")
-    implicit none
-    character(c_char), intent(out) :: families_buffer(*)
-    integer(c_int), intent(inout) :: buffer_size
-    
-    integer :: i, family_index, current_pos
-    character(len=20) :: family_name
-    character(len=256) :: families_string
-    
-    ! Check if iv structure is available
-    if (.not. iv_allocated .or. .not. associated(persistent_iv)) then
-      families_string = ""
-      buffer_size = 0
-      wrfda_get_available_families = 0
-      return
-    end if
-    
-    families_string = ""
-    current_pos = 1
-    
-    ! Check each observation family for available observations
-    do family_index = 1, size(persistent_iv%info)
-      if (persistent_iv%info(family_index)%nlocal > 0) then
-        ! Determine family name based on index
-        select case (family_index)
-        case (1)
-          family_name = "metar"
-        case (2)
-          family_name = "synop"
-        case (3)
-          family_name = "sound"
-        case (4)
-          family_name = "gpspw"
-        case (5)
-          family_name = "airep"
-        case (6)
-          family_name = "pilot"
-        case (7)
-          family_name = "ships"
-        case (8)
-          family_name = "buoy"
-        case default
-          family_name = "unknown"
-        end select
-        
-        ! Add family name to string (comma-separated)
-        if (len_trim(families_string) > 0) then
-          families_string = trim(families_string) // ","
-        end if
-        families_string = trim(families_string) // trim(family_name)
-      end if
-    end do
-    
-    ! Copy to C buffer
-    do i = 1, min(len_trim(families_string), buffer_size - 1)
-      families_buffer(i) = families_string(i:i)
-    end do
-    families_buffer(min(len_trim(families_string) + 1, buffer_size)) = c_null_char
-    
-    buffer_size = len_trim(families_string) + 1
-    wrfda_get_available_families = 0
-    
-  end function wrfda_get_available_families
 
   ! New function to call da_get_innov_vector directly
   integer(c_int) function wrfda_get_innov_vector(it, ob_ptr, iv_ptr, grid_ptr) bind(C, name="wrfda_get_innov_vector")
@@ -1164,411 +1097,6 @@ contains
     wrfda_init_domain_from_wrf_fields = 0  ! Success
     
   end function wrfda_init_domain_from_wrf_fields
-
-  ! Construct y_type from observation data
-  type(c_ptr) function wrfda_construct_y_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_available, v_available, t_available, p_available, q_available, lats, lons, obs_types, family) bind(C, name="wrfda_construct_y_type")
-    implicit none
-    integer(c_int), intent(in) :: num_obs, num_levels
-    real(c_double), intent(in) :: u_values(*), v_values(*), t_values(*), p_values(*), q_values(*)
-    real(c_double), intent(in) :: u_errors(*), v_errors(*), t_errors(*), p_errors(*), q_errors(*)
-    integer(c_int), intent(in) :: u_available(*), v_available(*), t_available(*), p_available(*), q_available(*)
-    real(c_double), intent(in) :: lats(*), lons(*)
-    character(c_char), intent(in) :: obs_types(*), family(*)
-    
-    type(y_type), pointer :: y
-    integer :: i
-    character(len=20) :: family_str
-    character(c_char), target :: family_target(20)
-    
-    
-    ! Check if num_obs is valid
-    if (num_obs <= 0 .or. num_levels <= 0) then
-      wrfda_construct_y_type = c_null_ptr
-      return
-    end if
-    
-    ! Convert C string to Fortran string
-    family_target = family(1:20)
-    family_str = ""
-    do i = 1, 20
-      if (family_target(i) == c_null_char) exit
-      family_str(i:i) = family_target(i)
-    end do
-    
-    ! Allocate persistent y_type if not already allocated
-    if (.not. y_allocated) then
-      allocate(persistent_y)
-      y_allocated = .true.
-    end if
-    
-    ! Point local y to persistent structure
-    y => persistent_y
-    
-    ! Initialize counters
-    y%nlocal = 0
-    y%ntotal = 0
-    y%num_inst = 0
-    
-    ! For surface observations (metar, synop, adpsfc), allocate synop array
-    if (trim(family_str) == "metar" .or. trim(family_str) == "synop" .or. trim(family_str) == "adpsfc") then
-      allocate(y%synop(num_obs))
-      y%nlocal(1) = num_obs  ! synop index
-      y%ntotal(1) = num_obs
-      
-      ! Populate synop array with observation data
-      do i = 1, num_obs
-        ! Set values from the structured data only if available
-        ! residual_synop_type has simple real fields (u, v, t, p, q)
-        if (u_available(i) == 1) then
-          y%synop(i)%u = u_values(i)
-        else
-          y%synop(i)%u = missing_r  ! Default value for unavailable data
-        end if
-        
-        if (v_available(i) == 1) then
-          y%synop(i)%v = v_values(i)
-        else
-          y%synop(i)%v = missing_r
-        end if
-        
-        if (t_available(i) == 1) then
-          y%synop(i)%t = t_values(i)
-        else
-          y%synop(i)%t = missing_r
-        end if
-        
-        if (p_available(i) == 1) then
-          y%synop(i)%p = p_values(i)
-        else
-          y%synop(i)%p = missing_r
-        end if
-        
-        if (q_available(i) == 1) then
-          y%synop(i)%q = q_values(i)
-        else
-          y%synop(i)%q = missing_r
-        end if
-        
-        ! lats, lons arrays contain observation location information (used for coordinate conversion)
-        if (i <= num_obs .and. lats(i) > -90.0 .and. lats(i) < 90.0 .and. lons(i) > -180.0 .and. lons(i) < 180.0) then
-          ! Valid lat/lon values - these are used for coordinate conversion in WRFDA
-          continue
-        end if
-        
-        ! obs_types array contains observation type codes (used for observation processing)
-        if (i <= num_obs .and. obs_types(i) /= c_null_char) then
-          ! Valid observation type - used for processing
-          continue
-        end if
-        
-        ! error arrays contain observation error information (used for quality control)
-        if (i <= num_obs) then
-          ! Reference error arrays to prevent unused argument warnings
-          if (u_errors(i) > 0.0 .or. v_errors(i) > 0.0 .or. t_errors(i) > 0.0 .or. &
-              p_errors(i) > 0.0 .or. q_errors(i) > 0.0) then
-            ! Valid error information - used for quality control
-            continue
-          end if
-        end if
-      end do
-      
-    end if
-    
-    ! Return pointer to persistent y_type
-    wrfda_construct_y_type = c_loc(persistent_y)
-    
-  end function wrfda_construct_y_type
-
-  ! Construct iv_type from observation data
-  type(c_ptr) function wrfda_construct_iv_type(num_obs, num_levels, u_values, v_values, t_values, p_values, q_values, u_errors, v_errors, t_errors, p_errors, q_errors, u_qc, v_qc, t_qc, p_qc, q_qc, u_available, v_available, t_available, p_available, q_available, lats, lons, levels, elevations, obs_types, family) bind(C, name="wrfda_construct_iv_type")
-    implicit none
-    integer(c_int), intent(in) :: num_obs, num_levels
-    real(c_double), intent(in) :: u_values(*), v_values(*), t_values(*), p_values(*), q_values(*)
-    real(c_double), intent(in) :: u_errors(*), v_errors(*), t_errors(*), p_errors(*), q_errors(*)
-    integer(c_int), intent(in) :: u_qc(*), v_qc(*), t_qc(*), p_qc(*), q_qc(*)
-    integer(c_int), intent(in) :: u_available(*), v_available(*), t_available(*), p_available(*), q_available(*)
-    real(c_double), intent(in) :: lats(*), lons(*), levels(*), elevations(*)
-    character(c_char), intent(in) :: obs_types(*), family(*)
-    
-    type(iv_type), pointer :: iv
-    type(domain), pointer :: grid
-    integer :: i, lev
-    character(len=20) :: family_str
-    character(c_char), target :: family_target(20)
-    real(8) :: obs_lat, obs_lon, grid_x, grid_y, x_frac, y_frac, x_frac_m, y_frac_m
-    integer :: grid_i, grid_j
-    
-    ! Use global persistent iv structure
-    ! Convert domain pointer to grid pointer
-    grid => persistent_grid
-    
-    ! Check if num_obs is valid
-    if (num_obs <= 0 .or. num_levels <= 0) then
-      wrfda_construct_iv_type = c_null_ptr
-      return
-    end if
-    
-    ! Now implement the actual iv_type construction
-    
-    ! Allocate iv_type
-    ! Allocate persistent iv structure if not already allocated
-    if (.not. iv_allocated) then
-      allocate(persistent_iv)
-      iv_allocated = .true.
-    end if
-    
-    ! Point local iv to persistent structure
-    iv => persistent_iv
-    if (.not. associated(iv)) then
-      wrfda_construct_iv_type = c_null_ptr
-      return
-    end if
-    
-    ! Initialize basic fields
-    iv%time = 1
-    iv%num_inst = 0
-    iv%total_rad_pixel = 0
-    iv%total_rad_channel = 0
-    
-    ! Initialize info array
-    do i = 1, size(iv%info)
-      iv%info(i)%nlocal = 0
-      iv%info(i)%ntotal = 0
-      iv%info(i)%n1 = 0
-      iv%info(i)%n2 = 0
-    end do
-    
-    ! Set up for surface observations (family index 2 = synop)
-    iv%info(2)%nlocal = num_obs
-    iv%info(2)%ntotal = num_obs
-    
-    ! Set up plocal array for proper time slot indexing
-    ! For 3D-Var (num_fgat_time = 1), we have:
-    ! plocal(0) = 0 (no observations before time slot 1)
-    ! plocal(1) = num_obs (cumulative count at time slot 1)
-    iv%info(2)%plocal(0) = 0
-    iv%info(2)%plocal(1) = num_obs
-    
-    ! Set n1 and n2 based on plocal array (WRFDA standard pattern)
-    iv%info(2)%n1 = iv%info(2)%plocal(0) + 1  ! = 1
-    iv%info(2)%n2 = iv%info(2)%plocal(1)      ! = num_obs
-    
-    ! Allocate synop array if we have observations
-    if (num_obs > 0) then
-      ! Check if synop array is already associated
-      if (.not. associated(iv%synop)) then
-        allocate(iv%synop(num_obs))
-      else
-        ! Check if the existing array has the right size
-        if (size(iv%synop) /= num_obs) then
-          allocate(iv%synop(num_obs))
-        end if
-      end if
-      
-    ! Allocate interpolation arrays for synop observations
-    ! Use kms:kme for vertical dimension to match WRFDA expectations
-    iv%info(2)%max_lev = 1  ! Surface observations have max_lev = 1
-    
-    if (.not. allocated(iv%info(2)%i)) then
-      allocate(iv%info(2)%i(kms:kme, num_obs))
-      allocate(iv%info(2)%j(kms:kme, num_obs))
-      allocate(iv%info(2)%dx(kms:kme, num_obs))
-      allocate(iv%info(2)%dy(kms:kme, num_obs))
-      allocate(iv%info(2)%dxm(kms:kme, num_obs))
-      allocate(iv%info(2)%dym(kms:kme, num_obs))
-      allocate(iv%info(2)%k(kms:kme, num_obs))
-      allocate(iv%info(2)%zk(kms:kme, num_obs))
-      allocate(iv%info(2)%dz(kms:kme, num_obs))
-      allocate(iv%info(2)%dzm(kms:kme, num_obs))
-      allocate(iv%info(2)%levels(num_obs))
-      allocate(iv%info(2)%proc_domain(kms:kme, num_obs))
-    end if
-      
-      ! Allocate observation metadata arrays
-      if (.not. allocated(iv%info(2)%platform)) then
-        allocate(iv%info(2)%platform(num_obs))
-        allocate(iv%info(2)%id(num_obs))
-        allocate(iv%info(2)%name(num_obs))
-        allocate(iv%info(2)%date_char(num_obs))
-        allocate(iv%info(2)%lat(1, num_obs))
-        allocate(iv%info(2)%lon(1, num_obs))
-      end if
-      
-      ! Populate synop data
-      do i = 1, num_obs
-        ! Set up height from station elevation
-        iv%synop(i)%h = elevations(i)
-        
-        ! Set up field_type members for u, v, t, p, q only if available
-        if (u_available(i) == 1) then
-          iv%synop(i)%u%inv = u_values(i)
-          iv%synop(i)%u%qc = u_qc(i)
-          iv%synop(i)%u%error = u_errors(i)
-        else
-          iv%synop(i)%u%inv = missing_r  ! WRFDA standard missing value
-          iv%synop(i)%u%qc = missing_data  ! WRFDA standard missing data QC flag
-          iv%synop(i)%u%error = 1.0
-        end if
-        iv%synop(i)%u%sens = 0.0
-        iv%synop(i)%u%imp = 0.0
-        
-        if (v_available(i) == 1) then
-          iv%synop(i)%v%inv = v_values(i)
-          iv%synop(i)%v%qc = v_qc(i)
-          iv%synop(i)%v%error = v_errors(i)
-        else
-          iv%synop(i)%v%inv = missing_r  ! WRFDA standard missing value
-          iv%synop(i)%v%qc = missing_data  ! WRFDA standard missing data QC flag
-          iv%synop(i)%v%error = 1.0
-        end if
-        iv%synop(i)%v%sens = 0.0
-        iv%synop(i)%v%imp = 0.0
-        
-        if (t_available(i) == 1) then
-          iv%synop(i)%t%inv = t_values(i)
-          iv%synop(i)%t%qc = t_qc(i)
-          iv%synop(i)%t%error = t_errors(i)
-        else
-          iv%synop(i)%t%inv = missing_r  ! WRFDA standard missing value
-          iv%synop(i)%t%qc = missing_data  ! WRFDA standard missing data QC flag
-          iv%synop(i)%t%error = 1.0
-        end if
-        iv%synop(i)%t%sens = 0.0
-        iv%synop(i)%t%imp = 0.0
-        
-        if (p_available(i) == 1) then
-          iv%synop(i)%p%inv = p_values(i)
-          iv%synop(i)%p%qc = p_qc(i)
-          iv%synop(i)%p%error = p_errors(i)
-        else
-          iv%synop(i)%p%inv = missing_r  ! WRFDA standard missing value
-          iv%synop(i)%p%qc = missing_data  ! WRFDA standard missing data QC flag
-          iv%synop(i)%p%error = 1.0
-        end if
-        iv%synop(i)%p%sens = 0.0
-        iv%synop(i)%p%imp = 0.0
-        
-        if (q_available(i) == 1) then
-          iv%synop(i)%q%inv = q_values(i)
-          iv%synop(i)%q%qc = q_qc(i)
-          iv%synop(i)%q%error = q_errors(i)
-        else
-          iv%synop(i)%q%inv = missing_r  ! WRFDA standard missing value
-          iv%synop(i)%q%qc = missing_data  ! WRFDA standard missing data QC flag
-          iv%synop(i)%q%error = 1.0
-        end if
-        iv%synop(i)%q%sens = 0.0
-        iv%synop(i)%q%imp = 0.0
-        
-        ! Populate observation metadata arrays using the input arguments
-        ! Set number of levels for this observation
-        if (i <= num_levels) then
-          iv%info(2)%levels(i) = int(levels(i))  ! Convert to integer
-        else
-          iv%info(2)%levels(i) = 1  ! Default to 1 level for surface observations
-        end if
-        
-        ! Set observation type/platform information
-        if (i <= num_obs .and. obs_types(i) /= c_null_char) then
-          ! Convert C character to Fortran string for platform
-          iv%info(2)%platform(i) = ""
-          if (obs_types(i) == 'S' .or. obs_types(i) == 's') then
-            iv%info(2)%platform(i) = "SYNOP"
-          else if (obs_types(i) == 'M' .or. obs_types(i) == 'm') then
-            iv%info(2)%platform(i) = "METAR"
-          else if (obs_types(i) == 'B' .or. obs_types(i) == 'b') then
-            iv%info(2)%platform(i) = "BUOY"
-          else
-            iv%info(2)%platform(i) = "SYNOP"  ! Default to SYNOP
-          end if
-        else
-          iv%info(2)%platform(i) = "SYNOP"  ! Default platform
-        end if
-        
-        ! Set station ID (use observation index as ID)
-        write(iv%info(2)%id(i), '(I5.5)') i  ! Format as 5-digit ID
-        
-        ! Set station name
-        write(iv%info(2)%name(i), '(A,I0)') "STATION_", i
-        
-        ! Set date (use current time as placeholder)
-        iv%info(2)%date_char(i) = "2024-01-01_00:00:00"
-        
-        ! Set lat/lon coordinates
-        iv%info(2)%lat(1, i) = lats(i)
-        iv%info(2)%lon(1, i) = lons(i)
-      end do
-      
-      ! Compute horizontal interpolation indices and weights using WRFDA coordinate conversion
-      do i = 1, num_obs
-        ! Get observation lat/lon coordinates
-        obs_lat = lats(i)
-        obs_lon = lons(i)
-        
-        ! Convert lat/lon to grid coordinates using WRFDA's coordinate conversion
-        ! Note: We need to use the map projection information that was initialized
-        ! in the C++ code before calling this function
-        call da_llxy_wrf(map_info, obs_lat, obs_lon, grid_x, grid_y)
-        
-        ! Convert grid coordinates to fractional indices using WRFDA's da_togrid
-        ! da_togrid(x, ib, ie, i, dx, dxm) - converts x coordinate to grid index i
-        call da_togrid(grid_x, 1, grid%xp%ide-1, grid_i, x_frac, x_frac_m)
-        call da_togrid(grid_y, 1, grid%xp%jde-1, grid_j, y_frac, y_frac_m)
-        
-        ! Ensure indices are within bounds for interpolation
-        grid_i = max(1, min(grid_i, grid%xp%ide-1))
-        grid_j = max(1, min(grid_j, grid%xp%jde-1))
-        
-        ! Set grid indices for all vertical levels
-        do lev = kms, kme
-          iv%info(2)%i(lev, i) = grid_i
-          iv%info(2)%j(lev, i) = grid_j
-          
-          ! Set interpolation weights using actual fractional values
-          iv%info(2)%dx(lev, i) = x_frac
-          iv%info(2)%dy(lev, i) = y_frac
-          iv%info(2)%dxm(lev, i) = x_frac_m
-          iv%info(2)%dym(lev, i) = y_frac_m
-          
-          ! Set vertical level information
-          iv%info(2)%k(lev, i) = 1  ! Surface level
-          iv%info(2)%zk(lev, i) = 1.0
-          iv%info(2)%dz(lev, i) = 0.0
-          iv%info(2)%dzm(lev, i) = 1.0
-          
-          ! Set processor domain (assume all observations are in domain)
-          iv%info(2)%proc_domain(lev, i) = .true.
-        end do
-        
-        iv%info(2)%levels(i) = 1  ! Surface observation has 1 level
-      end do
-      
-    end if
-    
-    wrfda_construct_iv_type = c_loc(persistent_iv)
-    
-    ! Convert C string to Fortran string
-    family_target = family(1:20)
-    family_str = ""
-    do i = 1, 20
-      if (family_target(i) == c_null_char) exit
-      family_str(i:i) = family_target(i)
-    end do
-    
-  end function wrfda_construct_iv_type
-
-  ! Construct config_flags for WRFDA
-  type(c_ptr) function wrfda_construct_config_flags() bind(C, name="wrfda_construct_config_flags")
-    implicit none
-    
-    ! For now, return a null pointer since config_flags is complex
-    ! In a full implementation, this would create a proper grid_config_rec_type
-    ! with all the necessary WRFDA configuration parameters
-    
-    
-    wrfda_construct_config_flags = c_null_ptr
-    
-  end function wrfda_construct_config_flags
 
   ! Count innovation values from iv_type structure for all observation types
   integer(c_int) function wrfda_count_innovations(iv_ptr, num_innovations) bind(C, name="wrfda_count_innovations")
@@ -3965,13 +3493,9 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     type(c_ptr), intent(out) :: iv_ptr
     type(c_ptr), intent(out) :: ob_ptr
     
-    ! WRFDA-side structures with SAVE attribute (persist across calls)
-    ! These are allocated in WRFDA modules and managed by WRFDA
-    ! C++ only receives pointers to them
-    type(iv_type), pointer, save :: wrfda_iv => null()
-    type(y_type), pointer, save :: wrfda_ob => null()
+    ! Use module-level WRFDA structures (already declared at module level)
+    ! wrfda_iv and wrfda_ob are defined as module-level SAVE variables
     type(j_type), save :: wrfda_j  ! Cost function structure (needed for da_setup_obs_structures)
-    logical, save :: wrfda_obs_initialized = .false.
     
     ! Local variables
     type(domain), pointer :: grid
@@ -4016,13 +3540,12 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     !   ob_format=2 → reads ob.ascii (ASCII format)
     ! File must be in current working directory with these exact names
     
-    ! Allocate WRFDA-side observation structures (function-level SAVE)
-    ! These persist across calls but are local to this function
-    if (.not. wrfda_obs_initialized) then
+    ! Allocate module-level WRFDA observation structures on first call
+    if (.not. wrfda_obs_allocated) then
       allocate(wrfda_iv)
       allocate(wrfda_ob)
-      wrfda_obs_initialized = .true.
-      call wrf_message("Allocated WRFDA-side iv_type and y_type structures")
+      wrfda_obs_allocated = .true.
+      call wrf_message("Allocated WRFDA-side iv_type and y_type structures (module-level)")
       
       ! CRITICAL: Initialize MPI-like variables for single-processor mode
       ! These are required by da_setup_obs_structures and observation reading
@@ -4068,7 +3591,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     write(msg, '(A)') "WRFDA: Observations read and structures allocated successfully"
     call wrf_message(msg)
     
-    ! Return C pointers to WRFDA-side structures
+    ! Return C pointers to module-level WRFDA structures
     ! - ob_ptr (y_type) → for WRFObservation (observation values y_obs)
     ! - iv_ptr (iv_type) → for WRFObsOperator (innovations + interpolation weights)
     ! C++ will manage these as opaque pointers
@@ -4165,6 +3688,38 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     end do
     
   end function wrfda_get_total_obs_count
+
+  !> @brief Get pointer to WRFDA iv_type structure (innovation vector)
+  !> @details Returns the C pointer to the module-level wrfda_iv structure
+  !>          that was allocated during wrfda_read_and_allocate_observations
+  !> @return C pointer to iv_type structure, or c_null_ptr if not allocated
+  type(c_ptr) function wrfda_get_iv_ptr() bind(C, name="wrfda_get_iv_ptr")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_null_ptr
+    use da_define_structures, only: iv_type
+    implicit none
+    
+    if (wrfda_obs_allocated .and. associated(wrfda_iv)) then
+      wrfda_get_iv_ptr = c_loc(wrfda_iv)
+    else
+      wrfda_get_iv_ptr = c_null_ptr
+    end if
+  end function wrfda_get_iv_ptr
+
+  !> @brief Get pointer to WRFDA y_type structure (observation values)
+  !> @details Returns the C pointer to the module-level wrfda_ob structure
+  !>          that was allocated during wrfda_read_and_allocate_observations
+  !> @return C pointer to y_type structure, or c_null_ptr if not allocated
+  type(c_ptr) function wrfda_get_y_ptr() bind(C, name="wrfda_get_y_ptr")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_null_ptr
+    use da_define_structures, only: y_type
+    implicit none
+    
+    if (wrfda_obs_allocated .and. associated(wrfda_ob)) then
+      wrfda_get_y_ptr = c_loc(wrfda_ob)
+    else
+      wrfda_get_y_ptr = c_null_ptr
+    end if
+  end function wrfda_get_y_ptr
 
   !> @brief Transfer WRF fields to background state structure (grid%xb)
   !!

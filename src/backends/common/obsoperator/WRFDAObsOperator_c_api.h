@@ -71,31 +71,6 @@ int wrfda_construct_domain_from_arrays(
     const double* p, const double* pb, const double* lats2d,
     const double* lons2d);
 
-// Construct y_type from observation data
-void* wrfda_construct_y_type(
-    int* num_obs, int* num_levels, const double* u_values,
-    const double* v_values, const double* t_values, const double* p_values,
-    const double* q_values, const double* u_errors, const double* v_errors,
-    const double* t_errors, const double* p_errors, const double* q_errors,
-    const int* u_available, const int* v_available, const int* t_available,
-    const int* p_available, const int* q_available, const double* lats,
-    const double* lons, const char* obs_types, const char* family);
-
-// Construct iv_type from observation data
-void* wrfda_construct_iv_type(
-    int* num_obs, int* num_levels, const double* u_values,
-    const double* v_values, const double* t_values, const double* p_values,
-    const double* q_values, const double* u_errors, const double* v_errors,
-    const double* t_errors, const double* p_errors, const double* q_errors,
-    const int* u_qc, const int* v_qc, const int* t_qc, const int* p_qc,
-    const int* q_qc, const int* u_available, const int* v_available,
-    const int* t_available, const int* p_available, const int* q_available,
-    const double* lats, const double* lons, const double* levels,
-    const double* elevations, const char* obs_types, const char* family);
-
-// Construct config_flags for WRFDA
-void* wrfda_construct_config_flags();
-
 // Count innovation values from iv_type structure for all observation types
 int wrfda_count_innovations(const void* iv_ptr, int* num_innovations);
 
@@ -145,9 +120,6 @@ void wrfda_update_background_state(const double* u, const double* v,
  */
 int wrfda_transfer_wrftoxb(void);
 
-// Get available observation families from iv structure
-int wrfda_get_available_families(char* families_buffer, int* buffer_size);
-
 // Cleanup da_control module vertical coordinates (should be called in
 // destructor)
 void wrfda_cleanup_vertical_coords();
@@ -188,6 +160,26 @@ int wrfda_get_obs_type_counts(void* iv_ptr, int* obs_counts);
  * @return 0 on success, non-zero on error
  */
 int wrfda_get_total_obs_count(void* iv_ptr, int* total_count);
+
+/**
+ * @brief Get pointer to WRFDA iv_type structure (innovation vector)
+ * @details Returns the C pointer to the module-level wrfda_iv structure
+ *          that was allocated during wrfda_read_and_allocate_observations.
+ *          This allows direct access to WRFDA's observation structures without
+ *          going through backend objects.
+ * @return C pointer to iv_type structure, or NULL if not allocated
+ */
+void* wrfda_get_iv_ptr(void);
+
+/**
+ * @brief Get pointer to WRFDA y_type structure (observation values)
+ * @details Returns the C pointer to the module-level wrfda_ob structure
+ *          that was allocated during wrfda_read_and_allocate_observations.
+ *          This allows direct access to WRFDA's observation structures without
+ *          going through backend objects.
+ * @return C pointer to y_type structure, or NULL if not allocated
+ */
+void* wrfda_get_y_ptr(void);
 
 #ifdef __cplusplus
 }
