@@ -65,11 +65,6 @@ module metada_wrfda_dispatch
   ! Module-level map_info structure initialized by da_setup_firstguess_wrf → da_map_set
   type(proj_info), save :: map_info
   
-  ! Persistent output array for tangent linear operator results
-  real(c_double), allocatable, save :: persistent_out_y(:)
-  integer, save :: persistent_num_innovations = 0
-  logical, save :: output_allocated = .false.
-  
   ! Persistent arrays for adjoint operator gradients
   real(c_double), allocatable, save :: persistent_adjoint_u(:), persistent_adjoint_v(:)
   real(c_double), allocatable, save :: persistent_adjoint_t(:), persistent_adjoint_q(:)
@@ -80,43 +75,45 @@ module metada_wrfda_dispatch
   
 contains
 
-  ! Forward operator: H(xb + xa) where xb is background state and xa is analysis increments
-  ! This function computes the forward operator for incremental 3D-Var:
-  ! - xb (background state): constant throughout outer loop, used for innovation computation
-  ! - xa (analysis increments): start at zero, updated by each iteration
-  ! - Total state: x_total = xb + xa (computed internally)
-  ! - Forward operator: H(xb + xa)
-  integer(c_int) function wrfda_xtoy_apply_grid(grid_ptr, ob_ptr, iv_ptr) bind(C, name="wrfda_xtoy_apply_grid")
+  !> @brief Tangent linear operator: H'(xb)·δx
+  !> @details Computes linearized observation operator for incremental 3D-Var.
+  !>          Uses module-level WRFDA structures directly (head_grid, wrfda_iv, wrfda_ob).
+  !>          In WRFDA's incremental formulation:
+  !>          - xb (grid%xb): background state, fixed during inner loop
+  !>          - δx (grid%xa): analysis increment, updated by minimizer
+  !>          - This computes H'(xb)·δx using WRFDA's da_transform_xtoy_* routines
+  !>
+  !> @note Output extraction is delegated to C++ code which calls
+  !>       wrfda_extract_observations() for consistency with nonlinear operator.
+  !>       This ensures size consistency between operators.
+  integer(c_int) function wrfda_xtoy_apply_grid() bind(C, name="wrfda_xtoy_apply_grid")
+    use module_domain, only: head_grid
     implicit none
-    type(c_ptr), value :: grid_ptr, ob_ptr, iv_ptr
-
-    type(domain), pointer :: grid
-    type(iv_type), pointer :: iv
-    type(y_type), pointer :: y
-    integer :: n, num_innovations
+       
+    integer :: n
     character(len=256) :: fam_str
     integer :: fam_id
     
-    ! Convert C pointers to Fortran pointers
-    call c_f_pointer(grid_ptr, grid)
-    call c_f_pointer(iv_ptr, iv)
-    call c_f_pointer(ob_ptr, y)
-    
-    if (.not. associated(iv)) then
+    ! Validate module-level structures
+    if (.not. associated(head_grid)) then
       wrfda_xtoy_apply_grid = 1_c_int
       return
     end if
     
-    if (.not. associated(y)) then
+    if (.not. associated(wrfda_iv)) then
       wrfda_xtoy_apply_grid = 1_c_int
       return
     end if
     
-    ! Instead of parsing input string, determine family from iv structure
-    ! Find the first family that has observations available
+    if (.not. associated(wrfda_ob)) then
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
+    end if
+    
+    ! Determine observation family from wrfda_iv structure
     fam_id = 0
-    do n = 1, size(iv%info)
-      if (iv%info(n)%nlocal > 0) then
+    do n = 1, size(wrfda_iv%info)
+      if (wrfda_iv%info(n)%nlocal > 0) then
         fam_id = n
         exit
       end if
@@ -127,7 +124,7 @@ contains
       return
     end if
     
-    ! Map family ID to name for debugging
+    ! Map family ID to name for WRFDA routine selection
     select case (fam_id)
     case (1); fam_str = "metar"
     case (2); fam_str = "synop"
@@ -140,91 +137,32 @@ contains
     case default; fam_str = "unknown"
     end select
     
+    ! Call appropriate WRFDA tangent linear routine
+    ! These compute H'(xb)·δx where δx is in head_grid%xa
     select case (trim(fam_str))
     case ('metar'); 
-      call da_transform_xtoy_metar(grid, iv, y)
+      call da_transform_xtoy_metar(head_grid, wrfda_iv, wrfda_ob)
     case ('synop', 'adpsfc'); 
-      call da_transform_xtoy_synop(grid, iv, y)
+      call da_transform_xtoy_synop(head_grid, wrfda_iv, wrfda_ob)
+    case ('ships');
+      call da_transform_xtoy_ships(head_grid, wrfda_iv, wrfda_ob)
+    case ('buoy');
+      call da_transform_xtoy_buoy(head_grid, wrfda_iv, wrfda_ob)
+    case ('sound');
+      call da_transform_xtoy_sound(head_grid, wrfda_iv, wrfda_ob)
+    case ('pilot');
+      call da_transform_xtoy_pilot(head_grid, wrfda_iv, wrfda_ob)
+    case ('airep');
+      call da_transform_xtoy_airep(head_grid, wrfda_iv, wrfda_ob)
     case default; 
-      wrfda_xtoy_apply_grid = 1_c_int; return
+      wrfda_xtoy_apply_grid = 1_c_int
+      return
     end select
 
-    ! Calculate number of innovations from observations
-    ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
-    ! But we need to get the actual number of innovations from the iv structure
-    if (associated(iv) .and. associated(iv%synop)) then
-      ! Count actual innovations from the iv structure
-      num_innovations = 0
-      do n = 1, iv%info(2)%nlocal
-        if (iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
-      end do
-    end if
-    
-    ! Store number of innovations for later retrieval
-    persistent_num_innovations = num_innovations
-    
-    ! Allocate or reallocate persistent output array if needed
-    if (.not. output_allocated .or. .not. allocated(persistent_out_y)) then
-      if (allocated(persistent_out_y)) then
-        deallocate(persistent_out_y)
-      end if
-      allocate(persistent_out_y(num_innovations))
-      output_allocated = .true.
-    end if
-    
-    ! Copy results to persistent array
-    call copy_y_to_out(fam_id, y, persistent_out_y, num_innovations)
+    ! Note: Output extraction is done in C++ using wrfda_extract_observations()
+    ! This ensures size consistency with the nonlinear operator
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
-
-  ! Get count of tangent linear output values (count-only call)
-  integer(c_int) function wrfda_get_tangent_linear_count(num_innovations) bind(C, name="wrfda_get_tangent_linear_count")
-    implicit none
-    integer(c_int), intent(out) :: num_innovations
-
-    ! Check if output is available
-    if (.not. output_allocated .or. persistent_num_innovations <= 0) then
-      num_innovations = 0
-      wrfda_get_tangent_linear_count = 1_c_int
-      return
-    end if
-
-    ! Return the number of innovations
-    num_innovations = persistent_num_innovations
-
-    wrfda_get_tangent_linear_count = 0_c_int
-  end function wrfda_get_tangent_linear_count
-
-  ! Extract output values from the tangent linear operator
-  integer(c_int) function wrfda_extract_tangent_linear_output(out_y, num_innovations) bind(C, name="wrfda_extract_tangent_linear_output")
-    implicit none
-    real(c_double), intent(out) :: out_y(*)
-    integer(c_int), intent(out) :: num_innovations
-
-    ! Check if output is available
-    if (.not. output_allocated .or. persistent_num_innovations <= 0) then
-      num_innovations = 0
-      wrfda_extract_tangent_linear_output = 1_c_int
-      return
-    end if
-
-    ! Return the number of innovations
-    num_innovations = persistent_num_innovations
-
-    ! Copy values to output array (safely)
-    if (allocated(persistent_out_y) .and. size(persistent_out_y) >= num_innovations) then
-      out_y(1:num_innovations) = persistent_out_y(1:num_innovations)
-    else
-      wrfda_extract_tangent_linear_output = 1_c_int
-      return
-    end if
-
-    wrfda_extract_tangent_linear_output = 0_c_int
-  end function wrfda_extract_tangent_linear_output
 
   ! Adjoint operator: H^T * δy -> δx (gradient accumulation)
   ! This function computes the adjoint of the forward operator for incremental 3D-Var:
@@ -428,76 +366,6 @@ contains
     end select
   end subroutine init_y_from_delta
 
-  subroutine copy_y_to_out(family, y, out_y, num_innovations)
-    integer, intent(in) :: family
-    type(y_type), intent(in) :: y
-    real(c_double), intent(out) :: out_y(*)
-    integer, intent(in) :: num_innovations
-    integer :: n, var_idx, num_obs
-    real(c_double), parameter :: missing_r = -888888.0_c_double
-    
-    ! Calculate number of observations from innovations
-    ! For synop observations, we need to get the actual number of observations from wrfda_iv
-    if (associated(wrfda_iv) .and. associated(wrfda_iv%synop)) then
-      num_obs = wrfda_iv%info(2)%nlocal
-    else
-      ! Fallback: assume we have 1 observation per 5 innovations
-      num_obs = max(1, num_innovations / 5)
-    end if
-    select case (family)
-    case (synop)
-      do n=1,num_obs
-        ! Process all variables in order: U, V, T, Q, P
-        var_idx = (n-1) * 5  ! Start index for this observation's variables
-        
-        ! U component (if not missing)
-        if (var_idx + 1 <= num_innovations) then
-          if (y%synop(n)%u /= missing_r) then
-            out_y(var_idx + 1) = real(y%synop(n)%u, kind=c_double)
-          else
-            out_y(var_idx + 1) = 0.0_c_double
-          end if
-        end if
-        
-        ! V component (if not missing)
-        if (var_idx + 2 <= num_innovations) then
-          if (y%synop(n)%v /= missing_r) then
-            out_y(var_idx + 2) = real(y%synop(n)%v, kind=c_double)
-          else
-            out_y(var_idx + 2) = 0.0_c_double
-          end if
-        end if
-        
-        ! T component (if not missing)
-        if (var_idx + 3 <= num_innovations) then
-          if (y%synop(n)%t /= missing_r) then
-            out_y(var_idx + 3) = real(y%synop(n)%t, kind=c_double)
-          else
-            out_y(var_idx + 3) = 0.0_c_double
-          end if
-        end if
-        
-        ! Q component (if not missing)
-        if (var_idx + 4 <= num_innovations) then
-          if (y%synop(n)%q /= missing_r) then
-            out_y(var_idx + 4) = real(y%synop(n)%q, kind=c_double)
-          else
-            out_y(var_idx + 4) = 0.0_c_double
-          end if
-        end if
-        
-        ! P component (if not missing)
-        if (var_idx + 5 <= num_innovations) then
-          if (y%synop(n)%p /= missing_r) then
-            out_y(var_idx + 5) = real(y%synop(n)%p, kind=c_double)
-          else
-            out_y(var_idx + 5) = 0.0_c_double
-          end if
-        end if
-      end do
-    end select
-  end subroutine copy_y_to_out
-
   ! Copy gradient from jo_grad_x to persistent arrays for later retrieval
   ! This function stores the adjoint gradients in persistent arrays
   ! For incremental 3D-Var, this represents the gradient of the cost function with respect to state
@@ -607,84 +475,6 @@ contains
     end do; end do
     
   end subroutine wrfda_update_analysis_increments
-
-  ! Update background state (xb) from state data
-  ! This subroutine updates the background state with the current state values
-  subroutine wrfda_update_background_state(u, v, t, q, psfc, ph, phb, hf, hgt, p, pb, lats2d, lons2d, grid_ptr) bind(C, name="wrfda_update_background_state")
-    implicit none
-    real(c_double), intent(in) :: u(*), v(*), t(*), q(*), psfc(*)
-    real(c_double), intent(in) :: ph(*), phb(*), hf(*), hgt(*), p(*), pb(*)
-    real(c_double), intent(in) :: lats2d(*), lons2d(*)
-    type(c_ptr), value :: grid_ptr
-    type(domain), pointer :: grid
-    integer :: i, j, k, nx, ny, nz, idx, idx_3d, staggered_nz
-    
-    ! Convert C pointer to Fortran pointer
-    call c_f_pointer(grid_ptr, grid)
-    
-    ! Get grid dimensions from grid
-    nx = grid%xp%ide - grid%xp%ids + 1
-    ny = grid%xp%jde - grid%xp%jds + 1
-    nz = grid%xp%kde - grid%xp%kds + 1
-    staggered_nz = nz + 1  ! Height field has nz+1 vertical levels
-    
-    ! Update background state (xb) with current state values
-    do k = 1, nz
-      do j = 1, ny
-        do i = 1, nx
-          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-          idx = i + (j-1)*nx + (k-1)*nx*ny
-          grid%xb%u(i,j,k) = real(u(idx), kind=4)
-          grid%xb%v(i,j,k) = real(v(idx), kind=4)
-          grid%xb%t(i,j,k) = real(t(idx), kind=4)
-          grid%xb%q(i,j,k) = real(q(idx), kind=4)
-          ! Calculate pressure from P and PB: grid%xb%p = pb + p
-          grid%xb%p(i,j,k) = real(pb(idx) + p(idx), kind=4)
-        end do
-      end do
-    end do
-    
-    ! Update surface pressure
-    do j = 1, ny
-      do i = 1, nx
-        ! C++ row-major indexing: [i][j] -> i + j*nx
-        idx = i + (j-1)*nx
-        grid%xb%psfc(i,j) = real(psfc(idx), kind=4)
-      end do
-    end do
-    
-    ! Update PH and PHB data (vertically staggered with nz+1 levels)
-    do k = 1, staggered_nz
-      do j = 1, ny
-        do i = 1, nx
-          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-          idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          grid%ph_2(i,j,k) = real(ph(idx_3d), kind=4)
-          grid%phb(i,j,k) = real(phb(idx_3d), kind=4)
-        end do
-      end do
-    end do
-    
-    ! Update grid metadata
-    do j = 1, ny
-      do i = 1, nx
-        ! C++ row-major indexing: [i][j] -> i + j*nx
-        idx = i + (j-1)*nx
-        grid%xb%lat(i,j) = real(lats2d(idx), kind=4)
-        grid%xb%lon(i,j) = real(lons2d(idx), kind=4)
-        ! Assign terrain height from HGT field
-        grid%ht(i,j) = real(hgt(idx), kind=4)
-        grid%xb%terr(i,j) = real(hgt(idx), kind=4)
-        do k = 1, staggered_nz
-          ! Use calculated height field instead of levels array
-          ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-          idx_3d = i + (j-1)*nx + (k-1)*nx*ny
-          grid%xb%h(i,j,k) = real(hf(idx_3d), kind=4)
-        end do
-      end do
-    end do
-    
-  end subroutine wrfda_update_background_state
 
   ! New function to call da_get_innov_vector directly
   integer(c_int) function wrfda_get_innov_vector(it, ob_ptr, iv_ptr, grid_ptr) bind(C, name="wrfda_get_innov_vector")

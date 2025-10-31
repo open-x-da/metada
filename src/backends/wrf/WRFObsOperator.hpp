@@ -242,40 +242,35 @@ class WRFObsOperator {
 
     // Get WRFDA structures directly (grid, iv, y are allocated and managed by
     // WRFDA)
-    void* grid_ptr = wrfda_get_head_grid_ptr_();
-    void* iv_ptr = wrfda_get_iv_ptr();
-    void* y_ptr = wrfda_get_y_ptr();
-
-    if (!grid_ptr || !iv_ptr || !y_ptr) {
-      throw std::runtime_error(
-          "WRFDA structures not available. Ensure observations are read and "
-          "domain is initialized.");
-    }
+    void* iv_ptr = nullptr;
+    void* y_ptr = nullptr;
 
     // Apply tangent linear operator: H'(xb)·xa
     // Use WRFDA-side structures directly (iv and y are already allocated)
-    int rc = wrfda_xtoy_apply_grid(grid_ptr, y_ptr, iv_ptr);
+    int rc = wrfda_xtoy_apply_grid();
     if (rc != 0) {
       throw std::runtime_error("WRFDA tangent linear failed with code " +
                                std::to_string(rc));
     }
 
-    // Get output count and extract values
-    int num_innovations = 0;
-    rc = wrfda_get_tangent_linear_count(&num_innovations);
-    if (rc != 0 || num_innovations <= 0) {
+    // Extract output using same logic as nonlinear operator for consistency
+    // This ensures tangent linear returns same size as nonlinear operator
+    int num_observations = 0;
+    rc = wrfda_extract_observations(iv_ptr, y_ptr, nullptr, &num_observations);
+    if (rc != 0 || num_observations <= 0) {
       return std::vector<double>();
     }
 
-    std::vector<double> out_y(num_innovations);
-    rc = wrfda_extract_tangent_linear_output(out_y.data(), &num_innovations);
+    std::vector<double> out_y(num_observations);
+    rc = wrfda_extract_observations(iv_ptr, y_ptr, out_y.data(),
+                                    &num_observations);
     if (rc != 0) {
       throw std::runtime_error(
           "Failed to extract tangent linear output with code " +
           std::to_string(rc));
     }
 
-    // WRFDA's da_transform_xtoy computes +H'(xb)·xa, which is exactly what we
+    // WRFDA's da_transform_xtoy computes +H'(xb)·δx, which is exactly what we
     // need since apply() now returns H(x), so the derivative is +H'(x)
     return out_y;
   }
