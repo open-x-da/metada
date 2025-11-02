@@ -87,8 +87,8 @@ TEST_F(IncrementTest, DotProductImplementation) {
   // Create increments from geometry and transfer state data
   Increment inc1 = Increment::createFromGeometry(state1.geometry()->backend());
   Increment inc2 = Increment::createFromGeometry(state2.geometry()->backend());
-  inc1.incrementBackend().transferFromState(state1.backend());
-  inc2.incrementBackend().transferFromState(state2.backend());
+  inc1.backend().transferFromState(state1.backend());
+  inc2.backend().transferFromState(state2.backend());
 
   double expected = 1.0 * 5.0 + 2.0 * 4.0 + 3.0 * 3.0 + 4.0 * 2.0 + 5.0 * 1.0;
   EXPECT_DOUBLE_EQ(inc1.dot(inc2), expected);

@@ -498,7 +498,7 @@ bool checkCostFunctionGradientUnitDirections(
     data[i] = 1.0;
 
     // Transfer to increment
-    dx.incrementBackend().transferFromState(temp_state.backend());
+    dx.backend().transferFromState(temp_state.backend());
 
     // Scale the unit vector
     double state_norm = state.norm();

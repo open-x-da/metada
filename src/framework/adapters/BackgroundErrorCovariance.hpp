@@ -241,7 +241,7 @@ class BackgroundErrorCovariance : public NonCopyable {
   double computeQuadraticFormDiagonal(
       const Increment<BackendTag>& increment) const {
     // For diagonal B: x^T B^-1 x = sum_i (x_i^2 / sigma_i^2)
-    return backend_.computeQuadraticFormDiagonal(increment.incrementBackend());
+    return backend_.computeQuadraticFormDiagonal(increment.backend());
   }
 
   Increment<BackendTag> applyInverseDiagonal(
@@ -249,8 +249,7 @@ class BackgroundErrorCovariance : public NonCopyable {
     // For diagonal B: B^-1 x = x_i / sigma_i^2
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyInverseDiagonal(increment.incrementBackend(),
-                                  result.incrementBackend());
+    backend_.applyInverseDiagonal(increment.backend(), result.backend());
     return result;
   }
 
@@ -259,8 +258,7 @@ class BackgroundErrorCovariance : public NonCopyable {
     // For diagonal B: B x = x_i * sigma_i^2
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyDiagonal(increment.incrementBackend(),
-                           result.incrementBackend());
+    backend_.applyDiagonal(increment.backend(), result.backend());
     return result;
   }
 
@@ -269,8 +267,7 @@ class BackgroundErrorCovariance : public NonCopyable {
     // For diagonal B: B^1/2 x = x_i * sigma_i
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applySquareRootDiagonal(increment.incrementBackend(),
-                                     result.incrementBackend());
+    backend_.applySquareRootDiagonal(increment.backend(), result.backend());
     return result;
   }
 
@@ -278,15 +275,14 @@ class BackgroundErrorCovariance : public NonCopyable {
   double computeQuadraticFormEnsemble(
       const Increment<BackendTag>& increment) const {
     // For ensemble B: x^T B^-1 x using ensemble perturbations
-    return backend_.computeQuadraticFormEnsemble(increment.incrementBackend());
+    return backend_.computeQuadraticFormEnsemble(increment.backend());
   }
 
   Increment<BackendTag> applyInverseEnsemble(
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyInverseEnsemble(increment.incrementBackend(),
-                                  result.incrementBackend());
+    backend_.applyInverseEnsemble(increment.backend(), result.backend());
     return result;
   }
 
@@ -294,8 +290,7 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyEnsemble(increment.incrementBackend(),
-                           result.incrementBackend());
+    backend_.applyEnsemble(increment.backend(), result.backend());
     return result;
   }
 
@@ -303,24 +298,21 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applySquareRootEnsemble(increment.incrementBackend(),
-                                     result.incrementBackend());
+    backend_.applySquareRootEnsemble(increment.backend(), result.backend());
     return result;
   }
 
   // Parametric representation methods
   double computeQuadraticFormParametric(
       const Increment<BackendTag>& increment) const {
-    return backend_.computeQuadraticFormParametric(
-        increment.incrementBackend());
+    return backend_.computeQuadraticFormParametric(increment.backend());
   }
 
   Increment<BackendTag> applyInverseParametric(
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyInverseParametric(increment.incrementBackend(),
-                                    result.incrementBackend());
+    backend_.applyInverseParametric(increment.backend(), result.backend());
     return result;
   }
 
@@ -328,8 +320,7 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyParametric(increment.incrementBackend(),
-                             result.incrementBackend());
+    backend_.applyParametric(increment.backend(), result.backend());
     return result;
   }
 
@@ -337,23 +328,21 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applySquareRootParametric(increment.incrementBackend(),
-                                       result.incrementBackend());
+    backend_.applySquareRootParametric(increment.backend(), result.backend());
     return result;
   }
 
   // Hybrid representation methods
   double computeQuadraticFormHybrid(
       const Increment<BackendTag>& increment) const {
-    return backend_.computeQuadraticFormHybrid(increment.incrementBackend());
+    return backend_.computeQuadraticFormHybrid(increment.backend());
   }
 
   Increment<BackendTag> applyInverseHybrid(
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyInverseHybrid(increment.incrementBackend(),
-                                result.incrementBackend());
+    backend_.applyInverseHybrid(increment.backend(), result.backend());
     return result;
   }
 
@@ -361,8 +350,7 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyHybrid(increment.incrementBackend(),
-                         result.incrementBackend());
+    backend_.applyHybrid(increment.backend(), result.backend());
     return result;
   }
 
@@ -370,23 +358,21 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applySquareRootHybrid(increment.incrementBackend(),
-                                   result.incrementBackend());
+    backend_.applySquareRootHybrid(increment.backend(), result.backend());
     return result;
   }
 
   // Full matrix representation methods
   double computeQuadraticFormFull(
       const Increment<BackendTag>& increment) const {
-    return backend_.computeQuadraticFormFull(increment.incrementBackend());
+    return backend_.computeQuadraticFormFull(increment.backend());
   }
 
   Increment<BackendTag> applyInverseFull(
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyInverseFull(increment.incrementBackend(),
-                              result.incrementBackend());
+    backend_.applyInverseFull(increment.backend(), result.backend());
     return result;
   }
 
@@ -394,7 +380,7 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applyFull(increment.incrementBackend(), result.incrementBackend());
+    backend_.applyFull(increment.backend(), result.backend());
     return result;
   }
 
@@ -402,8 +388,7 @@ class BackgroundErrorCovariance : public NonCopyable {
       const Increment<BackendTag>& increment) const {
     auto result =
         Increment<BackendTag>::createFromGeometry(increment.geometry());
-    backend_.applySquareRootFull(increment.incrementBackend(),
-                                 result.incrementBackend());
+    backend_.applySquareRootFull(increment.backend(), result.backend());
     return result;
   }
 

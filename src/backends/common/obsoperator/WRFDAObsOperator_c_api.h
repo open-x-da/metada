@@ -108,8 +108,10 @@ void wrfda_update_analysis_increments(const double* u, const double* v,
  */
 int wrfda_transfer_wrftoxb(void);
 
-// Cleanup da_control module vertical coordinates (should be called in
-// destructor)
+// WARNING: DO NOT call in destructors!
+// Cleanup da_control module vertical coordinates (module-level, shared by all
+// instances) Should ONLY be called during final WRFDA shutdown, not
+// per-instance cleanup
 void wrfda_cleanup_vertical_coords();
 
 // ============================================================================

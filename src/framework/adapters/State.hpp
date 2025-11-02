@@ -309,7 +309,7 @@ class State : private NonCopyable {
    * Delegates to backend-specific addIncrement implementation.
    */
   State& operator+=(const Increment<BackendTag>& increment) {
-    backend_.addIncrement(increment.incrementBackend());
+    backend_.addIncrement(increment.backend());
     return *this;
   }
 

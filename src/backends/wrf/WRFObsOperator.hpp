@@ -322,37 +322,24 @@ class WRFObsOperator {
           "domain is initialized.");
     }
 
-    // Call WRFDA adjoint directly
+    // Zero the increment first (using WRFDA's da_zero_x for ALL fields)
+    increment_result.zero();
+
+    // Call WRFDA adjoint directly - it writes to grid%xa
+    // Since increment_result manages grid%xa, WRFDA will populate it directly
     rc = wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA adjoint failed with code " +
                                std::to_string(rc));
     }
 
-    // Extract adjoint result and update increment
-    int nx = increment_result.getNx();
-    int ny = increment_result.getNy();
-    int nz = increment_result.getNz();
-    std::vector<double> u(nx * ny * nz);
-    std::vector<double> v(nx * ny * nz);
-    std::vector<double> t(nx * ny * nz);
-    std::vector<double> q(nx * ny * nz);
-    std::vector<double> psfc(nx * ny);
-
-    // Retrieve adjoint gradients from persistent arrays
-    rc = wrfda_get_adjoint_gradients(u.data(), v.data(), t.data(), q.data(),
-                                     psfc.data());
-    if (rc != 0) {
-      throw std::runtime_error("WRFDA get adjoint gradients failed with code " +
-                               std::to_string(rc));
-    }
-
-    increment_result.update(u.data(), v.data(), t.data(), q.data(),
-                            psfc.data());
-
+    // WRFDA's adjoint has directly populated increment_result's grid%xa
+    // with ALL fields (35+ fields), not just the 5 control variables!
+    // This ensures complete WRFDA x_type alignment.
+    //
     // WRFDA's adjoint computes +H'^T(xb), which is exactly what we need
     // since apply() now returns H(x), so the adjoint is +H'^T(x)
-    // No sign changes needed!
+    // No sign changes or extract/update needed!
   }
 
   /**

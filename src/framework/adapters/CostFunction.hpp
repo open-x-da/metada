@@ -203,7 +203,7 @@ class CostFunction : public NonCopyable {
     // method
     auto increment =
         Increment<BackendTag>::createFromGeometry(a.geometry()->backend());
-    increment.incrementBackend().transferFromState(diff_state.backend());
+    increment.backend().transferFromState(diff_state.backend());
 
     return increment;
   }

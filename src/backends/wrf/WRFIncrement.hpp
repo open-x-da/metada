@@ -7,23 +7,21 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <memory>
-#include <random>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 // WRFDA C bindings for increment operations on grid%xa
 extern "C" {
-/// Zero analysis increments (grid%xa)
+/// Zero analysis increments (grid%xa) - uses WRFDA's da_zero_x
 int wrfda_zero_xa(void* grid_ptr);
 
-/// Update analysis increments from arrays
-void wrfda_update_analysis_increments(const double* u, const double* v,
-                                      const double* t, const double* q,
-                                      const double* psfc, const void* grid_ptr);
+/// Copy analysis increments: dst = src (ALL 35+ fields) - uses WRFDA's
+/// da_copy_xa
+void wrfda_copy_xa(void* grid_dst_ptr, void* grid_src_ptr);
+
+/// Randomize ALL analysis increment fields (35+ fields) for testing
+void wrfda_randomize_xa(void* grid_ptr);
 
 /// Extract analysis increments to arrays
 int wrfda_extract_analysis_increments(void* grid_ptr, double* u, double* v,
@@ -41,6 +39,12 @@ void wrfda_xa_axpy(double alpha, void* grid_ptr1, void* grid_ptr2);
 
 /// Scale analysis increments: xa = alpha * xa
 void wrfda_xa_scale(double alpha, void* grid_ptr);
+
+/// Update analysis increments from 5-variable arrays (control variables only)
+/// @note For complete x_type alignment, use wrfda_copy_xa instead
+void wrfda_update_analysis_increments(const double* u, const double* v,
+                                      const double* t, const double* q,
+                                      const double* psfc, const void* grid_ptr);
 }
 
 namespace metada::backends::wrf {
@@ -52,11 +56,27 @@ namespace metada::backends::wrf {
  * and Forecasting (WRF) model, specifically managing analysis increments
  * stored in grid%xa (NOT grid%xb which is the background state).
  *
- * Key features:
- * - Operates exclusively on grid%xa (analysis increments)
- * - Provides vector space operations (zero, scale, axpy, dot, norm)
- * - Interfaces with WRFDA's incremental 3D-Var formulation
- * - Shares grid structure with WRFState but operates on different fields
+ * ## Architecture: Full WRFDA x_type Alignment
+ *
+ * WRFIncrement operates directly on WRFDA's grid%xa which contains **35+
+ * fields**:
+ *
+ * ### 3D Fields (17 fields):
+ * - **Control variables**: u, v, t, q (wind, temperature, moisture)
+ * - **Diagnostic variables**: w, p, geoh, rh, wh, rho, ref
+ * - **Hydrometeors**: qcw, qrn, qci, qsn, qgr, qt
+ *
+ * ### 2D Fields (18+ fields):
+ * - **Surface**: psfc, mu, tgrn, u10, v10, t2, q2
+ * - **Derived**: ztd, tpw, speed
+ * - **Brightness temps**: tb19v, tb19h, tb22v, tb37v, tb37h, tb85v, tb85h
+ *
+ * ### WRFDA Native Functions Used:
+ * - `da_zero_x`: Zero ALL increment fields properly
+ * - `da_copy_xa`: Copy complete increment structure (ALL 35+ fields)
+ * - `da_add_xa`: Add increments with proper field handling
+ *
+ * This ensures **complete alignment** with WRFDA, not just control variables!
  *
  * The increment represents δx = x - xb in the incremental formulation:
  * J(δx) = 1/2 * δx^T B^-1 δx + 1/2 * (d - H(xb + δx))^T R^-1 (d - H(xb + δx))
@@ -66,6 +86,7 @@ namespace metada::backends::wrf {
  *
  * @see WRFState for background state (grid%xb)
  * @see framework::Increment
+ * @see WRFDA's da_define_structures.f90 for complete x_type definition
  */
 template <typename ConfigBackend, typename GeometryBackend>
 class WRFIncrement {
@@ -91,6 +112,8 @@ class WRFIncrement {
 
   /**
    * @brief Copy constructor
+   *
+   * @details Uses WRFDA's da_copy_xa to copy ALL 35+ increment fields
    */
   WRFIncrement(const WRFIncrement& other)
       : geometry_(other.geometry_),
@@ -100,6 +123,7 @@ class WRFIncrement {
         size_3d_(other.size_3d_),
         size_2d_(other.size_2d_),
         total_size_(other.total_size_) {
+    // Use WRFDA's proven da_copy_xa function for complete increment copy
     copyFrom(other);
   }
 
@@ -284,41 +308,39 @@ class WRFIncrement {
   }
 
   /**
-   * @brief Randomize increment fields for testing
-   * @details Fills all increment fields with random values in range [-0.5, 0.5]
+   * @brief Randomize ALL increment fields for testing
+   *
+   * @details Fills ALL 35+ increment fields with random values in [-0.5, 0.5].
+   * This includes:
+   * - 3D fields: u, v, w, t, q, p, geoh, rh, wh, rho, ref, qcw, qrn, qci, qsn,
+   * qgr, qt
+   * - 2D fields: psfc, mu, tgrn, u10, v10, t2, q2, ztd, tpw, speed, brightness
+   * temps
+   *
+   * Uses WRFDA's da_zero_x to initialize, then randomizes following da_copy_xa
+   * structure.
    */
   void randomize() {
-    std::vector<double> u(nx_ * ny_ * nz_);
-    std::vector<double> v(nx_ * ny_ * nz_);
-    std::vector<double> t(nx_ * ny_ * nz_);
-    std::vector<double> q(nx_ * ny_ * nz_);
-    std::vector<double> psfc(nx_ * ny_);
-
-    std::mt19937 gen(std::random_device{}());
-    std::uniform_real_distribution<double> dist(-0.5, 0.5);
-
-    for (auto& val : u) val = dist(gen);
-    for (auto& val : v) val = dist(gen);
-    for (auto& val : t) val = dist(gen);
-    for (auto& val : q) val = dist(gen);
-    for (auto& val : psfc) val = dist(gen);
-
-    update(u.data(), v.data(), t.data(), q.data(), psfc.data());
+    void* grid_ptr = geometry_.getGridPtr();
+    wrfda_randomize_xa(grid_ptr);
   }
 
   /**
-   * @brief Update increment from arrays
+   * @brief Copy increment from another WRFIncrement
    *
-   * @param[in] u U-wind increment (size: nx*ny*nz)
-   * @param[in] v V-wind increment (size: nx*ny*nz)
-   * @param[in] t Temperature increment (size: nx*ny*nz)
-   * @param[in] q Moisture increment (size: nx*ny*nz)
-   * @param[in] psfc Surface pressure increment (size: nx*ny)
+   * @details Uses WRFDA's proven da_copy_xa function to copy ALL fields
+   * in the increment structure (35+ fields: u, v, w, t, q, p, psfc, mu,
+   * hydrometeors, diagnostics, surface vars, brightness temps, etc.)
+   *
+   * This is the RECOMMENDED way to update increments - it ensures complete
+   * alignment with WRFDA's increment structure.
+   *
+   * @param[in] other Source increment to copy from
    */
-  void update(const double* u, const double* v, const double* t,
-              const double* q, const double* psfc) {
-    void* grid_ptr = geometry_.getGridPtr();
-    wrfda_update_analysis_increments(u, v, t, q, psfc, grid_ptr);
+  void copyFrom(const WRFIncrement& other) {
+    void* dst_grid_ptr = geometry_.getGridPtr();
+    void* src_grid_ptr = other.geometry_.getGridPtr();
+    wrfda_copy_xa(dst_grid_ptr, src_grid_ptr);
   }
 
   /**
@@ -326,6 +348,10 @@ class WRFIncrement {
    *
    * @details Extracts data from state backend and updates this increment.
    * This is used when creating increments from state differences.
+   *
+   * @note Currently only transfers 5 control variables (u,v,t,q,psfc).
+   * This is sufficient for standard 3DVAR where these are the control
+   * variables.
    *
    * @param state_backend State backend containing difference data
    */
@@ -337,7 +363,8 @@ class WRFIncrement {
     auto* q = static_cast<const double*>(state_backend.getData("QVAPOR"));
     auto* psfc = static_cast<const double*>(state_backend.getData("PSFC"));
 
-    update(u, v, t, q, psfc);
+    void* grid_ptr = geometry_.getGridPtr();
+    wrfda_update_analysis_increments(u, v, t, q, psfc, grid_ptr);
   }
 
   /**
@@ -357,18 +384,6 @@ class WRFIncrement {
   }
 
  private:
-  /**
-   * @brief Copy data from another increment
-   */
-  void copyFrom(const WRFIncrement& other) {
-    // Extract from other and update this
-    std::vector<double> u(size_3d_), v(size_3d_), t(size_3d_), q(size_3d_);
-    std::vector<double> psfc(size_2d_);
-
-    other.extract(u.data(), v.data(), t.data(), q.data(), psfc.data());
-    update(u.data(), v.data(), t.data(), q.data(), psfc.data());
-  }
-
   const GeometryBackend& geometry_;  ///< Grid geometry reference
   int nx_;                           ///< Number of grid points in X
   int ny_;                           ///< Number of grid points in Y

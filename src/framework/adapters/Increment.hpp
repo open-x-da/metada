@@ -47,8 +47,8 @@ class Increment {
   void randomize() { increment_.randomize(); }
 
   // Increment backend access
-  IncrementBackendType& incrementBackend() { return increment_; }
-  const IncrementBackendType& incrementBackend() const { return increment_; }
+  IncrementBackendType& backend() { return increment_; }
+  const IncrementBackendType& backend() const { return increment_; }
 
   // Geometry access
   const GeometryBackendType& geometry() const { return increment_.geometry(); }

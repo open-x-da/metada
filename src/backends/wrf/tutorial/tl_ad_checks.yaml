@@ -27,7 +27,7 @@ finite_difference_epsilons:
    - 1.0e-7
 
 # Analysis time configuration
-analysis_time: &analysis_time "2000-01-24T12:00:00Z"
+analysis_time: &analysis_time "2008-02-05T12:00:00Z"
 time_window: &time_window "±5m" # Time window around analysis time
 
 # Variational method: 3DVAR (single time analysis)
@@ -44,11 +44,13 @@ preconditioning_enabled: false
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file
 geometry:
-  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+  file: "D:/linux/metada/build/wrfinput_d01"
+  namelist_path: "D:/linux/metada/build/namelist.input"
+  domain_id: 1
 
 # Background state configuration
 background:
-  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+  file: "D:/linux/metada/build/wrfinput_d01"
   # Analysis variables for 3DVAR
   variables:
     - U
@@ -59,6 +61,9 @@ background:
 
 # Observation configuration
 observation:
+  # WRFDA observation file (ASCII format)
+  obs_file: "D:/linux/WRF/var/test/tutorial/ob.ascii"
+  
   types:
     - adpsfc:
         if_use: true
@@ -99,7 +104,7 @@ obs_operator:
 model:
   # Time control settings
   time_control:
-    start_datetime: "2020-01-01T12:00:00Z"
+    start_datetime: "2008-02-05T12:00:00Z"
     forecast_length: "1s"  # Minimal forecast for TL/AD checks
     time_step: "30s"
     output_history: false

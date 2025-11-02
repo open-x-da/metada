@@ -42,7 +42,9 @@ int wrfda_extract_background_state(void* grid_ptr, double* u, double* v,
 int wrfda_extract_additional_fields(void* grid_ptr, double* w, double* mu,
                                     double* mub, double* pb, double* t_init);
 
-// Cleanup da_control module vertical coordinates
+// WARNING: DO NOT USE IN DESTRUCTORS!
+// da_control module variables (c1f, c2f, etc.) are module-level and shared
+// across all WRFState instances. Only call during final WRFDA shutdown.
 void wrfda_cleanup_vertical_coords();
 
 // LEGACY: Old domain construction methods (kept for backward compatibility)
@@ -181,16 +183,14 @@ class WRFState {
   WRFState& operator=(WRFState&& other) noexcept;
 
   /**
-   * @brief Destructor with automatic resource cleanup
+   * @brief Destructor
    *
-   * @details Automatically releases all allocated memory, closes
-   * any open file handles, and cleans up WRFDA module-level variables
-   * including vertical coordinates in da_control module.
+   * @details Uses default destructor. WRFDA module-level variables
+   * (da_control::c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h) are NOT cleaned
+   * up here as they are shared across all WRFState instances. WRFDA
+   * manages these internally during finalization.
    */
-  ~WRFState() {
-    // Cleanup da_control module vertical coordinates
-    wrfda_cleanup_vertical_coords();
-  }
+  ~WRFState() = default;
   ///@}
 
   ///@{ @name State Cloning

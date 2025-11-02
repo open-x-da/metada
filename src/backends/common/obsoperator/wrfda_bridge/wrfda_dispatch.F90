@@ -444,9 +444,97 @@ contains
     allocate(x%psfc(nx,ny));  x%psfc = 0.0
   end subroutine zero_x_like
 
-  ! Update only analysis increments (xa) for incremental 3D-Var
-  ! This subroutine updates the analysis increments while keeping background state constant
+  !============================================================================
+  ! WRFDA Native Increment Operations (using proven WRFDA functions)
+  !============================================================================
+  
+  ! Copy analysis increments from one grid to another using WRFDA's da_copy_xa
+  ! This copies ALL fields in x_type (35+ fields), not just control variables
+  subroutine wrfda_copy_xa(grid_dst_ptr, grid_src_ptr) bind(C, name="wrfda_copy_xa")
+    use da_vtox_transforms, only : da_copy_xa
+    implicit none
+    type(c_ptr), value :: grid_dst_ptr, grid_src_ptr
+    type(domain), pointer :: grid_dst, grid_src
+    
+    call c_f_pointer(grid_dst_ptr, grid_dst)
+    call c_f_pointer(grid_src_ptr, grid_src)
+    
+    ! Use WRFDA's proven function to copy ALL increment fields
+    call da_copy_xa(grid_dst%xa, grid_src%xa)
+  end subroutine wrfda_copy_xa
+  
+  ! Randomize ALL analysis increment fields (following da_copy_xa structure)
+  ! This ensures all 35+ fields are randomized, not just control variables
+  subroutine wrfda_randomize_xa(grid_ptr) bind(C, name="wrfda_randomize_xa")
+    use da_define_structures, only : da_zero_x
+    implicit none
+    type(c_ptr), value :: grid_ptr
+    type(domain), pointer :: grid
+    
+    call c_f_pointer(grid_ptr, grid)
+    
+    ! First zero all fields using WRFDA's proven function
+    call da_zero_x(grid%xa)
+    
+    ! Randomize ALL fields using array intrinsics (following da_copy_xa structure)
+    ! This uses the actual allocated bounds of the arrays
+    
+    ! 3D fields - Primary variables
+    call random_number(grid%xa%u); grid%xa%u = grid%xa%u - 0.5
+    call random_number(grid%xa%v); grid%xa%v = grid%xa%v - 0.5
+    call random_number(grid%xa%t); grid%xa%t = grid%xa%t - 0.5
+    call random_number(grid%xa%q); grid%xa%q = grid%xa%q - 0.5
+    
+    ! 3D fields - Hydrometeors
+    call random_number(grid%xa%qcw); grid%xa%qcw = grid%xa%qcw - 0.5
+    call random_number(grid%xa%qrn); grid%xa%qrn = grid%xa%qrn - 0.5
+    call random_number(grid%xa%qci); grid%xa%qci = grid%xa%qci - 0.5
+    call random_number(grid%xa%qsn); grid%xa%qsn = grid%xa%qsn - 0.5
+    call random_number(grid%xa%qgr); grid%xa%qgr = grid%xa%qgr - 0.5
+    
+    ! 3D fields - Diagnostic variables
+    call random_number(grid%xa%w); grid%xa%w = grid%xa%w - 0.5
+    call random_number(grid%xa%p); grid%xa%p = grid%xa%p - 0.5
+    call random_number(grid%xa%geoh); grid%xa%geoh = grid%xa%geoh - 0.5
+    call random_number(grid%xa%rh); grid%xa%rh = grid%xa%rh - 0.5
+    call random_number(grid%xa%wh); grid%xa%wh = grid%xa%wh - 0.5
+    call random_number(grid%xa%rho); grid%xa%rho = grid%xa%rho - 0.5
+    call random_number(grid%xa%ref); grid%xa%ref = grid%xa%ref - 0.5
+    call random_number(grid%xa%qt); grid%xa%qt = grid%xa%qt - 0.5
+    
+    ! 2D fields - Surface variables
+    call random_number(grid%xa%psfc); grid%xa%psfc = grid%xa%psfc - 0.5
+    call random_number(grid%xa%mu); grid%xa%mu = grid%xa%mu - 0.5
+    call random_number(grid%xa%tgrn); grid%xa%tgrn = grid%xa%tgrn - 0.5
+    call random_number(grid%xa%u10); grid%xa%u10 = grid%xa%u10 - 0.5
+    call random_number(grid%xa%v10); grid%xa%v10 = grid%xa%v10 - 0.5
+    call random_number(grid%xa%t2); grid%xa%t2 = grid%xa%t2 - 0.5
+    call random_number(grid%xa%q2); grid%xa%q2 = grid%xa%q2 - 0.5
+    
+    ! 2D fields - Derived variables
+    call random_number(grid%xa%ztd); grid%xa%ztd = grid%xa%ztd - 0.5
+    call random_number(grid%xa%tpw); grid%xa%tpw = grid%xa%tpw - 0.5
+    call random_number(grid%xa%speed); grid%xa%speed = grid%xa%speed - 0.5
+    
+    ! 2D fields - Brightness temperatures
+    call random_number(grid%xa%tb19v); grid%xa%tb19v = grid%xa%tb19v - 0.5
+    call random_number(grid%xa%tb19h); grid%xa%tb19h = grid%xa%tb19h - 0.5
+    call random_number(grid%xa%tb22v); grid%xa%tb22v = grid%xa%tb22v - 0.5
+    call random_number(grid%xa%tb37v); grid%xa%tb37v = grid%xa%tb37v - 0.5
+    call random_number(grid%xa%tb37h); grid%xa%tb37h = grid%xa%tb37h - 0.5
+    call random_number(grid%xa%tb85v); grid%xa%tb85v = grid%xa%tb85v - 0.5
+    call random_number(grid%xa%tb85h); grid%xa%tb85h = grid%xa%tb85h - 0.5
+  end subroutine wrfda_randomize_xa
+
+  !============================================================================
+  ! 5-variable interface (control variables only)
+  !============================================================================
+  
+  ! Update analysis increments (xa) using WRFDA's proven da_zero_x function
+  ! This ensures ALL increment fields are properly initialized, not just the 5 control variables
+  ! NOTE: For complete x_type alignment, use wrfda_copy_xa instead
   subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc, grid_ptr) bind(C, name="wrfda_update_analysis_increments")
+    use da_define_structures, only : da_zero_x
     implicit none
     real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
     type(c_ptr), value :: grid_ptr
@@ -456,12 +544,19 @@ contains
     ! Convert C pointer to Fortran pointer
     call c_f_pointer(grid_ptr, grid)
     
+    ! Use WRFDA's proven function to zero ALL increment fields
+    ! This properly initializes all 50+ fields in x_type (u,v,w,t,q,p,psfc,mu,
+    ! hydrometeors, diagnostics, surface vars, brightness temps, etc.)
+    call da_zero_x(grid%xa)
+    
     ! Get grid dimensions from grid
     nx = grid%xp%ide - grid%xp%ids + 1
     ny = grid%xp%jde - grid%xp%jds + 1
     nz = grid%xp%kde - grid%xp%kds + 1
     
-    ! Update only the xa fields (analysis increments)
+    ! Populate only the 5 control variables from C++ arrays
+    ! Note: da_zero_x has already properly zeroed all other fields
+    ! (w, p, geoh, rh, hydrometeors, diagnostics, etc.)
     do k=1,nz; do j=1,ny; do i=1,nx
       ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
       grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
@@ -2934,8 +3029,10 @@ subroutine update_da_control_from_grid(grid)
 end subroutine update_da_control_from_grid
 
 !> @brief Cleanup da_control module vertical coordinate variables
-!> @details Deallocates vertical coordinate arrays in da_control module
-!>          Should be called when MetaDA is done with the grid
+!> @details Deallocates vertical coordinate arrays in da_control module.
+!>          WARNING: These are module-level variables shared across ALL grid instances!
+!>          Should ONLY be called during final WRFDA shutdown, NOT in instance destructors.
+!>          Calling this prematurely will break other WRFState/WRFGeometry instances.
 subroutine cleanup_da_control_vertical_coords()
   use da_control, only: c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h
   use da_wrf_interfaces, only: wrf_message
@@ -2957,7 +3054,9 @@ subroutine cleanup_da_control_vertical_coords()
 end subroutine cleanup_da_control_vertical_coords
 
 !> @brief C-callable wrapper for cleanup_da_control_vertical_coords
-!> @details Allows C++ code to cleanup da_control module vertical coordinates
+!> @details Allows C++ code to cleanup da_control module vertical coordinates.
+!>          WARNING: Only call during final program shutdown, NOT in destructors!
+!>          These are shared module-level variables across all instances.
 subroutine wrfda_cleanup_vertical_coords() bind(C, name="wrfda_cleanup_vertical_coords")
   implicit none
   
