@@ -75,24 +75,24 @@ module metada_wrfda_dispatch
   
 contains
 
-  !> @brief Tangent linear operator: H'(xb)·δx
-  !> @details Computes linearized observation operator for incremental 3D-Var.
-  !>          Uses module-level WRFDA structures directly (head_grid, wrfda_iv, wrfda_ob).
+  !> @brief Tangent linear operator: H'(xb)·δx using WRFDA's proven da_transform_xtoy
+  !> @details Uses WRFDA's top-level da_transform_xtoy which automatically dispatches
+  !>          to all observation types (sound, synop, metar, ships, radar, satellite, etc.)
+  !>          based on iv%info(*)%nlocal counts.
+  !>
   !>          In WRFDA's incremental formulation:
   !>          - xb (grid%xb): background state, fixed during inner loop
   !>          - δx (grid%xa): analysis increment, updated by minimizer
-  !>          - This computes H'(xb)·δx using WRFDA's da_transform_xtoy_* routines
+  !>          - This computes H'(xb)·δx → y using WRFDA's proven dispatch logic
   !>
   !> @note Output extraction is delegated to C++ code which calls
   !>       wrfda_extract_observations() for consistency with nonlinear operator.
-  !>       This ensures size consistency between operators.
   integer(c_int) function wrfda_xtoy_apply_grid() bind(C, name="wrfda_xtoy_apply_grid")
     use module_domain, only: head_grid
+    use da_obs, only: da_transform_xtoy
     implicit none
-       
-    integer :: n
-    character(len=256) :: fam_str
-    integer :: fam_id
+    
+    real :: dummy_cv(1)  ! Dummy control variable (not used in TL operator)
     
     ! Validate module-level structures
     if (.not. associated(head_grid)) then
@@ -110,76 +110,37 @@ contains
       return
     end if
     
-    ! Determine observation family from wrfda_iv structure
-    fam_id = 0
-    do n = 1, size(wrfda_iv%info)
-      if (wrfda_iv%info(n)%nlocal > 0) then
-        fam_id = n
-        exit
-      end if
-    end do
+    ! Use WRFDA's proven top-level function which automatically dispatches
+    ! to ALL observation types (sound, synop, metar, ships, buoy, pilot, airep,
+    ! gpsref, radar, satellite, etc.) based on iv%info(*)%nlocal
+    ! Note: cv_size and cv are not needed for TL operator (only for full transform)
+    call da_transform_xtoy(0, dummy_cv, head_grid, wrfda_iv, wrfda_ob)
     
-    if (fam_id == 0) then
-      wrfda_xtoy_apply_grid = 1_c_int
-      return
-    end if
-    
-    ! Map family ID to name for WRFDA routine selection
-    select case (fam_id)
-    case (1); fam_str = "metar"
-    case (2); fam_str = "synop"
-    case (3); fam_str = "sound"
-    case (4); fam_str = "gpspw"
-    case (5); fam_str = "airep"
-    case (6); fam_str = "pilot"
-    case (7); fam_str = "ships"
-    case (8); fam_str = "buoy"
-    case default; fam_str = "unknown"
-    end select
-    
-    ! Call appropriate WRFDA tangent linear routine
-    ! These compute H'(xb)·δx where δx is in head_grid%xa
-    select case (trim(fam_str))
-    case ('metar'); 
-      call da_transform_xtoy_metar(head_grid, wrfda_iv, wrfda_ob)
-    case ('synop', 'adpsfc'); 
-      call da_transform_xtoy_synop(head_grid, wrfda_iv, wrfda_ob)
-    case ('ships');
-      call da_transform_xtoy_ships(head_grid, wrfda_iv, wrfda_ob)
-    case ('buoy');
-      call da_transform_xtoy_buoy(head_grid, wrfda_iv, wrfda_ob)
-    case ('sound');
-      call da_transform_xtoy_sound(head_grid, wrfda_iv, wrfda_ob)
-    case ('pilot');
-      call da_transform_xtoy_pilot(head_grid, wrfda_iv, wrfda_ob)
-    case ('airep');
-      call da_transform_xtoy_airep(head_grid, wrfda_iv, wrfda_ob)
-    case default; 
-      wrfda_xtoy_apply_grid = 1_c_int
-      return
-    end select
-
-    ! Note: Output extraction is done in C++ using wrfda_extract_observations()
-    ! This ensures size consistency with the nonlinear operator
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
 
-  ! Adjoint operator: H^T * δy -> δx (gradient accumulation)
-  ! This function computes the adjoint of the forward operator for incremental 3D-Var:
-  ! - delta_y: gradient in observation space (passed via persistent arrays)
-  ! - inout_u, inout_v, inout_t, inout_q, inout_psfc: gradient in state space (accumulated in persistent arrays)
-  ! - The adjoint operator accumulates gradients into the state space arrays
+  !> @brief Adjoint operator: H^T·δy using WRFDA's proven da_transform_xtoy_adj
+  !> @details Uses WRFDA's top-level da_transform_xtoy_adj which automatically dispatches
+  !>          to all observation types based on iv%info(*)%nlocal counts.
+  !>
+  !>          Computes H^T·δy → grid%xa where:
+  !>          - δy: observation space gradient (in jo_grad_y)
+  !>          - grid%xa: state space gradient (output)
+  !>
+  !> @note Input δy is passed via persistent_delta_y arrays.
+  !>       Output is written directly to grid%xa by WRFDA.
   integer(c_int) function wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr) bind(C, name="wrfda_xtoy_adjoint_grid")
+    use da_obs, only: da_transform_xtoy_adj
+    use da_define_structures, only: da_zero_x
     implicit none
     type(c_ptr), value :: grid_ptr, iv_ptr
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
     type(y_type), target :: jo_grad_y
-    type(x_type), target :: jo_grad_x
     integer :: n, num_innovations, nx, ny, nz
-    character(len=256) :: fam_str
     integer :: fam_id
+    real :: dummy_cv(1)  ! Dummy control variable (not used in adjoint operator)
     
     ! Convert C pointers to Fortran pointers
     call c_f_pointer(grid_ptr, grid)
@@ -195,20 +156,10 @@ contains
     ny = grid%xp%jde - grid%xp%jds + 1
     nz = grid%xp%kde - grid%xp%kds + 1
     
-    ! Zero out analysis increments for adjoint computation
-    grid%xa%u = 0.0
-    grid%xa%v = 0.0
-    grid%xa%t = 0.0
-    grid%xa%q = 0.0
-    grid%xa%psfc = 0.0
+    ! Zero ALL analysis increment fields using WRFDA's proven function
+    call da_zero_x(grid%xa)
     
-    ! Grid structure and module-level variables are already set up
-    ! No need to call da_copy_dims and da_copy_tile_dims again
-    call zero_x_like(jo_grad_x, nx, ny, nz)
-    sfc_assi_options = sfc_assi_options_1
-    
-    ! Instead of parsing input string, determine family from iv structure
-    ! Find the first family that has observations available
+    ! Determine observation family to initialize jo_grad_y structure
     fam_id = 0
     do n = 1, size(iv%info)
       if (iv%info(n)%nlocal > 0) then
@@ -222,25 +173,9 @@ contains
       return
     end if
     
-    ! Map family ID to name for debugging
-    select case (fam_id)
-    case (1); fam_str = "metar"
-    case (2); fam_str = "synop"
-    case (3); fam_str = "sound"
-    case (4); fam_str = "gpspw"
-    case (5); fam_str = "airep"
-    case (6); fam_str = "pilot"
-    case (7); fam_str = "ships"
-    case (8); fam_str = "buoy"
-    case default; fam_str = "unknown"
-    end select
-
-    ! Calculate number of innovations from observations
-    ! For synop observations, we have up to 5 variables per observation (U, V, T, Q, P)
-    if (associated(iv) .and. associated(iv%synop)) then
-      
-      ! Count actual innovations from the iv structure
-      num_innovations = 0
+    ! Count innovations for jo_grad_y allocation
+    num_innovations = 0
+    if (associated(iv%synop)) then
       do n = 1, iv%info(2)%nlocal
         if (iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
         if (iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
@@ -253,17 +188,13 @@ contains
     ! Initialize jo_grad_y from persistent delta_y array
     call init_y_from_delta(fam_id, jo_grad_y, persistent_delta_y, num_innovations)
 
-    select case (trim(fam_str))
-    case ('metar'); 
-      call da_transform_xtoy_metar_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case ('synop', 'adpsfc'); 
-      call da_transform_xtoy_synop_adj(grid, iv, jo_grad_y, jo_grad_x)
-    case default; 
-      wrfda_xtoy_adjoint_grid = 1_c_int; return
-    end select
-
-    ! Copy gradients to persistent arrays for later retrieval
-    call copy_x_to_persistent(jo_grad_x, nx, ny, nz)
+    ! Use WRFDA's proven top-level adjoint function
+    ! Automatically dispatches to ALL observation types and writes result to grid%xa
+    ! Note: cv_size and cv are not used in adjoint operator (only for full transform)
+    call da_transform_xtoy_adj(0, dummy_cv, grid, iv, jo_grad_y, grid%xa)
+    
+    ! grid%xa now contains the adjoint gradient from ALL observation types!
+    
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
 
