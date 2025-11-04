@@ -317,10 +317,12 @@ class WRFObsOperator {
     // Get WRFDA structures directly (grid, iv, y are managed by WRFDA)
     void* grid_ptr = wrfda_get_head_grid_ptr_();
     void* iv_ptr = wrfda_get_iv_ptr();
-    void* y_ptr = wrfda_get_y_ptr();  // y = simulated observations from
-                                      // applyTangentLinear
 
-    if (!grid_ptr || !iv_ptr || !y_ptr) {
+    // CRITICAL: Use wrfda_y_tl (TL output), not wrfda_ob (observation values)
+    // The adjoint needs re = (O-B) - H'(δx), where H'(δx) is in wrfda_y_tl
+    void* y_tl_ptr = wrfda_get_y_tl_ptr();
+
+    if (!grid_ptr || !iv_ptr || !y_tl_ptr) {
       throw std::runtime_error(
           "WRFDA structures not available. Ensure observations are read and "
           "TL operator has been called.");
@@ -328,9 +330,10 @@ class WRFObsOperator {
 
     // Use WRFDA's proven workflow instead of manual residual computation:
     // 1. da_calculate_residual: re = (O-B) - H'(δx)
+    //    where H'(δx) is in wrfda_y_tl from applyTangentLinear
     // 2. da_calculate_grady: jo_grad_y = -R^{-1} · re
     // This replaces MetaDA's manual residual and R^{-1} application
-    int rc = wrfda_compute_weighted_residual(iv_ptr, y_ptr);
+    int rc = wrfda_compute_weighted_residual(iv_ptr, y_tl_ptr);
     if (rc != 0) {
       throw std::runtime_error(
           "WRFDA compute weighted residual failed with code " +
@@ -352,6 +355,13 @@ class WRFObsOperator {
     // WRFDA's adjoint has populated grid%xa with ALL fields (35+ fields)
     // using the complete workflow: residual → R^{-1} → adjoint H^T
     x_adjoint.syncFromGrid();
+
+    // CRITICAL: Negate the adjoint gradient!
+    // WRFDA computes: H^T · jo_grad_y where jo_grad_y = -R^{-1} · re
+    // This gives: -H^T R^{-1} [d - H'(δx)]
+    // But the framework expects: +H^T R^{-1} [d - H'(δx)] (it will subtract it)
+    // So we must negate WRFDA's result
+    x_adjoint *= -1.0;
   }
 
   /**

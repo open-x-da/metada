@@ -13,7 +13,7 @@
 module metada_wrfda_dispatch
   use iso_c_binding
   use module_domain,        only: domain, x_type
-  use da_define_structures, only: iv_type, y_type, xbx_type, da_allocate_y, da_allocate_obs_info
+  use da_define_structures, only: iv_type, y_type, xbx_type, da_allocate_y, da_allocate_obs_info, da_zero_y
   use module_symbols_util,  only: wrfu_initialize, wrfu_finalize, wrfu_cal_gregorian
   use module_symbols_util, only: WRFU_ClockCreate, WRFU_TimeIntervalSet, WRFU_SUCCESS, WRFU_Time, WRFU_TimeInterval, WRFU_INITIALIZE, WRFU_CAL_GREGORIAN
   use da_control, only: sound, synop, pilot, satem, geoamv, polaramv, airep, gpspw, gpsref, &
@@ -184,6 +184,7 @@ contains
     implicit none
     
     real :: dummy_cv(1)  ! Dummy control variable (not used in TL operator)
+    real :: zero_value  ! Value for zeroing y_type (must be variable for INTENT(INOUT))
     
     ! Validate module-level structures
     if (.not. associated(head_grid)) then
@@ -208,6 +209,11 @@ contains
       call da_allocate_y(wrfda_iv, wrfda_y_tl)
       wrfda_y_tl_allocated = .true.
     end if
+    
+    ! CRITICAL: Zero out wrfda_y_tl before each TL call to prevent accumulation
+    ! Must pass value parameter explicitly due to bug in da_zero_y (line 18)
+    zero_value = 0.0
+    call da_zero_y(wrfda_iv, wrfda_y_tl, zero_value)
     
     ! Use WRFDA's proven top-level function which automatically dispatches
     ! to ALL observation types (sound, synop, metar, ships, buoy, pilot, airep,

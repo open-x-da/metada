@@ -72,8 +72,9 @@ bool checkIncrementalCostFunctionGradient(
   // Rule of thumb: epsilon ~ sqrt(machine_precision) * scale
   double epsilon = 1e-5;
 
-  auto perturbed_plus = Increment<BackendTag>(test_increment.geometry());
-  auto perturbed_minus = Increment<BackendTag>(test_increment.geometry());
+  // Create copies of test_increment for perturbation
+  Increment<BackendTag> perturbed_plus(test_increment);
+  Increment<BackendTag> perturbed_minus(test_increment);
 
   // Perturb: (test_increment ± ε*d)
   perturbed_plus += direction * epsilon;
