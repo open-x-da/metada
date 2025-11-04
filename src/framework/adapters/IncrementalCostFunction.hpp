@@ -337,6 +337,18 @@ class IncrementalCostFunction : public NonCopyable {
     logger_.Debug() << "Simulated increment: " << simulated_norm;
 
     // Compute d - H'(δx) where d is pre-computed innovation
+    logger_.Debug() << "Innovation vector size: " << innovations_[0].size();
+    logger_.Debug() << "Simulated increment size: "
+                    << simulated_increment.size();
+
+    if (innovations_[0].size() != simulated_increment.size()) {
+      throw std::runtime_error(
+          "Size mismatch in gradient computation: innovations.size()=" +
+          std::to_string(innovations_[0].size()) +
+          ", simulated_increment.size()=" +
+          std::to_string(simulated_increment.size()));
+    }
+
     std::vector<double> residual(innovations_[0].size());
     for (size_t i = 0; i < innovations_[0].size(); ++i) {
       residual[i] = innovations_[0][i] - simulated_increment[i];

@@ -52,6 +52,11 @@ module metada_wrfda_dispatch
   type(y_type), pointer, save :: wrfda_ob => null()
   logical, save :: wrfda_obs_allocated = .false.
   
+  ! Temporary y_type for tangent linear output (to avoid corrupting wrfda_ob)
+  ! Allocated on first TL call, deallocated on cleanup
+  type(y_type), pointer, save :: wrfda_y_tl => null()
+  logical, save :: wrfda_y_tl_allocated = .false.
+  
   ! Map projection information for WRFDA coordinate conversion
   ! Define projection constants
   integer, parameter :: PROJ_LATLON = 0
@@ -175,6 +180,7 @@ contains
   integer(c_int) function wrfda_xtoy_apply_grid() bind(C, name="wrfda_xtoy_apply_grid")
     use module_domain, only: head_grid
     use da_obs, only: da_transform_xtoy
+    use da_define_structures, only: da_allocate_y
     implicit none
     
     real :: dummy_cv(1)  ! Dummy control variable (not used in TL operator)
@@ -195,11 +201,20 @@ contains
       return
     end if
     
+    ! Allocate temporary y_type for TL output (preserves wrfda_ob)
+    ! Only allocate once, reuse for subsequent TL calls
+    if (.not. wrfda_y_tl_allocated) then
+      allocate(wrfda_y_tl)
+      call da_allocate_y(wrfda_iv, wrfda_y_tl)
+      wrfda_y_tl_allocated = .true.
+    end if
+    
     ! Use WRFDA's proven top-level function which automatically dispatches
     ! to ALL observation types (sound, synop, metar, ships, buoy, pilot, airep,
     ! gpsref, radar, satellite, etc.) based on iv%info(*)%nlocal
+    ! CRITICAL: Use wrfda_y_tl instead of wrfda_ob to preserve observation values
     ! Note: cv_size and cv are not needed for TL operator (only for full transform)
-    call da_transform_xtoy(0, dummy_cv, head_grid, wrfda_iv, wrfda_ob)
+    call da_transform_xtoy(0, dummy_cv, head_grid, wrfda_iv, wrfda_y_tl)
     
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
@@ -3738,6 +3753,22 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
       wrfda_get_y_ptr = c_null_ptr
     end if
   end function wrfda_get_y_ptr
+  
+  !> @brief Get pointer to tangent linear y_type (temporary output structure)
+  !> @details Returns pointer to wrfda_y_tl which contains H'·δx output
+  !>          from da_transform_xtoy, preserving wrfda_ob (observation values)
+  !> @return C pointer to wrfda_y_tl, or null if not allocated
+  type(c_ptr) function wrfda_get_y_tl_ptr() bind(C, name="wrfda_get_y_tl_ptr")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_null_ptr
+    use da_define_structures, only: y_type
+    implicit none
+    
+    if (wrfda_y_tl_allocated .and. associated(wrfda_y_tl)) then
+      wrfda_get_y_tl_ptr = c_loc(wrfda_y_tl)
+    else
+      wrfda_get_y_tl_ptr = c_null_ptr
+    end if
+  end function wrfda_get_y_tl_ptr
 
   !> @brief Transfer WRF fields to background state structure (grid%xb)
   !!

@@ -10,6 +10,7 @@ extern "C" {
 void* wrfda_get_head_grid_ptr_();
 void* wrfda_get_iv_ptr(void);
 void* wrfda_get_y_ptr(void);
+void* wrfda_get_y_tl_ptr(void);
 }
 
 namespace metada::backends::wrf {
@@ -249,24 +250,32 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // Extract output using same logic as nonlinear operator for consistency
-    // This ensures tangent linear returns same size as nonlinear operator
+    // Extract H'·δx from temporary TL y structure (wrfda_y_tl)
+    // This preserves wrfda_ob (observation values) from corruption
     int num_observations = 0;
     rc = wrfda_count_innovations(iv_ptr, &num_observations);
     if (rc != 0 || num_observations <= 0) {
       return std::vector<double>();
     }
 
+    // Get TL y pointer (separate from observation y to avoid corruption)
+    void* y_tl_ptr = wrfda_get_y_tl_ptr();
+    if (!y_tl_ptr) {
+      throw std::runtime_error("Tangent linear y_type not allocated");
+    }
+
     std::vector<double> out_y(num_observations);
-    rc = wrfda_extract_innovations(iv_ptr, out_y.data(), &num_observations);
+    int actual_count = 0;
+    rc = wrfda_extract_observations(iv_ptr, y_tl_ptr, out_y.data(),
+                                    &actual_count);
     if (rc != 0) {
       throw std::runtime_error(
           "Failed to extract tangent linear output with code " +
           std::to_string(rc));
     }
 
-    // WRFDA's da_transform_xtoy computes +H'(xb)·δx, which is exactly what we
-    // need since apply() now returns H(x), so the derivative is +H'(x)
+    // WRFDA's da_transform_xtoy computes +H'(xb)·δx and stores in wrfda_y_tl
+    // wrfda_ob remains unchanged, preserving observation values
     return out_y;
   }
 
