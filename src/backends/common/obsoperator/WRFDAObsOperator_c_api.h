@@ -29,6 +29,12 @@ extern "C" {
  */
 int wrfda_xtoy_apply_grid();
 
+// Compute weighted residual using WRFDA's proven workflow:
+// Uses da_calculate_residual + da_calculate_grady to compute jo_grad_y =
+// -R^{-1} · (d - H'δx) Stores result in persistent_jo_grad_y for use by
+// wrfda_xtoy_adjoint_grid
+int wrfda_compute_weighted_residual(const void* iv_ptr, const void* y_ptr);
+
 int wrfda_xtoy_adjoint_grid(const void* grid_ptr, const void* iv_ptr);
 
 // Set delta_y input for adjoint operator

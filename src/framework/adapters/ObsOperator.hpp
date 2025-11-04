@@ -319,16 +319,16 @@ class ObsOperator : public NonCopyable {
 template <typename BackendTag>
   requires ObsOperatorBackendType<BackendTag>
 Increment<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
-    const std::vector<double>& obs_increment,
+    const std::vector<double>& obs_adjoint,
     const State<BackendTag>& reference_state,
     const Observation<BackendTag>& obs) const {
   // Create an increment from geometry
-  auto increment = Increment<BackendTag>::createFromGeometry(
+  auto x_adjoint = Increment<BackendTag>::createFromGeometry(
       reference_state.geometry()->backend());
-  increment.zero();
-  backend_.applyAdjoint(obs_increment, reference_state.backend(),
-                        increment.backend(), obs.backend());
-  return increment;
+  x_adjoint.zero();
+  backend_.applyAdjoint(obs_adjoint, reference_state.backend(),
+                        x_adjoint.backend(), obs.backend());
+  return x_adjoint;
 }
 
 }  // namespace metada::framework

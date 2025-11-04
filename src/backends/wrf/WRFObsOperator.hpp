@@ -200,7 +200,7 @@ class WRFObsOperator {
     std::vector<double> all_simulated_obs;
     all_simulated_obs.reserve(num_innovations);
     for (int i = 0; i < num_innovations; ++i) {
-      all_simulated_obs.push_back(observations[i] - innovations[i]);
+      all_simulated_obs.emplace_back(observations[i] - innovations[i]);
     }
 
     return all_simulated_obs;
@@ -274,70 +274,78 @@ class WRFObsOperator {
   }
 
   /**
-   * @brief Apply the adjoint observation operator: H^T(δy)
-   * @param obs_increment Observation space increment
-   * @param reference_state Reference state around which adjoint is computed
-   * @param result_state State to accumulate adjoint result in
-   * @param obs Observations defining observation locations
+   * @brief Apply adjoint using WRFDA's complete proven workflow
    *
-   * @details Applies the adjoint of the observation operator to map from
-   * observation space back to state space. This is essential for computing
-   * gradients in variational data assimilation.
+   * @param obs_adjoint IGNORED for WRF backend (see details)
+   * @param reference_state Reference state
+   * @param x_adjoint Increment to receive adjoint gradient
+   * @param obs Observations
    *
-   * Implementation: Since apply() now returns H(x), the adjoint returns
-   * H'^T(xb) directly without sign changes.
+   * @details For WRF backend, this uses WRFDA's complete proven workflow:
+   *
+   * **WRFDA Workflow (replaces framework's manual residual + R^{-1}):**
+   * 1. `da_calculate_residual`: re = (O-B) - H'(δx)
+   * 2. `da_calculate_grady`: jo_grad_y = -R^{-1} · re
+   * 3. `da_transform_xtoy_adj`: H^T · jo_grad_y → grid%xa
+   *
+   * @note obs_adjoint parameter is **IGNORED**. WRFDA computes weighted
+   * residuals internally. Framework's manual computation in line 340-363 of
+   * IncrementalCostFunction.hpp is redundant for WRF but kept for other
+   * backends.
    */
-  void applyAdjoint(const std::vector<double>& obs_increment,
+  void applyAdjoint(const std::vector<double>& obs_adjoint,
                     const StateBackend& reference_state,
-                    IncrementBackend& increment_result,
-                    const ObsBackend& obs) const {
+                    IncrementBackend& x_adjoint, const ObsBackend& obs) const {
     if (!isInitialized()) {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Note: reference_state parameter is not used because WRF grid already
-    // contains the state. Background state (grid%xb) is already set up during
-    // the nonlinear apply() call in cost function initialization.
+    // Note: reference_state and obs parameters are not used because WRF grid
+    // already contains the state, and WRFDA manages observation structures
+    // internally. Background state (grid%xb) is already set up during the
+    // nonlinear apply() call.
     (void)reference_state;
+    (void)obs_adjoint;  // Using WRFDA's internal workflow instead
     (void)obs;
 
-    // Set delta_y input for adjoint operator
-    int rc = wrfda_set_delta_y(obs_increment.data(),
-                               static_cast<int>(obs_increment.size()));
-    if (rc != 0) {
-      throw std::runtime_error("WRFDA set delta_y failed with code " +
-                               std::to_string(rc));
-    }
-
-    // Get WRFDA structures directly (grid and iv are allocated and managed by
-    // WRFDA)
+    // Get WRFDA structures directly (grid, iv, y are managed by WRFDA)
     void* grid_ptr = wrfda_get_head_grid_ptr_();
     void* iv_ptr = wrfda_get_iv_ptr();
+    void* y_ptr = wrfda_get_y_ptr();  // y = simulated observations from
+                                      // applyTangentLinear
 
-    if (!grid_ptr || !iv_ptr) {
+    if (!grid_ptr || !iv_ptr || !y_ptr) {
       throw std::runtime_error(
           "WRFDA structures not available. Ensure observations are read and "
-          "domain is initialized.");
+          "TL operator has been called.");
+    }
+
+    // Use WRFDA's proven workflow instead of manual residual computation:
+    // 1. da_calculate_residual: re = (O-B) - H'(δx)
+    // 2. da_calculate_grady: jo_grad_y = -R^{-1} · re
+    // This replaces MetaDA's manual residual and R^{-1} application
+    int rc = wrfda_compute_weighted_residual(iv_ptr, y_ptr);
+    if (rc != 0) {
+      throw std::runtime_error(
+          "WRFDA compute weighted residual failed with code " +
+          std::to_string(rc));
     }
 
     // Zero the increment first (using WRFDA's da_zero_x for ALL fields)
-    increment_result.zero();
+    x_adjoint.zero();
 
-    // Call WRFDA adjoint directly - it writes to grid%xa
-    // Since increment_result manages grid%xa, WRFDA will populate it directly
+    // Call WRFDA adjoint which uses the persistent_jo_grad_y computed above
+    // This computes H^T · jo_grad_y → grid%xa for ALL observation types
     rc = wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr);
     if (rc != 0) {
       throw std::runtime_error("WRFDA adjoint failed with code " +
                                std::to_string(rc));
     }
 
-    // WRFDA's adjoint has directly populated increment_result's grid%xa
-    // with ALL fields (35+ fields), not just the 5 control variables!
-    // This ensures complete WRFDA x_type alignment.
-    //
-    // WRFDA's adjoint computes +H'^T(xb), which is exactly what we need
-    // since apply() now returns H(x), so the adjoint is +H'^T(x)
-    // No sign changes or extract/update needed!
+    // WRFDA's adjoint has directly populated x_adjoint's grid%xa
+    // with ALL fields (35+ fields) using the complete WRFDA workflow:
+    //   residual → weighted by R^{-1} → adjoint H^T
+    // This ensures complete WRFDA x_type alignment and uses proven functions!
   }
 
   /**

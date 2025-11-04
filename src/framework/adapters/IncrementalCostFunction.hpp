@@ -347,6 +347,11 @@ class IncrementalCostFunction : public NonCopyable {
     residual_norm = std::sqrt(residual_norm);
     logger_.Debug() << "Residual: " << residual_norm;
 
+    // Apply R^{-1} weighting
+    // NOTE: For WRF backend, this computation is redundant.
+    // WRFObsOperator::applyAdjoint ignores weighted_residual and uses WRFDA's
+    // proven da_calculate_residual + da_calculate_grady workflow instead. Kept
+    // here for backend-agnosticism.
     auto weighted_residual = obs.applyInverseCovariance(residual);
 
     // Compute norm manually for std::vector<double>
@@ -359,6 +364,9 @@ class IncrementalCostFunction : public NonCopyable {
 
     // -H'^T R^-1 (d - H'(δx)) where H'^T is the adjoint of the tangent linear
     // operator. Note the NEGATIVE sign from the chain rule!
+    // NOTE: WRF backend ignores weighted_residual parameter and uses WRFDA's
+    // internal workflow (da_calculate_residual + da_calculate_grady +
+    // da_transform_xtoy_adj)
     auto obs_gradient =
         obs_op.applyAdjoint(weighted_residual, background_, obs);
     gradient -= obs_gradient;  // Subtract, not add!

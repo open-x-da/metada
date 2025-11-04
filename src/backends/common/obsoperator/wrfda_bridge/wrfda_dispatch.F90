@@ -73,7 +73,92 @@ module metada_wrfda_dispatch
   integer, save :: persistent_nx = 0, persistent_ny = 0, persistent_nz = 0
   logical, save :: adjoint_allocated = .false.
   
+  ! Persistent y_type for weighted residual (jo_grad_y = -R^{-1} · residual)
+  ! Computed by wrfda_compute_weighted_residual, used by wrfda_xtoy_adjoint_grid
+  type(y_type), save :: persistent_jo_grad_y
+  
 contains
+
+  !> @brief Print residual/gradient statistics for debugging
+  !> @details Computes and prints norm, min, max of residual values for each obs type
+  subroutine print_residual_stats(label, iv, y)
+    use da_wrf_interfaces, only: wrf_message
+    implicit none
+    character(len=*), intent(in) :: label
+    type(iv_type), intent(in) :: iv
+    type(y_type), intent(in) :: y
+    
+    integer :: n, count
+    real(kind=8) :: sum_sq, min_val, max_val, val
+    character(len=256) :: msg
+    
+    ! SYNOP statistics
+    if (associated(y%synop) .and. iv%info(synop)%nlocal > 0) then
+      count = 0
+      sum_sq = 0.0_8
+      min_val = 1.0e10
+      max_val = -1.0e10
+      
+      do n = 1, iv%info(synop)%nlocal
+        if (iv%synop(n)%u%qc >= 0) then
+          val = real(y%synop(n)%u, kind=8)
+          sum_sq = sum_sq + val**2
+          min_val = min(min_val, val)
+          max_val = max(max_val, val)
+          count = count + 1
+        end if
+        if (iv%synop(n)%v%qc >= 0) then
+          val = real(y%synop(n)%v, kind=8)
+          sum_sq = sum_sq + val**2
+          min_val = min(min_val, val)
+          max_val = max(max_val, val)
+          count = count + 1
+        end if
+        if (iv%synop(n)%t%qc >= 0) then
+          val = real(y%synop(n)%t, kind=8)
+          sum_sq = sum_sq + val**2
+          min_val = min(min_val, val)
+          max_val = max(max_val, val)
+          count = count + 1
+        end if
+        if (iv%synop(n)%q%qc >= 0) then
+          val = real(y%synop(n)%q, kind=8)
+          sum_sq = sum_sq + val**2
+          min_val = min(min_val, val)
+          max_val = max(max_val, val)
+          count = count + 1
+        end if
+        if (iv%synop(n)%p%qc >= 0) then
+          val = real(y%synop(n)%p, kind=8)
+          sum_sq = sum_sq + val**2
+          min_val = min(min_val, val)
+          max_val = max(max_val, val)
+          count = count + 1
+        end if
+      end do
+      
+      if (count > 0) then
+        write(msg, '(A,A)') "DEBUG: ", trim(label)
+        call wrf_message(trim(msg))
+        write(msg, '(A,I6)') "  SYNOP observations: ", count
+        call wrf_message(trim(msg))
+        write(msg, '(A,E15.6)') "  Norm:  ", sqrt(sum_sq)
+        call wrf_message(trim(msg))
+        write(msg, '(A,E15.6)') "  Min:   ", min_val
+        call wrf_message(trim(msg))
+        write(msg, '(A,E15.6)') "  Max:   ", max_val
+        call wrf_message(trim(msg))
+      end if
+    end if
+    
+    ! SOUND statistics (multi-level observations)
+    if (associated(y%sound) .and. iv%info(sound)%nlocal > 0) then
+      write(msg, '(A,A)') "DEBUG: ", trim(label)
+      call wrf_message(trim(msg))
+      write(msg, '(A,I6,A)') "  SOUND stations: ", iv%info(sound)%nlocal, " (multi-level)"
+      call wrf_message(trim(msg))
+    end if
+  end subroutine print_residual_stats
 
   !> @brief Tangent linear operator: H'(xb)·δx using WRFDA's proven da_transform_xtoy
   !> @details Uses WRFDA's top-level da_transform_xtoy which automatically dispatches
@@ -119,15 +204,73 @@ contains
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
 
-  !> @brief Adjoint operator: H^T·δy using WRFDA's proven da_transform_xtoy_adj
+  !> @brief Compute weighted residual using WRFDA's proven workflow
+  !> @details Replaces MetaDA's manual residual and R^{-1} computation with WRFDA's
+  !>          proven functions:
+  !>          1. da_calculate_residual(iv, y, re): re = (O-B) - H(xa)
+  !>          2. da_calculate_grady(iv, re, jo_grad_y): jo_grad_y = -R^{-1} · re
+  !>
+  !>          The result is stored in module-level persistent_delta_y for use by
+  !>          the adjoint operator.
+  !>
+  !> @param[in] iv_ptr Innovation vector (O-B with error statistics)
+  !> @param[in] y_ptr Simulated observations H(xa) or H'(δx)
+  !> @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_compute_weighted_residual(iv_ptr, y_ptr) &
+      bind(C, name="wrfda_compute_weighted_residual")
+    use da_minimisation, only: da_calculate_residual, da_calculate_grady
+    use da_define_structures, only: da_allocate_y, da_deallocate_y
+    implicit none
+    type(c_ptr), value :: iv_ptr, y_ptr
+    
+    type(iv_type), pointer :: iv
+    type(y_type), pointer :: y  
+    type(y_type), target :: re, jo_grad_y
+    
+    call c_f_pointer(iv_ptr, iv)
+    call c_f_pointer(y_ptr, y)
+    
+    ! Allocate residual and gradient structures
+    call da_allocate_y(iv, re)
+    call da_allocate_y(iv, jo_grad_y)
+    
+    ! Step 1: WRFDA's proven residual calculation
+    ! re = (O-B) - H(xa) for ALL observation types
+    call da_calculate_residual(iv, y, re)
+    
+    ! Debug: Print residual statistics
+    call print_residual_stats("After da_calculate_residual", iv, re)
+    
+    ! Step 2: WRFDA's proven gradient calculation
+    ! jo_grad_y = -R^{-1} · re for ALL observation types
+    call da_calculate_grady(iv, re, jo_grad_y)
+    
+    ! Debug: Print jo_grad_y statistics
+    call print_residual_stats("After da_calculate_grady (jo_grad_y)", iv, jo_grad_y)
+    
+    ! Step 3: Store jo_grad_y in persistent module variable
+    ! Deallocate previous if exists
+    if (associated(persistent_jo_grad_y%synop)) call da_deallocate_y(persistent_jo_grad_y)
+    if (associated(persistent_jo_grad_y%sound)) call da_deallocate_y(persistent_jo_grad_y)
+    
+    ! Transfer ownership to persistent variable (no copy needed)
+    persistent_jo_grad_y = jo_grad_y
+    
+    ! Cleanup residual only (jo_grad_y is now in persistent storage)
+    call da_deallocate_y(re)
+    
+    wrfda_compute_weighted_residual = 0_c_int
+  end function wrfda_compute_weighted_residual
+
+  !> @brief Adjoint operator: H^T·jo_grad_y using WRFDA's proven da_transform_xtoy_adj
   !> @details Uses WRFDA's top-level da_transform_xtoy_adj which automatically dispatches
   !>          to all observation types based on iv%info(*)%nlocal counts.
   !>
-  !>          Computes H^T·δy → grid%xa where:
-  !>          - δy: observation space gradient (in jo_grad_y)
+  !>          Computes H^T·jo_grad_y → grid%xa where:
+  !>          - jo_grad_y: weighted residual from wrfda_compute_weighted_residual
   !>          - grid%xa: state space gradient (output)
   !>
-  !> @note Input δy is passed via persistent_delta_y arrays.
+  !> @note Uses persistent_jo_grad_y computed by wrfda_compute_weighted_residual.
   !>       Output is written directly to grid%xa by WRFDA.
   integer(c_int) function wrfda_xtoy_adjoint_grid(grid_ptr, iv_ptr) bind(C, name="wrfda_xtoy_adjoint_grid")
     use da_obs, only: da_transform_xtoy_adj
@@ -137,9 +280,6 @@ contains
 
     type(domain), pointer :: grid
     type(iv_type), pointer :: iv
-    type(y_type), target :: jo_grad_y
-    integer :: n, num_innovations, nx, ny, nz
-    integer :: fam_id
     real :: dummy_cv(1)  ! Dummy control variable (not used in adjoint operator)
     
     ! Convert C pointers to Fortran pointers
@@ -151,49 +291,17 @@ contains
       return
     end if
     
-    ! Get grid dimensions
-    nx = grid%xp%ide - grid%xp%ids + 1
-    ny = grid%xp%jde - grid%xp%jds + 1
-    nz = grid%xp%kde - grid%xp%kds + 1
-    
     ! Zero ALL analysis increment fields using WRFDA's proven function
     call da_zero_x(grid%xa)
     
-    ! Determine observation family to initialize jo_grad_y structure
-    fam_id = 0
-    do n = 1, size(iv%info)
-      if (iv%info(n)%nlocal > 0) then
-        fam_id = n
-        exit
-      end if
-    end do
+    ! Use WRFDA's proven top-level adjoint function with persistent jo_grad_y
+    ! persistent_jo_grad_y was computed by wrfda_compute_weighted_residual using:
+    !   1. da_calculate_residual: re = (O-B) - H(xa)
+    !   2. da_calculate_grady: jo_grad_y = -R^{-1} · re
+    ! This automatically handles ALL observation types (sound, synop, metar, etc.)
+    call da_transform_xtoy_adj(0, dummy_cv, grid, iv, persistent_jo_grad_y, grid%xa)
     
-    if (fam_id == 0) then
-      wrfda_xtoy_adjoint_grid = 1_c_int
-      return
-    end if
-    
-    ! Count innovations for jo_grad_y allocation
-    num_innovations = 0
-    if (associated(iv%synop)) then
-      do n = 1, iv%info(2)%nlocal
-        if (iv%synop(n)%u%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%v%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%t%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%q%qc == 0) num_innovations = num_innovations + 1
-        if (iv%synop(n)%p%qc == 0) num_innovations = num_innovations + 1
-      end do
-    end if
-    
-    ! Initialize jo_grad_y from persistent delta_y array
-    call init_y_from_delta(fam_id, jo_grad_y, persistent_delta_y, num_innovations)
-
-    ! Use WRFDA's proven top-level adjoint function
-    ! Automatically dispatches to ALL observation types and writes result to grid%xa
-    ! Note: cv_size and cv are not used in adjoint operator (only for full transform)
-    call da_transform_xtoy_adj(0, dummy_cv, grid, iv, jo_grad_y, grid%xa)
-    
-    ! grid%xa now contains the adjoint gradient from ALL observation types!
+    ! grid%xa now contains H^T · jo_grad_y for ALL observation types!
     
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
@@ -208,6 +316,7 @@ contains
     
     ! Calculate number of observations from innovations
     ! For synop observations, we need to get the actual number of observations from wrfda_iv
+
     if (associated(wrfda_iv) .and. associated(wrfda_iv%synop)) then
       num_obs = wrfda_iv%info(2)%nlocal
     else
