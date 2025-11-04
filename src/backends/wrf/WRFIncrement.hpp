@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -58,30 +61,33 @@ namespace metada::backends::wrf {
  * @brief WRF increment backend implementation for analysis increments
  *
  * @details This class implements an increment backend for the Weather Research
- * and Forecasting (WRF) model, specifically managing analysis increments
- * stored in grid%xa (NOT grid%xb which is the background state).
+ * and Forecasting (WRF) model, using **Control Variable (CV) space storage**
+ * for true increment independence.
  *
- * ## Architecture: Full WRFDA x_type Alignment
+ * ## Architecture: CV Space Storage with WRFDA Integration
  *
- * WRFIncrement operates directly on WRFDA's grid%xa which contains **35+
- * fields**:
+ * Each WRFIncrement instance:
+ * 1. Stores data internally as `std::vector<double>` (18 fields, CV space)
+ * 2. Uses `grid%xa` as a **staging area** for WRFDA operations only
+ * 3. Provides true independence between increment objects
  *
- * ### 3D Fields (17 fields):
- * - **Control variables**: u, v, t, q (wind, temperature, moisture)
- * - **Diagnostic variables**: w, p, geoh, rh, wh, rho, ref
- * - **Hydrometeors**: qcw, qrn, qci, qsn, qgr, qt
+ * This design aligns with WRFDA's minimization approach where increments are
+ * stored as control variable vectors, and `grid%xa` is working memory.
  *
- * ### 2D Fields (18+ fields):
- * - **Surface**: psfc, mu, tgrn, u10, v10, t2, q2
- * - **Derived**: ztd, tpw, speed
- * - **Brightness temps**: tb19v, tb19h, tb22v, tb37v, tb37h, tb85v, tb85h
+ * ### Stored Fields (18 fields):
+ * **3D Fields (16)**:
+ * - **Core**: u, v, w, t, p, q
+ * - **Moisture/Thermo**: qt, rh
+ * - **Derived**: rho, geoh, wh
+ * - **Hydrometeors**: qcw, qrn, qci, qsn, qgr
  *
- * ### WRFDA Native Functions Used:
- * - `da_zero_x`: Zero ALL increment fields properly
- * - `da_copy_xa`: Copy complete increment structure (ALL 35+ fields)
- * - `da_add_xa`: Add increments with proper field handling
+ * **2D Fields (2)**:
+ * - **Surface**: psfc, mu
  *
- * This ensures **complete alignment** with WRFDA, not just control variables!
+ * ### WRFDA Integration:
+ * - `syncToGrid()`: Write internal data → `grid%xa` before WRFDA operations
+ * - `syncFromGrid()`: Extract `grid%xa` → internal data after WRFDA operations
+ * - WRFDA operations (norm, dot, axpy) use `grid%xa` as staging area
  *
  * The increment represents δx = x - xb in the incremental formulation:
  * J(δx) = 1/2 * δx^T B^-1 δx + 1/2 * (d - H(xb + δx))^T R^-1 (d - H(xb + δx))
@@ -109,16 +115,17 @@ class WRFIncrement {
         size_3d_(nx_ * ny_ * nz_),
         size_2d_(nx_ * ny_),
         total_size_(16 * size_3d_ +
-                    2 * size_2d_) {  // 16 3D fields + 2 2D fields (psfc, mu)
+                    2 * size_2d_),  // 16 3D fields + 2 2D fields
+        data_(total_size_, 0.0) {   // Initialize internal CV storage with zeros
 
-    // Zero the analysis increments in grid%xa
-    zero();
+    // Note: Internal data is already zeroed via initialization
+    // grid%xa will be synced when needed for WRFDA operations
   }
 
   /**
    * @brief Copy constructor
    *
-   * @details Uses WRFDA's da_copy_xa to copy ALL 35+ increment fields
+   * @details Copies internal CV storage - provides true increment independence
    */
   WRFIncrement(const WRFIncrement& other)
       : geometry_(other.geometry_),
@@ -127,9 +134,9 @@ class WRFIncrement {
         nz_(other.nz_),
         size_3d_(other.size_3d_),
         size_2d_(other.size_2d_),
-        total_size_(other.total_size_) {
-    // Use WRFDA's proven da_copy_xa function for complete increment copy
-    copyFrom(other);
+        total_size_(other.total_size_),
+        data_(other.data_) {  // Direct copy of internal CV storage
+    // Each increment now has independent data storage
   }
 
   /**
@@ -141,7 +148,7 @@ class WRFIncrement {
         throw std::runtime_error(
             "Cannot assign increments with different dimensions");
       }
-      copyFrom(other);
+      data_ = other.data_;  // Direct copy of internal CV storage
     }
     return *this;
   }
@@ -162,17 +169,9 @@ class WRFIncrement {
   ~WRFIncrement() = default;
 
   /**
-   * @brief Zero all analysis increments (grid%xa = 0)
+   * @brief Zero all increments in internal storage
    */
-  void zero() {
-    void* grid_ptr = geometry_.getGridPtr();
-    int rc = wrfda_zero_xa(grid_ptr);
-    if (rc != 0) {
-      throw std::runtime_error(
-          "Failed to zero analysis increments: error code " +
-          std::to_string(rc));
-    }
-  }
+  void zero() { std::fill(data_.begin(), data_.end(), 0.0); }
 
   /**
    * @brief Scale increment by scalar: xa *= alpha
@@ -180,8 +179,9 @@ class WRFIncrement {
    * @param alpha Scaling factor
    */
   void scale(double alpha) {
-    void* grid_ptr = geometry_.getGridPtr();
-    wrfda_xa_scale(alpha, grid_ptr);
+    for (auto& val : data_) {
+      val *= alpha;
+    }
   }
 
   /**
@@ -191,9 +191,13 @@ class WRFIncrement {
    * @param other Increment to add
    */
   void axpy(double alpha, const WRFIncrement& other) {
-    void* grid_ptr = geometry_.getGridPtr();
-    void* other_grid_ptr = other.geometry_.getGridPtr();
-    wrfda_xa_axpy(alpha, grid_ptr, other_grid_ptr);
+    if (data_.size() != other.data_.size()) {
+      throw std::runtime_error(
+          "Cannot perform AXPY with increments of different sizes");
+    }
+    for (size_t i = 0; i < data_.size(); ++i) {
+      data_[i] += alpha * other.data_[i];
+    }
   }
 
   /**
@@ -203,9 +207,15 @@ class WRFIncrement {
    * @return Dot product value
    */
   double dot(const WRFIncrement& other) const {
-    void* grid_ptr = geometry_.getGridPtr();
-    void* other_grid_ptr = other.geometry_.getGridPtr();
-    return wrfda_xa_dot(grid_ptr, other_grid_ptr);
+    if (data_.size() != other.data_.size()) {
+      throw std::runtime_error(
+          "Cannot compute dot product with increments of different sizes");
+    }
+    double result = 0.0;
+    for (size_t i = 0; i < data_.size(); ++i) {
+      result += data_[i] * other.data_[i];
+    }
+    return result;
   }
 
   /**
@@ -214,8 +224,11 @@ class WRFIncrement {
    * @return L2 norm value
    */
   double norm() const {
-    void* grid_ptr = geometry_.getGridPtr();
-    return wrfda_xa_norm(grid_ptr);
+    double sum_sq = 0.0;
+    for (const auto& val : data_) {
+      sum_sq += val * val;
+    }
+    return std::sqrt(sum_sq);
   }
 
   /**
@@ -270,7 +283,7 @@ class WRFIncrement {
   /**
    * @brief Extract all increment fields to arrays (18 fields)
    *
-   * @details Extracts all identified fields from grid%xa:
+   * @details Extracts from internal CV storage:
    *          - 3D fields: u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn,
    * qci, qsn, qgr
    *          - 2D fields: psfc, mu
@@ -283,116 +296,152 @@ class WRFIncrement {
                double* qt, double* rh, double* rho, double* geoh, double* wh,
                double* qcw, double* qrn, double* qci, double* qsn, double* qgr,
                double* psfc, double* mu) const {
-    void* grid_ptr = geometry_.getGridPtr();
-    int nx = nx_, ny = ny_, nz = nz_;
-    int rc = wrfda_extract_all_analysis_increments(
-        grid_ptr, u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn,
-        qgr, psfc, mu, &nx, &ny, &nz);
-    if (rc != 0) {
-      throw std::runtime_error(
-          "Failed to extract all analysis increments: error code " +
-          std::to_string(rc));
-    }
+    const size_t size_3d = size_3d_;
+    const size_t size_2d = size_2d_;
+
+    std::copy_n(&data_[0 * size_3d], size_3d, u);
+    std::copy_n(&data_[1 * size_3d], size_3d, v);
+    std::copy_n(&data_[2 * size_3d], size_3d, w);
+    std::copy_n(&data_[3 * size_3d], size_3d, t);
+    std::copy_n(&data_[4 * size_3d], size_3d, p);
+    std::copy_n(&data_[5 * size_3d], size_3d, q);
+    std::copy_n(&data_[6 * size_3d], size_3d, qt);
+    std::copy_n(&data_[7 * size_3d], size_3d, rh);
+    std::copy_n(&data_[8 * size_3d], size_3d, rho);
+    std::copy_n(&data_[9 * size_3d], size_3d, geoh);
+    std::copy_n(&data_[10 * size_3d], size_3d, wh);
+    std::copy_n(&data_[11 * size_3d], size_3d, qcw);
+    std::copy_n(&data_[12 * size_3d], size_3d, qrn);
+    std::copy_n(&data_[13 * size_3d], size_3d, qci);
+    std::copy_n(&data_[14 * size_3d], size_3d, qsn);
+    std::copy_n(&data_[15 * size_3d], size_3d, qgr);
+    std::copy_n(&data_[16 * size_3d], size_2d, psfc);
+    std::copy_n(&data_[16 * size_3d + size_2d], size_2d, mu);
   }
 
   /**
    * @brief Get all increment data as a single vector
    *
-   * @details Returns all 18 fields concatenated in order:
-   *          1. 3D fields (in order): u, v, w, t, p, q, qt, rh, rho, geoh, wh,
-   * qcw, qrn, qci, qsn, qgr
-   *          2. 2D fields (in order): psfc, mu
+   * @details Returns internal CV storage containing all 18 fields:
+   *          1. 3D fields (16): u, v, w, t, p, q, qt, rh, rho, geoh, wh,
+   *             qcw, qrn, qci, qsn, qgr
+   *          2. 2D fields (2): psfc, mu
    *
-   * @return Vector containing all increment fields concatenated
-   *         Total size: 16 * (nx*ny*nz) + 2 * (nx*ny)
+   * @return Vector containing all increment fields (direct copy of internal
+   * data) Total size: 16 * (nx*ny*nz) + 2 * (nx*ny)
    */
   std::vector<double> getData() const {
-    const size_t size_3d = size_3d_;
-    const size_t size_2d = size_2d_;
-
-    // Allocate arrays for all 18 fields
-    std::vector<double> u(size_3d), v(size_3d), w(size_3d), t(size_3d),
-        p(size_3d), q(size_3d), qt(size_3d), rh(size_3d), rho(size_3d),
-        geoh(size_3d), wh(size_3d), qcw(size_3d), qrn(size_3d), qci(size_3d),
-        qsn(size_3d), qgr(size_3d);
-    std::vector<double> psfc(size_2d), mu(size_2d);
-
-    // Extract all fields
-    extract(u.data(), v.data(), w.data(), t.data(), p.data(), q.data(),
-            qt.data(), rh.data(), rho.data(), geoh.data(), wh.data(),
-            qcw.data(), qrn.data(), qci.data(), qsn.data(), qgr.data(),
-            psfc.data(), mu.data());
-
-    // Concatenate all fields
-    std::vector<double> result;
-    result.reserve(16 * size_3d + 2 * size_2d);
-
-    // 3D fields (16 fields)
-    result.insert(result.end(), u.begin(), u.end());
-    result.insert(result.end(), v.begin(), v.end());
-    result.insert(result.end(), w.begin(), w.end());
-    result.insert(result.end(), t.begin(), t.end());
-    result.insert(result.end(), p.begin(), p.end());
-    result.insert(result.end(), q.begin(), q.end());
-    result.insert(result.end(), qt.begin(), qt.end());
-    result.insert(result.end(), rh.begin(), rh.end());
-    result.insert(result.end(), rho.begin(), rho.end());
-    result.insert(result.end(), geoh.begin(), geoh.end());
-    result.insert(result.end(), wh.begin(), wh.end());
-    result.insert(result.end(), qcw.begin(), qcw.end());
-    result.insert(result.end(), qrn.begin(), qrn.end());
-    result.insert(result.end(), qci.begin(), qci.end());
-    result.insert(result.end(), qsn.begin(), qsn.end());
-    result.insert(result.end(), qgr.begin(), qgr.end());
-
-    // 2D fields (2 fields)
-    result.insert(result.end(), psfc.begin(), psfc.end());
-    result.insert(result.end(), mu.begin(), mu.end());
-
-    return result;
+    return data_;  // Return copy of internal CV storage
   }
 
   /**
-   * @brief Randomize ALL increment fields for testing
+   * @brief Randomize all increment fields for testing
    *
-   * @details Fills ALL 35+ increment fields with random values in [-0.5, 0.5].
-   * This includes:
-   * - 3D fields: u, v, w, t, q, p, geoh, rh, wh, rho, ref, qcw, qrn, qci, qsn,
-   * qgr, qt
-   * - 2D fields: psfc, mu, tgrn, u10, v10, t2, q2, ztd, tpw, speed, brightness
-   * temps
-   *
-   * Uses WRFDA's da_zero_x to initialize, then randomizes following da_copy_xa
-   * structure.
+   * @details Fills internal CV storage with random values in [-0.5, 0.5]
    */
   void randomize() {
-    void* grid_ptr = geometry_.getGridPtr();
-    wrfda_randomize_xa(grid_ptr);
+    for (auto& val : data_) {
+      val = (double(std::rand()) / RAND_MAX) - 0.5;
+    }
   }
 
   /**
    * @brief Copy increment from another WRFIncrement
    *
-   * @details Uses WRFDA's proven da_copy_xa function to copy ALL fields
-   * in the increment structure (35+ fields: u, v, w, t, q, p, psfc, mu,
-   * hydrometeors, diagnostics, surface vars, brightness temps, etc.)
-   *
-   * This is the RECOMMENDED way to update increments - it ensures complete
-   * alignment with WRFDA's increment structure.
+   * @details Copies internal CV storage directly
    *
    * @param[in] other Source increment to copy from
    */
   void copyFrom(const WRFIncrement& other) {
-    void* dst_grid_ptr = geometry_.getGridPtr();
-    void* src_grid_ptr = other.geometry_.getGridPtr();
-    wrfda_copy_xa(dst_grid_ptr, src_grid_ptr);
+    if (data_.size() != other.data_.size()) {
+      throw std::runtime_error("Cannot copy increments with different sizes");
+    }
+    data_ = other.data_;
+  }
+
+  /**
+   * @brief Sync internal CV storage to grid%xa
+   *
+   * @details Writes internal data to WRFDA's grid%xa structure
+   *          This is called before WRFDA operations that read from grid%xa
+   */
+  void syncToGrid() const {
+    // Decompose internal CV vector into 18 field arrays
+    const size_t size_3d = size_3d_;
+    const size_t size_2d = size_2d_;
+
+    const double* u = &data_[0 * size_3d];
+    const double* v = &data_[1 * size_3d];
+    const double* w = &data_[2 * size_3d];
+    const double* t = &data_[3 * size_3d];
+    const double* p = &data_[4 * size_3d];
+    const double* q = &data_[5 * size_3d];
+    const double* qt = &data_[6 * size_3d];
+    const double* rh = &data_[7 * size_3d];
+    const double* rho = &data_[8 * size_3d];
+    const double* geoh = &data_[9 * size_3d];
+    const double* wh = &data_[10 * size_3d];
+    const double* qcw = &data_[11 * size_3d];
+    const double* qrn = &data_[12 * size_3d];
+    const double* qci = &data_[13 * size_3d];
+    const double* qsn = &data_[14 * size_3d];
+    const double* qgr = &data_[15 * size_3d];
+    const double* psfc = &data_[16 * size_3d];
+    const double* mu = &data_[16 * size_3d + size_2d];
+
+    void* grid_ptr = geometry_.getGridPtr();
+    wrfda_update_analysis_increments(u, v, w, t, p, q, qt, rh, rho, geoh, wh,
+                                     qcw, qrn, qci, qsn, qgr, psfc, mu,
+                                     grid_ptr);
+  }
+
+  /**
+   * @brief Sync grid%xa to internal CV storage
+   *
+   * @details Extracts WRFDA's grid%xa structure to internal data
+   *          This is called after WRFDA operations that write to grid%xa
+   */
+  void syncFromGrid() {
+    // Decompose internal CV vector into 18 field arrays
+    const size_t size_3d = size_3d_;
+    const size_t size_2d = size_2d_;
+
+    double* u = &data_[0 * size_3d];
+    double* v = &data_[1 * size_3d];
+    double* w = &data_[2 * size_3d];
+    double* t = &data_[3 * size_3d];
+    double* p = &data_[4 * size_3d];
+    double* q = &data_[5 * size_3d];
+    double* qt = &data_[6 * size_3d];
+    double* rh = &data_[7 * size_3d];
+    double* rho = &data_[8 * size_3d];
+    double* geoh = &data_[9 * size_3d];
+    double* wh = &data_[10 * size_3d];
+    double* qcw = &data_[11 * size_3d];
+    double* qrn = &data_[12 * size_3d];
+    double* qci = &data_[13 * size_3d];
+    double* qsn = &data_[14 * size_3d];
+    double* qgr = &data_[15 * size_3d];
+    double* psfc = &data_[16 * size_3d];
+    double* mu = &data_[16 * size_3d + size_2d];
+
+    void* grid_ptr = geometry_.getGridPtr();
+    int nx = nx_, ny = ny_, nz = nz_;
+    int rc = wrfda_extract_all_analysis_increments(
+        grid_ptr, u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn,
+        qgr, psfc, mu, &nx, &ny, &nz);
+
+    if (rc != 0) {
+      throw std::runtime_error("Failed to sync from grid%xa: error code " +
+                               std::to_string(rc));
+    }
   }
 
   /**
    * @brief Transfer state difference to increment
    *
-   * @details Extracts all available fields from state backend and updates
-   * this increment. Maps WRF state variables to WRFDA grid%xa fields:
+   * @details Extracts all available fields from state backend to internal CV
+   * storage. Maps WRF state variables to increment fields:
    *   - Core meteorological: U→u, V→v, W→w, T→t, QVAPOR→q
    *   - Hydrometeors: QCLOUD→qcw, QRAIN→qrn, QICE→qci, QSNOW→qsn, QGRAUPEL→qgr
    *   - Surface: PSFC→psfc, MU→mu
@@ -402,56 +451,71 @@ class WRFIncrement {
    */
   template <typename StateBackend>
   void transferFromState(const StateBackend& state_backend) {
-    size_t size_3d = static_cast<size_t>(nx_) * static_cast<size_t>(ny_) *
-                     static_cast<size_t>(nz_);
-    size_t size_2d = static_cast<size_t>(nx_) * static_cast<size_t>(ny_);
-
-    // Extract core meteorological variables
-    auto* u = static_cast<const double*>(state_backend.getData("U"));
-    auto* v = static_cast<const double*>(state_backend.getData("V"));
-    auto* w = static_cast<const double*>(state_backend.getData("W"));
-    auto* t = static_cast<const double*>(state_backend.getData("T"));
-    auto* q = static_cast<const double*>(state_backend.getData("QVAPOR"));
-    auto* psfc = static_cast<const double*>(state_backend.getData("PSFC"));
-    auto* mu = static_cast<const double*>(state_backend.getData("MU"));
-
-    // Extract hydrometeor variables (if available)
-    auto* qcloud = static_cast<const double*>(state_backend.getData("QCLOUD"));
-    auto* qrain = static_cast<const double*>(state_backend.getData("QRAIN"));
-    auto* qice = static_cast<const double*>(state_backend.getData("QICE"));
-    auto* qsnow = static_cast<const double*>(state_backend.getData("QSNOW"));
-    auto* qgraupel =
+    // Get pointers to state fields
+    auto* u_state = static_cast<const double*>(state_backend.getData("U"));
+    auto* v_state = static_cast<const double*>(state_backend.getData("V"));
+    auto* w_state = static_cast<const double*>(state_backend.getData("W"));
+    auto* t_state = static_cast<const double*>(state_backend.getData("T"));
+    auto* q_state = static_cast<const double*>(state_backend.getData("QVAPOR"));
+    auto* psfc_state =
+        static_cast<const double*>(state_backend.getData("PSFC"));
+    auto* mu_state = static_cast<const double*>(state_backend.getData("MU"));
+    auto* qcloud_state =
+        static_cast<const double*>(state_backend.getData("QCLOUD"));
+    auto* qrain_state =
+        static_cast<const double*>(state_backend.getData("QRAIN"));
+    auto* qice_state =
+        static_cast<const double*>(state_backend.getData("QICE"));
+    auto* qsnow_state =
+        static_cast<const double*>(state_backend.getData("QSNOW"));
+    auto* qgraupel_state =
         static_cast<const double*>(state_backend.getData("QGRAUPEL"));
 
-    // Allocate zero arrays for diagnostic fields not in state
-    std::vector<double> p_zero(size_3d, 0.0);
-    std::vector<double> qt_zero(size_3d, 0.0);
-    std::vector<double> rh_zero(size_3d, 0.0);
-    std::vector<double> rho_zero(size_3d, 0.0);
-    std::vector<double> geoh_zero(size_3d, 0.0);
-    std::vector<double> wh_zero(size_3d, 0.0);
+    // Copy to internal CV storage (18 fields in order)
+    const size_t size_3d = size_3d_;
+    const size_t size_2d = size_2d_;
 
-    void* grid_ptr = geometry_.getGridPtr();
-    wrfda_update_analysis_increments(
-        u, v, w, t, p_zero.data(), q, qt_zero.data(), rh_zero.data(),
-        rho_zero.data(), geoh_zero.data(), wh_zero.data(), qcloud, qrain, qice,
-        qsnow, qgraupel, psfc, mu, grid_ptr);
+    std::copy_n(u_state, size_3d, &data_[0 * size_3d]);          // u
+    std::copy_n(v_state, size_3d, &data_[1 * size_3d]);          // v
+    std::copy_n(w_state, size_3d, &data_[2 * size_3d]);          // w
+    std::copy_n(t_state, size_3d, &data_[3 * size_3d]);          // t
+    std::fill_n(&data_[4 * size_3d], size_3d, 0.0);              // p (zero)
+    std::copy_n(q_state, size_3d, &data_[5 * size_3d]);          // q
+    std::fill_n(&data_[6 * size_3d], size_3d, 0.0);              // qt (zero)
+    std::fill_n(&data_[7 * size_3d], size_3d, 0.0);              // rh (zero)
+    std::fill_n(&data_[8 * size_3d], size_3d, 0.0);              // rho (zero)
+    std::fill_n(&data_[9 * size_3d], size_3d, 0.0);              // geoh (zero)
+    std::fill_n(&data_[10 * size_3d], size_3d, 0.0);             // wh (zero)
+    std::copy_n(qcloud_state, size_3d, &data_[11 * size_3d]);    // qcw
+    std::copy_n(qrain_state, size_3d, &data_[12 * size_3d]);     // qrn
+    std::copy_n(qice_state, size_3d, &data_[13 * size_3d]);      // qci
+    std::copy_n(qsnow_state, size_3d, &data_[14 * size_3d]);     // qsn
+    std::copy_n(qgraupel_state, size_3d, &data_[15 * size_3d]);  // qgr
+    std::copy_n(psfc_state, size_2d, &data_[16 * size_3d]);      // psfc
+    std::copy_n(mu_state, size_2d, &data_[16 * size_3d + size_2d]);  // mu
   }
 
   /**
    * @brief Get data pointer for direct access (for advanced users)
    *
-   * @warning This provides direct access to grid%xa. Use with caution!
+   * @warning This provides direct access to internal CV storage. Use with
+   * caution!
    */
   template <typename T>
   T* getDataPtr() {
     static_assert(std::is_same_v<T, double>,
                   "WRFIncrement only supports double precision");
-    // For now, we don't expose direct pointer access since grid%xa
-    // is managed by WRFDA. Users should use extract() instead.
-    throw std::runtime_error(
-        "Direct pointer access not supported for WRFIncrement. Use extract() "
-        "instead.");
+    return data_.data();
+  }
+
+  /**
+   * @brief Get const data pointer for direct access
+   */
+  template <typename T>
+  const T* getDataPtr() const {
+    static_assert(std::is_same_v<T, double>,
+                  "WRFIncrement only supports double precision");
+    return data_.data();
   }
 
  private:
@@ -462,6 +526,11 @@ class WRFIncrement {
   size_t size_3d_;                   ///< Size of 3D fields
   size_t size_2d_;                   ///< Size of 2D fields
   size_t total_size_;                ///< Total number of elements
+
+  /// Internal CV storage: 18 fields (16 3D + 2 2D) concatenated
+  /// Layout: [u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn, qgr,
+  /// psfc, mu]
+  std::vector<double> data_;
 };
 
 }  // namespace metada::backends::wrf

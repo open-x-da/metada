@@ -227,12 +227,9 @@ class WRFObsOperator {
       throw std::runtime_error("WRFObsOperator not initialized");
     }
 
-    // Note: increment parameter is a WRFIncrement which operates directly on
-    // grid%xa. When the increment is updated through WRFIncrement's operators
-    // (axpy, scale, etc.), grid%xa is already modified. WRFDA's
-    // da_transform_xtoy_synop reads grid%xa directly, so we don't need to
-    // explicitly use the increment parameter here.
-    (void)increment;
+    // Sync increment's internal CV storage to grid%xa before WRFDA operation
+    // This writes the increment data to WRFDA's working memory
+    increment.syncToGrid();
 
     // Note: reference_state parameter is not used because WRF grid already
     // contains the state. Background state (grid%xb) is already set up during
@@ -342,10 +339,10 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
-    // WRFDA's adjoint has directly populated x_adjoint's grid%xa
-    // with ALL fields (35+ fields) using the complete WRFDA workflow:
-    //   residual → weighted by R^{-1} → adjoint H^T
-    // This ensures complete WRFDA x_type alignment and uses proven functions!
+    // Sync grid%xa back to increment's internal CV storage
+    // WRFDA's adjoint has populated grid%xa with ALL fields (35+ fields)
+    // using the complete workflow: residual → R^{-1} → adjoint H^T
+    x_adjoint.syncFromGrid();
   }
 
   /**
