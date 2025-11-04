@@ -2018,24 +2018,33 @@ void WRFState<ConfigBackend, GeometryBackend>::addIncrement(
   auto ny = increment.getNy();
   auto nz = increment.getNz();
 
-  std::vector<double> u_inc(nx * ny * nz);
-  std::vector<double> v_inc(nx * ny * nz);
-  std::vector<double> t_inc(nx * ny * nz);
-  std::vector<double> q_inc(nx * ny * nz);
-  std::vector<double> psfc_inc(nx * ny);
+  // Allocate buffers for all 18 fields from grid%xa
+  size_t size_3d = static_cast<size_t>(nx) * static_cast<size_t>(ny) *
+                   static_cast<size_t>(nz);
+  size_t size_2d = static_cast<size_t>(nx) * static_cast<size_t>(ny);
 
-  increment.extract(u_inc.data(), v_inc.data(), t_inc.data(), q_inc.data(),
-                    psfc_inc.data());
+  std::vector<double> u_inc(size_3d), v_inc(size_3d), w_inc(size_3d);
+  std::vector<double> t_inc(size_3d), p_inc(size_3d), q_inc(size_3d);
+  std::vector<double> qt_inc(size_3d), rh_inc(size_3d), rho_inc(size_3d);
+  std::vector<double> geoh_inc(size_3d), wh_inc(size_3d);
+  std::vector<double> qcw_inc(size_3d), qrn_inc(size_3d), qci_inc(size_3d);
+  std::vector<double> qsn_inc(size_3d), qgr_inc(size_3d);
+  std::vector<double> psfc_inc(size_2d), mu_inc(size_2d);
 
+  // Extract all 18 fields from increment
+  increment.extract(u_inc.data(), v_inc.data(), w_inc.data(), t_inc.data(),
+                    p_inc.data(), q_inc.data(), qt_inc.data(), rh_inc.data(),
+                    rho_inc.data(), geoh_inc.data(), wh_inc.data(),
+                    qcw_inc.data(), qrn_inc.data(), qci_inc.data(),
+                    qsn_inc.data(), qgr_inc.data(), psfc_inc.data(),
+                    mu_inc.data());
+
+  // Add increments to core state variables only (U, V, T, QVAPOR, PSFC)
   auto* u = static_cast<double*>(getData("U"));
   auto* v = static_cast<double*>(getData("V"));
   auto* t = static_cast<double*>(getData("T"));
   auto* q = static_cast<double*>(getData("QVAPOR"));
   auto* psfc = static_cast<double*>(getData("PSFC"));
-
-  size_t size_3d = static_cast<size_t>(nx) * static_cast<size_t>(ny) *
-                   static_cast<size_t>(nz);
-  size_t size_2d = static_cast<size_t>(nx) * static_cast<size_t>(ny);
 
   for (size_t i = 0; i < size_3d; ++i) {
     u[i] += u_inc[i];

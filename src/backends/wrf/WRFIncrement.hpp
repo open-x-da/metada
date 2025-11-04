@@ -23,10 +23,12 @@ void wrfda_copy_xa(void* grid_dst_ptr, void* grid_src_ptr);
 /// Randomize ALL analysis increment fields (35+ fields) for testing
 void wrfda_randomize_xa(void* grid_ptr);
 
-/// Extract analysis increments to arrays
-int wrfda_extract_analysis_increments(void* grid_ptr, double* u, double* v,
-                                      double* t, double* q, double* psfc,
-                                      int* nx, int* ny, int* nz);
+/// Extract all analysis increment fields to arrays (18 fields)
+int wrfda_extract_all_analysis_increments(
+    void* grid_ptr, double* u, double* v, double* w, double* t, double* p,
+    double* q, double* qt, double* rh, double* rho, double* geoh, double* wh,
+    double* qcw, double* qrn, double* qci, double* qsn, double* qgr,
+    double* psfc, double* mu, int* nx, int* ny, int* nz);
 
 /// Compute norm of analysis increments
 double wrfda_xa_norm(void* grid_ptr);
@@ -40,11 +42,14 @@ void wrfda_xa_axpy(double alpha, void* grid_ptr1, void* grid_ptr2);
 /// Scale analysis increments: xa = alpha * xa
 void wrfda_xa_scale(double alpha, void* grid_ptr);
 
-/// Update analysis increments from 5-variable arrays (control variables only)
-/// @note For complete x_type alignment, use wrfda_copy_xa instead
-void wrfda_update_analysis_increments(const double* u, const double* v,
-                                      const double* t, const double* q,
-                                      const double* psfc, const void* grid_ptr);
+/// Update analysis increments from all 18 grid%xa field arrays
+/// @note Includes 16 3D fields and 2 2D fields
+void wrfda_update_analysis_increments(
+    const double* u, const double* v, const double* w, const double* t,
+    const double* p, const double* q, const double* qt, const double* rh,
+    const double* rho, const double* geoh, const double* wh, const double* qcw,
+    const double* qrn, const double* qci, const double* qsn, const double* qgr,
+    const double* psfc, const double* mu, const void* grid_ptr);
 }
 
 namespace metada::backends::wrf {
@@ -103,8 +108,8 @@ class WRFIncrement {
         nz_(static_cast<int>(geometry.z_dim())),
         size_3d_(nx_ * ny_ * nz_),
         size_2d_(nx_ * ny_),
-        total_size_(3 * size_3d_ + size_3d_ +
-                    size_2d_) {  // u,v,t,q (3D) + psfc (2D)
+        total_size_(16 * size_3d_ +
+                    2 * size_2d_) {  // 16 3D fields + 2 2D fields (psfc, mu)
 
     // Zero the analysis increments in grid%xa
     zero();
@@ -263,46 +268,86 @@ class WRFIncrement {
   const GeometryBackend& geometry() const { return geometry_; }
 
   /**
-   * @brief Extract increment data to arrays (for testing/debugging)
+   * @brief Extract all increment fields to arrays (18 fields)
    *
-   * @param[out] u U-wind increment (size: nx*ny*nz)
-   * @param[out] v V-wind increment (size: nx*ny*nz)
-   * @param[out] t Temperature increment (size: nx*ny*nz)
-   * @param[out] q Moisture increment (size: nx*ny*nz)
-   * @param[out] psfc Surface pressure increment (size: nx*ny)
+   * @details Extracts all identified fields from grid%xa:
+   *          - 3D fields: u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn,
+   * qci, qsn, qgr
+   *          - 2D fields: psfc, mu
+   *
+   * @param[out] u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn,
+   * qgr 3D arrays (size: nx*ny*nz)
+   * @param[out] psfc, mu 2D arrays (size: nx*ny)
    */
-  void extract(double* u, double* v, double* t, double* q, double* psfc) const {
+  void extract(double* u, double* v, double* w, double* t, double* p, double* q,
+               double* qt, double* rh, double* rho, double* geoh, double* wh,
+               double* qcw, double* qrn, double* qci, double* qsn, double* qgr,
+               double* psfc, double* mu) const {
     void* grid_ptr = geometry_.getGridPtr();
     int nx = nx_, ny = ny_, nz = nz_;
-    int rc = wrfda_extract_analysis_increments(grid_ptr, u, v, t, q, psfc, &nx,
-                                               &ny, &nz);
+    int rc = wrfda_extract_all_analysis_increments(
+        grid_ptr, u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn,
+        qgr, psfc, mu, &nx, &ny, &nz);
     if (rc != 0) {
       throw std::runtime_error(
-          "Failed to extract analysis increments: error code " +
+          "Failed to extract all analysis increments: error code " +
           std::to_string(rc));
     }
   }
 
   /**
    * @brief Get all increment data as a single vector
+   *
+   * @details Returns all 18 fields concatenated in order:
+   *          1. 3D fields (in order): u, v, w, t, p, q, qt, rh, rho, geoh, wh,
+   * qcw, qrn, qci, qsn, qgr
+   *          2. 2D fields (in order): psfc, mu
+   *
    * @return Vector containing all increment fields concatenated
+   *         Total size: 16 * (nx*ny*nz) + 2 * (nx*ny)
    */
   std::vector<double> getData() const {
-    std::vector<double> u(nx_ * ny_ * nz_);
-    std::vector<double> v(nx_ * ny_ * nz_);
-    std::vector<double> t(nx_ * ny_ * nz_);
-    std::vector<double> q(nx_ * ny_ * nz_);
-    std::vector<double> psfc(nx_ * ny_);
+    const size_t size_3d = size_3d_;
+    const size_t size_2d = size_2d_;
 
-    extract(u.data(), v.data(), t.data(), q.data(), psfc.data());
+    // Allocate arrays for all 18 fields
+    std::vector<double> u(size_3d), v(size_3d), w(size_3d), t(size_3d),
+        p(size_3d), q(size_3d), qt(size_3d), rh(size_3d), rho(size_3d),
+        geoh(size_3d), wh(size_3d), qcw(size_3d), qrn(size_3d), qci(size_3d),
+        qsn(size_3d), qgr(size_3d);
+    std::vector<double> psfc(size_2d), mu(size_2d);
 
+    // Extract all fields
+    extract(u.data(), v.data(), w.data(), t.data(), p.data(), q.data(),
+            qt.data(), rh.data(), rho.data(), geoh.data(), wh.data(),
+            qcw.data(), qrn.data(), qci.data(), qsn.data(), qgr.data(),
+            psfc.data(), mu.data());
+
+    // Concatenate all fields
     std::vector<double> result;
-    result.reserve(u.size() + v.size() + t.size() + q.size() + psfc.size());
+    result.reserve(16 * size_3d + 2 * size_2d);
+
+    // 3D fields (16 fields)
     result.insert(result.end(), u.begin(), u.end());
     result.insert(result.end(), v.begin(), v.end());
+    result.insert(result.end(), w.begin(), w.end());
     result.insert(result.end(), t.begin(), t.end());
+    result.insert(result.end(), p.begin(), p.end());
     result.insert(result.end(), q.begin(), q.end());
+    result.insert(result.end(), qt.begin(), qt.end());
+    result.insert(result.end(), rh.begin(), rh.end());
+    result.insert(result.end(), rho.begin(), rho.end());
+    result.insert(result.end(), geoh.begin(), geoh.end());
+    result.insert(result.end(), wh.begin(), wh.end());
+    result.insert(result.end(), qcw.begin(), qcw.end());
+    result.insert(result.end(), qrn.begin(), qrn.end());
+    result.insert(result.end(), qci.begin(), qci.end());
+    result.insert(result.end(), qsn.begin(), qsn.end());
+    result.insert(result.end(), qgr.begin(), qgr.end());
+
+    // 2D fields (2 fields)
     result.insert(result.end(), psfc.begin(), psfc.end());
+    result.insert(result.end(), mu.begin(), mu.end());
 
     return result;
   }
@@ -346,25 +391,51 @@ class WRFIncrement {
   /**
    * @brief Transfer state difference to increment
    *
-   * @details Extracts data from state backend and updates this increment.
-   * This is used when creating increments from state differences.
-   *
-   * @note Currently only transfers 5 control variables (u,v,t,q,psfc).
-   * This is sufficient for standard 3DVAR where these are the control
-   * variables.
+   * @details Extracts all available fields from state backend and updates
+   * this increment. Maps WRF state variables to WRFDA grid%xa fields:
+   *   - Core meteorological: U→u, V→v, W→w, T→t, QVAPOR→q
+   *   - Hydrometeors: QCLOUD→qcw, QRAIN→qrn, QICE→qci, QSNOW→qsn, QGRAUPEL→qgr
+   *   - Surface: PSFC→psfc, MU→mu
+   *   - Diagnostic fields (p, qt, rh, rho, geoh, wh) are set to zero
    *
    * @param state_backend State backend containing difference data
    */
   template <typename StateBackend>
   void transferFromState(const StateBackend& state_backend) {
+    size_t size_3d = static_cast<size_t>(nx_) * static_cast<size_t>(ny_) *
+                     static_cast<size_t>(nz_);
+    size_t size_2d = static_cast<size_t>(nx_) * static_cast<size_t>(ny_);
+
+    // Extract core meteorological variables
     auto* u = static_cast<const double*>(state_backend.getData("U"));
     auto* v = static_cast<const double*>(state_backend.getData("V"));
+    auto* w = static_cast<const double*>(state_backend.getData("W"));
     auto* t = static_cast<const double*>(state_backend.getData("T"));
     auto* q = static_cast<const double*>(state_backend.getData("QVAPOR"));
     auto* psfc = static_cast<const double*>(state_backend.getData("PSFC"));
+    auto* mu = static_cast<const double*>(state_backend.getData("MU"));
+
+    // Extract hydrometeor variables (if available)
+    auto* qcloud = static_cast<const double*>(state_backend.getData("QCLOUD"));
+    auto* qrain = static_cast<const double*>(state_backend.getData("QRAIN"));
+    auto* qice = static_cast<const double*>(state_backend.getData("QICE"));
+    auto* qsnow = static_cast<const double*>(state_backend.getData("QSNOW"));
+    auto* qgraupel =
+        static_cast<const double*>(state_backend.getData("QGRAUPEL"));
+
+    // Allocate zero arrays for diagnostic fields not in state
+    std::vector<double> p_zero(size_3d, 0.0);
+    std::vector<double> qt_zero(size_3d, 0.0);
+    std::vector<double> rh_zero(size_3d, 0.0);
+    std::vector<double> rho_zero(size_3d, 0.0);
+    std::vector<double> geoh_zero(size_3d, 0.0);
+    std::vector<double> wh_zero(size_3d, 0.0);
 
     void* grid_ptr = geometry_.getGridPtr();
-    wrfda_update_analysis_increments(u, v, t, q, psfc, grid_ptr);
+    wrfda_update_analysis_increments(
+        u, v, w, t, p_zero.data(), q, qt_zero.data(), rh_zero.data(),
+        rho_zero.data(), geoh_zero.data(), wh_zero.data(), qcloud, qrain, qice,
+        qsnow, qgraupel, psfc, mu, grid_ptr);
   }
 
   /**

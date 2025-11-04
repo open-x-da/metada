@@ -337,7 +337,10 @@ class IncrementalCostFunction : public NonCopyable {
     logger_.Debug() << "Simulated increment: " << simulated_norm;
 
     // Compute d - H'(δx) where d is pre-computed innovation
-    auto residual = computeInnovation(innovations_[0], simulated_increment);
+    std::vector<double> residual(innovations_[0].size());
+    for (size_t i = 0; i < innovations_[0].size(); ++i) {
+      residual[i] = innovations_[0][i] - simulated_increment[i];
+    }
 
     // Compute norm manually for std::vector<double>
     double residual_norm = 0.0;

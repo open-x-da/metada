@@ -88,10 +88,14 @@ int wrfda_extract_observations(const void* iv_ptr, const void* ob_ptr,
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();
 
-// Update analysis increments in WRFDA grid structure
-void wrfda_update_analysis_increments(const double* u, const double* v,
-                                      const double* t, const double* q,
-                                      const double* psfc, const void* grid_ptr);
+// Update all analysis increment fields in WRFDA grid%xa structure
+// Includes 16 3D fields and 2 2D fields
+void wrfda_update_analysis_increments(
+    const double* u, const double* v, const double* w, const double* t,
+    const double* p, const double* q, const double* qt, const double* rh,
+    const double* rho, const double* geoh, const double* wh, const double* qcw,
+    const double* qrn, const double* qci, const double* qsn, const double* qgr,
+    const double* psfc, const double* mu, const void* grid_ptr);
 
 /**
  * @brief Transfer WRF fields to background state structure (grid%xb)

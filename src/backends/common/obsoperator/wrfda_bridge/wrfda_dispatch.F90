@@ -573,41 +573,130 @@ contains
   ! Update analysis increments (xa) using WRFDA's proven da_zero_x function
   ! This ensures ALL increment fields are properly initialized, not just the 5 control variables
   ! NOTE: For complete x_type alignment, use wrfda_copy_xa instead
-  subroutine wrfda_update_analysis_increments(u_inc, v_inc, t_inc, q_inc, psfc_inc, grid_ptr) bind(C, name="wrfda_update_analysis_increments")
+  !> @brief Update all analysis increment fields in grid%xa from C++ arrays
+  !> @details Updates all 18 identified fields in grid%xa:
+  !>          - 3D fields: u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn, qgr
+  !>          - 2D fields: psfc, mu
+  !> @param[in] u_inc, v_inc, w_inc, t_inc, p_inc, q_inc, qt_inc, rh_inc, rho_inc, geoh_inc, wh_inc
+  !>            qcw_inc, qrn_inc, qci_inc, qsn_inc, qgr_inc 3D arrays (size: nx*ny*nz)
+  !> @param[in] psfc_inc, mu_inc 2D arrays (size: nx*ny)
+  !> @param[in] grid_ptr Pointer to WRFDA domain structure
+  subroutine wrfda_update_analysis_increments(u_inc, v_inc, w_inc, t_inc, p_inc, q_inc, &
+                                              qt_inc, rh_inc, rho_inc, geoh_inc, wh_inc, &
+                                              qcw_inc, qrn_inc, qci_inc, qsn_inc, qgr_inc, &
+                                              psfc_inc, mu_inc, grid_ptr) &
+      bind(C, name="wrfda_update_analysis_increments")
     use da_define_structures, only : da_zero_x
     implicit none
-    real(c_double), intent(in) :: u_inc(*), v_inc(*), t_inc(*), q_inc(*), psfc_inc(*)
+    ! 3D field arrays
+    real(c_double), intent(in) :: u_inc(*), v_inc(*), w_inc(*), t_inc(*), p_inc(*), q_inc(*)
+    real(c_double), intent(in) :: qt_inc(*), rh_inc(*), rho_inc(*), geoh_inc(*), wh_inc(*)
+    real(c_double), intent(in) :: qcw_inc(*), qrn_inc(*), qci_inc(*), qsn_inc(*), qgr_inc(*)
+    ! 2D field arrays
+    real(c_double), intent(in) :: psfc_inc(*), mu_inc(*)
     type(c_ptr), value :: grid_ptr
+    
     type(domain), pointer :: grid
-    integer :: i,j,k, nx, ny, nz
+    integer :: i, j, k, nx, ny, nz, idx
     
     ! Convert C pointer to Fortran pointer
     call c_f_pointer(grid_ptr, grid)
     
     ! Use WRFDA's proven function to zero ALL increment fields
-    ! This properly initializes all 50+ fields in x_type (u,v,w,t,q,p,psfc,mu,
-    ! hydrometeors, diagnostics, surface vars, brightness temps, etc.)
+    ! This properly initializes all 50+ fields in x_type
     call da_zero_x(grid%xa)
     
-    ! Get grid dimensions from grid
+    ! Get grid dimensions
     nx = grid%xp%ide - grid%xp%ids + 1
     ny = grid%xp%jde - grid%xp%jds + 1
     nz = grid%xp%kde - grid%xp%kds + 1
     
-    ! Populate only the 5 control variables from C++ arrays
-    ! Note: da_zero_x has already properly zeroed all other fields
-    ! (w, p, geoh, rh, hydrometeors, diagnostics, etc.)
-    do k=1,nz; do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j][k] -> i + j*nx + k*nx*ny
-      grid%xa%u(i,j,k) = real(u_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
-      grid%xa%v(i,j,k) = real(v_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
-      grid%xa%t(i,j,k) = real(t_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
-      grid%xa%q(i,j,k) = real(q_inc(i + (j-1)*nx + (k-1)*nx*ny), kind=4)
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      ! C++ row-major indexing: [i][j] -> i + j*nx
-      grid%xa%psfc(i,j) = real(psfc_inc(i + (j-1)*nx), kind=4)
-    end do; end do
+    ! Populate 3D fields from C++ arrays (row-major indexing)
+    ! Note: Some fields may be dummy arrays (1x1x1) if not used (e.g., cloud_cv_options <= 1)
+    do k = 1, nz
+      do j = 1, ny
+        do i = 1, nx
+          idx = i + (j-1)*nx + (k-1)*nx*ny
+          ! Primary state variables (always allocated with full dimensions)
+          if (associated(grid%xa%u)) grid%xa%u(i,j,k) = real(u_inc(idx), kind=4)
+          if (associated(grid%xa%v)) grid%xa%v(i,j,k) = real(v_inc(idx), kind=4)
+          if (associated(grid%xa%w)) grid%xa%w(i,j,k) = real(w_inc(idx), kind=4)
+          if (associated(grid%xa%t)) grid%xa%t(i,j,k) = real(t_inc(idx), kind=4)
+          if (associated(grid%xa%p)) grid%xa%p(i,j,k) = real(p_inc(idx), kind=4)
+          if (associated(grid%xa%q)) grid%xa%q(i,j,k) = real(q_inc(idx), kind=4)
+          ! Additional moisture/thermodynamic variables (check size - may be dummy arrays)
+          if (associated(grid%xa%qt)) then
+            if (size(grid%xa%qt, 1) >= nx .and. size(grid%xa%qt, 2) >= ny .and. size(grid%xa%qt, 3) >= nz) then
+              grid%xa%qt(i,j,k) = real(qt_inc(idx), kind=4)
+            end if
+          end if
+          if (associated(grid%xa%rh)) then
+            if (size(grid%xa%rh, 1) >= nx .and. size(grid%xa%rh, 2) >= ny .and. size(grid%xa%rh, 3) >= nz) then
+              grid%xa%rh(i,j,k) = real(rh_inc(idx), kind=4)
+            end if
+          end if
+          ! Derived fields (check size - may also be conditionally allocated)
+          if (associated(grid%xa%rho)) then
+            if (size(grid%xa%rho, 1) >= nx .and. size(grid%xa%rho, 2) >= ny .and. size(grid%xa%rho, 3) >= nz) then
+              grid%xa%rho(i,j,k) = real(rho_inc(idx), kind=4)
+            end if
+          end if
+          if (associated(grid%xa%geoh)) then
+            if (size(grid%xa%geoh, 1) >= nx .and. size(grid%xa%geoh, 2) >= ny .and. size(grid%xa%geoh, 3) >= nz) then
+              grid%xa%geoh(i,j,k) = real(geoh_inc(idx), kind=4)
+            end if
+          end if
+          if (associated(grid%xa%wh)) then
+            if (size(grid%xa%wh, 1) >= nx .and. size(grid%xa%wh, 2) >= ny .and. size(grid%xa%wh, 3) >= nz) then
+              grid%xa%wh(i,j,k) = real(wh_inc(idx), kind=4)
+            end if
+          end if
+          ! Hydrometeor fields (check size - conditionally allocated based on cloud_cv_options)
+          if (associated(grid%xa%qcw)) then
+            if (size(grid%xa%qcw, 1) >= nx .and. size(grid%xa%qcw, 2) >= ny .and. size(grid%xa%qcw, 3) >= nz) then
+              grid%xa%qcw(i,j,k) = real(qcw_inc(idx), kind=4)
+            end if
+          end if
+          if (associated(grid%xa%qrn)) then
+            if (size(grid%xa%qrn, 1) >= nx .and. size(grid%xa%qrn, 2) >= ny .and. size(grid%xa%qrn, 3) >= nz) then
+              grid%xa%qrn(i,j,k) = real(qrn_inc(idx), kind=4)
+            end if
+          end if
+          if (associated(grid%xa%qci)) then
+            if (size(grid%xa%qci, 1) >= nx .and. size(grid%xa%qci, 2) >= ny .and. size(grid%xa%qci, 3) >= nz) then
+              grid%xa%qci(i,j,k) = real(qci_inc(idx), kind=4)
+            end if
+          end if
+          if (associated(grid%xa%qsn)) then
+            if (size(grid%xa%qsn, 1) >= nx .and. size(grid%xa%qsn, 2) >= ny .and. size(grid%xa%qsn, 3) >= nz) then
+              grid%xa%qsn(i,j,k) = real(qsn_inc(idx), kind=4)
+            end if
+          end if
+          if (associated(grid%xa%qgr)) then
+            if (size(grid%xa%qgr, 1) >= nx .and. size(grid%xa%qgr, 2) >= ny .and. size(grid%xa%qgr, 3) >= nz) then
+              grid%xa%qgr(i,j,k) = real(qgr_inc(idx), kind=4)
+            end if
+          end if
+        end do
+      end do
+    end do
+    
+    ! Populate 2D fields from C++ arrays (row-major indexing, check size for conditionally allocated fields)
+    do j = 1, ny
+      do i = 1, nx
+        idx = i + (j-1)*nx
+        if (associated(grid%xa%psfc)) then
+          if (size(grid%xa%psfc, 1) >= nx .and. size(grid%xa%psfc, 2) >= ny) then
+            grid%xa%psfc(i,j) = real(psfc_inc(idx), kind=4)
+          end if
+        end if
+        if (associated(grid%xa%mu)) then
+          if (size(grid%xa%mu, 1) >= nx .and. size(grid%xa%mu, 2) >= ny) then
+            grid%xa%mu(i,j) = real(mu_inc(idx), kind=4)
+          end if
+        end if
+      end do
+    end do
     
   end subroutine wrfda_update_analysis_increments
 
@@ -3732,11 +3821,27 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   end function wrfda_zero_xa
 
   ! Extract analysis increments from grid%xa to flat arrays
-  integer(c_int) function wrfda_extract_analysis_increments(grid_ptr, u, v, t, q, psfc, nx, ny, nz) &
-      bind(C, name="wrfda_extract_analysis_increments")
+  !> @brief Extract all analysis increment fields to arrays
+  !> @details Extracts all 18 identified fields from grid%xa:
+  !>          - 3D fields: u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn, qgr
+  !>          - 2D fields: psfc, mu
+  !> @param[in] grid_ptr Pointer to WRFDA domain structure
+  !> @param[out] u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn, qgr 3D arrays (size: nx*ny*nz)
+  !> @param[out] psfc, mu 2D arrays (size: nx*ny)
+  !> @param[out] nx, ny, nz Grid dimensions
+  !> @return 0 on success, -1 on error
+  integer(c_int) function wrfda_extract_all_analysis_increments( &
+      grid_ptr, &
+      u, v, w, t, p, q, qt, rh, rho, geoh, wh, qcw, qrn, qci, qsn, qgr, &
+      psfc, mu, &
+      nx, ny, nz) &
+      bind(C, name="wrfda_extract_all_analysis_increments")
     implicit none
     type(c_ptr), value :: grid_ptr
-    real(c_double), intent(out) :: u(*), v(*), t(*), q(*), psfc(*)
+    real(c_double), intent(out) :: u(*), v(*), w(*), t(*), p(*), q(*)
+    real(c_double), intent(out) :: qt(*), rh(*), rho(*), geoh(*), wh(*)
+    real(c_double), intent(out) :: qcw(*), qrn(*), qci(*), qsn(*), qgr(*)
+    real(c_double), intent(out) :: psfc(*), mu(*)
     integer(c_int), intent(out) :: nx, ny, nz
     
     type(domain), pointer :: grid
@@ -3745,7 +3850,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     call c_f_pointer(grid_ptr, grid)
     
     if (.not. associated(grid)) then
-      wrfda_extract_analysis_increments = -1_c_int
+      wrfda_extract_all_analysis_increments = -1_c_int
       return
     end if
     
@@ -3755,36 +3860,109 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     nz = grid%xp%kde - grid%xp%kds + 1
     
     ! Extract 3D fields from grid%xa to flat arrays (column-major for C++)
+    ! Note: Some fields may be dummy arrays (1x1x1) if not used (e.g., cloud_cv_options <= 1)
     do k = 1, nz
       do j = 1, ny
         do i = 1, nx
           idx = i + (j-1)*nx + (k-1)*nx*ny
-          u(idx) = real(grid%xa%u(i,j,k), kind=8)
-          v(idx) = real(grid%xa%v(i,j,k), kind=8)
-          t(idx) = real(grid%xa%t(i,j,k), kind=8)
-          q(idx) = real(grid%xa%q(i,j,k), kind=8)
+          
+          ! Primary state variables (always allocated with full dimensions)
+          if (associated(grid%xa%u)) u(idx) = real(grid%xa%u(i,j,k), kind=8)
+          if (associated(grid%xa%v)) v(idx) = real(grid%xa%v(i,j,k), kind=8)
+          if (associated(grid%xa%w)) w(idx) = real(grid%xa%w(i,j,k), kind=8)
+          if (associated(grid%xa%t)) t(idx) = real(grid%xa%t(i,j,k), kind=8)
+          if (associated(grid%xa%p)) p(idx) = real(grid%xa%p(i,j,k), kind=8)
+          if (associated(grid%xa%q)) q(idx) = real(grid%xa%q(i,j,k), kind=8)
+          
+          ! Additional moisture/thermodynamic variables (check size - may be dummy arrays)
+          if (associated(grid%xa%qt)) then
+            if (size(grid%xa%qt, 1) >= nx .and. size(grid%xa%qt, 2) >= ny .and. size(grid%xa%qt, 3) >= nz) then
+              qt(idx) = real(grid%xa%qt(i,j,k), kind=8)
+            end if
+          end if
+          if (associated(grid%xa%rh)) then
+            if (size(grid%xa%rh, 1) >= nx .and. size(grid%xa%rh, 2) >= ny .and. size(grid%xa%rh, 3) >= nz) then
+              rh(idx) = real(grid%xa%rh(i,j,k), kind=8)
+            end if
+          end if
+          
+          ! Derived fields (check size - may also be conditionally allocated)
+          if (associated(grid%xa%rho)) then
+            if (size(grid%xa%rho, 1) >= nx .and. size(grid%xa%rho, 2) >= ny .and. size(grid%xa%rho, 3) >= nz) then
+              rho(idx) = real(grid%xa%rho(i,j,k), kind=8)
+            end if
+          end if
+          if (associated(grid%xa%geoh)) then
+            if (size(grid%xa%geoh, 1) >= nx .and. size(grid%xa%geoh, 2) >= ny .and. size(grid%xa%geoh, 3) >= nz) then
+              geoh(idx) = real(grid%xa%geoh(i,j,k), kind=8)
+            end if
+          end if
+          if (associated(grid%xa%wh)) then
+            if (size(grid%xa%wh, 1) >= nx .and. size(grid%xa%wh, 2) >= ny .and. size(grid%xa%wh, 3) >= nz) then
+              wh(idx) = real(grid%xa%wh(i,j,k), kind=8)
+            end if
+          end if
+          
+          ! Hydrometeor fields (check size - conditionally allocated based on cloud_cv_options)
+          if (associated(grid%xa%qcw)) then
+            if (size(grid%xa%qcw, 1) >= nx .and. size(grid%xa%qcw, 2) >= ny .and. size(grid%xa%qcw, 3) >= nz) then
+              qcw(idx) = real(grid%xa%qcw(i,j,k), kind=8)
+            end if
+          end if
+          if (associated(grid%xa%qrn)) then
+            if (size(grid%xa%qrn, 1) >= nx .and. size(grid%xa%qrn, 2) >= ny .and. size(grid%xa%qrn, 3) >= nz) then
+              qrn(idx) = real(grid%xa%qrn(i,j,k), kind=8)
+            end if
+          end if
+          if (associated(grid%xa%qci)) then
+            if (size(grid%xa%qci, 1) >= nx .and. size(grid%xa%qci, 2) >= ny .and. size(grid%xa%qci, 3) >= nz) then
+              qci(idx) = real(grid%xa%qci(i,j,k), kind=8)
+            end if
+          end if
+          if (associated(grid%xa%qsn)) then
+            if (size(grid%xa%qsn, 1) >= nx .and. size(grid%xa%qsn, 2) >= ny .and. size(grid%xa%qsn, 3) >= nz) then
+              qsn(idx) = real(grid%xa%qsn(i,j,k), kind=8)
+            end if
+          end if
+          if (associated(grid%xa%qgr)) then
+            if (size(grid%xa%qgr, 1) >= nx .and. size(grid%xa%qgr, 2) >= ny .and. size(grid%xa%qgr, 3) >= nz) then
+              qgr(idx) = real(grid%xa%qgr(i,j,k), kind=8)
+            end if
+          end if
         end do
       end do
     end do
     
-    ! Extract 2D surface field
+    ! Extract 2D surface fields (check size for conditionally allocated fields)
     do j = 1, ny
       do i = 1, nx
         idx = i + (j-1)*nx
-        psfc(idx) = real(grid%xa%psfc(i,j), kind=8)
+        if (associated(grid%xa%psfc)) then
+          if (size(grid%xa%psfc, 1) >= nx .and. size(grid%xa%psfc, 2) >= ny) then
+            psfc(idx) = real(grid%xa%psfc(i,j), kind=8)
+          end if
+        end if
+        if (associated(grid%xa%mu)) then
+          if (size(grid%xa%mu, 1) >= nx .and. size(grid%xa%mu, 2) >= ny) then
+            mu(idx) = real(grid%xa%mu(i,j), kind=8)
+          end if
+        end if
       end do
     end do
     
-    wrfda_extract_analysis_increments = 0_c_int
+    wrfda_extract_all_analysis_increments = 0_c_int
     
-  end function wrfda_extract_analysis_increments
+  end function wrfda_extract_all_analysis_increments
 
-  ! Compute L2 norm of analysis increments
+  !> @brief Compute L2 norm of analysis increments
+  !> @details Computes ||xa|| = sqrt(sum of squares of all increment fields)
+  !>          Includes all meteorological and hydrometeor fields in grid%xa
+  !> @param[in] grid_ptr Pointer to WRFDA domain structure
+  !> @return L2 norm of analysis increment vector
   function wrfda_xa_norm(grid_ptr) bind(C, name="wrfda_xa_norm") result(norm_val)
     implicit none
     type(c_ptr), value :: grid_ptr
     real(c_double) :: norm_val
-    
     type(domain), pointer :: grid
     integer :: i, j, k
     real(kind=8) :: sum_sq
@@ -3803,22 +3981,90 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
     sum_sq = 0.0_8
     
-    ! Sum squares of all 3D fields
+    ! Sum squares of all 3D meteorological fields
     do k = 1, nz
       do j = 1, ny
         do i = 1, nx
-          sum_sq = sum_sq + grid%xa%u(i,j,k)**2
-          sum_sq = sum_sq + grid%xa%v(i,j,k)**2
-          sum_sq = sum_sq + grid%xa%t(i,j,k)**2
-          sum_sq = sum_sq + grid%xa%q(i,j,k)**2
+          ! Primary state variables (always allocated with full dimensions)
+          if (associated(grid%xa%u)) sum_sq = sum_sq + grid%xa%u(i,j,k)**2
+          if (associated(grid%xa%v)) sum_sq = sum_sq + grid%xa%v(i,j,k)**2
+          if (associated(grid%xa%w)) sum_sq = sum_sq + grid%xa%w(i,j,k)**2
+          if (associated(grid%xa%t)) sum_sq = sum_sq + grid%xa%t(i,j,k)**2
+          if (associated(grid%xa%p)) sum_sq = sum_sq + grid%xa%p(i,j,k)**2
+          if (associated(grid%xa%q)) sum_sq = sum_sq + grid%xa%q(i,j,k)**2
+          
+          ! Additional moisture/thermodynamic variables (check size - may be dummy arrays)
+          if (associated(grid%xa%qt)) then
+            if (size(grid%xa%qt, 1) >= nx .and. size(grid%xa%qt, 2) >= ny .and. size(grid%xa%qt, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%qt(i,j,k)**2
+            end if
+          end if
+          if (associated(grid%xa%rh)) then
+            if (size(grid%xa%rh, 1) >= nx .and. size(grid%xa%rh, 2) >= ny .and. size(grid%xa%rh, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%rh(i,j,k)**2
+            end if
+          end if
+          
+          ! Derived fields (check size - may also be conditionally allocated)
+          if (associated(grid%xa%rho)) then
+            if (size(grid%xa%rho, 1) >= nx .and. size(grid%xa%rho, 2) >= ny .and. size(grid%xa%rho, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%rho(i,j,k)**2
+            end if
+          end if
+          if (associated(grid%xa%geoh)) then
+            if (size(grid%xa%geoh, 1) >= nx .and. size(grid%xa%geoh, 2) >= ny .and. size(grid%xa%geoh, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%geoh(i,j,k)**2
+            end if
+          end if
+          if (associated(grid%xa%wh)) then
+            if (size(grid%xa%wh, 1) >= nx .and. size(grid%xa%wh, 2) >= ny .and. size(grid%xa%wh, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%wh(i,j,k)**2
+            end if
+          end if
+          
+          ! Hydrometeor fields (check size - conditionally allocated based on cloud_cv_options)
+          if (associated(grid%xa%qcw)) then
+            if (size(grid%xa%qcw, 1) >= nx .and. size(grid%xa%qcw, 2) >= ny .and. size(grid%xa%qcw, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%qcw(i,j,k)**2
+            end if
+          end if
+          if (associated(grid%xa%qrn)) then
+            if (size(grid%xa%qrn, 1) >= nx .and. size(grid%xa%qrn, 2) >= ny .and. size(grid%xa%qrn, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%qrn(i,j,k)**2
+            end if
+          end if
+          if (associated(grid%xa%qci)) then
+            if (size(grid%xa%qci, 1) >= nx .and. size(grid%xa%qci, 2) >= ny .and. size(grid%xa%qci, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%qci(i,j,k)**2
+            end if
+          end if
+          if (associated(grid%xa%qsn)) then
+            if (size(grid%xa%qsn, 1) >= nx .and. size(grid%xa%qsn, 2) >= ny .and. size(grid%xa%qsn, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%qsn(i,j,k)**2
+            end if
+          end if
+          if (associated(grid%xa%qgr)) then
+            if (size(grid%xa%qgr, 1) >= nx .and. size(grid%xa%qgr, 2) >= ny .and. size(grid%xa%qgr, 3) >= nz) then
+              sum_sq = sum_sq + grid%xa%qgr(i,j,k)**2
+            end if
+          end if
         end do
       end do
     end do
     
-    ! Add 2D surface field
+    ! Sum squares of 2D surface fields (check size for conditionally allocated fields)
     do j = 1, ny
       do i = 1, nx
-        sum_sq = sum_sq + grid%xa%psfc(i,j)**2
+        if (associated(grid%xa%psfc)) then
+          if (size(grid%xa%psfc, 1) >= nx .and. size(grid%xa%psfc, 2) >= ny) then
+            sum_sq = sum_sq + grid%xa%psfc(i,j)**2
+          end if
+        end if
+        if (associated(grid%xa%mu)) then
+          if (size(grid%xa%mu, 1) >= nx .and. size(grid%xa%mu, 2) >= ny) then
+            sum_sq = sum_sq + grid%xa%mu(i,j)**2
+          end if
+        end if
       end do
     end do
     
@@ -3826,12 +4072,16 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
   end function wrfda_xa_norm
 
-  ! Compute dot product of two grid%xa structures
+  !> @brief Compute dot product of two grid%xa structures
+  !> @details Computes <xa1, xa2> = sum of element-wise products of all increment fields
+  !>          Includes all meteorological and hydrometeor fields in grid%xa
+  !> @param[in] grid_ptr1 Pointer to first WRFDA domain structure
+  !> @param[in] grid_ptr2 Pointer to second WRFDA domain structure
+  !> @return Dot product of two analysis increment vectors
   function wrfda_xa_dot(grid_ptr1, grid_ptr2) bind(C, name="wrfda_xa_dot") result(dot_val)
     implicit none
     type(c_ptr), value :: grid_ptr1, grid_ptr2
     real(c_double) :: dot_val
-    
     type(domain), pointer :: grid1, grid2
     integer :: i, j, k
     real(kind=8) :: sum_prod
@@ -3851,22 +4101,108 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
     sum_prod = 0.0_8
     
-    ! Dot product of all 3D fields
+    ! Dot product of all 3D meteorological fields
     do k = 1, nz
       do j = 1, ny
         do i = 1, nx
-          sum_prod = sum_prod + grid1%xa%u(i,j,k) * grid2%xa%u(i,j,k)
-          sum_prod = sum_prod + grid1%xa%v(i,j,k) * grid2%xa%v(i,j,k)
-          sum_prod = sum_prod + grid1%xa%t(i,j,k) * grid2%xa%t(i,j,k)
-          sum_prod = sum_prod + grid1%xa%q(i,j,k) * grid2%xa%q(i,j,k)
+          ! Primary state variables (always allocated with full dimensions)
+          if (associated(grid1%xa%u) .and. associated(grid2%xa%u)) &
+            sum_prod = sum_prod + grid1%xa%u(i,j,k) * grid2%xa%u(i,j,k)
+          if (associated(grid1%xa%v) .and. associated(grid2%xa%v)) &
+            sum_prod = sum_prod + grid1%xa%v(i,j,k) * grid2%xa%v(i,j,k)
+          if (associated(grid1%xa%w) .and. associated(grid2%xa%w)) &
+            sum_prod = sum_prod + grid1%xa%w(i,j,k) * grid2%xa%w(i,j,k)
+          if (associated(grid1%xa%t) .and. associated(grid2%xa%t)) &
+            sum_prod = sum_prod + grid1%xa%t(i,j,k) * grid2%xa%t(i,j,k)
+          if (associated(grid1%xa%p) .and. associated(grid2%xa%p)) &
+            sum_prod = sum_prod + grid1%xa%p(i,j,k) * grid2%xa%p(i,j,k)
+          if (associated(grid1%xa%q) .and. associated(grid2%xa%q)) &
+            sum_prod = sum_prod + grid1%xa%q(i,j,k) * grid2%xa%q(i,j,k)
+          
+          ! Additional moisture/thermodynamic variables (check size - may be dummy arrays)
+          if (associated(grid1%xa%qt) .and. associated(grid2%xa%qt)) then
+            if (size(grid1%xa%qt, 1) >= nx .and. size(grid1%xa%qt, 2) >= ny .and. size(grid1%xa%qt, 3) >= nz .and. &
+                size(grid2%xa%qt, 1) >= nx .and. size(grid2%xa%qt, 2) >= ny .and. size(grid2%xa%qt, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%qt(i,j,k) * grid2%xa%qt(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%rh) .and. associated(grid2%xa%rh)) then
+            if (size(grid1%xa%rh, 1) >= nx .and. size(grid1%xa%rh, 2) >= ny .and. size(grid1%xa%rh, 3) >= nz .and. &
+                size(grid2%xa%rh, 1) >= nx .and. size(grid2%xa%rh, 2) >= ny .and. size(grid2%xa%rh, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%rh(i,j,k) * grid2%xa%rh(i,j,k)
+            end if
+          end if
+          
+          ! Derived fields (check size - may also be conditionally allocated)
+          if (associated(grid1%xa%rho) .and. associated(grid2%xa%rho)) then
+            if (size(grid1%xa%rho, 1) >= nx .and. size(grid1%xa%rho, 2) >= ny .and. size(grid1%xa%rho, 3) >= nz .and. &
+                size(grid2%xa%rho, 1) >= nx .and. size(grid2%xa%rho, 2) >= ny .and. size(grid2%xa%rho, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%rho(i,j,k) * grid2%xa%rho(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%geoh) .and. associated(grid2%xa%geoh)) then
+            if (size(grid1%xa%geoh, 1) >= nx .and. size(grid1%xa%geoh, 2) >= ny .and. size(grid1%xa%geoh, 3) >= nz .and. &
+                size(grid2%xa%geoh, 1) >= nx .and. size(grid2%xa%geoh, 2) >= ny .and. size(grid2%xa%geoh, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%geoh(i,j,k) * grid2%xa%geoh(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%wh) .and. associated(grid2%xa%wh)) then
+            if (size(grid1%xa%wh, 1) >= nx .and. size(grid1%xa%wh, 2) >= ny .and. size(grid1%xa%wh, 3) >= nz .and. &
+                size(grid2%xa%wh, 1) >= nx .and. size(grid2%xa%wh, 2) >= ny .and. size(grid2%xa%wh, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%wh(i,j,k) * grid2%xa%wh(i,j,k)
+            end if
+          end if
+          
+          ! Hydrometeor fields (check size - conditionally allocated based on cloud_cv_options)
+          if (associated(grid1%xa%qcw) .and. associated(grid2%xa%qcw)) then
+            if (size(grid1%xa%qcw, 1) >= nx .and. size(grid1%xa%qcw, 2) >= ny .and. size(grid1%xa%qcw, 3) >= nz .and. &
+                size(grid2%xa%qcw, 1) >= nx .and. size(grid2%xa%qcw, 2) >= ny .and. size(grid2%xa%qcw, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%qcw(i,j,k) * grid2%xa%qcw(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qrn) .and. associated(grid2%xa%qrn)) then
+            if (size(grid1%xa%qrn, 1) >= nx .and. size(grid1%xa%qrn, 2) >= ny .and. size(grid1%xa%qrn, 3) >= nz .and. &
+                size(grid2%xa%qrn, 1) >= nx .and. size(grid2%xa%qrn, 2) >= ny .and. size(grid2%xa%qrn, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%qrn(i,j,k) * grid2%xa%qrn(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qci) .and. associated(grid2%xa%qci)) then
+            if (size(grid1%xa%qci, 1) >= nx .and. size(grid1%xa%qci, 2) >= ny .and. size(grid1%xa%qci, 3) >= nz .and. &
+                size(grid2%xa%qci, 1) >= nx .and. size(grid2%xa%qci, 2) >= ny .and. size(grid2%xa%qci, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%qci(i,j,k) * grid2%xa%qci(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qsn) .and. associated(grid2%xa%qsn)) then
+            if (size(grid1%xa%qsn, 1) >= nx .and. size(grid1%xa%qsn, 2) >= ny .and. size(grid1%xa%qsn, 3) >= nz .and. &
+                size(grid2%xa%qsn, 1) >= nx .and. size(grid2%xa%qsn, 2) >= ny .and. size(grid2%xa%qsn, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%qsn(i,j,k) * grid2%xa%qsn(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qgr) .and. associated(grid2%xa%qgr)) then
+            if (size(grid1%xa%qgr, 1) >= nx .and. size(grid1%xa%qgr, 2) >= ny .and. size(grid1%xa%qgr, 3) >= nz .and. &
+                size(grid2%xa%qgr, 1) >= nx .and. size(grid2%xa%qgr, 2) >= ny .and. size(grid2%xa%qgr, 3) >= nz) then
+              sum_prod = sum_prod + grid1%xa%qgr(i,j,k) * grid2%xa%qgr(i,j,k)
+            end if
+          end if
         end do
       end do
     end do
     
-    ! Add 2D surface field
+    ! Dot product of 2D surface fields (check size for conditionally allocated fields)
     do j = 1, ny
       do i = 1, nx
-        sum_prod = sum_prod + grid1%xa%psfc(i,j) * grid2%xa%psfc(i,j)
+        if (associated(grid1%xa%psfc) .and. associated(grid2%xa%psfc)) then
+          if (size(grid1%xa%psfc, 1) >= nx .and. size(grid1%xa%psfc, 2) >= ny .and. &
+              size(grid2%xa%psfc, 1) >= nx .and. size(grid2%xa%psfc, 2) >= ny) then
+            sum_prod = sum_prod + grid1%xa%psfc(i,j) * grid2%xa%psfc(i,j)
+          end if
+        end if
+        if (associated(grid1%xa%mu) .and. associated(grid2%xa%mu)) then
+          if (size(grid1%xa%mu, 1) >= nx .and. size(grid1%xa%mu, 2) >= ny .and. &
+              size(grid2%xa%mu, 1) >= nx .and. size(grid2%xa%mu, 2) >= ny) then
+            sum_prod = sum_prod + grid1%xa%mu(i,j) * grid2%xa%mu(i,j)
+          end if
+        end if
       end do
     end do
     
@@ -3879,6 +4215,12 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   !============================================================================
   
   ! AXPY operation on analysis increments: grid1%xa = grid1%xa + alpha * grid2%xa
+  !> @brief Perform AXPY operation on grid%xa structures
+  !> @details Computes xa1 = xa1 + alpha * xa2 for all increment fields
+  !>          Includes all meteorological and hydrometeor fields in grid%xa
+  !> @param[in] alpha Scalar multiplier
+  !> @param[in,out] grid_ptr1 Pointer to first WRFDA domain (updated in-place)
+  !> @param[in] grid_ptr2 Pointer to second WRFDA domain (read-only)
   subroutine wrfda_xa_axpy(alpha, grid_ptr1, grid_ptr2) bind(C, name="wrfda_xa_axpy")
     implicit none
     real(c_double), value :: alpha
@@ -3897,26 +4239,118 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     nz = grid1%xp%kde - grid1%xp%kds + 1
     alpha_real = real(alpha, kind=4)
     
+    ! AXPY for all 3D meteorological fields
     do k = 1, nz
       do j = 1, ny
         do i = 1, nx
-          grid1%xa%u(i,j,k) = grid1%xa%u(i,j,k) + alpha_real * grid2%xa%u(i,j,k)
-          grid1%xa%v(i,j,k) = grid1%xa%v(i,j,k) + alpha_real * grid2%xa%v(i,j,k)
-          grid1%xa%t(i,j,k) = grid1%xa%t(i,j,k) + alpha_real * grid2%xa%t(i,j,k)
-          grid1%xa%q(i,j,k) = grid1%xa%q(i,j,k) + alpha_real * grid2%xa%q(i,j,k)
+          ! Primary state variables (always allocated with full dimensions)
+          if (associated(grid1%xa%u) .and. associated(grid2%xa%u)) &
+            grid1%xa%u(i,j,k) = grid1%xa%u(i,j,k) + alpha_real * grid2%xa%u(i,j,k)
+          if (associated(grid1%xa%v) .and. associated(grid2%xa%v)) &
+            grid1%xa%v(i,j,k) = grid1%xa%v(i,j,k) + alpha_real * grid2%xa%v(i,j,k)
+          if (associated(grid1%xa%w) .and. associated(grid2%xa%w)) &
+            grid1%xa%w(i,j,k) = grid1%xa%w(i,j,k) + alpha_real * grid2%xa%w(i,j,k)
+          if (associated(grid1%xa%t) .and. associated(grid2%xa%t)) &
+            grid1%xa%t(i,j,k) = grid1%xa%t(i,j,k) + alpha_real * grid2%xa%t(i,j,k)
+          if (associated(grid1%xa%p) .and. associated(grid2%xa%p)) &
+            grid1%xa%p(i,j,k) = grid1%xa%p(i,j,k) + alpha_real * grid2%xa%p(i,j,k)
+          if (associated(grid1%xa%q) .and. associated(grid2%xa%q)) &
+            grid1%xa%q(i,j,k) = grid1%xa%q(i,j,k) + alpha_real * grid2%xa%q(i,j,k)
+          
+          ! Additional moisture/thermodynamic variables (check size - may be dummy arrays)
+          if (associated(grid1%xa%qt) .and. associated(grid2%xa%qt)) then
+            if (size(grid1%xa%qt, 1) >= nx .and. size(grid1%xa%qt, 2) >= ny .and. size(grid1%xa%qt, 3) >= nz .and. &
+                size(grid2%xa%qt, 1) >= nx .and. size(grid2%xa%qt, 2) >= ny .and. size(grid2%xa%qt, 3) >= nz) then
+              grid1%xa%qt(i,j,k) = grid1%xa%qt(i,j,k) + alpha_real * grid2%xa%qt(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%rh) .and. associated(grid2%xa%rh)) then
+            if (size(grid1%xa%rh, 1) >= nx .and. size(grid1%xa%rh, 2) >= ny .and. size(grid1%xa%rh, 3) >= nz .and. &
+                size(grid2%xa%rh, 1) >= nx .and. size(grid2%xa%rh, 2) >= ny .and. size(grid2%xa%rh, 3) >= nz) then
+              grid1%xa%rh(i,j,k) = grid1%xa%rh(i,j,k) + alpha_real * grid2%xa%rh(i,j,k)
+            end if
+          end if
+          
+          ! Derived fields (check size - may also be conditionally allocated)
+          if (associated(grid1%xa%rho) .and. associated(grid2%xa%rho)) then
+            if (size(grid1%xa%rho, 1) >= nx .and. size(grid1%xa%rho, 2) >= ny .and. size(grid1%xa%rho, 3) >= nz .and. &
+                size(grid2%xa%rho, 1) >= nx .and. size(grid2%xa%rho, 2) >= ny .and. size(grid2%xa%rho, 3) >= nz) then
+              grid1%xa%rho(i,j,k) = grid1%xa%rho(i,j,k) + alpha_real * grid2%xa%rho(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%geoh) .and. associated(grid2%xa%geoh)) then
+            if (size(grid1%xa%geoh, 1) >= nx .and. size(grid1%xa%geoh, 2) >= ny .and. size(grid1%xa%geoh, 3) >= nz .and. &
+                size(grid2%xa%geoh, 1) >= nx .and. size(grid2%xa%geoh, 2) >= ny .and. size(grid2%xa%geoh, 3) >= nz) then
+              grid1%xa%geoh(i,j,k) = grid1%xa%geoh(i,j,k) + alpha_real * grid2%xa%geoh(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%wh) .and. associated(grid2%xa%wh)) then
+            if (size(grid1%xa%wh, 1) >= nx .and. size(grid1%xa%wh, 2) >= ny .and. size(grid1%xa%wh, 3) >= nz .and. &
+                size(grid2%xa%wh, 1) >= nx .and. size(grid2%xa%wh, 2) >= ny .and. size(grid2%xa%wh, 3) >= nz) then
+              grid1%xa%wh(i,j,k) = grid1%xa%wh(i,j,k) + alpha_real * grid2%xa%wh(i,j,k)
+            end if
+          end if
+          
+          ! Hydrometeor fields (check size - conditionally allocated based on cloud_cv_options)
+          if (associated(grid1%xa%qcw) .and. associated(grid2%xa%qcw)) then
+            if (size(grid1%xa%qcw, 1) >= nx .and. size(grid1%xa%qcw, 2) >= ny .and. size(grid1%xa%qcw, 3) >= nz .and. &
+                size(grid2%xa%qcw, 1) >= nx .and. size(grid2%xa%qcw, 2) >= ny .and. size(grid2%xa%qcw, 3) >= nz) then
+              grid1%xa%qcw(i,j,k) = grid1%xa%qcw(i,j,k) + alpha_real * grid2%xa%qcw(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qrn) .and. associated(grid2%xa%qrn)) then
+            if (size(grid1%xa%qrn, 1) >= nx .and. size(grid1%xa%qrn, 2) >= ny .and. size(grid1%xa%qrn, 3) >= nz .and. &
+                size(grid2%xa%qrn, 1) >= nx .and. size(grid2%xa%qrn, 2) >= ny .and. size(grid2%xa%qrn, 3) >= nz) then
+              grid1%xa%qrn(i,j,k) = grid1%xa%qrn(i,j,k) + alpha_real * grid2%xa%qrn(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qci) .and. associated(grid2%xa%qci)) then
+            if (size(grid1%xa%qci, 1) >= nx .and. size(grid1%xa%qci, 2) >= ny .and. size(grid1%xa%qci, 3) >= nz .and. &
+                size(grid2%xa%qci, 1) >= nx .and. size(grid2%xa%qci, 2) >= ny .and. size(grid2%xa%qci, 3) >= nz) then
+              grid1%xa%qci(i,j,k) = grid1%xa%qci(i,j,k) + alpha_real * grid2%xa%qci(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qsn) .and. associated(grid2%xa%qsn)) then
+            if (size(grid1%xa%qsn, 1) >= nx .and. size(grid1%xa%qsn, 2) >= ny .and. size(grid1%xa%qsn, 3) >= nz .and. &
+                size(grid2%xa%qsn, 1) >= nx .and. size(grid2%xa%qsn, 2) >= ny .and. size(grid2%xa%qsn, 3) >= nz) then
+              grid1%xa%qsn(i,j,k) = grid1%xa%qsn(i,j,k) + alpha_real * grid2%xa%qsn(i,j,k)
+            end if
+          end if
+          if (associated(grid1%xa%qgr) .and. associated(grid2%xa%qgr)) then
+            if (size(grid1%xa%qgr, 1) >= nx .and. size(grid1%xa%qgr, 2) >= ny .and. size(grid1%xa%qgr, 3) >= nz .and. &
+                size(grid2%xa%qgr, 1) >= nx .and. size(grid2%xa%qgr, 2) >= ny .and. size(grid2%xa%qgr, 3) >= nz) then
+              grid1%xa%qgr(i,j,k) = grid1%xa%qgr(i,j,k) + alpha_real * grid2%xa%qgr(i,j,k)
+            end if
+          end if
         end do
       end do
     end do
     
+    ! AXPY for 2D surface fields (check size for conditionally allocated fields)
     do j = 1, ny
       do i = 1, nx
-        grid1%xa%psfc(i,j) = grid1%xa%psfc(i,j) + alpha_real * grid2%xa%psfc(i,j)
+        if (associated(grid1%xa%psfc) .and. associated(grid2%xa%psfc)) then
+          if (size(grid1%xa%psfc, 1) >= nx .and. size(grid1%xa%psfc, 2) >= ny .and. &
+              size(grid2%xa%psfc, 1) >= nx .and. size(grid2%xa%psfc, 2) >= ny) then
+            grid1%xa%psfc(i,j) = grid1%xa%psfc(i,j) + alpha_real * grid2%xa%psfc(i,j)
+          end if
+        end if
+        if (associated(grid1%xa%mu) .and. associated(grid2%xa%mu)) then
+          if (size(grid1%xa%mu, 1) >= nx .and. size(grid1%xa%mu, 2) >= ny .and. &
+              size(grid2%xa%mu, 1) >= nx .and. size(grid2%xa%mu, 2) >= ny) then
+            grid1%xa%mu(i,j) = grid1%xa%mu(i,j) + alpha_real * grid2%xa%mu(i,j)
+          end if
+        end if
       end do
     end do
     
   end subroutine wrfda_xa_axpy
 
-  ! Scale analysis increments: grid%xa = alpha * grid%xa
+  !> @brief Scale analysis increments by a scalar
+  !> @details Computes xa = alpha * xa for all increment fields
+  !>          Includes all meteorological and hydrometeor fields in grid%xa
+  !> @param[in] alpha Scalar multiplier
+  !> @param[in,out] grid_ptr Pointer to WRFDA domain (updated in-place)
   subroutine wrfda_xa_scale(alpha, grid_ptr) bind(C, name="wrfda_xa_scale")
     implicit none
     real(c_double), value :: alpha
@@ -3934,20 +4368,90 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     nz = grid%xp%kde - grid%xp%kds + 1
     alpha_real = real(alpha, kind=4)
     
+    ! Scale all 3D meteorological fields
     do k = 1, nz
       do j = 1, ny
         do i = 1, nx
-          grid%xa%u(i,j,k) = alpha_real * grid%xa%u(i,j,k)
-          grid%xa%v(i,j,k) = alpha_real * grid%xa%v(i,j,k)
-          grid%xa%t(i,j,k) = alpha_real * grid%xa%t(i,j,k)
-          grid%xa%q(i,j,k) = alpha_real * grid%xa%q(i,j,k)
+          ! Primary state variables (always allocated with full dimensions)
+          if (associated(grid%xa%u)) grid%xa%u(i,j,k) = alpha_real * grid%xa%u(i,j,k)
+          if (associated(grid%xa%v)) grid%xa%v(i,j,k) = alpha_real * grid%xa%v(i,j,k)
+          if (associated(grid%xa%w)) grid%xa%w(i,j,k) = alpha_real * grid%xa%w(i,j,k)
+          if (associated(grid%xa%t)) grid%xa%t(i,j,k) = alpha_real * grid%xa%t(i,j,k)
+          if (associated(grid%xa%p)) grid%xa%p(i,j,k) = alpha_real * grid%xa%p(i,j,k)
+          if (associated(grid%xa%q)) grid%xa%q(i,j,k) = alpha_real * grid%xa%q(i,j,k)
+          
+          ! Additional moisture/thermodynamic variables (check size - may be dummy arrays)
+          if (associated(grid%xa%qt)) then
+            if (size(grid%xa%qt, 1) >= nx .and. size(grid%xa%qt, 2) >= ny .and. size(grid%xa%qt, 3) >= nz) then
+              grid%xa%qt(i,j,k) = alpha_real * grid%xa%qt(i,j,k)
+            end if
+          end if
+          if (associated(grid%xa%rh)) then
+            if (size(grid%xa%rh, 1) >= nx .and. size(grid%xa%rh, 2) >= ny .and. size(grid%xa%rh, 3) >= nz) then
+              grid%xa%rh(i,j,k) = alpha_real * grid%xa%rh(i,j,k)
+            end if
+          end if
+          
+          ! Derived fields (check size - may also be conditionally allocated)
+          if (associated(grid%xa%rho)) then
+            if (size(grid%xa%rho, 1) >= nx .and. size(grid%xa%rho, 2) >= ny .and. size(grid%xa%rho, 3) >= nz) then
+              grid%xa%rho(i,j,k) = alpha_real * grid%xa%rho(i,j,k)
+            end if
+          end if
+          if (associated(grid%xa%geoh)) then
+            if (size(grid%xa%geoh, 1) >= nx .and. size(grid%xa%geoh, 2) >= ny .and. size(grid%xa%geoh, 3) >= nz) then
+              grid%xa%geoh(i,j,k) = alpha_real * grid%xa%geoh(i,j,k)
+            end if
+          end if
+          if (associated(grid%xa%wh)) then
+            if (size(grid%xa%wh, 1) >= nx .and. size(grid%xa%wh, 2) >= ny .and. size(grid%xa%wh, 3) >= nz) then
+              grid%xa%wh(i,j,k) = alpha_real * grid%xa%wh(i,j,k)
+            end if
+          end if
+          
+          ! Hydrometeor fields (check size - conditionally allocated based on cloud_cv_options)
+          if (associated(grid%xa%qcw)) then
+            if (size(grid%xa%qcw, 1) >= nx .and. size(grid%xa%qcw, 2) >= ny .and. size(grid%xa%qcw, 3) >= nz) then
+              grid%xa%qcw(i,j,k) = alpha_real * grid%xa%qcw(i,j,k)
+            end if
+          end if
+          if (associated(grid%xa%qrn)) then
+            if (size(grid%xa%qrn, 1) >= nx .and. size(grid%xa%qrn, 2) >= ny .and. size(grid%xa%qrn, 3) >= nz) then
+              grid%xa%qrn(i,j,k) = alpha_real * grid%xa%qrn(i,j,k)
+            end if
+          end if
+          if (associated(grid%xa%qci)) then
+            if (size(grid%xa%qci, 1) >= nx .and. size(grid%xa%qci, 2) >= ny .and. size(grid%xa%qci, 3) >= nz) then
+              grid%xa%qci(i,j,k) = alpha_real * grid%xa%qci(i,j,k)
+            end if
+          end if
+          if (associated(grid%xa%qsn)) then
+            if (size(grid%xa%qsn, 1) >= nx .and. size(grid%xa%qsn, 2) >= ny .and. size(grid%xa%qsn, 3) >= nz) then
+              grid%xa%qsn(i,j,k) = alpha_real * grid%xa%qsn(i,j,k)
+            end if
+          end if
+          if (associated(grid%xa%qgr)) then
+            if (size(grid%xa%qgr, 1) >= nx .and. size(grid%xa%qgr, 2) >= ny .and. size(grid%xa%qgr, 3) >= nz) then
+              grid%xa%qgr(i,j,k) = alpha_real * grid%xa%qgr(i,j,k)
+            end if
+          end if
         end do
       end do
     end do
     
+    ! Scale 2D surface fields (check size for conditionally allocated fields)
     do j = 1, ny
       do i = 1, nx
-        grid%xa%psfc(i,j) = alpha_real * grid%xa%psfc(i,j)
+        if (associated(grid%xa%psfc)) then
+          if (size(grid%xa%psfc, 1) >= nx .and. size(grid%xa%psfc, 2) >= ny) then
+            grid%xa%psfc(i,j) = alpha_real * grid%xa%psfc(i,j)
+          end if
+        end if
+        if (associated(grid%xa%mu)) then
+          if (size(grid%xa%mu, 1) >= nx .and. size(grid%xa%mu, 2) >= ny) then
+            grid%xa%mu(i,j) = alpha_real * grid%xa%mu(i,j)
+          end if
+        end if
       end do
     end do
     
