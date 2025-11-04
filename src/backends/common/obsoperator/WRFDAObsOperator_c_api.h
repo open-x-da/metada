@@ -17,6 +17,9 @@
 extern "C" {
 #endif
 
+// Field information types (moved to wrfda_types.h for minimal dependencies)
+#include "wrfda_types.h"
+
 /**
  * @brief Tangent linear operator: H'(xb)·δx
  * @details Computes linearized observation operator for incremental 3D-Var.

@@ -76,6 +76,104 @@ module metada_wrfda_dispatch
   
 contains
 
+  !> @brief Query WRFDA's control variable configuration
+  !> @details Returns information about which fields are active based on cv_options
+  !> @param[out] field_info Structure containing field configuration
+  !> @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_get_field_info(field_info) bind(C, name="wrfda_get_field_info")
+    use, intrinsic :: iso_c_binding, only: c_int, c_bool
+    use da_control, only: cv_options
+    implicit none
+    
+    type, bind(C) :: wrfda_field_info_t
+      integer(c_int) :: cv_options
+      integer(c_int) :: num_3d_fields
+      integer(c_int) :: num_2d_fields
+      logical(c_bool) :: has_u
+      logical(c_bool) :: has_v
+      logical(c_bool) :: has_t
+      logical(c_bool) :: has_q
+      logical(c_bool) :: has_psfc
+      logical(c_bool) :: has_w
+      logical(c_bool) :: has_rho
+      logical(c_bool) :: has_p
+      logical(c_bool) :: has_qcloud
+      logical(c_bool) :: has_qrain
+      logical(c_bool) :: has_qice
+      logical(c_bool) :: has_qsnow
+      logical(c_bool) :: has_qgraupel
+    end type wrfda_field_info_t
+    
+    type(wrfda_field_info_t), intent(out) :: field_info
+    
+    ! Initialize all fields to false
+    field_info%cv_options = cv_options
+    field_info%num_3d_fields = 0
+    field_info%num_2d_fields = 0
+    field_info%has_u = .false.
+    field_info%has_v = .false.
+    field_info%has_t = .false.
+    field_info%has_q = .false.
+    field_info%has_psfc = .false.
+    field_info%has_w = .false.
+    field_info%has_rho = .false.
+    field_info%has_p = .false.
+    field_info%has_qcloud = .false.
+    field_info%has_qrain = .false.
+    field_info%has_qice = .false.
+    field_info%has_qsnow = .false.
+    field_info%has_qgraupel = .false.
+    
+    ! Set active fields based on cv_options
+    select case (cv_options)
+      case (5)
+        ! Standard 3D-Var: u, v, t, q, psfc
+        field_info%has_u = .true.
+        field_info%has_v = .true.
+        field_info%has_t = .true.
+        field_info%has_q = .true.
+        field_info%has_psfc = .true.
+        field_info%num_3d_fields = 4
+        field_info%num_2d_fields = 1
+        
+      case (6)
+        ! 3D-Var + hydrometeors: u, v, t, q, qcloud, qrain, qice, qsnow, qgraupel, psfc
+        field_info%has_u = .true.
+        field_info%has_v = .true.
+        field_info%has_t = .true.
+        field_info%has_q = .true.
+        field_info%has_qcloud = .true.
+        field_info%has_qrain = .true.
+        field_info%has_qice = .true.
+        field_info%has_qsnow = .true.
+        field_info%has_qgraupel = .true.
+        field_info%has_psfc = .true.
+        field_info%num_3d_fields = 9
+        field_info%num_2d_fields = 1
+        
+      case (7)
+        ! Extended control variables (same as 6 for now, extend as needed)
+        field_info%has_u = .true.
+        field_info%has_v = .true.
+        field_info%has_t = .true.
+        field_info%has_q = .true.
+        field_info%has_qcloud = .true.
+        field_info%has_qrain = .true.
+        field_info%has_qice = .true.
+        field_info%has_qsnow = .true.
+        field_info%has_qgraupel = .true.
+        field_info%has_psfc = .true.
+        field_info%num_3d_fields = 9
+        field_info%num_2d_fields = 1
+        
+      case default
+        ! Unsupported cv_options, return error
+        wrfda_get_field_info = -1_c_int
+        return
+    end select
+    
+    wrfda_get_field_info = 0_c_int
+  end function wrfda_get_field_info
 
   !> @brief Tangent linear operator: H'(xb)·δx using WRFDA's proven da_transform_xtoy
   !> @details Uses WRFDA's top-level da_transform_xtoy which automatically dispatches
