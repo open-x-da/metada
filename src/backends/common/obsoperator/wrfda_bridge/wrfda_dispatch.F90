@@ -70,14 +70,6 @@ module metada_wrfda_dispatch
   ! Module-level map_info structure initialized by da_setup_firstguess_wrf → da_map_set
   type(proj_info), save :: map_info
   
-  ! Persistent arrays for adjoint operator gradients
-  real(c_double), allocatable, save :: persistent_adjoint_u(:), persistent_adjoint_v(:)
-  real(c_double), allocatable, save :: persistent_adjoint_t(:), persistent_adjoint_q(:)
-  real(c_double), allocatable, save :: persistent_adjoint_psfc(:)
-  real(c_double), allocatable, save :: persistent_delta_y(:)
-  integer, save :: persistent_nx = 0, persistent_ny = 0, persistent_nz = 0
-  logical, save :: adjoint_allocated = .false.
-  
   ! Persistent y_type for weighted residual (jo_grad_y = -R^{-1} · residual)
   ! Computed by wrfda_compute_weighted_residual, used by wrfda_xtoy_adjoint_grid
   type(y_type), save :: persistent_jo_grad_y
@@ -184,7 +176,7 @@ contains
     implicit none
     
     real :: dummy_cv(1)  ! Dummy control variable (not used in TL operator)
-    real :: zero_value  ! Value for zeroing y_type (must be variable for INTENT(INOUT))
+    real(kind=4) :: zero_value  ! Value for zeroing y_type (must be REAL(4) for da_zero_y)
     
     ! Validate module-level structures
     if (.not. associated(head_grid)) then
@@ -212,7 +204,7 @@ contains
     
     ! CRITICAL: Zero out wrfda_y_tl before each TL call to prevent accumulation
     ! Must pass value parameter explicitly due to bug in da_zero_y (line 18)
-    zero_value = 0.0
+    zero_value = 0.0_4  ! REAL(4) to match da_zero_y signature
     call da_zero_y(wrfda_iv, wrfda_y_tl, zero_value)
     
     ! Use WRFDA's proven top-level function which automatically dispatches
@@ -326,150 +318,6 @@ contains
     
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
-
-  subroutine init_y_from_delta(family, jo_grad_y, delta_y, num_innovations)
-    integer, intent(in) :: family
-    type(y_type), intent(inout) :: jo_grad_y
-    real(c_double), intent(in) :: delta_y(*)
-    integer, intent(in) :: num_innovations
-    integer :: n, var_idx, num_obs
-    real(c_double), parameter :: missing_r = -888888.0_c_double
-    
-    ! Calculate number of observations from innovations
-    ! For synop observations, we need to get the actual number of observations from wrfda_iv
-
-    if (associated(wrfda_iv) .and. associated(wrfda_iv%synop)) then
-      num_obs = wrfda_iv%info(2)%nlocal
-    else
-      ! Fallback: assume we have 1 observation per 5 innovations
-      num_obs = max(1, num_innovations / 5)
-    end if
-    select case (family)
-    case (metar)
-      allocate(jo_grad_y%metar(num_obs))
-      do n=1,num_obs
-        ! Initialize all variables to missing
-        jo_grad_y%metar(n)%u = 0.0_c_double
-        jo_grad_y%metar(n)%v = 0.0_c_double
-        jo_grad_y%metar(n)%t = 0.0_c_double
-        jo_grad_y%metar(n)%q = 0.0_c_double
-        jo_grad_y%metar(n)%p = 0.0_c_double
-        
-        ! Process all variables in order: U, V, T, Q, P
-        var_idx = (n-1) * 5  ! Start index for this observation's variables
-        
-        ! U component (if available)
-        if (var_idx + 1 <= num_innovations) then
-          jo_grad_y%metar(n)%u = real(delta_y(var_idx + 1))
-        end if
-        
-        ! V component (if available)
-        if (var_idx + 2 <= num_innovations) then
-          jo_grad_y%metar(n)%v = real(delta_y(var_idx + 2))
-        end if
-        
-        ! T component (if available)
-        if (var_idx + 3 <= num_innovations) then
-          jo_grad_y%metar(n)%t = real(delta_y(var_idx + 3))
-        end if
-        
-        ! Q component (if available)
-        if (var_idx + 4 <= num_innovations) then
-          jo_grad_y%metar(n)%q = real(delta_y(var_idx + 4))
-        end if
-        
-        ! P component (if available)
-        if (var_idx + 5 <= num_innovations) then
-          jo_grad_y%metar(n)%p = real(delta_y(var_idx + 5))
-        end if
-      end do
-    case (synop)
-      allocate(jo_grad_y%synop(num_obs))
-      do n=1,num_obs
-        ! Initialize all variables to missing
-        jo_grad_y%synop(n)%u = 0.0_c_double
-        jo_grad_y%synop(n)%v = 0.0_c_double
-        jo_grad_y%synop(n)%t = 0.0_c_double
-        jo_grad_y%synop(n)%q = 0.0_c_double
-        jo_grad_y%synop(n)%p = 0.0_c_double
-        
-        ! Process all variables in order: U, V, T, Q, P
-        ! delta_y array contains innovations for all variables for all observations
-        ! For each observation, we have up to 5 variables (U, V, T, Q, P)
-        var_idx = (n-1) * 5  ! Start index for this observation's variables
-        
-        ! U component (if available)
-        if (var_idx + 1 <= num_innovations) then
-          jo_grad_y%synop(n)%u = real(delta_y(var_idx + 1))
-        end if
-        
-        ! V component (if available)
-        if (var_idx + 2 <= num_innovations) then
-          jo_grad_y%synop(n)%v = real(delta_y(var_idx + 2))
-        end if
-        
-        ! T component (if available)
-        if (var_idx + 3 <= num_innovations) then
-          jo_grad_y%synop(n)%t = real(delta_y(var_idx + 3))
-        end if
-        
-        ! Q component (if available)
-        if (var_idx + 4 <= num_innovations) then
-          jo_grad_y%synop(n)%q = real(delta_y(var_idx + 4))
-        end if
-        
-        ! P component (if available)
-        if (var_idx + 5 <= num_innovations) then
-          jo_grad_y%synop(n)%p = real(delta_y(var_idx + 5))
-        end if
-      end do
-
-    end select
-  end subroutine init_y_from_delta
-
-  ! Copy gradient from jo_grad_x to persistent arrays for later retrieval
-  ! This function stores the adjoint gradients in persistent arrays
-  ! For incremental 3D-Var, this represents the gradient of the cost function with respect to state
-  subroutine copy_x_to_persistent(jo_grad_x, nx, ny, nz)
-    type(x_type), intent(in) :: jo_grad_x
-    integer, intent(in) :: nx, ny, nz
-    integer :: i,j,k, nz1, total_size, surface_size
-    
-    nz1 = max(1, nz)
-    total_size = nx * ny * nz1
-    surface_size = nx * ny
-    
-    ! Allocate persistent arrays if needed
-    if (.not. adjoint_allocated .or. persistent_nx /= nx .or. persistent_ny /= ny .or. persistent_nz /= nz) then
-      if (allocated(persistent_adjoint_u)) deallocate(persistent_adjoint_u)
-      if (allocated(persistent_adjoint_v)) deallocate(persistent_adjoint_v)
-      if (allocated(persistent_adjoint_t)) deallocate(persistent_adjoint_t)
-      if (allocated(persistent_adjoint_q)) deallocate(persistent_adjoint_q)
-      if (allocated(persistent_adjoint_psfc)) deallocate(persistent_adjoint_psfc)
-      
-      allocate(persistent_adjoint_u(total_size))
-      allocate(persistent_adjoint_v(total_size))
-      allocate(persistent_adjoint_t(total_size))
-      allocate(persistent_adjoint_q(total_size))
-      allocate(persistent_adjoint_psfc(surface_size))
-      
-      persistent_nx = nx
-      persistent_ny = ny
-      persistent_nz = nz
-      adjoint_allocated = .true.
-    end if
-    
-    ! Copy gradients to persistent arrays
-    do k=1,nz1; do j=1,ny; do i=1,nx
-      persistent_adjoint_u(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%u(i,j,k), kind=c_double)
-      persistent_adjoint_v(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%v(i,j,k), kind=c_double)
-      persistent_adjoint_t(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%t(i,j,k), kind=c_double)
-      persistent_adjoint_q(i + (j-1)*nx + (k-1)*nx*ny) = real(jo_grad_x%q(i,j,k), kind=c_double)
-    end do; end do; end do
-    do j=1,ny; do i=1,nx
-      persistent_adjoint_psfc(i + (j-1)*nx) = real(jo_grad_x%psfc(i,j), kind=c_double)
-    end do; end do
-  end subroutine copy_x_to_persistent
 
   ! Copy gradient from jo_grad_x to state arrays (gradient accumulation)
   ! This function accumulates the adjoint gradients into the state space arrays
@@ -2762,50 +2610,6 @@ contains
     
   end function wrfda_extract_observations
 
-  ! Set delta_y input for adjoint operator
-  integer(c_int) function wrfda_set_delta_y(delta_y, num_obs) bind(C, name="wrfda_set_delta_y")
-    implicit none
-    real(c_double), intent(in) :: delta_y(*)
-    integer(c_int), value :: num_obs
-    
-    ! Allocate persistent delta_y array if needed
-    if (.not. allocated(persistent_delta_y)) then
-      allocate(persistent_delta_y(num_obs))
-    else if (size(persistent_delta_y) /= num_obs) then
-      deallocate(persistent_delta_y)
-      allocate(persistent_delta_y(num_obs))
-    end if
-    
-    ! Copy input delta_y to persistent array
-    persistent_delta_y(1:num_obs) = delta_y(1:num_obs)
-    
-    wrfda_set_delta_y = 0_c_int
-  end function wrfda_set_delta_y
-
-  ! Get adjoint gradients from persistent arrays
-  integer(c_int) function wrfda_get_adjoint_gradients(u, v, t, q, psfc) bind(C, name="wrfda_get_adjoint_gradients")
-    implicit none
-    real(c_double), intent(out) :: u(*), v(*), t(*), q(*), psfc(*)
-    
-    integer :: total_size, surface_size
-    
-    if (.not. adjoint_allocated) then
-      wrfda_get_adjoint_gradients = 1_c_int
-      return
-    end if
-    
-    total_size = persistent_nx * persistent_ny * persistent_nz
-    surface_size = persistent_nx * persistent_ny
-    
-    ! Copy gradients from persistent arrays
-    u(1:total_size) = persistent_adjoint_u(1:total_size)
-    v(1:total_size) = persistent_adjoint_v(1:total_size)
-    t(1:total_size) = persistent_adjoint_t(1:total_size)
-    q(1:total_size) = persistent_adjoint_q(1:total_size)
-    psfc(1:surface_size) = persistent_adjoint_psfc(1:surface_size)
-    
-    wrfda_get_adjoint_gradients = 0_c_int
-  end function wrfda_get_adjoint_gradients
 
   ! Initialize WRFDA variables for 3D-Var analysis
   !> @brief Copy namelist configuration from model_config_rec to da_control module

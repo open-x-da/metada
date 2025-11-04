@@ -37,13 +37,6 @@ int wrfda_compute_weighted_residual(const void* iv_ptr, const void* y_ptr);
 
 int wrfda_xtoy_adjoint_grid(const void* grid_ptr, const void* iv_ptr);
 
-// Set delta_y input for adjoint operator
-int wrfda_set_delta_y(const double* delta_y, int num_obs);
-
-// Get adjoint gradients from persistent arrays
-int wrfda_get_adjoint_gradients(double* u, double* v, double* t, double* q,
-                                double* psfc);
-
 // Enhanced function for constructing iv_type with detailed observation
 // information
 int wrfda_construct_iv_from_observations(
