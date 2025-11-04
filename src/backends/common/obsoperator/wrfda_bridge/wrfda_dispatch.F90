@@ -46,10 +46,10 @@ module metada_wrfda_dispatch
   type(domain), pointer, save :: persistent_grid => null()
   logical, save :: grid_initialized = .false.
   
-  ! Module-level WRFDA observation structures (persistent across calls)
-  ! These are allocated once and reused by all observation operator calls
-  type(iv_type), pointer, save :: wrfda_iv => null()
-  type(y_type), pointer, save :: wrfda_ob => null()
+  ! Module-level observation structures (allocated by wrfda_read_and_allocate_observations)
+  ! Note: With intent(inout) in da_setup_obs_structures, module-level variables work correctly
+  type(iv_type), save, target :: wrfda_iv
+  type(y_type), save, target :: wrfda_ob
   logical, save :: wrfda_obs_allocated = .false.
   
   ! Temporary y_type for tangent linear output (to avoid corrupting wrfda_ob)
@@ -76,86 +76,6 @@ module metada_wrfda_dispatch
   
 contains
 
-  !> @brief Print residual/gradient statistics for debugging
-  !> @details Computes and prints norm, min, max of residual values for each obs type
-  subroutine print_residual_stats(label, iv, y)
-    use da_wrf_interfaces, only: wrf_message
-    implicit none
-    character(len=*), intent(in) :: label
-    type(iv_type), intent(in) :: iv
-    type(y_type), intent(in) :: y
-    
-    integer :: n, count
-    real(kind=8) :: sum_sq, min_val, max_val, val
-    character(len=256) :: msg
-    
-    ! SYNOP statistics
-    if (associated(y%synop) .and. iv%info(synop)%nlocal > 0) then
-      count = 0
-      sum_sq = 0.0_8
-      min_val = 1.0e10
-      max_val = -1.0e10
-      
-      do n = 1, iv%info(synop)%nlocal
-        if (iv%synop(n)%u%qc >= 0) then
-          val = real(y%synop(n)%u, kind=8)
-          sum_sq = sum_sq + val**2
-          min_val = min(min_val, val)
-          max_val = max(max_val, val)
-          count = count + 1
-        end if
-        if (iv%synop(n)%v%qc >= 0) then
-          val = real(y%synop(n)%v, kind=8)
-          sum_sq = sum_sq + val**2
-          min_val = min(min_val, val)
-          max_val = max(max_val, val)
-          count = count + 1
-        end if
-        if (iv%synop(n)%t%qc >= 0) then
-          val = real(y%synop(n)%t, kind=8)
-          sum_sq = sum_sq + val**2
-          min_val = min(min_val, val)
-          max_val = max(max_val, val)
-          count = count + 1
-        end if
-        if (iv%synop(n)%q%qc >= 0) then
-          val = real(y%synop(n)%q, kind=8)
-          sum_sq = sum_sq + val**2
-          min_val = min(min_val, val)
-          max_val = max(max_val, val)
-          count = count + 1
-        end if
-        if (iv%synop(n)%p%qc >= 0) then
-          val = real(y%synop(n)%p, kind=8)
-          sum_sq = sum_sq + val**2
-          min_val = min(min_val, val)
-          max_val = max(max_val, val)
-          count = count + 1
-        end if
-      end do
-      
-      if (count > 0) then
-        write(msg, '(A,A)') "DEBUG: ", trim(label)
-        call wrf_message(trim(msg))
-        write(msg, '(A,I6)') "  SYNOP observations: ", count
-        call wrf_message(trim(msg))
-        write(msg, '(A,E15.6)') "  Norm:  ", sqrt(sum_sq)
-        call wrf_message(trim(msg))
-        write(msg, '(A,E15.6)') "  Min:   ", min_val
-        call wrf_message(trim(msg))
-        write(msg, '(A,E15.6)') "  Max:   ", max_val
-        call wrf_message(trim(msg))
-      end if
-    end if
-    
-    ! SOUND statistics (multi-level observations)
-    if (associated(y%sound) .and. iv%info(sound)%nlocal > 0) then
-      write(msg, '(A,A)') "DEBUG: ", trim(label)
-      call wrf_message(trim(msg))
-      write(msg, '(A,I6,A)') "  SOUND stations: ", iv%info(sound)%nlocal, " (multi-level)"
-      call wrf_message(trim(msg))
-    end if
-  end subroutine print_residual_stats
 
   !> @brief Tangent linear operator: H'(xb)·δx using WRFDA's proven da_transform_xtoy
   !> @details Uses WRFDA's top-level da_transform_xtoy which automatically dispatches
@@ -176,7 +96,6 @@ contains
     implicit none
     
     real :: dummy_cv(1)  ! Dummy control variable (not used in TL operator)
-    real(kind=4) :: zero_value  ! Value for zeroing y_type (must be REAL(4) for da_zero_y)
     
     ! Validate module-level structures
     if (.not. associated(head_grid)) then
@@ -184,12 +103,7 @@ contains
       return
     end if
     
-    if (.not. associated(wrfda_iv)) then
-      wrfda_xtoy_apply_grid = 1_c_int
-      return
-    end if
-    
-    if (.not. associated(wrfda_ob)) then
+    if (.not. wrfda_obs_allocated) then
       wrfda_xtoy_apply_grid = 1_c_int
       return
     end if
@@ -201,11 +115,6 @@ contains
       call da_allocate_y(wrfda_iv, wrfda_y_tl)
       wrfda_y_tl_allocated = .true.
     end if
-    
-    ! CRITICAL: Zero out wrfda_y_tl before each TL call to prevent accumulation
-    ! Must pass value parameter explicitly due to bug in da_zero_y (line 18)
-    zero_value = 0.0_4  ! REAL(4) to match da_zero_y signature
-    call da_zero_y(wrfda_iv, wrfda_y_tl, zero_value)
     
     ! Use WRFDA's proven top-level function which automatically dispatches
     ! to ALL observation types (sound, synop, metar, ships, buoy, pilot, airep,
@@ -251,15 +160,9 @@ contains
     ! re = (O-B) - H(xa) for ALL observation types
     call da_calculate_residual(iv, y, re)
     
-    ! Debug: Print residual statistics
-    call print_residual_stats("After da_calculate_residual", iv, re)
-    
     ! Step 2: WRFDA's proven gradient calculation
     ! jo_grad_y = -R^{-1} · re for ALL observation types
     call da_calculate_grady(iv, re, jo_grad_y)
-    
-    ! Debug: Print jo_grad_y statistics
-    call print_residual_stats("After da_calculate_grady (jo_grad_y)", iv, jo_grad_y)
     
     ! Step 3: Store jo_grad_y in persistent module variable
     ! Deallocate previous if exists
@@ -3336,16 +3239,11 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     type(c_ptr), intent(out) :: iv_ptr
     type(c_ptr), intent(out) :: ob_ptr
     
-    ! Use module-level WRFDA structures (already declared at module level)
-    ! wrfda_iv and wrfda_ob are defined as module-level SAVE variables
-    type(j_type), save :: wrfda_j  ! Cost function structure (needed for da_setup_obs_structures)
-    
-    ! Local variables
+    type(j_type), save :: wrfda_j
     type(domain), pointer :: grid
     character(len=512) :: bufr_filename
     character(kind=c_char), pointer :: fptr(:)
     integer :: i, max_len
-    character(len=256) :: msg
     
     ! Initialize return code
     wrfda_read_and_allocate_observations = 0
@@ -3375,91 +3273,32 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
       bufr_filename(i:i) = fptr(i)
     end do
     
-    write(msg, '(A,A)') "WRFDA: Reading observations from file: ", trim(bufr_filename)
-    call wrf_message(msg)
     
     ! Note: da_setup_obs_structures reads observations based on ob_format in namelist:
     !   ob_format=1 → reads ob.bufr (PREPBUFR format)
     !   ob_format=2 → reads ob.ascii (ASCII format)
     ! File must be in current working directory with these exact names
     
-    ! Allocate module-level WRFDA observation structures on first call
+    ! First-time initialization: Set up MPI-like variables
+    ! Following da_wrfvar_init1.inc logic for non-DM_PARALLEL builds
     if (.not. wrfda_obs_allocated) then
-      allocate(wrfda_iv)
-      allocate(wrfda_ob)
-      wrfda_obs_allocated = .true.
-      call wrf_message("Allocated WRFDA-side iv_type and y_type structures (module-level)")
-      
-      ! CRITICAL: Initialize MPI-like variables for single-processor mode
-      ! These are required by da_setup_obs_structures and observation reading
-      ! Following da_wrfvar_init1.inc logic for non-DM_PARALLEL builds
       num_procs = 1
       myproc = 0
       comm = 0
       rootproc = .true.
-      call wrf_message("Initialized processor variables: num_procs=1, myproc=0, rootproc=.true.")
-      
-      ! Initialize iv structure following WRFDA's da_setup_obs_structures pattern
-      ! These initializations are CRITICAL before calling da_setup_obs_structures
-      do i = 1, num_ob_indexes
-        wrfda_iv%info(i)%nlocal = 0
-        wrfda_iv%info(i)%ntotal = 0
-        wrfda_iv%info(i)%thin_nlocal = 0
-        wrfda_iv%info(i)%thin_ntotal = 0
-        wrfda_iv%info(i)%plocal(:) = 0
-        wrfda_iv%info(i)%ptotal(:) = 0
-        wrfda_iv%info(i)%thin_plocal(:) = 0
-        wrfda_iv%info(i)%thin_ptotal(:) = 0
-        wrfda_iv%info(i)%max_lev = 1  ! Default to 1 level (surface obs)
-      end do
-      wrfda_iv%num_inst = 0
-      
-      ! Initialize ob structure
-      wrfda_ob%nlocal(:) = 0
-      wrfda_ob%ntotal(:) = 0
-      wrfda_ob%num_inst = 0
-      
-      call wrf_message("Initialized iv and ob structures")
+      wrfda_obs_allocated = .true.
     end if
     
-    ! Call WRFDA's standard observation reading pipeline
-    ! This function internally calls either:
-    !   - da_setup_obs_structures_bufr (if ob_format=1) → reads PREPBUFR file
-    !   - da_setup_obs_structures_ascii (if ob_format=2) → reads ASCII file
-    ! based on the ob_format setting in namelist.input
-    ! It also allocates observations and y_type structures
+    ! Call WRFDA's standard observation reading pipeline (the wrapper)
+    ! This handles ALL initialization (time_slots, thinning_grid_conv, etc.)
+    ! and calls the appropriate reader based on ob_format in namelist
     ! Note: This does NOT compute innovations (grid%xb not needed yet)
+    ! With intent(inout), module-level variables work correctly
     call da_setup_obs_structures(head_grid, wrfda_ob, wrfda_iv, wrfda_j)
     
-    write(msg, '(A)') "WRFDA: Observations read and structures allocated successfully"
-    call wrf_message(msg)
-    
-    ! Return C pointers to module-level WRFDA structures
-    ! - ob_ptr (y_type) → for WRFObservation (observation values y_obs)
-    ! - iv_ptr (iv_type) → for WRFObsOperator (innovations + interpolation weights)
-    ! C++ will manage these as opaque pointers
+    ! Return C pointers to module-level structures
     iv_ptr = c_loc(wrfda_iv)
     ob_ptr = c_loc(wrfda_ob)
-    
-    ! Log observation counts by type (nlocal = local to this processor, ntotal = global)
-    write(msg, '(A)') "Observation counts by type (nlocal/ntotal):"
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  SYNOP:   ", wrfda_iv%info(synop)%nlocal, " / ", wrfda_iv%info(synop)%ntotal
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  METAR:   ", wrfda_iv%info(metar)%nlocal, " / ", wrfda_iv%info(metar)%ntotal
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  SOUND:   ", wrfda_iv%info(sound)%nlocal, " / ", wrfda_iv%info(sound)%ntotal
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  SHIPS:   ", wrfda_iv%info(ships)%nlocal, " / ", wrfda_iv%info(ships)%ntotal
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  BUOY:    ", wrfda_iv%info(buoy)%nlocal, " / ", wrfda_iv%info(buoy)%ntotal
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  AIREP:   ", wrfda_iv%info(airep)%nlocal, " / ", wrfda_iv%info(airep)%ntotal
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  PILOT:   ", wrfda_iv%info(pilot)%nlocal, " / ", wrfda_iv%info(pilot)%ntotal
-    call wrf_message(msg)
-    write(msg, '(A,I6,A,I6)') "  SONDE_SFC:", wrfda_iv%info(sonde_sfc)%nlocal, " / ", wrfda_iv%info(sonde_sfc)%ntotal
-    call wrf_message(msg)
     
   end function wrfda_read_and_allocate_observations
 
@@ -3492,8 +3331,15 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     call c_f_pointer(iv_ptr, iv)
     
     ! Extract observation counts for all types
+    ! NOTE: WRFDA observation type indices are named constants (sound=1, synop=2, etc.)
+    ! and the info array is indexed by these constants, NOT by 1..num_ob_indexes
     do i = 1, num_ob_indexes
-      obs_counts(i) = iv%info(i)%nlocal
+      ! Safety check: verify we're accessing valid memory
+      if (i <= size(iv%info)) then
+        obs_counts(i) = iv%info(i)%nlocal
+      else
+        obs_counts(i) = 0
+      end if
     end do
     
   end function wrfda_get_obs_type_counts
@@ -3526,6 +3372,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     call c_f_pointer(iv_ptr, iv)
     
     ! Sum observation counts across all types
+    total_count = 0
     do i = 1, num_ob_indexes
       total_count = total_count + iv%info(i)%nlocal
     end do
@@ -3541,7 +3388,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     use da_define_structures, only: iv_type
     implicit none
     
-    if (wrfda_obs_allocated .and. associated(wrfda_iv)) then
+    if (wrfda_obs_allocated) then
       wrfda_get_iv_ptr = c_loc(wrfda_iv)
     else
       wrfda_get_iv_ptr = c_null_ptr
@@ -3557,7 +3404,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     use da_define_structures, only: y_type
     implicit none
     
-    if (wrfda_obs_allocated .and. associated(wrfda_ob)) then
+    if (wrfda_obs_allocated) then
       wrfda_get_y_ptr = c_loc(wrfda_ob)
     else
       wrfda_get_y_ptr = c_null_ptr
