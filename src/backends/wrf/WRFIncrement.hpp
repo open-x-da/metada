@@ -12,8 +12,6 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 // WRFDA C bindings for increment operations on grid%xa
 extern "C" {

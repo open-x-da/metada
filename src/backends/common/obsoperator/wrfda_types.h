@@ -52,4 +52,3 @@ int wrfda_get_field_info(wrfda_field_info_t* field_info);
 #ifdef __cplusplus
 }
 #endif
-

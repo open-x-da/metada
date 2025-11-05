@@ -245,32 +245,27 @@ contains
     
     type(iv_type), pointer :: iv
     type(y_type), pointer :: y  
-    type(y_type), target :: re, jo_grad_y
+    type(y_type), target :: re
     
     call c_f_pointer(iv_ptr, iv)
     call c_f_pointer(y_ptr, y)
     
+    ! Deallocate previous gradient if exists
+    call da_deallocate_y(persistent_jo_grad_y)
+    
     ! Allocate residual and gradient structures
     call da_allocate_y(iv, re)
-    call da_allocate_y(iv, jo_grad_y)
+    call da_allocate_y(iv, persistent_jo_grad_y)
     
     ! Step 1: WRFDA's proven residual calculation
     ! re = (O-B) - H(xa) for ALL observation types
     call da_calculate_residual(iv, y, re)
     
     ! Step 2: WRFDA's proven gradient calculation
-    ! jo_grad_y = -R^{-1} · re for ALL observation types
-    call da_calculate_grady(iv, re, jo_grad_y)
+    ! Compute directly into persistent variable: jo_grad_y = -R^{-1} · re
+    call da_calculate_grady(iv, re, persistent_jo_grad_y)
     
-    ! Step 3: Store jo_grad_y in persistent module variable
-    ! Deallocate previous if exists
-    if (associated(persistent_jo_grad_y%synop)) call da_deallocate_y(persistent_jo_grad_y)
-    if (associated(persistent_jo_grad_y%sound)) call da_deallocate_y(persistent_jo_grad_y)
-    
-    ! Transfer ownership to persistent variable (no copy needed)
-    persistent_jo_grad_y = jo_grad_y
-    
-    ! Cleanup residual only (jo_grad_y is now in persistent storage)
+    ! Cleanup residual only
     call da_deallocate_y(re)
     
     wrfda_compute_weighted_residual = 0_c_int
