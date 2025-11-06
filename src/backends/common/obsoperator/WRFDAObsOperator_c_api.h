@@ -49,6 +49,12 @@ int wrfda_compute_jo_only(const void* iv_ptr, const void* y_ptr,
 
 int wrfda_xtoy_adjoint_grid(const void* grid_ptr, const void* iv_ptr);
 
+// Pure adjoint operator for TL/AD testing (without R^{-1} weighting)
+// Takes raw dy values and applies H'^T directly
+// Used for gradient checks: <H'dx, dy> = <dx, H'^T dy>
+int wrfda_xtoy_adjoint_pure(const void* grid_ptr, const void* iv_ptr,
+                            const double* dy_values, int num_values);
+
 // Enhanced function for constructing iv_type with detailed observation
 // information
 int wrfda_construct_iv_from_observations(

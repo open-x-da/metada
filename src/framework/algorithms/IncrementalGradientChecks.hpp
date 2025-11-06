@@ -271,17 +271,9 @@ bool checkIncrementalObsOperatorTLAD(
     }
   }
 
-  // 2. Create random observation increments dy for all observations
-  std::vector<std::vector<double>> dy_vectors;
-  for (const auto& obs : observations) {
-    std::vector<double> dy(obs.size());
-    for (auto& v : dy) {
-      v = (double(rand()) / RAND_MAX - 0.5);
-    }
-    dy_vectors.push_back(std::move(dy));
-  }
-
-  // 3. Apply tangent linear: H' dx for all operators
+  // 2. Apply tangent linear: H' dx for all operators
+  // This must be done BEFORE creating dy to get the correct observation space
+  // size
   std::vector<std::vector<double>> Hdx_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
     auto Hdx = obs_operators[i].applyTangentLinear(dx, background_state,
@@ -289,11 +281,27 @@ bool checkIncrementalObsOperatorTLAD(
     Hdx_vectors.push_back(std::move(Hdx));
   }
 
+  // 3. Create random observation increments dy with correct size
+  // Size must match Hdx (total observation values, not observation count)
+  std::vector<std::vector<double>> dy_vectors;
+  for (size_t i = 0; i < Hdx_vectors.size(); ++i) {
+    std::vector<double> dy(Hdx_vectors[i].size());
+    for (auto& v : dy) {
+      v = (double(rand()) / RAND_MAX - 0.5);
+    }
+    dy_vectors.push_back(std::move(dy));
+  }
+
   // 4. Apply adjoint: H'^T dy for all operators
+  // For TL/AD testing, we need the PURE adjoint (without R^{-1} weighting)
   std::vector<Increment<BackendTag>> HTdy_increments;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto HTdy = obs_operators[i].applyAdjoint(dy_vectors[i], background_state,
-                                              observations[i]);
+    // Use the pure adjoint method from the backend for TL/AD testing
+    auto HTdy_backend = obs_operators[i].backend().applyAdjointPure(
+        dy_vectors[i], background_state.backend(), observations[i].backend());
+    // Wrap the backend increment in an adapter increment
+    Increment<BackendTag> HTdy(background_state.geometry()->backend());
+    HTdy.backend() = std::move(HTdy_backend);
     HTdy_increments.push_back(std::move(HTdy));
   }
 

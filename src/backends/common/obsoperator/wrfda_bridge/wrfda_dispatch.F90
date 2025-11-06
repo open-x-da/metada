@@ -668,6 +668,133 @@ contains
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
 
+  !> @brief Pure adjoint operator for TL/AD testing (without R^{-1} weighting)
+  !> @details Takes raw dy values and applies H'^T directly without R^{-1} weighting.
+  !>          Used for gradient checks: <H'dx, dy> = <dx, H'^T dy>
+  !>
+  !> @param[in] grid_ptr Pointer to WRFDA grid structure
+  !> @param[in] iv_ptr Pointer to innovation vector (for structure info)
+  !> @param[in] dy_values Raw observation space vector dy
+  !> @param[in] num_values Number of values in dy
+  !> @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_xtoy_adjoint_pure(grid_ptr, iv_ptr, dy_values, num_values) &
+       bind(C, name="wrfda_xtoy_adjoint_pure")
+    use da_obs, only: da_transform_xtoy_adj
+    use da_define_structures, only: da_zero_x
+    implicit none
+    type(c_ptr), value :: grid_ptr, iv_ptr
+    real(c_double), intent(in) :: dy_values(*)
+    integer(c_int), value :: num_values
+    
+    type(domain), pointer :: grid
+    type(iv_type), pointer :: iv
+    type(y_type) :: dy_y
+    real :: dummy_cv(1)
+    integer :: n, k, idx
+    
+    ! Convert C pointers to Fortran pointers
+    call c_f_pointer(grid_ptr, grid)
+    call c_f_pointer(iv_ptr, iv)
+    
+    if (.not. associated(grid) .or. .not. associated(iv)) then
+      wrfda_xtoy_adjoint_pure = 1_c_int
+      return
+    end if
+    
+    ! Allocate dy_y structure matching iv structure
+    call da_allocate_y(iv, dy_y)
+    
+    ! Populate dy_y from dy_values array (inverse of wrfda_extract_observations)
+    idx = 0
+    
+    ! Sound observations
+    if (iv%info(sound)%nlocal > 0) then
+      do n = 1, iv%info(sound)%nlocal
+        do k = 1, iv%info(sound)%levels(n)
+          if (iv%sound(n)%u(k)%qc >= 0) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%sound(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%sound(n)%v(k)%qc >= 0) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%sound(n)%v(k) = dy_values(idx)
+          end if
+          if (iv%sound(n)%t(k)%qc >= 0) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%sound(n)%t(k) = dy_values(idx)
+          end if
+          if (iv%sound(n)%q(k)%qc >= 0) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%sound(n)%q(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SYNOP observations
+    if (iv%info(synop)%nlocal > 0) then
+      do n = 1, iv%info(synop)%nlocal
+        if (iv%synop(n)%u%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%u = dy_values(idx)
+        end if
+        if (iv%synop(n)%v%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%v = dy_values(idx)
+        end if
+        if (iv%synop(n)%t%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%t = dy_values(idx)
+        end if
+        if (iv%synop(n)%p%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%p = dy_values(idx)
+        end if
+        if (iv%synop(n)%q%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! METAR observations
+    if (iv%info(metar)%nlocal > 0) then
+      do n = 1, iv%info(metar)%nlocal
+        if (iv%metar(n)%u%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%u = dy_values(idx)
+        end if
+        if (iv%metar(n)%v%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%v = dy_values(idx)
+        end if
+        if (iv%metar(n)%t%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%t = dy_values(idx)
+        end if
+        if (iv%metar(n)%p%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%p = dy_values(idx)
+        end if
+        if (iv%metar(n)%q%qc >= 0) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! TODO: Add other observation types as needed
+    
+    ! Zero the analysis increment
+    call da_zero_x(grid%xa)
+    
+    ! Apply pure adjoint: H'^T · dy → grid%xa
+    call da_transform_xtoy_adj(0, dummy_cv, grid, iv, dy_y, grid%xa)
+    
+    wrfda_xtoy_adjoint_pure = 0_c_int
+    
+  end function wrfda_xtoy_adjoint_pure
+
   ! Copy gradient from jo_grad_x to state arrays (gradient accumulation)
   ! This function accumulates the adjoint gradients into the state space arrays
   ! For incremental 3D-Var, this represents the gradient of the cost function with respect to state

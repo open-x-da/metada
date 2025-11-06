@@ -280,6 +280,57 @@ class WRFObsOperator {
   }
 
   /**
+   * @brief Apply PURE adjoint for TL/AD testing (without R^{-1} weighting)
+   *
+   * @param obs_adjoint Raw observation space vector dy
+   * @param reference_state Reference state (not used)
+   * @param obs Observations
+   * @return Increment containing H'^T · dy
+   *
+   * @details This method applies the pure adjoint operator H'^T directly
+   * without R^{-1} weighting or residual computation. It's used specifically
+   * for TL/AD checks where we need: <H'dx, dy> = <dx, H'^T dy>
+   *
+   * This is separate from the full applyAdjoint workflow used in cost function
+   * evaluation.
+   */
+  template <typename StateBackendArg, typename ObsBackendArg>
+  IncrementBackend applyAdjointPure(const std::vector<double>& obs_adjoint,
+                                    const StateBackendArg& reference_state,
+                                    const ObsBackendArg& obs) const {
+    if (!isInitialized()) {
+      throw std::runtime_error("WRFObsOperator not initialized");
+    }
+
+    (void)reference_state;
+
+    // Get WRFDA structures
+    void* grid_ptr = wrfda_get_head_grid_ptr_();
+    void* iv_ptr = obs.getIVTypeData();
+
+    if (!grid_ptr || !iv_ptr) {
+      throw std::runtime_error("WRFDA structures not available");
+    }
+
+    // Create result increment from geometry
+    auto x_adjoint = IncrementBackend(reference_state.geometry());
+    x_adjoint.zero();
+
+    // Apply pure adjoint: H'^T · dy → grid%xa
+    int rc = wrfda_xtoy_adjoint_pure(grid_ptr, iv_ptr, obs_adjoint.data(),
+                                     static_cast<int>(obs_adjoint.size()));
+    if (rc != 0) {
+      throw std::runtime_error("WRFDA pure adjoint failed with code " +
+                               std::to_string(rc));
+    }
+
+    // Sync grid%xa back to increment's internal CV storage
+    x_adjoint.syncFromGrid();
+
+    return x_adjoint;
+  }
+
+  /**
    * @brief Apply adjoint using WRFDA's complete proven workflow
    *
    * @param obs_adjoint IGNORED for WRF backend (see details)
