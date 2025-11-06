@@ -704,26 +704,105 @@ contains
     ! Allocate dy_y structure matching iv structure
     call da_allocate_y(iv, dy_y)
     
-    ! Populate dy_y from dy_values array (inverse of wrfda_extract_observations)
+    ! Populate dy_y from dy_values array (MUST match wrfda_extract_observations order!)
+    ! CRITICAL: Use same QC criteria as extract: qc == 0 .and. abs(inv) > 1.0e-10
     idx = 0
     
-    ! Sound observations
-    if (iv%info(sound)%nlocal > 0) then
+    ! 1. SYNOP family
+    if (associated(dy_y%synop) .and. associated(iv%synop) .and. iv%info(synop)%nlocal > 0) then
+      do n = 1, iv%info(synop)%nlocal
+        if (iv%synop(n)%u%qc == 0 .and. abs(iv%synop(n)%u%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%u = dy_values(idx)
+        end if
+        if (iv%synop(n)%v%qc == 0 .and. abs(iv%synop(n)%v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%v = dy_values(idx)
+        end if
+        if (iv%synop(n)%t%qc == 0 .and. abs(iv%synop(n)%t%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%t = dy_values(idx)
+        end if
+        if (iv%synop(n)%p%qc == 0 .and. abs(iv%synop(n)%p%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%p = dy_values(idx)
+        end if
+        if (iv%synop(n)%q%qc == 0 .and. abs(iv%synop(n)%q%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%synop(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 2. METAR family
+    if (associated(dy_y%metar) .and. associated(iv%metar) .and. iv%info(metar)%nlocal > 0) then
+      do n = 1, iv%info(metar)%nlocal
+        if (iv%metar(n)%u%qc == 0 .and. abs(iv%metar(n)%u%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%u = dy_values(idx)
+        end if
+        if (iv%metar(n)%v%qc == 0 .and. abs(iv%metar(n)%v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%v = dy_values(idx)
+        end if
+        if (iv%metar(n)%t%qc == 0 .and. abs(iv%metar(n)%t%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%t = dy_values(idx)
+        end if
+        if (iv%metar(n)%p%qc == 0 .and. abs(iv%metar(n)%p%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%p = dy_values(idx)
+        end if
+        if (iv%metar(n)%q%qc == 0 .and. abs(iv%metar(n)%q%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%metar(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 3. SHIPS family
+    if (associated(dy_y%ships) .and. associated(iv%ships) .and. iv%info(ships)%nlocal > 0) then
+      do n = 1, iv%info(ships)%nlocal
+        if (iv%ships(n)%u%qc == 0 .and. abs(iv%ships(n)%u%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ships(n)%u = dy_values(idx)
+        end if
+        if (iv%ships(n)%v%qc == 0 .and. abs(iv%ships(n)%v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ships(n)%v = dy_values(idx)
+        end if
+        if (iv%ships(n)%t%qc == 0 .and. abs(iv%ships(n)%t%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ships(n)%t = dy_values(idx)
+        end if
+        if (iv%ships(n)%p%qc == 0 .and. abs(iv%ships(n)%p%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ships(n)%p = dy_values(idx)
+        end if
+        if (iv%ships(n)%q%qc == 0 .and. abs(iv%ships(n)%q%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ships(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 4. SOUND family - multi-level
+    if (associated(dy_y%sound) .and. associated(iv%sound) .and. iv%info(sound)%nlocal > 0) then
       do n = 1, iv%info(sound)%nlocal
         do k = 1, iv%info(sound)%levels(n)
-          if (iv%sound(n)%u(k)%qc >= 0) then
+          if (iv%sound(n)%u(k)%qc == 0 .and. abs(iv%sound(n)%u(k)%inv) > 1.0e-10) then
             idx = idx + 1
             if (idx <= num_values) dy_y%sound(n)%u(k) = dy_values(idx)
           end if
-          if (iv%sound(n)%v(k)%qc >= 0) then
+          if (iv%sound(n)%v(k)%qc == 0 .and. abs(iv%sound(n)%v(k)%inv) > 1.0e-10) then
             idx = idx + 1
             if (idx <= num_values) dy_y%sound(n)%v(k) = dy_values(idx)
           end if
-          if (iv%sound(n)%t(k)%qc >= 0) then
+          if (iv%sound(n)%t(k)%qc == 0 .and. abs(iv%sound(n)%t(k)%inv) > 1.0e-10) then
             idx = idx + 1
             if (idx <= num_values) dy_y%sound(n)%t(k) = dy_values(idx)
           end if
-          if (iv%sound(n)%q(k)%qc >= 0) then
+          if (iv%sound(n)%q(k)%qc == 0 .and. abs(iv%sound(n)%q(k)%inv) > 1.0e-10) then
             idx = idx + 1
             if (idx <= num_values) dy_y%sound(n)%q(k) = dy_values(idx)
           end if
@@ -731,59 +810,475 @@ contains
       end do
     end if
     
-    ! SYNOP observations
-    if (iv%info(synop)%nlocal > 0) then
-      do n = 1, iv%info(synop)%nlocal
-        if (iv%synop(n)%u%qc >= 0) then
+    ! 5. BUOY family
+    if (associated(dy_y%buoy) .and. associated(iv%buoy) .and. iv%info(buoy)%nlocal > 0) then
+      do n = 1, iv%info(buoy)%nlocal
+        if (iv%buoy(n)%u%qc == 0 .and. abs(iv%buoy(n)%u%inv) > 1.0e-10) then
           idx = idx + 1
-          if (idx <= num_values) dy_y%synop(n)%u = dy_values(idx)
+          if (idx <= num_values) dy_y%buoy(n)%u = dy_values(idx)
         end if
-        if (iv%synop(n)%v%qc >= 0) then
+        if (iv%buoy(n)%v%qc == 0 .and. abs(iv%buoy(n)%v%inv) > 1.0e-10) then
           idx = idx + 1
-          if (idx <= num_values) dy_y%synop(n)%v = dy_values(idx)
+          if (idx <= num_values) dy_y%buoy(n)%v = dy_values(idx)
         end if
-        if (iv%synop(n)%t%qc >= 0) then
+        if (iv%buoy(n)%t%qc == 0 .and. abs(iv%buoy(n)%t%inv) > 1.0e-10) then
           idx = idx + 1
-          if (idx <= num_values) dy_y%synop(n)%t = dy_values(idx)
+          if (idx <= num_values) dy_y%buoy(n)%t = dy_values(idx)
         end if
-        if (iv%synop(n)%p%qc >= 0) then
+        if (iv%buoy(n)%p%qc == 0 .and. abs(iv%buoy(n)%p%inv) > 1.0e-10) then
           idx = idx + 1
-          if (idx <= num_values) dy_y%synop(n)%p = dy_values(idx)
+          if (idx <= num_values) dy_y%buoy(n)%p = dy_values(idx)
         end if
-        if (iv%synop(n)%q%qc >= 0) then
+        if (iv%buoy(n)%q%qc == 0 .and. abs(iv%buoy(n)%q%inv) > 1.0e-10) then
           idx = idx + 1
-          if (idx <= num_values) dy_y%synop(n)%q = dy_values(idx)
-        end if
-      end do
-    end if
-    
-    ! METAR observations
-    if (iv%info(metar)%nlocal > 0) then
-      do n = 1, iv%info(metar)%nlocal
-        if (iv%metar(n)%u%qc >= 0) then
-          idx = idx + 1
-          if (idx <= num_values) dy_y%metar(n)%u = dy_values(idx)
-        end if
-        if (iv%metar(n)%v%qc >= 0) then
-          idx = idx + 1
-          if (idx <= num_values) dy_y%metar(n)%v = dy_values(idx)
-        end if
-        if (iv%metar(n)%t%qc >= 0) then
-          idx = idx + 1
-          if (idx <= num_values) dy_y%metar(n)%t = dy_values(idx)
-        end if
-        if (iv%metar(n)%p%qc >= 0) then
-          idx = idx + 1
-          if (idx <= num_values) dy_y%metar(n)%p = dy_values(idx)
-        end if
-        if (iv%metar(n)%q%qc >= 0) then
-          idx = idx + 1
-          if (idx <= num_values) dy_y%metar(n)%q = dy_values(idx)
+          if (idx <= num_values) dy_y%buoy(n)%q = dy_values(idx)
         end if
       end do
     end if
     
-    ! TODO: Add other observation types as needed
+    ! 6. AIREP family - multi-level
+    if (associated(dy_y%airep) .and. associated(iv%airep) .and. iv%info(airep)%nlocal > 0) then
+      do n = 1, iv%info(airep)%nlocal
+        do k = 1, iv%info(airep)%levels(n)
+          if (iv%airep(n)%u(k)%qc == 0 .and. abs(iv%airep(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%airep(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%airep(n)%v(k)%qc == 0 .and. abs(iv%airep(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%airep(n)%v(k) = dy_values(idx)
+          end if
+          if (iv%airep(n)%t(k)%qc == 0 .and. abs(iv%airep(n)%t(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%airep(n)%t(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 7. PILOT family - multi-level
+    if (associated(dy_y%pilot) .and. associated(iv%pilot) .and. iv%info(pilot)%nlocal > 0) then
+      do n = 1, iv%info(pilot)%nlocal
+        do k = 1, iv%info(pilot)%levels(n)
+          if (iv%pilot(n)%u(k)%qc == 0 .and. abs(iv%pilot(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%pilot(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%pilot(n)%v(k)%qc == 0 .and. abs(iv%pilot(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%pilot(n)%v(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 8. SONDE_SFC family
+    if (associated(dy_y%sonde_sfc) .and. associated(iv%sonde_sfc) .and. iv%info(sonde_sfc)%nlocal > 0) then
+      do n = 1, iv%info(sonde_sfc)%nlocal
+        if (iv%sonde_sfc(n)%u%qc == 0 .and. abs(iv%sonde_sfc(n)%u%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%sonde_sfc(n)%u = dy_values(idx)
+        end if
+        if (iv%sonde_sfc(n)%v%qc == 0 .and. abs(iv%sonde_sfc(n)%v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%sonde_sfc(n)%v = dy_values(idx)
+        end if
+        if (iv%sonde_sfc(n)%t%qc == 0 .and. abs(iv%sonde_sfc(n)%t%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%sonde_sfc(n)%t = dy_values(idx)
+        end if
+        if (iv%sonde_sfc(n)%p%qc == 0 .and. abs(iv%sonde_sfc(n)%p%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%sonde_sfc(n)%p = dy_values(idx)
+        end if
+        if (iv%sonde_sfc(n)%q%qc == 0 .and. abs(iv%sonde_sfc(n)%q%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%sonde_sfc(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 9. GEOAMV family - multi-level
+    if (associated(dy_y%geoamv) .and. associated(iv%geoamv) .and. iv%info(geoamv)%nlocal > 0) then
+      do n = 1, iv%info(geoamv)%nlocal
+        do k = 1, iv%info(geoamv)%levels(n)
+          if (iv%geoamv(n)%u(k)%qc == 0 .and. abs(iv%geoamv(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%geoamv(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%geoamv(n)%v(k)%qc == 0 .and. abs(iv%geoamv(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%geoamv(n)%v(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 10. POLARAMV family - multi-level
+    if (associated(dy_y%polaramv) .and. associated(iv%polaramv) .and. iv%info(polaramv)%nlocal > 0) then
+      do n = 1, iv%info(polaramv)%nlocal
+        do k = 1, iv%info(polaramv)%levels(n)
+          if (iv%polaramv(n)%u(k)%qc == 0 .and. abs(iv%polaramv(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%polaramv(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%polaramv(n)%v(k)%qc == 0 .and. abs(iv%polaramv(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%polaramv(n)%v(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 11. GPSPW family
+    if (associated(dy_y%gpspw) .and. associated(iv%gpspw) .and. iv%info(gpspw)%nlocal > 0) then
+      do n = 1, iv%info(gpspw)%nlocal
+        if (iv%gpspw(n)%tpw%qc == 0 .and. abs(iv%gpspw(n)%tpw%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%gpspw(n)%tpw = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 12. GPSREF family - multi-level
+    if (associated(dy_y%gpsref) .and. associated(iv%gpsref) .and. iv%info(gpsref)%nlocal > 0) then
+      do n = 1, iv%info(gpsref)%nlocal
+        do k = 1, iv%info(gpsref)%levels(n)
+          if (iv%gpsref(n)%ref(k)%qc == 0 .and. abs(iv%gpsref(n)%ref(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%gpsref(n)%ref(k) = dy_values(idx)
+          end if
+          if (iv%gpsref(n)%p(k)%qc == 0 .and. abs(iv%gpsref(n)%p(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%gpsref(n)%p(k) = dy_values(idx)
+          end if
+          if (iv%gpsref(n)%t(k)%qc == 0 .and. abs(iv%gpsref(n)%t(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%gpsref(n)%t(k) = dy_values(idx)
+          end if
+          if (iv%gpsref(n)%q(k)%qc == 0 .and. abs(iv%gpsref(n)%q(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%gpsref(n)%q(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 13. GPSEPH family - multi-level
+    if (associated(dy_y%gpseph) .and. associated(iv%gpseph) .and. iv%info(gpseph)%nlocal > 0) then
+      do n = 1, iv%info(gpseph)%nlocal
+        do k = 1, iv%info(gpseph)%levels(n)
+          if (iv%gpseph(n)%eph(k)%qc == 0 .and. abs(iv%gpseph(n)%eph(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%gpseph(n)%eph(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 14. QSCAT family
+    if (associated(dy_y%qscat) .and. associated(iv%qscat) .and. iv%info(qscat)%nlocal > 0) then
+      do n = 1, iv%info(qscat)%nlocal
+        if (iv%qscat(n)%u%qc == 0 .and. abs(iv%qscat(n)%u%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%qscat(n)%u = dy_values(idx)
+        end if
+        if (iv%qscat(n)%v%qc == 0 .and. abs(iv%qscat(n)%v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%qscat(n)%v = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 15. PROFILER family - multi-level
+    if (associated(dy_y%profiler) .and. associated(iv%profiler) .and. iv%info(profiler)%nlocal > 0) then
+      do n = 1, iv%info(profiler)%nlocal
+        do k = 1, iv%info(profiler)%levels(n)
+          if (iv%profiler(n)%u(k)%qc == 0 .and. abs(iv%profiler(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%profiler(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%profiler(n)%v(k)%qc == 0 .and. abs(iv%profiler(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%profiler(n)%v(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 16. SSMI_RV family
+    if (associated(dy_y%ssmi_rv) .and. associated(iv%ssmi_rv) .and. iv%info(ssmi_rv)%nlocal > 0) then
+      do n = 1, iv%info(ssmi_rv)%nlocal
+        if (iv%ssmi_rv(n)%Speed%qc == 0 .and. abs(iv%ssmi_rv(n)%Speed%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_rv(n)%Speed = dy_values(idx)
+        end if
+        if (iv%ssmi_rv(n)%tpw%qc == 0 .and. abs(iv%ssmi_rv(n)%tpw%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_rv(n)%tpw = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 17. SSMI_TB family
+    if (associated(dy_y%ssmi_tb) .and. associated(iv%ssmi_tb) .and. iv%info(ssmi_tb)%nlocal > 0) then
+      do n = 1, iv%info(ssmi_tb)%nlocal
+        if (iv%ssmi_tb(n)%tb19h%qc == 0 .and. abs(iv%ssmi_tb(n)%tb19h%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_tb(n)%tb19h = dy_values(idx)
+        end if
+        if (iv%ssmi_tb(n)%tb19v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb19v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_tb(n)%tb19v = dy_values(idx)
+        end if
+        if (iv%ssmi_tb(n)%tb22v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb22v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_tb(n)%tb22v = dy_values(idx)
+        end if
+        if (iv%ssmi_tb(n)%tb37h%qc == 0 .and. abs(iv%ssmi_tb(n)%tb37h%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_tb(n)%tb37h = dy_values(idx)
+        end if
+        if (iv%ssmi_tb(n)%tb37v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb37v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_tb(n)%tb37v = dy_values(idx)
+        end if
+        if (iv%ssmi_tb(n)%tb85h%qc == 0 .and. abs(iv%ssmi_tb(n)%tb85h%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_tb(n)%tb85h = dy_values(idx)
+        end if
+        if (iv%ssmi_tb(n)%tb85v%qc == 0 .and. abs(iv%ssmi_tb(n)%tb85v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%ssmi_tb(n)%tb85v = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 18. SSMT1 family - multi-level
+    if (associated(dy_y%ssmt1) .and. associated(iv%ssmt1) .and. iv%info(ssmt1)%nlocal > 0) then
+      do n = 1, iv%info(ssmt1)%nlocal
+        do k = 1, iv%info(ssmt1)%levels(n)
+          if (iv%ssmt1(n)%t(k)%qc == 0 .and. abs(iv%ssmt1(n)%t(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%ssmt1(n)%t(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 19. SSMT2 family - multi-level
+    if (associated(dy_y%ssmt2) .and. associated(iv%ssmt2) .and. iv%info(ssmt2)%nlocal > 0) then
+      do n = 1, iv%info(ssmt2)%nlocal
+        do k = 1, iv%info(ssmt2)%levels(n)
+          if (iv%ssmt2(n)%rh(k)%qc == 0 .and. abs(iv%ssmt2(n)%rh(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%ssmt2(n)%rh(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 20. SATEM family - multi-level
+    if (associated(dy_y%satem) .and. associated(iv%satem) .and. iv%info(satem)%nlocal > 0) then
+      do n = 1, iv%info(satem)%nlocal
+        do k = 1, iv%info(satem)%levels(n)
+          if (iv%satem(n)%thickness(k)%qc == 0 .and. abs(iv%satem(n)%thickness(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%satem(n)%thickness(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 21. PSEUDO family
+    if (associated(dy_y%pseudo) .and. associated(iv%pseudo) .and. iv%info(pseudo)%nlocal > 0) then
+      do n = 1, iv%info(pseudo)%nlocal
+        if (iv%pseudo(n)%u%qc == 0 .and. abs(iv%pseudo(n)%u%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%pseudo(n)%u = dy_values(idx)
+        end if
+        if (iv%pseudo(n)%v%qc == 0 .and. abs(iv%pseudo(n)%v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%pseudo(n)%v = dy_values(idx)
+        end if
+        if (iv%pseudo(n)%t%qc == 0 .and. abs(iv%pseudo(n)%t%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%pseudo(n)%t = dy_values(idx)
+        end if
+        if (iv%pseudo(n)%p%qc == 0 .and. abs(iv%pseudo(n)%p%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%pseudo(n)%p = dy_values(idx)
+        end if
+        if (iv%pseudo(n)%q%qc == 0 .and. abs(iv%pseudo(n)%q%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%pseudo(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 22. BOGUS family - multi-level
+    if (associated(dy_y%bogus) .and. associated(iv%bogus) .and. iv%info(bogus)%nlocal > 0) then
+      do n = 1, iv%info(bogus)%nlocal
+        do k = 1, iv%info(bogus)%levels(n)
+          if (iv%bogus(n)%u(k)%qc == 0 .and. abs(iv%bogus(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%bogus(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%bogus(n)%v(k)%qc == 0 .and. abs(iv%bogus(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%bogus(n)%v(k) = dy_values(idx)
+          end if
+          if (iv%bogus(n)%t(k)%qc == 0 .and. abs(iv%bogus(n)%t(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%bogus(n)%t(k) = dy_values(idx)
+          end if
+          if (iv%bogus(n)%q(k)%qc == 0 .and. abs(iv%bogus(n)%q(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%bogus(n)%q(k) = dy_values(idx)
+          end if
+        end do
+        if (iv%bogus(n)%slp%qc == 0 .and. abs(iv%bogus(n)%slp%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%bogus(n)%slp = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 23. AIRSR family - multi-level
+    if (associated(dy_y%airsr) .and. associated(iv%airsr) .and. iv%info(airsr)%nlocal > 0) then
+      do n = 1, iv%info(airsr)%nlocal
+        do k = 1, iv%info(airsr)%levels(n)
+          if (iv%airsr(n)%t(k)%qc == 0 .and. abs(iv%airsr(n)%t(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%airsr(n)%t(k) = dy_values(idx)
+          end if
+          if (iv%airsr(n)%q(k)%qc == 0 .and. abs(iv%airsr(n)%q(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%airsr(n)%q(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 24. MTGIRS family - multi-level
+    if (associated(dy_y%mtgirs) .and. associated(iv%mtgirs) .and. iv%info(mtgirs)%nlocal > 0) then
+      do n = 1, iv%info(mtgirs)%nlocal
+        do k = 1, iv%info(mtgirs)%levels(n)
+          if (iv%mtgirs(n)%u(k)%qc == 0 .and. abs(iv%mtgirs(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%mtgirs(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%mtgirs(n)%v(k)%qc == 0 .and. abs(iv%mtgirs(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%mtgirs(n)%v(k) = dy_values(idx)
+          end if
+          if (iv%mtgirs(n)%t(k)%qc == 0 .and. abs(iv%mtgirs(n)%t(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%mtgirs(n)%t(k) = dy_values(idx)
+          end if
+          if (iv%mtgirs(n)%q(k)%qc == 0 .and. abs(iv%mtgirs(n)%q(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%mtgirs(n)%q(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 25. TAMDAR family - multi-level
+    if (associated(dy_y%tamdar) .and. associated(iv%tamdar) .and. iv%info(tamdar)%nlocal > 0) then
+      do n = 1, iv%info(tamdar)%nlocal
+        do k = 1, iv%info(tamdar)%levels(n)
+          if (iv%tamdar(n)%u(k)%qc == 0 .and. abs(iv%tamdar(n)%u(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%tamdar(n)%u(k) = dy_values(idx)
+          end if
+          if (iv%tamdar(n)%v(k)%qc == 0 .and. abs(iv%tamdar(n)%v(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%tamdar(n)%v(k) = dy_values(idx)
+          end if
+          if (iv%tamdar(n)%t(k)%qc == 0 .and. abs(iv%tamdar(n)%t(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%tamdar(n)%t(k) = dy_values(idx)
+          end if
+          if (iv%tamdar(n)%q(k)%qc == 0 .and. abs(iv%tamdar(n)%q(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%tamdar(n)%q(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 26. TAMDAR_SFC family
+    if (associated(dy_y%tamdar_sfc) .and. associated(iv%tamdar_sfc) .and. iv%info(tamdar_sfc)%nlocal > 0) then
+      do n = 1, iv%info(tamdar_sfc)%nlocal
+        if (iv%tamdar_sfc(n)%u%qc == 0 .and. abs(iv%tamdar_sfc(n)%u%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%tamdar_sfc(n)%u = dy_values(idx)
+        end if
+        if (iv%tamdar_sfc(n)%v%qc == 0 .and. abs(iv%tamdar_sfc(n)%v%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%tamdar_sfc(n)%v = dy_values(idx)
+        end if
+        if (iv%tamdar_sfc(n)%t%qc == 0 .and. abs(iv%tamdar_sfc(n)%t%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%tamdar_sfc(n)%t = dy_values(idx)
+        end if
+        if (iv%tamdar_sfc(n)%p%qc == 0 .and. abs(iv%tamdar_sfc(n)%p%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%tamdar_sfc(n)%p = dy_values(idx)
+        end if
+        if (iv%tamdar_sfc(n)%q%qc == 0 .and. abs(iv%tamdar_sfc(n)%q%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%tamdar_sfc(n)%q = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 27. RAIN family
+    if (associated(dy_y%rain) .and. associated(iv%rain) .and. iv%info(rain)%nlocal > 0) then
+      do n = 1, iv%info(rain)%nlocal
+        if (iv%rain(n)%rain%qc == 0 .and. abs(iv%rain(n)%rain%inv) > 1.0e-10) then
+          idx = idx + 1
+          if (idx <= num_values) dy_y%rain(n)%rain = dy_values(idx)
+        end if
+      end do
+    end if
+    
+    ! 28. RADAR family - multi-level
+    if (associated(dy_y%radar) .and. associated(iv%radar) .and. iv%info(radar)%nlocal > 0) then
+      do n = 1, iv%info(radar)%nlocal
+        do k = 1, iv%info(radar)%levels(n)
+          if (iv%radar(n)%rv(k)%qc == 0 .and. abs(iv%radar(n)%rv(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%radar(n)%rv(k) = dy_values(idx)
+          end if
+          if (iv%radar(n)%rf(k)%qc == 0 .and. abs(iv%radar(n)%rf(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%radar(n)%rf(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
+    
+    ! 29. LIGHTNING family - multi-level
+    if (associated(dy_y%lightning) .and. associated(iv%lightning) .and. iv%info(lightning)%nlocal > 0) then
+      do n = 1, iv%info(lightning)%nlocal
+        do k = 1, iv%info(lightning)%levels(n)
+          if (iv%lightning(n)%w(k)%qc == 0 .and. abs(iv%lightning(n)%w(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%lightning(n)%w(k) = dy_values(idx)
+          end if
+          if (iv%lightning(n)%div(k)%qc == 0 .and. abs(iv%lightning(n)%div(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%lightning(n)%div(k) = dy_values(idx)
+          end if
+          if (iv%lightning(n)%qv(k)%qc == 0 .and. abs(iv%lightning(n)%qv(k)%inv) > 1.0e-10) then
+            idx = idx + 1
+            if (idx <= num_values) dy_y%lightning(n)%qv(k) = dy_values(idx)
+          end if
+        end do
+      end do
+    end if
     
     ! Zero the analysis increment
     call da_zero_x(grid%xa)
