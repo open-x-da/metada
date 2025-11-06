@@ -129,14 +129,14 @@ class WRFBackgroundErrorCovariance {
   template <typename StateType>
   double computeQuadraticFormDiagonal(const StateType& increment) const {
     // For WRF, implement variable-specific diagonal quadratic form
-    size_t state_size = increment.size();
+    auto data = increment.getData();
+    size_t state_size =
+        data.size();  // Use actual data size, not increment.size()
 
     // Update size to match actual state if needed
     if (size_ != state_size) {
       size_ = state_size;  // Update to actual state size
     }
-
-    auto data = increment.getData();
 
     double result = 0.0;
     // Use average error standard deviation across all variables as fallback
@@ -149,8 +149,8 @@ class WRFBackgroundErrorCovariance {
       avg_error_std = sum / error_std_.size();
     }
 
+    double variance = avg_error_std * avg_error_std;
     for (size_t i = 0; i < state_size; ++i) {
-      double variance = avg_error_std * avg_error_std;
       result += (data[i] * data[i]) / variance;
     }
 

@@ -287,7 +287,13 @@ class WRFIncrement {
   /**
    * @brief Get total number of elements in increment
    */
-  size_t size() const { return total_size_; }
+  /**
+   * @brief Get the size of the control vector (active fields only)
+   * @return Size of internal data_ vector containing active fields
+   * @note This returns the size of active control variables, NOT the full grid
+   * size
+   */
+  size_t size() const { return data_.size(); }
 
   /**
    * @brief Get 3D grid dimensions
@@ -374,6 +380,17 @@ class WRFIncrement {
    */
   std::vector<double> getData() const {
     return data_;  // Return copy of internal CV storage (active fields only)
+  }
+
+  /**
+   * @brief Set increment data from flat vector
+   * @param data Flat vector containing increment values for active fields
+   */
+  void setFromVector(const std::vector<double>& data) {
+    if (data.size() != data_.size()) {
+      throw std::runtime_error("Vector size mismatch in setFromVector");
+    }
+    std::copy(data.begin(), data.end(), data_.begin());
   }
 
   /**

@@ -100,15 +100,11 @@ class IncrementalCostFunction : public NonCopyable {
    * @return Cost function value J(δx)
    */
   double evaluate(const Increment<BackendTag>& increment) const {
-    logger_.Debug() << "Evaluating incremental cost function";
-
     double total_cost = 0.0;
 
     // Background term: 1/2 * δx^T B^-1 δx
     double bg_cost = 0.5 * bg_error_cov_.quadraticForm(increment);
     total_cost += bg_cost;
-
-    logger_.Debug() << "Background cost: " << bg_cost;
 
     // Observation terms: 1/2 * Σᵢ (dᵢ - Hᵢ(Mᵢ(xb + δx)))^T Rᵢ^-1 (dᵢ - Hᵢ(Mᵢ(xb
     // + δx)))
@@ -122,8 +118,6 @@ class IncrementalCostFunction : public NonCopyable {
     }
 
     total_cost += obs_cost;
-    logger_.Debug() << "Observation cost: " << obs_cost;
-    logger_.Debug() << "Total cost: " << total_cost;
 
     return total_cost;
   }
@@ -136,8 +130,6 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void gradient(const Increment<BackendTag>& increment,
                 Increment<BackendTag>& gradient) const {
-    logger_.Debug() << "Computing incremental cost function gradient";
-
     // Initialize gradient to zero
     gradient.zero();
 
@@ -153,8 +145,6 @@ class IncrementalCostFunction : public NonCopyable {
     } else {  // 4DVAR
       computeObservationGradient4DVAR(increment, gradient);
     }
-
-    logger_.Debug() << "Gradient computed, norm: " << gradient.norm();
   }
 
   /**
@@ -322,7 +312,6 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void computeObservationGradient3DVAR(const Increment<BackendTag>& increment,
                                        Increment<BackendTag>& gradient) const {
-    logger_.Debug() << "Computing observation gradient for 3DVAR";
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
@@ -331,19 +320,7 @@ class IncrementalCostFunction : public NonCopyable {
     auto simulated_increment =
         obs_op.applyTangentLinear(increment, background_, obs);
 
-    // Compute norm manually for std::vector<double>
-    double simulated_norm = 0.0;
-    for (const auto& val : simulated_increment) {
-      simulated_norm += val * val;
-    }
-    simulated_norm = std::sqrt(simulated_norm);
-    logger_.Debug() << "Simulated increment: " << simulated_norm;
-
-    // Compute d - H'(δx) where d is pre-computed innovation
-    logger_.Debug() << "Innovation vector size: " << innovations_[0].size();
-    logger_.Debug() << "Simulated increment size: "
-                    << simulated_increment.size();
-
+    // Compute residual: d - H'(δx) where d is pre-computed innovation
     if (innovations_[0].size() != simulated_increment.size()) {
       throw std::runtime_error(
           "Size mismatch in gradient computation: innovations.size()=" +
@@ -363,7 +340,6 @@ class IncrementalCostFunction : public NonCopyable {
       residual_norm += val * val;
     }
     residual_norm = std::sqrt(residual_norm);
-    logger_.Debug() << "Residual: " << residual_norm;
 
     // Apply R^{-1} weighting
     // NOTE: For WRF backend, this computation is redundant.
@@ -378,7 +354,6 @@ class IncrementalCostFunction : public NonCopyable {
       weighted_norm += val * val;
     }
     weighted_norm = std::sqrt(weighted_norm);
-    logger_.Debug() << "Weighted residual: " << weighted_norm;
 
     // Compute observation gradient: -H'^T R^{-1} [d - H'(δx)]
     // This is the adjoint of the observation operator applied to the weighted
@@ -386,16 +361,10 @@ class IncrementalCostFunction : public NonCopyable {
     // jo_grad_y = -R^{-1} · re NOTE: WRF backend ignores weighted_residual
     // parameter and uses WRFDA's internal workflow (da_calculate_residual +
     // da_calculate_grady + da_transform_xtoy_adj)
-    logger_.Debug() << "gradient norm before applying adjoint: "
-                    << gradient.norm();
     auto obs_gradient =
         obs_op.applyAdjoint(weighted_residual, background_, obs);
-    logger_.Debug() << "Observation gradient computed, norm: "
-                    << obs_gradient.norm();
     gradient += obs_gradient;  // ADD the observation gradient (already has
                                // negative sign)
-    logger_.Debug() << "Observation gradient computed, norm: "
-                    << gradient.norm();
   }
 
   /**

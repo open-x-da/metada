@@ -87,8 +87,6 @@ class BackgroundErrorCovariance : public NonCopyable {
    * @return Quadratic form value
    */
   double quadraticForm(const Increment<BackendTag>& increment) const {
-    logger_.Debug() << "Computing quadratic form x^T B^-1 x";
-
     switch (representation_) {
       case Representation::Diagonal:
         return computeQuadraticFormDiagonal(increment);
@@ -112,8 +110,6 @@ class BackgroundErrorCovariance : public NonCopyable {
    */
   Increment<BackendTag> applyInverse(
       const Increment<BackendTag>& increment) const {
-    logger_.Debug() << "Applying B^-1";
-
     switch (representation_) {
       case Representation::Diagonal:
         return applyInverseDiagonal(increment);

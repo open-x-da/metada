@@ -190,10 +190,13 @@ contains
   integer(c_int) function wrfda_xtoy_apply_grid() bind(C, name="wrfda_xtoy_apply_grid")
     use module_domain, only: head_grid
     use da_obs, only: da_transform_xtoy
-    use da_define_structures, only: da_allocate_y
+    use da_define_structures, only: da_allocate_y, da_zero_y
     implicit none
     
     real :: dummy_cv(1)  ! Dummy control variable (not used in TL operator)
+    real :: zero_value
+    
+    zero_value = 0.0
     
     ! Validate module-level structures
     if (.not. associated(head_grid)) then
@@ -213,6 +216,9 @@ contains
       call da_allocate_y(wrfda_iv, wrfda_y_tl)
       wrfda_y_tl_allocated = .true.
     end if
+    
+    ! CRITICAL: Zero wrfda_y_tl before each TL application to avoid stale values
+    call da_zero_y(wrfda_iv, wrfda_y_tl, zero_value)
     
     ! Use WRFDA's proven top-level function which automatically dispatches
     ! to ALL observation types (sound, synop, metar, ships, buoy, pilot, airep,

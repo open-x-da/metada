@@ -149,6 +149,8 @@ class WRFObsOperator {
           std::to_string(rc));
     }
 
+    (void)state;  // Silence unused parameter warning
+
     // Count innovations across ALL observation types
     int num_innovations = 0;
     rc = wrfda_count_innovations(iv_ptr, &num_innovations);

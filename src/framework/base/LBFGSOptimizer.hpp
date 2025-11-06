@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <iostream>
 
 #include "OptimizerBase.hpp"
 
@@ -55,6 +56,10 @@ class LBFGSOptimizer : public OptimizerBase {
     result.gradient_evaluations = 1;
 
     for (int iter = 0; iter < max_iterations_; ++iter) {
+      // Log every iteration
+      std::cout << "Iteration " << iter << ": cost = " << current_cost
+                << ", gradient_norm = " << gradient_norm << std::endl;
+
       // Compute search direction using L-BFGS two-loop recursion
       auto search_direction =
           computeLBFGSDirection(gradient, s_vectors, y_vectors, rho_values);
@@ -115,9 +120,16 @@ class LBFGSOptimizer : public OptimizerBase {
                            max_iterations_, tolerance_, gradient_tolerance_,
                            result.convergence_reason)) {
         result.converged = (result.iterations < max_iterations_);
+        std::cout << "Converged at iteration " << result.iterations << ": "
+                  << result.convergence_reason << std::endl;
         break;
       }
     }
+
+    // Log final iteration
+    std::cout << "Final iteration " << result.iterations
+              << ": cost = " << current_cost
+              << ", gradient_norm = " << gradient_norm << std::endl;
 
     result.final_cost = current_cost;
     result.gradient_norm = gradient_norm;
