@@ -391,6 +391,13 @@ bool checkIncrementalObsOperatorTangentLinear(
       << "Starting incremental observation operator tangent linear check with "
       << obs_operators.size() << " operators";
 
+  // Note: WRF backend TL checks are not supported due to architectural
+  // limitation The WRFDA bridge uses a global grid structure that is not
+  // updated when cloning and perturbing states. For WRF users: The TL/AD check
+  // (which tests <H'dx, dy> = <dx, H'^T dy>) is sufficient for verifying
+  // correctness. If this test shows relative error ≈ 1.0 for all epsilons, you
+  // are using WRF backend and should rely on the TL/AD check instead.
+
   constexpr double min_epsilon = 1e-10;
   std::vector<double> errors;
   std::vector<double> used_epsilons;
