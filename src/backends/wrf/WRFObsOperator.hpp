@@ -332,13 +332,18 @@ class WRFObsOperator {
     // 1. da_calculate_residual: re = (O-B) - H'(δx)
     //    where H'(δx) is in wrfda_y_tl from applyTangentLinear
     // 2. da_calculate_grady: jo_grad_y = -R^{-1} · re
+    // 3. Jo = -0.5 * Σ(re · jo_grad_y) = 0.5 * re^T · R^{-1} · re
     // This replaces MetaDA's manual residual and R^{-1} application
-    int rc = wrfda_compute_weighted_residual(iv_ptr, y_tl_ptr);
+    double jo_cost = 0.0;
+    int rc = wrfda_compute_weighted_residual(iv_ptr, y_tl_ptr, &jo_cost);
     if (rc != 0) {
       throw std::runtime_error(
           "WRFDA compute weighted residual failed with code " +
           std::to_string(rc));
     }
+
+    // Store the observation cost for retrieval by cost function
+    last_observation_cost_ = jo_cost;
 
     // Zero the increment first (using WRFDA's da_zero_x for ALL fields)
     x_adjoint.zero();
@@ -356,12 +361,54 @@ class WRFObsOperator {
     // using the complete workflow: residual → R^{-1} → adjoint H^T
     x_adjoint.syncFromGrid();
 
-    // CRITICAL: Negate the adjoint gradient!
-    // WRFDA computes: H^T · jo_grad_y where jo_grad_y = -R^{-1} · re
+    // WRFDA computes the mathematically correct observation gradient:
+    // H^T · jo_grad_y where jo_grad_y = -R^{-1} · [d - H'(δx)]
     // This gives: -H^T R^{-1} [d - H'(δx)]
-    // But the framework expects: +H^T R^{-1} [d - H'(δx)] (it will subtract it)
-    // So we must negate WRFDA's result
-    x_adjoint *= -1.0;
+    // The framework will ADD this to the background gradient (see
+    // IncrementalCostFunction) No negation needed - WRFDA's sign convention
+    // matches the mathematics!
+  }
+
+  /**
+   * @brief Compute observation cost function without full adjoint
+   * @return Observation cost Jo = 0.5 * re^T * R^{-1} * re
+   *
+   * @details This method computes only the observation cost using WRFDA's
+   * proven workflow (da_calculate_residual + da_calculate_grady). It's used
+   * by the cost function evaluation before the adjoint is computed. The
+   * computed jo_grad_y is stored for later use by applyAdjoint.
+   *
+   * @note This requires that applyTangentLinear was called first to populate
+   * wrfda_y_tl with H'(δx).
+   */
+  template <typename StateBackendArg, typename ObsBackendArg>
+  double computeObservationCost(const StateBackendArg& /*reference_state*/,
+                                const ObsBackendArg& /*obs*/) const {
+    // Get WRFDA structures (y_tl contains H'(δx) from applyTangentLinear)
+    void* iv_ptr = wrfda_get_iv_ptr();
+    void* y_tl_ptr = wrfda_get_y_tl_ptr();
+
+    if (!iv_ptr || !y_tl_ptr) {
+      throw std::runtime_error(
+          "WRFDA structures not available. Ensure applyTangentLinear was "
+          "called first.");
+    }
+
+    // Compute ONLY the observation cost (without overwriting
+    // persistent_jo_grad_y) This is critical: gradient checks evaluate costs
+    // AFTER computing the adjoint, so we must not overwrite
+    // persistent_jo_grad_y which is needed by the adjoint
+    double jo_cost = 0.0;
+    int rc = wrfda_compute_jo_only(iv_ptr, y_tl_ptr, &jo_cost);
+    if (rc != 0) {
+      throw std::runtime_error("WRFDA compute cost failed with code " +
+                               std::to_string(rc));
+    }
+
+    // Store for later retrieval
+    last_observation_cost_ = jo_cost;
+
+    return jo_cost;
   }
 
   /**
@@ -403,6 +450,20 @@ class WRFObsOperator {
  private:
   /// Initialization status flag
   bool initialized_;
+
+  /// Last computed observation cost (from wrfda_compute_weighted_residual)
+  mutable double last_observation_cost_ = 0.0;
+
+ public:
+  /**
+   * @brief Get the last computed observation cost
+   * @return Observation cost from last applyAdjoint call
+   *
+   * @details Returns the observation cost Jo = 0.5 * re^T * R^{-1} * re
+   * computed by wrfda_compute_weighted_residual during the last applyAdjoint
+   * call. This follows WRFDA's proven formula: Jo = -0.5 * Σ(re · jo_grad_y)
+   */
+  double getLastObservationCost() const { return last_observation_cost_; }
 };
 
 }  // namespace metada::backends::wrf

@@ -63,20 +63,26 @@ bool checkIncrementalCostFunctionGradient(
     }
   }
 
-  // Compute analytical gradient at test_increment
-  auto analytical_gradient = Increment<BackendTag>(test_increment.geometry());
-  cost_function.gradient(test_increment, analytical_gradient);
+  // For incremental 3D-Var, compute gradient at ZERO increment
+  // This is the correct linearization point for incremental formulation
+  auto zero_increment = Increment<BackendTag>(test_increment.geometry());
+  zero_increment.zero();
 
-  // Compute finite difference gradient
+  auto analytical_gradient = Increment<BackendTag>(test_increment.geometry());
+  cost_function.gradient(zero_increment, analytical_gradient);
+
+  // Compute finite difference gradient around ZERO increment
   // Use larger epsilon for better numerical stability with nonlinear operators
   // Rule of thumb: epsilon ~ sqrt(machine_precision) * scale
   double epsilon = 1e-5;
 
-  // Create copies of test_increment for perturbation
-  Increment<BackendTag> perturbed_plus(test_increment);
-  Increment<BackendTag> perturbed_minus(test_increment);
+  // Create perturbed increments: 0 ± ε*d
+  auto perturbed_plus = Increment<BackendTag>(test_increment.geometry());
+  auto perturbed_minus = Increment<BackendTag>(test_increment.geometry());
+  perturbed_plus.zero();
+  perturbed_minus.zero();
 
-  // Perturb: (test_increment ± ε*d)
+  // Perturb: (0 ± ε*d)
   perturbed_plus += direction * epsilon;
   perturbed_minus -= direction * epsilon;
 

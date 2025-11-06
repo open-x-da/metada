@@ -32,11 +32,20 @@ extern "C" {
  */
 int wrfda_xtoy_apply_grid();
 
-// Compute weighted residual using WRFDA's proven workflow:
-// Uses da_calculate_residual + da_calculate_grady to compute jo_grad_y =
-// -R^{-1} · (d - H'δx) Stores result in persistent_jo_grad_y for use by
-// wrfda_xtoy_adjoint_grid
-int wrfda_compute_weighted_residual(const void* iv_ptr, const void* y_ptr);
+// Compute weighted residual and observation cost using WRFDA's proven workflow:
+// 1. da_calculate_residual: re = (O-B) - H(xa)
+// 2. da_calculate_grady: jo_grad_y = -R^{-1} · re
+// 3. Jo = -0.5 * Σ(re · jo_grad_y) = 0.5 * re^T · R^{-1} · re
+// Stores jo_grad_y in persistent_jo_grad_y for use by wrfda_xtoy_adjoint_grid
+// Returns observation cost via jo_cost output parameter
+int wrfda_compute_weighted_residual(const void* iv_ptr, const void* y_ptr,
+                                    double* jo_cost);
+
+// Compute ONLY observation cost without modifying persistent_jo_grad_y
+// Used for cost-only evaluations during optimization
+// Computes Jo = 0.5 * re^T * R^{-1} * re using temporary structures
+int wrfda_compute_jo_only(const void* iv_ptr, const void* y_ptr,
+                          double* jo_cost);
 
 int wrfda_xtoy_adjoint_grid(const void* grid_ptr, const void* iv_ptr);
 

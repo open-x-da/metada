@@ -274,10 +274,11 @@ class IncrementalCostFunction : public NonCopyable {
     auto simulated_increment =
         obs_op.applyTangentLinear(increment, background_, obs);
 
-    // Compute d - H'(δx) where d is pre-computed innovation
-    auto residual = computeInnovation(innovations_[0], simulated_increment);
-
-    return 0.5 * obs.quadraticForm(residual);
+    // Compute observation cost using WRFDA's proven formula:
+    // Jo = 0.5 * re^T * R^{-1} * re where re = (O-B) - H'(δx)
+    // This uses WRFDA's da_calculate_residual + da_calculate_grady internally
+    return obs_op.backend().computeObservationCost(background_.backend(),
+                                                   obs.backend());
   }
 
   /**
@@ -298,8 +299,10 @@ class IncrementalCostFunction : public NonCopyable {
       // propagation)
       auto simulated_increment =
           obs_op.applyTangentLinear(increment, background_, obs);
-      auto residual = computeInnovation(innovations_[i], simulated_increment);
-      total_cost += 0.5 * obs.quadraticForm(residual);
+
+      // Compute observation cost using WRFDA's proven formula
+      total_cost += obs_op.backend().computeObservationCost(
+          background_.backend(), obs.backend());
     }
 
     return total_cost;
@@ -377,14 +380,20 @@ class IncrementalCostFunction : public NonCopyable {
     weighted_norm = std::sqrt(weighted_norm);
     logger_.Debug() << "Weighted residual: " << weighted_norm;
 
-    // -H'^T R^-1 (d - H'(δx)) where H'^T is the adjoint of the tangent linear
-    // operator. Note the NEGATIVE sign from the chain rule!
-    // NOTE: WRF backend ignores weighted_residual parameter and uses WRFDA's
-    // internal workflow (da_calculate_residual + da_calculate_grady +
-    // da_transform_xtoy_adj)
+    // Compute observation gradient: -H'^T R^{-1} [d - H'(δx)]
+    // This is the adjoint of the observation operator applied to the weighted
+    // residual. The NEGATIVE sign comes from WRFDA's da_calculate_grady:
+    // jo_grad_y = -R^{-1} · re NOTE: WRF backend ignores weighted_residual
+    // parameter and uses WRFDA's internal workflow (da_calculate_residual +
+    // da_calculate_grady + da_transform_xtoy_adj)
+    logger_.Debug() << "gradient norm before applying adjoint: "
+                    << gradient.norm();
     auto obs_gradient =
         obs_op.applyAdjoint(weighted_residual, background_, obs);
-    gradient -= obs_gradient;  // Subtract, not add!
+    logger_.Debug() << "Observation gradient computed, norm: "
+                    << obs_gradient.norm();
+    gradient += obs_gradient;  // ADD the observation gradient (already has
+                               // negative sign)
     logger_.Debug() << "Observation gradient computed, norm: "
                     << gradient.norm();
   }

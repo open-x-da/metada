@@ -224,28 +224,33 @@ contains
     wrfda_xtoy_apply_grid = 0_c_int
   end function wrfda_xtoy_apply_grid
 
-  !> @brief Compute weighted residual using WRFDA's proven workflow
+  !> @brief Compute weighted residual and observation cost using WRFDA's proven workflow
   !> @details Replaces MetaDA's manual residual and R^{-1} computation with WRFDA's
   !>          proven functions:
   !>          1. da_calculate_residual(iv, y, re): re = (O-B) - H(xa)
   !>          2. da_calculate_grady(iv, re, jo_grad_y): jo_grad_y = -R^{-1} · re
+  !>          3. Jo = -0.5 * Σ(re · jo_grad_y) = 0.5 * re^T · R^{-1} · re
   !>
-  !>          The result is stored in module-level persistent_delta_y for use by
-  !>          the adjoint operator.
+  !>          The jo_grad_y result is stored in module-level persistent_jo_grad_y for use by
+  !>          the adjoint operator. The observation cost Jo is returned via output parameter.
   !>
   !> @param[in] iv_ptr Innovation vector (O-B with error statistics)
   !> @param[in] y_ptr Simulated observations H(xa) or H'(δx)
+  !> @param[out] jo_cost Observation cost function value
   !> @return 0 on success, non-zero on error
-  integer(c_int) function wrfda_compute_weighted_residual(iv_ptr, y_ptr) &
+  integer(c_int) function wrfda_compute_weighted_residual(iv_ptr, y_ptr, jo_cost) &
       bind(C, name="wrfda_compute_weighted_residual")
-    use da_minimisation, only: da_calculate_residual, da_calculate_grady
-    use da_define_structures, only: da_allocate_y, da_deallocate_y
+    use da_minimisation, only: da_calculate_residual, da_calculate_grady, da_jo_and_grady
+    use da_define_structures, only: da_allocate_y, da_deallocate_y, jo_type
     implicit none
     type(c_ptr), value :: iv_ptr, y_ptr
+    real(c_double), intent(out) :: jo_cost
     
     type(iv_type), pointer :: iv
     type(y_type), pointer :: y  
     type(y_type), target :: re
+    type(jo_type) :: jo
+    real :: jot
     
     call c_f_pointer(iv_ptr, iv)
     call c_f_pointer(y_ptr, y)
@@ -261,15 +266,363 @@ contains
     ! re = (O-B) - H(xa) for ALL observation types
     call da_calculate_residual(iv, y, re)
     
-    ! Step 2: WRFDA's proven gradient calculation
-    ! Compute directly into persistent variable: jo_grad_y = -R^{-1} · re
-    call da_calculate_grady(iv, re, persistent_jo_grad_y)
+    ! Step 2: Use WRFDA's proven da_jo_and_grady to get BOTH Jo and jo_grad_y
+    ! This is identical to what native WRFDA does
+    call da_jo_and_grady(iv, re, jot, jo, persistent_jo_grad_y)
+    
+    ! Convert to C double
+    jo_cost = real(jot, c_double)
     
     ! Cleanup residual only
     call da_deallocate_y(re)
     
     wrfda_compute_weighted_residual = 0_c_int
   end function wrfda_compute_weighted_residual
+
+  !> @brief Compute ONLY observation cost without overwriting persistent_jo_grad_y
+  !> @details Computes Jo = 0.5 * re^T · R^{-1} · re using a temporary jo_grad_y.
+  !>          Used for cost evaluation to avoid overwriting persistent_jo_grad_y
+  !>          which is needed by the adjoint.
+  !>
+  !> @param[in] iv_ptr Innovation vector
+  !> @param[in] y_ptr Simulated observations H'(δx)
+  !> @param[out] jo_cost Observation cost value
+  !> @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_compute_jo_only(iv_ptr, y_ptr, jo_cost) &
+      bind(C, name="wrfda_compute_jo_only")
+    use da_minimisation, only: da_calculate_residual, da_jo_and_grady
+    use da_define_structures, only: da_allocate_y, da_deallocate_y, jo_type
+    implicit none
+    type(c_ptr), value :: iv_ptr, y_ptr
+    real(c_double), intent(out) :: jo_cost
+    
+    type(iv_type), pointer :: iv
+    type(y_type), pointer :: y  
+    type(y_type), target :: re, jo_grad_y_temp
+    type(jo_type) :: jo
+    real :: jot
+    
+    call c_f_pointer(iv_ptr, iv)
+    call c_f_pointer(y_ptr, y)
+    
+    ! Allocate temporary structures (DO NOT use persistent_jo_grad_y!)
+    call da_allocate_y(iv, re)
+    call da_allocate_y(iv, jo_grad_y_temp)
+    
+    ! Compute residual
+    call da_calculate_residual(iv, y, re)
+    
+    ! Use WRFDA's proven da_jo_and_grady which computes BOTH Jo and jo_grad_y
+    ! This ensures we get exactly the same result as native WRFDA
+    call da_jo_and_grady(iv, re, jot, jo, jo_grad_y_temp)
+    
+    ! Convert to double precision
+    jo_cost = real(jot, c_double)
+    
+    ! Cleanup temporary structures
+    call da_deallocate_y(re)
+    call da_deallocate_y(jo_grad_y_temp)
+    
+    wrfda_compute_jo_only = 0_c_int
+  end function wrfda_compute_jo_only
+
+  !> @brief Compute observation cost Jo using WRFDA's proven formula
+  !> @details Computes Jo = -0.5 * Σ(re · jo_grad_y) = 0.5 * re^T · R^{-1} · re
+  !>          following WRFDA's da_jo_and_grady_* pattern.
+  !>
+  !> @param[in] iv Innovation vector (for obs type checking)
+  !> @param[in] re Residual vector
+  !> @param[in] jo_grad_y Weighted residual (gradient)
+  !> @param[out] jo_cost Total observation cost
+  subroutine wrfda_compute_jo(iv, re, jo_grad_y, jo_cost)
+    use da_control, only: num_ob_indexes
+    implicit none
+    
+    type(iv_type), intent(in) :: iv
+    type(y_type), intent(in) :: re, jo_grad_y
+    real(c_double), intent(out) :: jo_cost
+    
+    integer :: n, k
+    real(c_double) :: jo_sum
+    
+    jo_sum = 0.0_c_double
+    
+    ! Sound observations (upper-air soundings)
+    if (iv%info(sound)%nlocal > 0) then
+      do n = 1, iv%info(sound)%nlocal
+        do k = 1, iv%info(sound)%levels(n)
+          if (iv%info(sound)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%sound(n)%u(k) * jo_grad_y%sound(n)%u(k)
+            jo_sum = jo_sum - re%sound(n)%v(k) * jo_grad_y%sound(n)%v(k)
+            jo_sum = jo_sum - re%sound(n)%t(k) * jo_grad_y%sound(n)%t(k)
+            jo_sum = jo_sum - re%sound(n)%q(k) * jo_grad_y%sound(n)%q(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SYNOP observations (surface synoptic)
+    if (iv%info(synop)%nlocal > 0) then
+      do n = 1, iv%info(synop)%nlocal
+        if (iv%info(synop)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%synop(n)%u * jo_grad_y%synop(n)%u
+          jo_sum = jo_sum - re%synop(n)%v * jo_grad_y%synop(n)%v
+          jo_sum = jo_sum - re%synop(n)%t * jo_grad_y%synop(n)%t
+          jo_sum = jo_sum - re%synop(n)%p * jo_grad_y%synop(n)%p
+          jo_sum = jo_sum - re%synop(n)%q * jo_grad_y%synop(n)%q
+        end if
+      end do
+    end if
+    
+    ! METAR observations (surface aviation)
+    if (iv%info(metar)%nlocal > 0) then
+      do n = 1, iv%info(metar)%nlocal
+        if (iv%info(metar)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%metar(n)%u * jo_grad_y%metar(n)%u
+          jo_sum = jo_sum - re%metar(n)%v * jo_grad_y%metar(n)%v
+          jo_sum = jo_sum - re%metar(n)%t * jo_grad_y%metar(n)%t
+          jo_sum = jo_sum - re%metar(n)%p * jo_grad_y%metar(n)%p
+          jo_sum = jo_sum - re%metar(n)%q * jo_grad_y%metar(n)%q
+        end if
+      end do
+    end if
+    
+    ! Ships observations (ships and buoys)
+    if (iv%info(ships)%nlocal > 0) then
+      do n = 1, iv%info(ships)%nlocal
+        if (iv%info(ships)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%ships(n)%u * jo_grad_y%ships(n)%u
+          jo_sum = jo_sum - re%ships(n)%v * jo_grad_y%ships(n)%v
+          jo_sum = jo_sum - re%ships(n)%t * jo_grad_y%ships(n)%t
+          jo_sum = jo_sum - re%ships(n)%p * jo_grad_y%ships(n)%p
+          jo_sum = jo_sum - re%ships(n)%q * jo_grad_y%ships(n)%q
+        end if
+      end do
+    end if
+    
+    ! Buoy observations (moored/drifting buoys)
+    if (iv%info(buoy)%nlocal > 0) then
+      do n = 1, iv%info(buoy)%nlocal
+        if (iv%info(buoy)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%buoy(n)%u * jo_grad_y%buoy(n)%u
+          jo_sum = jo_sum - re%buoy(n)%v * jo_grad_y%buoy(n)%v
+          jo_sum = jo_sum - re%buoy(n)%t * jo_grad_y%buoy(n)%t
+          jo_sum = jo_sum - re%buoy(n)%p * jo_grad_y%buoy(n)%p
+          jo_sum = jo_sum - re%buoy(n)%q * jo_grad_y%buoy(n)%q
+        end if
+      end do
+    end if
+    
+    ! Pilot observations (pilot balloons - wind only, multi-level)
+    if (iv%info(pilot)%nlocal > 0) then
+      do n = 1, iv%info(pilot)%nlocal
+        do k = 1, iv%info(pilot)%levels(n)
+          if (iv%info(pilot)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%pilot(n)%u(k) * jo_grad_y%pilot(n)%u(k)
+            jo_sum = jo_sum - re%pilot(n)%v(k) * jo_grad_y%pilot(n)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! AIREP observations (aircraft reports - multi-level)
+    if (iv%info(airep)%nlocal > 0) then
+      do n = 1, iv%info(airep)%nlocal
+        do k = 1, iv%info(airep)%levels(n)
+          if (iv%info(airep)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%airep(n)%u(k) * jo_grad_y%airep(n)%u(k)
+            jo_sum = jo_sum - re%airep(n)%v(k) * jo_grad_y%airep(n)%v(k)
+            jo_sum = jo_sum - re%airep(n)%t(k) * jo_grad_y%airep(n)%t(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! GPSPW observations (GPS precipitable water - single level)
+    if (iv%info(gpspw)%nlocal > 0) then
+      do n = 1, iv%info(gpspw)%nlocal
+        if (iv%info(gpspw)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%gpspw(n)%tpw * jo_grad_y%gpspw(n)%tpw
+        end if
+      end do
+    end if
+    
+    ! GPSREF observations (GPS refractivity - multi-level)
+    if (iv%info(gpsref)%nlocal > 0) then
+      do n = 1, iv%info(gpsref)%nlocal
+        do k = 1, iv%info(gpsref)%levels(n)
+          if (iv%info(gpsref)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%gpsref(n)%ref(k) * jo_grad_y%gpsref(n)%ref(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! Profiler observations (wind profilers - multi-level)
+    if (iv%info(profiler)%nlocal > 0) then
+      do n = 1, iv%info(profiler)%nlocal
+        do k = 1, iv%info(profiler)%levels(n)
+          if (iv%info(profiler)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%profiler(n)%u(k) * jo_grad_y%profiler(n)%u(k)
+            jo_sum = jo_sum - re%profiler(n)%v(k) * jo_grad_y%profiler(n)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! QSCAT observations (QuikSCAT winds - single level)
+    if (iv%info(qscat)%nlocal > 0) then
+      do n = 1, iv%info(qscat)%nlocal
+        if (iv%info(qscat)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%qscat(n)%u * jo_grad_y%qscat(n)%u
+          jo_sum = jo_sum - re%qscat(n)%v * jo_grad_y%qscat(n)%v
+        end if
+      end do
+    end if
+    
+    ! GEOAMV observations (geostationary AMVs - multi-level)
+    if (iv%info(geoamv)%nlocal > 0) then
+      do n = 1, iv%info(geoamv)%nlocal
+        do k = 1, iv%info(geoamv)%levels(n)
+          if (iv%info(geoamv)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%geoamv(n)%u(k) * jo_grad_y%geoamv(n)%u(k)
+            jo_sum = jo_sum - re%geoamv(n)%v(k) * jo_grad_y%geoamv(n)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! POLARAMV observations (polar AMVs - multi-level)
+    if (iv%info(polaramv)%nlocal > 0) then
+      do n = 1, iv%info(polaramv)%nlocal
+        do k = 1, iv%info(polaramv)%levels(n)
+          if (iv%info(polaramv)%proc_domain(k,n)) then
+            jo_sum = jo_sum - re%polaramv(n)%u(k) * jo_grad_y%polaramv(n)%u(k)
+            jo_sum = jo_sum - re%polaramv(n)%v(k) * jo_grad_y%polaramv(n)%v(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! Bogus observations (synthetic vortex - multi-level with surface slp)
+    if (iv%info(bogus)%nlocal > 0) then
+      do n = 1, iv%info(bogus)%nlocal
+        if (iv%info(bogus)%proc_domain(1,n)) then
+          ! Sea level pressure (single level)
+          jo_sum = jo_sum - re%bogus(n)%slp * jo_grad_y%bogus(n)%slp
+          ! Multi-level fields
+          do k = 1, iv%info(bogus)%levels(n)
+            jo_sum = jo_sum - re%bogus(n)%u(k) * jo_grad_y%bogus(n)%u(k)
+            jo_sum = jo_sum - re%bogus(n)%v(k) * jo_grad_y%bogus(n)%v(k)
+            jo_sum = jo_sum - re%bogus(n)%t(k) * jo_grad_y%bogus(n)%t(k)
+            jo_sum = jo_sum - re%bogus(n)%q(k) * jo_grad_y%bogus(n)%q(k)
+          end do
+        end if
+      end do
+    end if
+    
+    ! SATEM observations (satellite thickness - multi-level)
+    if (iv%info(satem)%nlocal > 0) then
+      do n = 1, iv%info(satem)%nlocal
+        do k = 1, iv%info(satem)%levels(n)
+          if (iv%info(satem)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%satem(n)%thickness(k) * jo_grad_y%satem(n)%thickness(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SSMI_TB observations (SSMI brightness temperature - multi-channel)
+    if (iv%info(ssmi_tb)%nlocal > 0) then
+      do n = 1, iv%info(ssmi_tb)%nlocal
+        if (iv%info(ssmi_tb)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%ssmi_tb(n)%tb19h * jo_grad_y%ssmi_tb(n)%tb19h
+          jo_sum = jo_sum - re%ssmi_tb(n)%tb19v * jo_grad_y%ssmi_tb(n)%tb19v
+          jo_sum = jo_sum - re%ssmi_tb(n)%tb22v * jo_grad_y%ssmi_tb(n)%tb22v
+          jo_sum = jo_sum - re%ssmi_tb(n)%tb37h * jo_grad_y%ssmi_tb(n)%tb37h
+          jo_sum = jo_sum - re%ssmi_tb(n)%tb37v * jo_grad_y%ssmi_tb(n)%tb37v
+          jo_sum = jo_sum - re%ssmi_tb(n)%tb85h * jo_grad_y%ssmi_tb(n)%tb85h
+          jo_sum = jo_sum - re%ssmi_tb(n)%tb85v * jo_grad_y%ssmi_tb(n)%tb85v
+        end if
+      end do
+    end if
+    
+    ! SSMI_RV observations (SSMI rain rate - single level)
+    if (iv%info(ssmi_rv)%nlocal > 0) then
+      do n = 1, iv%info(ssmi_rv)%nlocal
+        if (iv%info(ssmi_rv)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%ssmi_rv(n)%speed * jo_grad_y%ssmi_rv(n)%speed
+          jo_sum = jo_sum - re%ssmi_rv(n)%tpw * jo_grad_y%ssmi_rv(n)%tpw
+        end if
+      end do
+    end if
+    
+    ! SSMT1 observations (SSM/T1 - multi-level)
+    if (iv%info(ssmt1)%nlocal > 0) then
+      do n = 1, iv%info(ssmt1)%nlocal
+        do k = 1, iv%info(ssmt1)%levels(n)
+          if (iv%info(ssmt1)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%ssmt1(n)%t(k) * jo_grad_y%ssmt1(n)%t(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! SSMT2 observations (SSM/T2 - multi-level)
+    if (iv%info(ssmt2)%nlocal > 0) then
+      do n = 1, iv%info(ssmt2)%nlocal
+        do k = 1, iv%info(ssmt2)%levels(n)
+          if (iv%info(ssmt2)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%ssmt2(n)%rh(k) * jo_grad_y%ssmt2(n)%rh(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! Sonde_sfc observations (sonde surface level)
+    if (iv%info(sonde_sfc)%nlocal > 0) then
+      do n = 1, iv%info(sonde_sfc)%nlocal
+        if (iv%info(sonde_sfc)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%sonde_sfc(n)%u * jo_grad_y%sonde_sfc(n)%u
+          jo_sum = jo_sum - re%sonde_sfc(n)%v * jo_grad_y%sonde_sfc(n)%v
+          jo_sum = jo_sum - re%sonde_sfc(n)%t * jo_grad_y%sonde_sfc(n)%t
+          jo_sum = jo_sum - re%sonde_sfc(n)%p * jo_grad_y%sonde_sfc(n)%p
+          jo_sum = jo_sum - re%sonde_sfc(n)%q * jo_grad_y%sonde_sfc(n)%q
+        end if
+      end do
+    end if
+    
+    ! TAMDAR observations (TAMDAR aircraft - multi-level)
+    if (iv%info(tamdar)%nlocal > 0) then
+      do n = 1, iv%info(tamdar)%nlocal
+        do k = 1, iv%info(tamdar)%levels(n)
+          if (iv%info(tamdar)%proc_domain(1,n)) then
+            jo_sum = jo_sum - re%tamdar(n)%u(k) * jo_grad_y%tamdar(n)%u(k)
+            jo_sum = jo_sum - re%tamdar(n)%v(k) * jo_grad_y%tamdar(n)%v(k)
+            jo_sum = jo_sum - re%tamdar(n)%t(k) * jo_grad_y%tamdar(n)%t(k)
+            jo_sum = jo_sum - re%tamdar(n)%q(k) * jo_grad_y%tamdar(n)%q(k)
+          end if
+        end do
+      end do
+    end if
+    
+    ! TAMDAR_SFC observations (TAMDAR surface)
+    if (iv%info(tamdar_sfc)%nlocal > 0) then
+      do n = 1, iv%info(tamdar_sfc)%nlocal
+        if (iv%info(tamdar_sfc)%proc_domain(1,n)) then
+          jo_sum = jo_sum - re%tamdar_sfc(n)%u * jo_grad_y%tamdar_sfc(n)%u
+          jo_sum = jo_sum - re%tamdar_sfc(n)%v * jo_grad_y%tamdar_sfc(n)%v
+          jo_sum = jo_sum - re%tamdar_sfc(n)%t * jo_grad_y%tamdar_sfc(n)%t
+          jo_sum = jo_sum - re%tamdar_sfc(n)%p * jo_grad_y%tamdar_sfc(n)%p
+          jo_sum = jo_sum - re%tamdar_sfc(n)%q * jo_grad_y%tamdar_sfc(n)%q
+        end if
+      end do
+    end if
+    
+    ! Apply the 0.5 factor following WRFDA's convention
+    jo_cost = 0.5_c_double * jo_sum
+    
+  end subroutine wrfda_compute_jo
 
   !> @brief Adjoint operator: H^T·jo_grad_y using WRFDA's proven da_transform_xtoy_adj
   !> @details Uses WRFDA's top-level da_transform_xtoy_adj which automatically dispatches
