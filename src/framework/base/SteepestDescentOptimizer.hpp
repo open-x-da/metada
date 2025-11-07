@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <functional>
 
 #include "OptimizerBase.hpp"
 
@@ -46,6 +47,8 @@ class SteepestDescentOptimizer : public OptimizerBase {
     result.gradient_evaluations = 0;
 
     for (int iter = 0; iter < max_iterations_; ++iter) {
+      double previous_cost = current_cost;
+
       // Compute gradient
       auto gradient = gradient_func(solution);
       double gradient_norm = computeNorm(gradient);
@@ -73,6 +76,12 @@ class SteepestDescentOptimizer : public OptimizerBase {
       current_cost = new_cost;
 
       result.iterations++;
+
+      // Log iteration information if logger is set
+      if (iteration_logger_) {
+        iteration_logger_(result.iterations, previous_cost, current_cost,
+                          gradient_norm, step_size);
+      }
 
       // Check convergence
       if (checkConvergence(cost_change, gradient_norm, result.iterations,
@@ -112,11 +121,21 @@ class SteepestDescentOptimizer : public OptimizerBase {
    */
   void setLineSearchEnabled(bool enabled) { line_search_enabled_ = enabled; }
 
+  /**
+   * @brief Set iteration logger callback
+   */
+  void setIterationLogger(
+      std::function<void(int, double, double, double, double)> logger)
+      override {
+    iteration_logger_ = std::move(logger);
+  }
+
  private:
   int max_iterations_;
   double tolerance_;
   double gradient_tolerance_;
   bool line_search_enabled_;
+  std::function<void(int, double, double, double, double)> iteration_logger_;
 };
 
 }  // namespace metada::base::optimization

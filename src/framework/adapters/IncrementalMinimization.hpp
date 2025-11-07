@@ -84,6 +84,18 @@ class IncrementalMinimization : public NonCopyable {
     logger_.Info() << "Tolerance: " << optimizer_->getTolerance();
     logger_.Info() << "Gradient tolerance: "
                    << optimizer_->getGradientTolerance();
+
+    // Set up generic iteration logger for any optimizer that supports it
+    optimizer_->setIterationLogger(
+        [this](int iter, double previous_cost, double current_cost,
+               double gradient_norm, double step_size) {
+          logger_.Info() << "Iteration " << iter
+                         << ": previous_cost=" << previous_cost
+                         << ", current_cost=" << current_cost
+                         << ", cost_change=" << (current_cost - previous_cost)
+                         << ", gradient_norm=" << gradient_norm
+                         << ", step=" << step_size;
+        });
   }
 
   /**

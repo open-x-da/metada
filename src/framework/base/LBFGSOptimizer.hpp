@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cmath>
-#include <iostream>
+#include <functional>
 
 #include "OptimizerBase.hpp"
 
@@ -56,9 +56,7 @@ class LBFGSOptimizer : public OptimizerBase {
     result.gradient_evaluations = 1;
 
     for (int iter = 0; iter < max_iterations_; ++iter) {
-      // Log every iteration
-      std::cout << "Iteration " << iter << ": cost = " << current_cost
-                << ", gradient_norm = " << gradient_norm << std::endl;
+      double previous_cost = current_cost;
 
       // Compute search direction using L-BFGS two-loop recursion
       auto search_direction =
@@ -115,21 +113,20 @@ class LBFGSOptimizer : public OptimizerBase {
 
       result.iterations++;
 
+      // Log iteration information if logger is set
+      if (iteration_logger_) {
+        iteration_logger_(result.iterations, previous_cost, current_cost,
+                          gradient_norm, step_size);
+      }
+
       // Check convergence
       if (checkConvergence(cost_change, gradient_norm, result.iterations,
                            max_iterations_, tolerance_, gradient_tolerance_,
                            result.convergence_reason)) {
         result.converged = (result.iterations < max_iterations_);
-        std::cout << "Converged at iteration " << result.iterations << ": "
-                  << result.convergence_reason << std::endl;
         break;
       }
     }
-
-    // Log final iteration
-    std::cout << "Final iteration " << result.iterations
-              << ": cost = " << current_cost
-              << ", gradient_norm = " << gradient_norm << std::endl;
 
     result.final_cost = current_cost;
     result.gradient_norm = gradient_norm;
@@ -170,12 +167,22 @@ class LBFGSOptimizer : public OptimizerBase {
    */
   void setLineSearchEnabled(bool enabled) { line_search_enabled_ = enabled; }
 
+  /**
+   * @brief Set iteration logger callback
+   */
+  void setIterationLogger(
+      std::function<void(int, double, double, double, double)> logger)
+      override {
+    iteration_logger_ = std::move(logger);
+  }
+
  private:
   int max_iterations_;
   double tolerance_;
   double gradient_tolerance_;
   size_t memory_size_;
   bool line_search_enabled_;
+  std::function<void(int, double, double, double, double)> iteration_logger_;
 
   /**
    * @brief Compute L-BFGS search direction using two-loop recursion

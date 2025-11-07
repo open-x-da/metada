@@ -100,6 +100,23 @@ class OptimizerBase {
    */
   virtual void setGradientTolerance(double gradient_tolerance) = 0;
 
+  /**
+   * @brief Set iteration logger callback
+   *
+   * @details This callback is invoked at each iteration with iteration
+   * information. The signature is: (iteration, previous_cost, current_cost,
+   * gradient_norm, step_size). Optimizers that support iteration logging
+   * should override this method.
+   *
+   * @param logger Function to call at each iteration. If null, iteration
+   * logging is disabled.
+   */
+  virtual void setIterationLogger(
+      std::function<void(int, double, double, double, double)> logger) {
+    // Default implementation: no-op (optimizers can override)
+    (void)logger;
+  }
+
  protected:
   /**
    * @brief Check convergence criteria
