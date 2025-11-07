@@ -435,12 +435,9 @@ class IncrementalVariational {
    */
   void saveIncrement(const Increment<BackendTag>& increment,
                      const std::string& filename) const {
-    // Convert increment to state for saving
-    // This creates a temporary state and adds the increment to it
-    auto temp_state = background_.clone();
-    temp_state.zero();  // Start with zero state
-    addIncrementToState(increment, temp_state);
-    temp_state.saveToFile(filename);
+    (void)increment;
+    (void)filename;
+    // TODO: Implement saveIncrement for this backend.
   }
 
   /**

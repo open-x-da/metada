@@ -8,7 +8,6 @@
 #pragma once
 
 #include <algorithm>
-#include <chrono>
 #include <filesystem>
 #include <iomanip>
 #include <memory>
@@ -24,6 +23,7 @@
 #include <xtensor/xarray.hpp>
 #endif
 #include "WRFGridInfo.hpp"
+#include "wrfda/WRFDAStateTransforms.hpp"
 
 // WRFDA C bindings for domain initialization
 extern "C" {
@@ -743,14 +743,27 @@ class WRFState {
   void multiply(double scalar);
 
   /**
-   * @brief Add increment to this state
+   * @brief Add increment to this state using WRFDA's proven routines
    *
-   * @details Adds increment fields to the corresponding state fields.
+   * @details Adds analysis increments to background state by delegating to
+   * WRFDA's da_transfer_xatowrf, which handles all WRF-specific
+   * transformations:
+   * - Conversion of specific humidity to mixing ratio
+   * - Computation of dry air mass increments
+   * - Conversion of temperature to potential temperature
+   * - Computation of geopotential height
+   * - Arakawa-C grid staggering (A-grid to C-grid conversion)
+   * - Positivity constraints (e.g., moisture >= 0)
+   * - Recomputation of 2m/10m diagnostic fields
+   *
    * This is the fundamental operation for combining analysis increments
-   * with background states: state = state + increment.
+   * with background states: x_analysis = x_background + increment
    *
    * @tparam IncrementBackend The increment backend type
    * @param[in] increment Increment to add to this state
+   *
+   * @note This leverages WRFDA's battle-tested code instead of reimplementing
+   * complex WRF-specific physics and grid transformations
    */
   template <typename IncrementBackend>
   void addIncrement(const IncrementBackend& increment);
@@ -960,98 +973,79 @@ class WRFState {
 
   ///@{ @name File I/O Operations
   /**
-   * @brief Save state data to NetCDF file by copying original and updating
-   * core variables
+   * @brief Save state data using WRFDA's da_update_firstguess routine
    *
-   * @details Copies the original WRF NetCDF file and updates only the core
-   * state variables (U, V, T, QVAPOR, PSFC) that have been loaded and
-   * potentially modified. This preserves all original file structure,
-   * dimensions, attributes, and other variables. The method is more efficient
-   * and maintains WRF file compatibility.
+   * @details Delegates to WRFDA's battle-tested NetCDF writer that copies the
+   * background (fg) file and updates only the analysis variables touched by
+   * assimilation. This ensures complete compatibility with WRF's expected file
+   * structure and metadata handling.
    *
-   * @param[in] filename Path where the NetCDF file should be created
-   * @throws std::runtime_error If file creation or copying fails
-   * @throws netCDF::exceptions::NcException If NetCDF operations fail
-   *
-   * @note The output file will contain:
-   *       - All original variables and attributes from source file
-   *       - Updated data for core state variables (U, V, T, QVAPOR, PSFC)
-   *       - Preserved file structure and metadata
-   *       - Diagnostic/background variables remain unchanged
+   * @param[in] filename Path where the updated analysis file should be written
+   * @throws std::runtime_error If filesystem operations or WRFDA call fails
    */
   void saveToFile(const std::string& filename) const {
     try {
-      // First, copy the original file to preserve all structure
-      std::filesystem::copy_file(
-          wrfFilename_, filename,
-          std::filesystem::copy_options::overwrite_existing);
-
-      // Open the copied file for modification
-      netCDF::NcFile nc_file(filename, netCDF::NcFile::write);
-
-      if (nc_file.isNull()) {
-        throw std::runtime_error("Failed to open copied NetCDF file: " +
-                                 filename);
+      if (filename.empty()) {
+        throw std::runtime_error(
+            "Output filename for WRF state cannot be empty");
       }
+      void* grid_ptr = geometry_.getGridPtr();
+      if (!grid_ptr) {
+        throw std::runtime_error(
+            "WRFDA grid pointer is null; cannot write analysis file");
+      }
+      std::filesystem::path working_dir = std::filesystem::current_path();
+      std::filesystem::path fg_target = working_dir / "fg";
+      std::filesystem::path fg_backup = working_dir / "fg.metada.bak";
+      bool fg_preexisted = std::filesystem::exists(fg_target);
 
-      // Define core state variables to update
-      const std::vector<std::string> core_variables = {"U", "V", "T", "QVAPOR",
-                                                       "PSFC"};
-
-      // Update only the core variables that were loaded
-      std::string updated_vars;
-      for (const auto& varName : core_variables) {
-        // Check if this core variable was loaded
-        if (std::find(variableNames_.begin(), variableNames_.end(), varName) ==
-            variableNames_.end()) {
-          continue;  // Core variable not loaded, skip it
+      auto restoreOriginalFg = [&]() noexcept {
+        try {
+          if (fg_preexisted) {
+            if (std::filesystem::exists(fg_target)) {
+              std::filesystem::remove(fg_target);
+            }
+            if (std::filesystem::exists(fg_backup)) {
+              std::filesystem::rename(fg_backup, fg_target);
+            }
+          } else if (std::filesystem::exists(fg_target)) {
+            std::filesystem::remove(fg_target);
+          }
+        } catch (...) {
         }
+      };
 
-        auto nc_var = nc_file.getVar(varName);
-
-        if (!nc_var.isNull()) {
-          size_t offset = variable_offsets_.at(varName);
-
-          // Write updated data from flattened storage
-          nc_var.putVar(flattened_data_.data() + offset);
-
-          // Track updated variable
-          if (!updated_vars.empty()) updated_vars += ", ";
-          updated_vars += varName;
-        } else {
-          // Variable doesn't exist in original file, skip it
-          std::cerr << "Warning: Core variable " << varName
-                    << " not found in original file, skipping update"
-                    << std::endl;
+      try {
+        if (fg_preexisted) {
+          std::filesystem::rename(fg_target, fg_backup);
         }
+      } catch (const std::filesystem::filesystem_error& e) {
+        throw std::runtime_error("Failed to backup existing fg file: " +
+                                 std::string(e.what()));
       }
 
-      // Add metadata about the update
-      nc_file.putAtt("metada_updated", "true");
-
-      // Convert timestamp to string for NetCDF compatibility
-      auto now = std::chrono::system_clock::now();
-      auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
-                           now.time_since_epoch())
-                           .count();
-      nc_file.putAtt("metada_update_time", std::to_string(timestamp));
-
-      // Add list of updated variables
-      if (!updated_vars.empty()) {
-        nc_file.putAtt("metada_updated_variables", updated_vars);
+      try {
+        std::filesystem::copy_file(
+            wrfFilename_, fg_target,
+            std::filesystem::copy_options::overwrite_existing);
+      } catch (const std::filesystem::filesystem_error& e) {
+        restoreOriginalFg();
+        throw std::runtime_error("Failed to stage fg file for WRFDA: " +
+                                 std::string(e.what()));
       }
 
-      nc_file.close();
+      try {
+        wrfda::WRFDAStateTransforms::updateFirstGuess(grid_ptr, filename);
+      } catch (...) {
+        restoreOriginalFg();
+        throw;
+      }
 
-    } catch (const std::filesystem::filesystem_error& e) {
-      throw std::runtime_error("File system error while copying WRF file: " +
-                               std::string(e.what()));
-    } catch (const netCDF::exceptions::NcException& e) {
-      throw std::runtime_error("NetCDF error while saving WRF state: " +
-                               std::string(e.what()));
+      restoreOriginalFg();
     } catch (const std::exception& e) {
-      throw std::runtime_error("Error saving WRF state: " +
-                               std::string(e.what()));
+      throw std::runtime_error(
+          "Error saving WRF state via WRFDA da_update_firstguess: " +
+          std::string(e.what()));
     }
   }
   ///@}
@@ -2014,47 +2008,41 @@ template <typename ConfigBackend, typename GeometryBackend>
 template <typename IncrementBackend>
 void WRFState<ConfigBackend, GeometryBackend>::addIncrement(
     const IncrementBackend& increment) {
-  auto nx = increment.getNx();
-  auto ny = increment.getNy();
-  auto nz = increment.getNz();
+  // Use WRFDA's proven da_transfer_xatowrf routine to add increments
+  // This handles all WRF-specific physics and grid transformations:
+  // - Conversion of specific humidity to mixing ratio
+  // - Computation of dry air mass increments
+  // - Conversion of temperature to potential temperature (theta)
+  // - Computation of geopotential height for WRF's vertical coordinate
+  // - Arakawa-C grid staggering (A-grid to C-grid conversion)
+  // - Positivity constraints (ensures moisture >= 0, etc.)
+  // - Recomputation of 2m/10m diagnostic fields (T2, Q2, U10, V10, TH2)
 
-  // Allocate buffers for all 18 fields from grid%xa
-  size_t size_3d = static_cast<size_t>(nx) * static_cast<size_t>(ny) *
-                   static_cast<size_t>(nz);
-  size_t size_2d = static_cast<size_t>(nx) * static_cast<size_t>(ny);
+  // Step 1: Sync increment to grid%xa (WRFDA's analysis increment workspace)
+  // This writes the increment data into the WRFDA grid structure
+  increment.syncToGrid();
 
-  std::vector<double> u_inc(size_3d), v_inc(size_3d), w_inc(size_3d);
-  std::vector<double> t_inc(size_3d), p_inc(size_3d), q_inc(size_3d);
-  std::vector<double> qt_inc(size_3d), rh_inc(size_3d), rho_inc(size_3d);
-  std::vector<double> geoh_inc(size_3d), wh_inc(size_3d);
-  std::vector<double> qcw_inc(size_3d), qrn_inc(size_3d), qci_inc(size_3d);
-  std::vector<double> qsn_inc(size_3d), qgr_inc(size_3d);
-  std::vector<double> psfc_inc(size_2d), mu_inc(size_2d);
-
-  // Extract all 18 fields from increment
-  increment.extract(u_inc.data(), v_inc.data(), w_inc.data(), t_inc.data(),
-                    p_inc.data(), q_inc.data(), qt_inc.data(), rh_inc.data(),
-                    rho_inc.data(), geoh_inc.data(), wh_inc.data(),
-                    qcw_inc.data(), qrn_inc.data(), qci_inc.data(),
-                    qsn_inc.data(), qgr_inc.data(), psfc_inc.data(),
-                    mu_inc.data());
-
-  // Add increments to core state variables only (U, V, T, QVAPOR, PSFC)
-  auto* u = static_cast<double*>(getData("U"));
-  auto* v = static_cast<double*>(getData("V"));
-  auto* t = static_cast<double*>(getData("T"));
-  auto* q = static_cast<double*>(getData("QVAPOR"));
-  auto* psfc = static_cast<double*>(getData("PSFC"));
-
-  for (size_t i = 0; i < size_3d; ++i) {
-    u[i] += u_inc[i];
-    v[i] += v_inc[i];
-    t[i] += t_inc[i];
-    q[i] += q_inc[i];
+  // Step 2: Call WRFDA's da_transfer_xatowrf to add increment to background
+  // This performs the complete transformation: x_analysis = x_background +
+  // increment After this call, the WRF grid structure (grid%u_2, grid%v_2,
+  // grid%t_2, etc.) contains the full analysis state ready for WRF model
+  // integration
+  try {
+    wrfda::WRFDAStateTransforms::transferXaToWRF(
+        geometry_.getGridPtr(),  // WRF grid structure (contains xb and xa)
+        geometry_.getConfigFlagsPtr()  // WRF configuration flags
+    );
+  } catch (const std::exception& e) {
+    throw std::runtime_error(
+        std::string(
+            "Failed to add increment using WRFDA da_transfer_xatowrf: ") +
+        e.what());
   }
-  for (size_t i = 0; i < size_2d; ++i) {
-    psfc[i] += psfc_inc[i];
-  }
+
+  // Note: After da_transfer_xatowrf, the WRF grid structure already contains
+  // the full analysis state in grid%u_2, grid%v_2, grid%t_2, grid%moist, etc.
+  // These are the authoritative state variables that WRFState's getData()
+  // methods reference, so no additional extraction is needed.
 }
 
 // Is initialized implementation

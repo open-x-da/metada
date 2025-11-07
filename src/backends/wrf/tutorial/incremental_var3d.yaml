@@ -5,7 +5,7 @@
 # Variational method configuration
 variational_type: "3DVAR"  # 3DVAR, FGAT, or 4DVAR
 minimization_algorithm: "L-BFGS"  # L-BFGS, CG, or SteepestDescent
-max_iterations: 50
+max_iterations: 5
 cost_tolerance: 1.0e-6
 gradient_tolerance: 1.0e-6
 

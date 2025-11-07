@@ -89,6 +89,58 @@ else()
     message(WARNING "WRF config bridge: WRFDA not configured, WRF configuration initialization will not be available")
 endif()
 
+# WRFDA State Transforms Bridge Library
+# This library provides C++ interface to WRFDA's state transformation routines
+# (da_transform_xtoxa, da_transfer_xatowrf) for proven increment-to-state conversion
+
+# Step 1: Build Fortran bridge module first
+add_library(wrfda_state_transforms_bridge_fortran STATIC
+    bridges/wrfda_state_transforms.F90
+)
+
+# Link WRFDA if available
+if(WITH_WRFDA AND WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
+    target_include_directories(wrfda_state_transforms_bridge_fortran PUBLIC ${WRFDA_MOD_DIR})
+    
+    # Link same WRF libraries as config bridge
+    foreach(LIB_PATH ${WRF_CONFIG_LIBRARIES})
+        if(EXISTS ${LIB_PATH})
+            target_link_libraries(wrfda_state_transforms_bridge_fortran PUBLIC ${LIB_PATH})
+        endif()
+    endforeach()
+    
+    # Link NetCDF Fortran
+    if(NETCDF_FORTRAN_LIBRARY)
+        target_link_libraries(wrfda_state_transforms_bridge_fortran PUBLIC ${NETCDF_FORTRAN_LIBRARY})
+    endif()
+    
+    if(WIN32)
+        target_link_libraries(wrfda_state_transforms_bridge_fortran PUBLIC ws2_32)
+    endif()
+endif()
+
+# Step 2: Build C++ wrapper library
+add_library(wrfda_state_transforms STATIC
+    wrfda/WRFDAStateTransforms.cpp
+)
+
+# Make C++ compilation depend on Fortran module
+add_dependencies(wrfda_state_transforms wrfda_state_transforms_bridge_fortran)
+
+# Set include directories
+target_include_directories(wrfda_state_transforms
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        $<INSTALL_INTERFACE:include>
+)
+
+# Link Fortran bridge
+target_link_libraries(wrfda_state_transforms
+    PUBLIC
+        wrfda_state_transforms_bridge_fortran
+)
+
 # Create the WRF backend library (header-only)
 add_library(wrf_backends INTERFACE)
 add_library(metada::backends::wrf ALIAS wrf_backends)
@@ -105,6 +157,7 @@ target_link_libraries(wrf_backends
         NetCDF::CXX4
         xtensor
         wrf_config_bridge
+        wrfda_state_transforms
 )
 
 # Add format target
