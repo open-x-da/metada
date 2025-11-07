@@ -63,6 +63,11 @@ class SteepestDescentOptimizer : public OptimizerBase {
           lineSearch(solution, search_direction, cost_func, gradient_func,
                      current_cost, line_search_enabled_);
 
+      if (step_size <= 0.0) {
+        result.convergence_reason = "Line search failed";
+        break;
+      }
+
       // Update solution
       std::vector<double> new_solution = solution;
       addScaledVector(new_solution, search_direction, step_size);

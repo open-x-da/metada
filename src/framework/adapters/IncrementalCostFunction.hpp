@@ -102,18 +102,15 @@ class IncrementalCostFunction : public NonCopyable {
   double evaluate(const Increment<BackendTag>& increment) const {
     double total_cost = 0.0;
 
-    // Background term: 1/2 * δx^T B^-1 δx
     double bg_cost = 0.5 * bg_error_cov_.quadraticForm(increment);
     total_cost += bg_cost;
 
-    // Observation terms: 1/2 * Σᵢ (dᵢ - Hᵢ(Mᵢ(xb + δx)))^T Rᵢ^-1 (dᵢ - Hᵢ(Mᵢ(xb
-    // + δx)))
     double obs_cost = 0.0;
     if (var_type_ == VariationalType::ThreeDVAR) {
       obs_cost = evaluateObservationCost3DVAR(increment);
     } else if (var_type_ == VariationalType::FGAT) {
       obs_cost = evaluateObservationCostFGAT(increment);
-    } else {  // 4DVAR
+    } else {
       obs_cost = evaluateObservationCost4DVAR(increment);
     }
 
@@ -130,19 +127,16 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void gradient(const Increment<BackendTag>& increment,
                 Increment<BackendTag>& gradient) const {
-    // Initialize gradient to zero
     gradient.zero();
 
-    // Background term gradient: B^-1 δx
     auto bg_gradient = bg_error_cov_.applyInverse(increment);
     gradient += bg_gradient;
 
-    // Observation term gradients
     if (var_type_ == VariationalType::ThreeDVAR) {
       computeObservationGradient3DVAR(increment, gradient);
     } else if (var_type_ == VariationalType::FGAT) {
       computeObservationGradientFGAT(increment, gradient);
-    } else {  // 4DVAR
+    } else {
       computeObservationGradient4DVAR(increment, gradient);
     }
   }
@@ -255,20 +249,24 @@ class IncrementalCostFunction : public NonCopyable {
    */
   double evaluateObservationCost3DVAR(
       const Increment<BackendTag>& increment) const {
-    // 3DVAR: All observations assumed at analysis time
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
-    // For incremental 3D-Var, we only need H'(δx) where δx is the increment
-    // The innovation vector d = H(xb) - y is already pre-computed
     auto simulated_increment =
         obs_op.applyTangentLinear(increment, background_, obs);
 
-    // Compute observation cost using WRFDA's proven formula:
-    // Jo = 0.5 * re^T * R^{-1} * re where re = (O-B) - H'(δx)
-    // This uses WRFDA's da_calculate_residual + da_calculate_grady internally
-    return obs_op.backend().computeObservationCost(background_.backend(),
-                                                   obs.backend());
+    if (obs_op.hasNativeIncrementalCost(background_, obs)) {
+      (void)simulated_increment;
+      auto jo = obs_op.computeObservationCost(background_, obs);
+      if (jo.has_value()) {
+        return *jo;
+      }
+    }
+
+    auto residual = computeInnovation(innovations_[0], simulated_increment);
+    auto weighted_residual = obs.applyInverseCovariance(residual);
+
+    return computeObservationCostFromResidual(residual, weighted_residual);
   }
 
   /**
@@ -276,23 +274,20 @@ class IncrementalCostFunction : public NonCopyable {
    */
   double evaluateObservationCostFGAT(
       const Increment<BackendTag>& increment) const {
-    // FGAT: Observations at proper times but single forward trajectory
     double total_cost = 0.0;
 
     for (size_t i = 0; i < observations_.size(); ++i) {
       const auto& obs = observations_[i];
       const auto& obs_op = obs_operators_[i];
 
-      // For incremental FGAT, we only need H'(δx) at each observation time
-      // The innovation vectors d = H(xb) - y are already pre-computed
-      // Note: For FGAT, we use the same increment at all times (no model
-      // propagation)
       auto simulated_increment =
           obs_op.applyTangentLinear(increment, background_, obs);
 
-      // Compute observation cost using WRFDA's proven formula
-      total_cost += obs_op.backend().computeObservationCost(
-          background_.backend(), obs.backend());
+      auto residual = computeInnovation(innovations_[i], simulated_increment);
+      auto weighted_residual = obs.applyInverseCovariance(residual);
+
+      total_cost +=
+          computeObservationCostFromResidual(residual, weighted_residual);
     }
 
     return total_cost;
@@ -303,8 +298,7 @@ class IncrementalCostFunction : public NonCopyable {
    */
   double evaluateObservationCost4DVAR(
       const Increment<BackendTag>& increment) const {
-    // 4DVAR: Full time window evaluation
-    return evaluateObservationCostFGAT(increment);  // Same forward evaluation
+    return evaluateObservationCostFGAT(increment);
   }
 
   /**
@@ -315,56 +309,23 @@ class IncrementalCostFunction : public NonCopyable {
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
-    // For incremental 3D-Var, we only need H'(δx) where δx is the increment
-    // The innovation vector d = H(xb) - y is already pre-computed
     auto simulated_increment =
         obs_op.applyTangentLinear(increment, background_, obs);
 
-    // Compute residual: d - H'(δx) where d is pre-computed innovation
-    if (innovations_[0].size() != simulated_increment.size()) {
-      throw std::runtime_error(
-          "Size mismatch in gradient computation: innovations.size()=" +
-          std::to_string(innovations_[0].size()) +
-          ", simulated_increment.size()=" +
-          std::to_string(simulated_increment.size()));
+    if (obs_op.hasNativeIncrementalCost(background_, obs)) {
+      (void)simulated_increment;
+      std::vector<double> empty;
+      auto adjoint_increment = obs_op.applyAdjoint(empty, background_, obs);
+      gradient += adjoint_increment;
+      return;
     }
 
-    std::vector<double> residual(innovations_[0].size());
-    for (size_t i = 0; i < innovations_[0].size(); ++i) {
-      residual[i] = innovations_[0][i] - simulated_increment[i];
-    }
-
-    // Compute norm manually for std::vector<double>
-    double residual_norm = 0.0;
-    for (const auto& val : residual) {
-      residual_norm += val * val;
-    }
-    residual_norm = std::sqrt(residual_norm);
-
-    // Apply R^{-1} weighting
-    // NOTE: For WRF backend, this computation is redundant.
-    // WRFObsOperator::applyAdjoint ignores weighted_residual and uses WRFDA's
-    // proven da_calculate_residual + da_calculate_grady workflow instead. Kept
-    // here for backend-agnosticism.
+    auto residual = computeInnovation(innovations_[0], simulated_increment);
     auto weighted_residual = obs.applyInverseCovariance(residual);
 
-    // Compute norm manually for std::vector<double>
-    double weighted_norm = 0.0;
-    for (const auto& val : weighted_residual) {
-      weighted_norm += val * val;
-    }
-    weighted_norm = std::sqrt(weighted_norm);
-
-    // Compute observation gradient: -H'^T R^{-1} [d - H'(δx)]
-    // This is the adjoint of the observation operator applied to the weighted
-    // residual. The NEGATIVE sign comes from WRFDA's da_calculate_grady:
-    // jo_grad_y = -R^{-1} · re NOTE: WRF backend ignores weighted_residual
-    // parameter and uses WRFDA's internal workflow (da_calculate_residual +
-    // da_calculate_grady + da_transform_xtoy_adj)
-    auto obs_gradient =
-        obs_op.applyAdjoint(weighted_residual, background_, obs);
-    gradient += obs_gradient;  // ADD the observation gradient (already has
-                               // negative sign)
+    auto adjoint_increment =
+        obs_op.applyAdjointPure(weighted_residual, background_, obs);
+    gradient -= adjoint_increment;
   }
 
   /**
@@ -372,26 +333,18 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void computeObservationGradientFGAT(const Increment<BackendTag>& increment,
                                       Increment<BackendTag>& gradient) const {
-    // For incremental FGAT, we only need H'(δx) at each observation time
-    // The innovation vectors d = H(xb) - y are already pre-computed
-
     for (size_t i = 0; i < observations_.size(); ++i) {
       const auto& obs = observations_[i];
       const auto& obs_op = obs_operators_[i];
 
-      // For incremental FGAT, we only need H'(δx) at each observation time
-      // Note: For FGAT, we use the same increment at all times (no model
-      // propagation)
       auto simulated_increment =
           obs_op.applyTangentLinear(increment, background_, obs);
       auto residual = computeInnovation(innovations_[i], simulated_increment);
       auto weighted_residual = obs.applyInverseCovariance(residual);
-      auto obs_gradient =
-          obs_op.applyAdjoint(weighted_residual, background_, obs);
 
-      // For FGAT, we approximate by not using model adjoint
-      // Note: NEGATIVE sign from chain rule!
-      gradient -= obs_gradient;
+      auto adjoint_increment =
+          obs_op.applyAdjointPure(weighted_residual, background_, obs);
+      gradient -= adjoint_increment;
     }
   }
 
@@ -400,53 +353,7 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void computeObservationGradient4DVAR(const Increment<BackendTag>& increment,
                                        Increment<BackendTag>& gradient) const {
-    // 4DVAR requires full adjoint model integration
-    // Forward pass: compute trajectory for xb + δx
-    std::vector<State<BackendTag>> trajectory;
-    trajectory.reserve(observations_.size());
-
-    auto current_state = background_.clone();
-    addIncrementToState(increment, current_state);
-    trajectory.push_back(current_state.clone());
-
-    for (size_t i = 1; i < observations_.size(); ++i) {
-      auto next_state = current_state.clone();
-      model_.run(current_state, next_state);
-      current_state = std::move(next_state);
-      trajectory.push_back(current_state.clone());
-    }
-
-    // Backward pass with adjoint
-    auto adjoint_forcing = Increment<BackendTag>::createFromGeometry(
-        background_.geometry()->backend());
-    adjoint_forcing.zero();
-
-    // Process observations in reverse order
-    for (int i = observations_.size() - 1; i >= 0; --i) {
-      const auto& obs = observations_[i];
-      const auto& obs_op = obs_operators_[i];
-      const auto& state_at_time = trajectory[i];
-
-      auto simulated_obs = obs_op.apply(state_at_time, obs);
-      auto residual = computeInnovation(innovations_[i], simulated_obs);
-      auto weighted_residual = obs.applyInverseCovariance(residual);
-      auto obs_adjoint =
-          obs_op.applyAdjoint(weighted_residual, state_at_time, obs);
-
-      // Note: NEGATIVE sign from chain rule!
-      adjoint_forcing -= obs_adjoint;
-
-      // Adjoint model integration (if not at initial time)
-      if (i > 0) {
-        auto next_adjoint_forcing = Increment<BackendTag>::createFromGeometry(
-            trajectory[i - 1].geometry()->backend());
-        model_.runAdjoint(trajectory[i - 1], trajectory[i], adjoint_forcing,
-                          next_adjoint_forcing);
-        adjoint_forcing = std::move(next_adjoint_forcing);
-      }
-    }
-
-    gradient += adjoint_forcing;
+    computeObservationGradientFGAT(increment, gradient);
   }
 
   /**
@@ -470,6 +377,16 @@ class IncrementalCostFunction : public NonCopyable {
     }
 
     return residual;
+  }
+
+  double computeObservationCostFromResidual(
+      const std::vector<double>& residual,
+      const std::vector<double>& weighted_residual) const {
+    double cost = 0.0;
+    for (size_t i = 0; i < residual.size(); ++i) {
+      cost += residual[i] * weighted_residual[i];
+    }
+    return 0.5 * cost;
   }
 
   const State<BackendTag>& background_;

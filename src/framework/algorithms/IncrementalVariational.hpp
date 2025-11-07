@@ -151,7 +151,7 @@ class IncrementalVariational {
 
     // Evaluate initial cost (should be just background term)
     double initial_cost = cost_func(initial_increment);
-    logger_.Info() << "Initial cost (background only): " << initial_cost;
+    logger_.Info() << "Initial cost: " << initial_cost;
 
     // Perform minimization over increments
     auto final_increment = Increment<BackendTag>::createFromGeometry(

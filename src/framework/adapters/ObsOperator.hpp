@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -285,6 +286,71 @@ class ObsOperator : public NonCopyable {
   Increment<BackendTag> applyAdjoint(const std::vector<double>& obs_increment,
                                      const State<BackendTag>& reference_state,
                                      const Observation<BackendTag>& obs) const;
+
+  template <typename StateBackend, typename ObsBackend>
+  bool hasNativeIncrementalCost(const State<StateBackend>& reference_state,
+                                const Observation<ObsBackend>& obs) const {
+    if constexpr (requires {
+                    backend_.computeObservationCost(reference_state.backend(),
+                                                    obs.backend());
+                  }) {
+      (void)reference_state;
+      (void)obs;
+      return true;
+    } else {
+      (void)reference_state;
+      (void)obs;
+      return false;
+    }
+  }
+
+  template <typename StateBackend, typename ObsBackend>
+  std::optional<double> computeObservationCost(
+      const State<StateBackend>& reference_state,
+      const Observation<ObsBackend>& obs) const {
+    if constexpr (requires {
+                    backend_.computeObservationCost(reference_state.backend(),
+                                                    obs.backend());
+                  }) {
+      return backend_.computeObservationCost(reference_state.backend(),
+                                             obs.backend());
+    } else {
+      (void)reference_state;
+      (void)obs;
+      return std::nullopt;
+    }
+  }
+
+  /**
+   * @brief Apply pure adjoint observation operator without WRFDA-specific
+   *        residual logic
+   *
+   * @details When available, this calls the backend's direct adjoint routine
+   * that simply applies H'^T to the supplied observation-space vector. This is
+   * used when MetaDA manages the residual and R^{-1} weighting itself. If the
+   * backend does not provide a pure adjoint, the call falls back to the
+   * standard applyAdjoint implementation.
+   */
+  template <typename StateBackend, typename ObsBackend>
+  Increment<BackendTag> applyAdjointPure(
+      const std::vector<double>& obs_increment,
+      const State<StateBackend>& reference_state,
+      const Observation<ObsBackend>& obs) const {
+    if constexpr (requires {
+                    backend_.applyAdjointPure(obs_increment,
+                                              reference_state.backend(),
+                                              obs.backend());
+                  }) {
+      auto backend_increment = backend_.applyAdjointPure(
+          obs_increment, reference_state.backend(), obs.backend());
+      auto result = Increment<BackendTag>::createFromGeometry(
+          reference_state.geometry()->backend());
+      result.backend() = std::move(backend_increment);
+      return result;
+    } else {
+      return applyAdjoint(obs_increment, reference_state, obs);
+    }
+  }
 
   /**
    * @brief Check if tangent linear and adjoint operators are available
