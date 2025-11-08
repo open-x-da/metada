@@ -9,6 +9,7 @@
 #include "Config.hpp"
 #include "ControlVariableBackend.hpp"
 #include "IdentityControlVariableBackend.hpp"
+#include "backends/wrf/WRFDACV5ControlVariableBackend.hpp"
 
 namespace metada::framework {
 
@@ -75,13 +76,13 @@ class ControlVariableBackendFactory {
   }
 
   static std::unique_ptr<ControlVariableBackend<BackendTag>> createBackend(
-      ControlVariableBackendKind kind) {
+      ControlVariableBackendKind kind, const ConfigType& config) {
     switch (kind) {
       case ControlVariableBackendKind::Identity:
         return std::make_unique<IdentityControlVariableBackend<BackendTag>>();
       case ControlVariableBackendKind::WrfdaCv5:
-        throw std::logic_error(
-            "WRFDA CV5 control backend is not integrated yet");
+        return std::make_unique<
+            backends::wrf::WRFDACV5ControlVariableBackend<BackendTag>>(config);
       default:
         throw std::logic_error("Unknown control variable backend kind");
     }

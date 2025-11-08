@@ -97,7 +97,7 @@ class IncrementalVariational {
         control_backend_kind_(control_backend_kind),
         control_backend_(
             ControlVariableBackendFactory<BackendTag>::createBackend(
-                control_backend_kind_)),
+                control_backend_kind_, config)),
         cost_function_(config, background, observations, obs_operators, model,
                        bg_error_cov, *control_backend_),
         minimizer_(config, *control_backend_),

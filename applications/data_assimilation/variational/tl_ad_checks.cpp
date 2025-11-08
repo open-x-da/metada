@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
             config);
     auto control_backend =
         fwk::ControlVariableBackendFactory<BackendTag>::createBackend(
-            control_backend_kind);
+            control_backend_kind, config);
     logger.Info() << "Control variable backend: " << control_backend->name();
 
     // Perform Incremental Cost Function checks
