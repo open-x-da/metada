@@ -4,15 +4,15 @@
 
 # Variational method configuration
 variational_type: "3DVAR"  # 3DVAR, FGAT, or 4DVAR
-minimization_algorithm: "SteepestDescent"  # L-BFGS, CG, or SteepestDescent
-max_iterations: 5
+minimization_algorithm: "CG"  # L-BFGS, CG, or SteepestDescent
+max_iterations: 2
 cost_tolerance: 1.0e-6
 gradient_tolerance: 1.0e-6
 control_variable_backend: "wrfda-cv5"  # identity (grid%xa), wrfda-cv5 (future)
 
 # WRFDA control backend configuration (used when control_variable_backend=wrfda-cv5)
 wrfda_control:
-  be_statistics: "D:/linux/WRF/var/run/be.dat"  # Path to static BE statistics
+  be_statistics: "D:/linux/metada/build/be.dat"  # Path to static BE statistics
   cv_options: 5  # WRFDA cv_options flag (5: standard control variables)
 
 # Output configuration

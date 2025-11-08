@@ -24,8 +24,7 @@ enum class ControlVariableBackendKind {
 /**
  * @brief Convert backend kind to human-readable name.
  */
-inline std::string controlBackendKindToString(
-    ControlVariableBackendKind kind) {
+inline std::string controlBackendKindToString(ControlVariableBackendKind kind) {
   switch (kind) {
     case ControlVariableBackendKind::Identity:
       return "identity";
@@ -49,8 +48,7 @@ class ControlVariableBackendFactory {
  public:
   using ConfigType = Config<BackendTag>;
 
-  static ControlVariableBackendKind determineBackend(
-      const ConfigType& config) {
+  static ControlVariableBackendKind determineBackend(const ConfigType& config) {
     if (!config.HasKey("control_variable_backend")) {
       return ControlVariableBackendKind::Identity;
     }
@@ -90,5 +88,3 @@ class ControlVariableBackendFactory {
 };
 
 }  // namespace metada::framework
-
-

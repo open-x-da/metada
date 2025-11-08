@@ -96,6 +96,7 @@ endif()
 # Step 1: Build Fortran bridge module first
 add_library(wrfda_state_transforms_bridge_fortran STATIC
     bridges/wrfda_state_transforms.F90
+    bridges/wrfda_control_backend.F90
 )
 
 # Link WRFDA if available

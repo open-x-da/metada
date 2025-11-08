@@ -62,12 +62,25 @@
         },
         {
             "type": "shell",
+            "label": "Copy WRF BE statistics file",
+            "command": "/usr/bin/cp -f '/d/linux/WRF/var/test/tutorial/be/be.dat' /d/linux/metada/build/be.dat",
+            "options": {
+                "shell": {
+                    "executable": "C:\\msys64\\usr\\bin\\bash.exe",
+                    "args": ["-c"]
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "type": "shell",
             "label": "Prepare WRF Runtime Environment",
             "dependsOn": [
                 "Copy WRF namelist.input",
                 "Copy WRF LANDUSE.TBL",
                 "Copy WRF wrfinput_d01",
-                "Copy WRF observation file"
+                "Copy WRF observation file",
+                "Copy WRF BE statistics file"
             ],
             "problemMatcher": []
         }
