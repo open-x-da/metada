@@ -18,6 +18,7 @@
 #include "ApplicationContext.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
+#include "ControlVariableBackendFactory.hpp"
 #include "Geometry.hpp"
 #include "IncrementalVariational.hpp"
 #include "Model.hpp"
@@ -83,9 +84,14 @@ int main(int argc, char** argv) {
     fwk::BackgroundErrorCovariance<BackendTag> bg_error_cov(
         config.GetSubsection("background_covariance"));
 
+    auto control_backend_kind =
+        fwk::ControlVariableBackendFactory<BackendTag>::determineBackend(
+            config);
+
     // Create incremental variational algorithm instance
     fwk::IncrementalVariational<BackendTag> incremental_variational(
-        config, background, observations, obs_operators, model, bg_error_cov);
+        config, background, observations, obs_operators, model, bg_error_cov,
+        control_backend_kind);
 
     logger.Info() << "Starting " << var_type << " incremental analysis...";
 
@@ -135,8 +141,7 @@ int main(int argc, char** argv) {
     // Optional: Perform gradient test if requested
     if (config.Get("perform_gradient_test").asBool()) {
       // Create a small test increment
-      auto test_increment = fwk::Increment<BackendTag>::createFromGeometry(
-          background.geometry()->backend());
+      auto test_increment = incremental_variational.createControlIncrement();
       test_increment.randomize();
       test_increment *= 0.01;  // Small perturbation
 

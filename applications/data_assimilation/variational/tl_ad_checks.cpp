@@ -27,6 +27,7 @@
 #include "ApplicationContext.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
+#include "ControlVariableBackendFactory.hpp"
 #include "Geometry.hpp"
 #include "IncrementalCostFunction.hpp"
 #include "IncrementalGradientChecks.hpp"
@@ -146,18 +147,27 @@ int main(int argc, char** argv) {
     fwk::Model<BackendTag> model(config.GetSubsection("model"));
     logger.Info() << "Model initialized";
 
+    auto control_backend_kind =
+        fwk::ControlVariableBackendFactory<BackendTag>::determineBackend(
+            config);
+    auto control_backend =
+        fwk::ControlVariableBackendFactory<BackendTag>::createBackend(
+            control_backend_kind);
+    logger.Info() << "Control variable backend: " << control_backend->name();
+
     // Perform Incremental Cost Function checks
     logger.Info() << "\n=== Performing Incremental Cost Function Checks ===";
 
     try {
       // Initialize incremental cost function
       fwk::IncrementalCostFunction<BackendTag> incremental_cost_function(
-          config, state, observations, obs_operators, model, bg_error_cov);
+          config, state, observations, obs_operators, model, bg_error_cov,
+          *control_backend);
       logger.Info() << "Incremental cost function initialized";
 
       // Create a test increment
-      auto test_increment = fwk::Increment<BackendTag>::createFromGeometry(
-          state.geometry()->backend());
+      auto test_increment =
+          control_backend->createIncrement(state.geometry()->backend());
       test_increment.randomize();
       logger.Info() << "Test increment created and randomized";
 

@@ -1,10 +1,13 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
+#include "ControlVariableBackend.hpp"
+#include "ControlVariableBackendFactory.hpp"
 #include "Ensemble.hpp"
 #include "IncrementalCostFunction.hpp"
 #include "IncrementalGradientChecks.hpp"
@@ -83,16 +86,21 @@ class IncrementalVariational {
       const std::vector<Observation<BackendTag>>& observations,
       const std::vector<ObsOperator<BackendTag>>& obs_operators,
       Model<BackendTag>& model,
-      const BackgroundErrorCovariance<BackendTag>& bg_error_cov)
+      const BackgroundErrorCovariance<BackendTag>& bg_error_cov,
+      ControlVariableBackendKind control_backend_kind)
       : config_(config),
         background_(background),
         observations_(observations),
         obs_operators_(obs_operators),
         model_(model),
         bg_error_cov_(bg_error_cov),
+        control_backend_kind_(control_backend_kind),
+        control_backend_(
+            ControlVariableBackendFactory<BackendTag>::createBackend(
+                control_backend_kind_)),
         cost_function_(config, background, observations, obs_operators, model,
-                       bg_error_cov),
-        minimizer_(config),
+                       bg_error_cov, *control_backend_),
+        minimizer_(config, *control_backend_),
         output_base_file_(config.Get("output_base_file").asString()),
         format_(config.Get("format").asString()),
         save_trajectory_(config.Get("save_trajectory").asBool()) {
@@ -101,6 +109,7 @@ class IncrementalVariational {
     logger_.Info() << "Time windows: " << cost_function_.getTimeWindows();
     logger_.Info() << "Minimization algorithm: "
                    << minimizer_.getAlgorithmName();
+    logger_.Info() << "Control variable backend: " << control_backend_->name();
 
     // Validate inputs
     if (observations_.empty()) {
@@ -145,8 +154,8 @@ class IncrementalVariational {
     };
 
     // Start with zero increment as initial guess
-    auto initial_increment = Increment<BackendTag>::createFromGeometry(
-        background_.geometry()->backend());
+    auto initial_increment =
+        control_backend_->createIncrement(background_.geometry()->backend());
     initial_increment.zero();
 
     // Evaluate initial cost (should be just background term)
@@ -154,15 +163,15 @@ class IncrementalVariational {
     logger_.Info() << "Initial cost: " << initial_cost;
 
     // Perform minimization over increments
-    auto final_increment = Increment<BackendTag>::createFromGeometry(
-        background_.geometry()->backend());
+    auto final_increment =
+        control_backend_->createIncrement(background_.geometry()->backend());
     auto convergence_info = minimizer_.minimize(initial_increment, cost_func,
                                                 gradient_func, final_increment);
 
     // Create final analysis state: xa = xb + δx*
     // Extract increment and add to background
     auto analysis_state = background_.clone();
-    addIncrementToState(final_increment, analysis_state);
+    control_backend_->addIncrementToState(final_increment, analysis_state);
 
     // Create results structure
     AnalysisResults results{
@@ -232,6 +241,14 @@ class IncrementalVariational {
    */
   const IncrementalMinimization<BackendTag>& getMinimizer() const {
     return minimizer_;
+  }
+
+  /**
+   * @brief Create a control-variable increment compatible with the active
+   *        backend.
+   */
+  Increment<BackendTag> createControlIncrement() const {
+    return control_backend_->createIncrement(background_.geometry()->backend());
   }
 
   /**
@@ -440,22 +457,14 @@ class IncrementalVariational {
     // TODO: Implement saveIncrement for this backend.
   }
 
-  /**
-   * @brief Add increment to state: state = state + increment
-   *
-   * @details Simple wrapper using State::operator+= for clarity
-   */
-  void addIncrementToState(const Increment<BackendTag>& increment,
-                           State<BackendTag>& state) const {
-    state += increment;
-  }
-
   const Config<BackendTag>& config_;
   const State<BackendTag>& background_;
   const std::vector<Observation<BackendTag>>& observations_;
   const std::vector<ObsOperator<BackendTag>>& obs_operators_;
   Model<BackendTag>& model_;
   const BackgroundErrorCovariance<BackendTag>& bg_error_cov_;
+  ControlVariableBackendKind control_backend_kind_;
+  std::unique_ptr<ControlVariableBackend<BackendTag>> control_backend_;
   IncrementalCostFunction<BackendTag> cost_function_;
   IncrementalMinimization<BackendTag> minimizer_;
   std::string output_base_file_;

@@ -76,8 +76,10 @@ class IncrementalMinimization : public NonCopyable {
    *
    * @param config Configuration object containing minimization parameters
    */
-  explicit IncrementalMinimization(const Config<BackendTag>& config)
-      : optimizer_(createOptimizer(config)) {
+  IncrementalMinimization(
+      const Config<BackendTag>& config,
+      const ControlVariableBackend<BackendTag>& control_backend)
+      : control_backend_(control_backend), optimizer_(createOptimizer(config)) {
     logger_.Info() << "IncrementalMinimization adapter constructed with "
                    << optimizer_->getName() << " algorithm";
     logger_.Info() << "Max iterations: " << optimizer_->getMaxIterations();
@@ -106,8 +108,8 @@ class IncrementalMinimization : public NonCopyable {
   /**
    * @brief Move assignment operator
    */
-  IncrementalMinimization& operator=(IncrementalMinimization&& other) noexcept =
-      default;
+  IncrementalMinimization& operator=(IncrementalMinimization&&) noexcept =
+      delete;
 
   /**
    * @brief Destructor
@@ -137,26 +139,26 @@ class IncrementalMinimization : public NonCopyable {
     std::vector<double> final_data(data_size);
 
     // Create cost and gradient function wrappers for the optimizer
-    auto cost_wrapper = [&cost_func, &initial_increment](
+    auto cost_wrapper = [this, &cost_func, &initial_increment](
                             const std::vector<double>& x) -> double {
       // Create increment and populate from flat vector
-      auto temp_increment = Increment<BackendTag>::createFromGeometry(
-          initial_increment.geometry());
+      auto temp_increment =
+          control_backend_.createIncrement(initial_increment.geometry());
       temp_increment.backend().setFromVector(x);
       return cost_func(temp_increment);
     };
 
     auto gradient_wrapper =
-        [&gradient_func, &initial_increment](
+        [this, &gradient_func, &initial_increment](
             const std::vector<double>& x) -> std::vector<double> {
       // Create increment and populate from flat vector
-      auto temp_increment = Increment<BackendTag>::createFromGeometry(
-          initial_increment.geometry());
+      auto temp_increment =
+          control_backend_.createIncrement(initial_increment.geometry());
       temp_increment.backend().setFromVector(x);
 
       // Create gradient increment
-      auto temp_gradient = Increment<BackendTag>::createFromGeometry(
-          initial_increment.geometry());
+      auto temp_gradient =
+          control_backend_.createIncrement(initial_increment.geometry());
       temp_gradient.zero();
 
       // Compute gradient
@@ -172,7 +174,7 @@ class IncrementalMinimization : public NonCopyable {
 
     // Convert final result back to increment
     final_increment =
-        Increment<BackendTag>::createFromGeometry(initial_increment.geometry());
+        control_backend_.createIncrement(initial_increment.geometry());
     final_increment.backend().setFromVector(final_data);
 
     // Convert convergence info to our format
@@ -247,6 +249,7 @@ class IncrementalMinimization : public NonCopyable {
     }
   }
 
+  const ControlVariableBackend<BackendTag>& control_backend_;
   std::unique_ptr<base::optimization::OptimizerBase> optimizer_;
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };

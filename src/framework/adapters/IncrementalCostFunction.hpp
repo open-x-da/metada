@@ -3,6 +3,7 @@
 #include "BackendTraits.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "ConfigConcepts.hpp"
+#include "ControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
 #include "Model.hpp"
@@ -61,12 +62,14 @@ class IncrementalCostFunction : public NonCopyable {
       const std::vector<Observation<BackendTag>>& observations,
       const std::vector<ObsOperator<BackendTag>>& obs_operators,
       Model<BackendTag>& model,
-      const BackgroundErrorCovariance<BackendTag>& bg_error_cov)
+      const BackgroundErrorCovariance<BackendTag>& bg_error_cov,
+      const ControlVariableBackend<BackendTag>& control_backend)
       : background_(background),
         observations_(observations),
         obs_operators_(obs_operators),
         model_(model),
         bg_error_cov_(bg_error_cov),
+        control_backend_(control_backend),
         time_windows_(observations.size()),
         var_type_(determineVariationalType(config)) {
     if (observations_.size() != obs_operators_.size()) {
@@ -88,10 +91,10 @@ class IncrementalCostFunction : public NonCopyable {
   IncrementalCostFunction(IncrementalCostFunction&& other) noexcept = default;
 
   /**
-   * @brief Move assignment operator
+   * @brief Move assignment operator (deleted due to reference members)
    */
-  IncrementalCostFunction& operator=(IncrementalCostFunction&& other) noexcept =
-      default;
+  IncrementalCostFunction& operator=(IncrementalCostFunction&&) noexcept =
+      delete;
 
   /**
    * @brief Evaluate the incremental cost function at increment δx
@@ -186,7 +189,7 @@ class IncrementalCostFunction : public NonCopyable {
    */
   void addIncrementToState(const Increment<BackendTag>& increment,
                            State<BackendTag>& state) const {
-    state += increment;
+    control_backend_.addIncrementToState(increment, state);
   }
 
   /**
@@ -394,6 +397,7 @@ class IncrementalCostFunction : public NonCopyable {
   const std::vector<ObsOperator<BackendTag>>& obs_operators_;
   Model<BackendTag>& model_;
   const BackgroundErrorCovariance<BackendTag>& bg_error_cov_;
+  const ControlVariableBackend<BackendTag>& control_backend_;
   size_t time_windows_;
   VariationalType var_type_;
   std::vector<std::vector<double>>

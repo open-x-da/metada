@@ -8,6 +8,7 @@ minimization_algorithm: "CG"  # L-BFGS, CG, or SteepestDescent
 max_iterations: 5
 cost_tolerance: 1.0e-6
 gradient_tolerance: 1.0e-6
+control_variable_backend: "identity"  # identity (grid%xa), wrfda-cv5 (future)
 
 # Output configuration
 output_base_file: "incremental_analysis"
