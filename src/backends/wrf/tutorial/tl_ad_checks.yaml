@@ -41,6 +41,13 @@ gradient_tolerance: 1e-6
 line_search_enabled: true
 preconditioning_enabled: false
 
+# Control-variable backend configuration
+control_variable_backend: "identity"  # identity (grid%xa), wrfda-cv5 (WRFDA control space)
+
+wrfda_control:
+  be_statistics: "D:/linux/metada/build/be.dat"
+  cv_options: 5  # Standard WRFDA CV5 control variables
+
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file
 geometry:
