@@ -42,7 +42,7 @@ line_search_enabled: true
 preconditioning_enabled: false
 
 # Control-variable backend configuration
-control_variable_backend: "identity"  # identity (grid%xa), wrfda-cv5 (WRFDA control space)
+control_variable_backend: "wrfda-cv5"  # identity (grid%xa), wrfda-cv5 (WRFDA control space)
 
 wrfda_control:
   be_statistics: "D:/linux/metada/build/be.dat"

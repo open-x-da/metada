@@ -102,6 +102,10 @@ class WRFDACV5ControlVariableBackend
                                       ControlVector& control) const override {
     ensureInitialized(increment.geometry());
     ensureControlVectorSize(control);
+    auto& logger = framework::Logger<BackendTag>::Instance();
+    logger.Info()
+        << "[WRFDA CV5] convertStateIncrementToControl begin (cv_size="
+        << cv_size_ << ")";
     increment.backend().syncToGrid();
     int error_code = 0;
     wrfda_control_backend_state_to_control(
@@ -112,6 +116,7 @@ class WRFDACV5ControlVariableBackend
           "wrfda_control_backend_state_to_control failed with error code " +
           std::to_string(error_code));
     }
+    logger.Info() << "[WRFDA CV5] convertStateIncrementToControl completed";
   }
 
   void convertControlToStateIncrement(const ControlVector& control,
@@ -121,6 +126,9 @@ class WRFDACV5ControlVariableBackend
       throw std::runtime_error(
           "Control vector size mismatch for WRFDA CV5 backend");
     }
+    framework::Logger<BackendTag>::Instance().Info()
+        << "[WRFDA CV5] convertControlToStateIncrement begin (cv_size="
+        << cv_size_ << ")";
     int error_code = 0;
     wrfda_control_backend_control_to_state(
         const_cast<void*>(increment.geometry().getGridPtr()), be_ptr_,
@@ -130,6 +138,8 @@ class WRFDACV5ControlVariableBackend
           "wrfda_control_backend_control_to_state failed with error code " +
           std::to_string(error_code));
     }
+    framework::Logger<BackendTag>::Instance().Info()
+        << "[WRFDA CV5] convertControlToStateIncrement completed";
     increment.backend().syncFromGrid();
   }
 
@@ -138,6 +148,9 @@ class WRFDACV5ControlVariableBackend
       ControlVector& control_gradient) const override {
     ensureInitialized(state_gradient.geometry());
     ensureControlVectorSize(control_gradient);
+    framework::Logger<BackendTag>::Instance().Info()
+        << "[WRFDA CV5] convertStateGradientToControl begin (cv_size="
+        << cv_size_ << ")";
     state_gradient.backend().syncToGrid();
     int error_code = 0;
     wrfda_control_backend_state_gradient_to_control(
@@ -149,6 +162,8 @@ class WRFDACV5ControlVariableBackend
           "code " +
           std::to_string(error_code));
     }
+    framework::Logger<BackendTag>::Instance().Info()
+        << "[WRFDA CV5] convertStateGradientToControl completed";
   }
 
   void convertControlGradientToState(
@@ -169,6 +184,8 @@ class WRFDACV5ControlVariableBackend
           "code " +
           std::to_string(error_code));
     }
+    framework::Logger<BackendTag>::Instance().Info()
+        << "[WRFDA CV5] convertControlGradientToState completed";
     state_gradient.backend().syncFromGrid();
   }
 

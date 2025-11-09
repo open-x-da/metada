@@ -1,5 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+#include <format>
+#include <iomanip>
+#include <numeric>
+#include <sstream>
+
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
 #include "Logger.hpp"
@@ -133,51 +140,82 @@ class IncrementalMinimization : public NonCopyable {
                    << optimizer_->getName();
 
     // Convert initial increment to std::vector<double>
-    std::vector<double> initial_data =
-        initial_increment.template getData<std::vector<double>>();
-    size_t data_size = initial_data.size();
-    std::vector<double> final_data(data_size);
+    auto initial_vector =
+        control_backend_.createControlVector(initial_increment.geometry());
+    control_backend_.convertStateIncrementToControl(initial_increment,
+                                                    initial_vector);
 
-    // Create cost and gradient function wrappers for the optimizer
+    std::vector<double> final_data(initial_vector.size());
+
     auto cost_wrapper = [this, &cost_func, &initial_increment](
                             const std::vector<double>& x) -> double {
-      // Create increment and populate from flat vector
+      auto control_vector = x;
       auto temp_increment =
           control_backend_.createIncrement(initial_increment.geometry());
-      temp_increment.backend().setFromVector(x);
+      control_backend_.convertControlToStateIncrement(control_vector,
+                                                      temp_increment);
       return cost_func(temp_increment);
     };
 
     auto gradient_wrapper =
         [this, &gradient_func, &initial_increment](
             const std::vector<double>& x) -> std::vector<double> {
-      // Create increment and populate from flat vector
+      auto control_vector = x;
       auto temp_increment =
           control_backend_.createIncrement(initial_increment.geometry());
-      temp_increment.backend().setFromVector(x);
+      control_backend_.convertControlToStateIncrement(control_vector,
+                                                      temp_increment);
 
-      // Create gradient increment
       auto temp_gradient =
           control_backend_.createIncrement(initial_increment.geometry());
       temp_gradient.zero();
 
-      // Compute gradient
       gradient_func(temp_increment, temp_gradient);
 
-      // Extract gradient data as vector
-      return temp_gradient.template getData<std::vector<double>>();
+      auto control_gradient =
+          control_backend_.createControlVector(initial_increment.geometry());
+      control_backend_.convertStateGradientToControl(temp_gradient,
+                                                     control_gradient);
+      return control_gradient;
     };
 
-    // Perform minimization
-    auto convergence_info = optimizer_->minimize(initial_data, cost_wrapper,
-                                                 gradient_wrapper, final_data);
+    const double initial_cost = cost_wrapper(initial_vector);
+    const auto initial_gradient = gradient_wrapper(initial_vector);
+    const double initial_gradient_norm = std::sqrt(
+        std::inner_product(initial_gradient.begin(), initial_gradient.end(),
+                           initial_gradient.begin(), 0.0));
 
-    // Convert final result back to increment
+    const std::string method_prefix =
+        "minimize_" + toLowerCopy(optimizer_->getName());
+    constexpr int prefix_width = 24;
+    constexpr int loop_width = 6;
+    constexpr int iter_width = 6;
+    constexpr int value_width = 27;
+
+    logSeparator(prefix_width, loop_width, iter_width, value_width);
+    logHeader(prefix_width, loop_width, iter_width, value_width);
+    logSeparator(prefix_width, loop_width, iter_width, value_width);
+    logIteration(method_prefix, prefix_width, loop_width, iter_width,
+                 value_width, 1, 0, initial_cost, initial_gradient_norm, 0.0);
+
+    optimizer_->setIterationLogger(
+        [this, method_prefix, prefix_width, loop_width, iter_width,
+         value_width](int iter, double /*previous_cost*/, double current_cost,
+                      double gradient_norm, double step_size) {
+          logIteration(method_prefix, prefix_width, loop_width, iter_width,
+                       value_width, 1, iter, current_cost, gradient_norm,
+                       step_size);
+        });
+
+    auto convergence_info = optimizer_->minimize(initial_vector, cost_wrapper,
+                                                 gradient_wrapper, final_data);
+    logSeparator(prefix_width, loop_width, iter_width, value_width);
+
     final_increment =
         control_backend_.createIncrement(initial_increment.geometry());
-    final_increment.backend().setFromVector(final_data);
+    control_backend_.convertControlToStateIncrement(final_data,
+                                                    final_increment);
 
-    // Convert convergence info to our format
     ConvergenceInfo result;
     result.converged = convergence_info.converged;
     result.iterations = convergence_info.iterations;
@@ -189,12 +227,6 @@ class IncrementalMinimization : public NonCopyable {
     result.convergence_reason = convergence_info.convergence_reason;
     result.cost_evaluations = convergence_info.cost_evaluations;
     result.gradient_evaluations = convergence_info.gradient_evaluations;
-
-    logger_.Info() << "Incremental minimization completed";
-    logger_.Info() << "Converged: " << (result.converged ? "Yes" : "No");
-    logger_.Info() << "Iterations: " << result.iterations;
-    logger_.Info() << "Cost reduction: " << result.cost_reduction;
-    logger_.Info() << "Final gradient norm: " << result.gradient_norm;
 
     return result;
   }
@@ -252,6 +284,41 @@ class IncrementalMinimization : public NonCopyable {
   const ControlVariableBackend<BackendTag>& control_backend_;
   std::unique_ptr<base::optimization::OptimizerBase> optimizer_;
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
+
+  static std::string toLowerCopy(std::string value) {
+    std::transform(
+        value.begin(), value.end(), value.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value;
+  }
+
+  static void logSeparator(int prefix_width, int loop_width, int iter_width,
+                           int value_width) {
+    const int total_width =
+        prefix_width + loop_width + iter_width + value_width * 3 + 1;
+    Logger<BackendTag>::Instance().Info() << std::string(total_width, '-');
+  }
+
+  static void logHeader(int prefix_width, int loop_width, int iter_width,
+                        int value_width) {
+    auto line =
+        std::format(" {0:<{1}}{2:>{3}}{4:>{5}}{6:>{7}}{8:>{9}}{10:>{11}}", "",
+                    prefix_width - 1, "Loop", loop_width, "Iter", iter_width,
+                    "Cost Function", value_width, "Gradient", value_width,
+                    "Step", value_width);
+    Logger<BackendTag>::Instance().Info() << line;
+  }
+
+  static void logIteration(const std::string& prefix, int prefix_width,
+                           int loop_width, int iter_width, int value_width,
+                           int loop, int iter, double cost, double gradient,
+                           double step) {
+    auto line = std::format(
+        " {0:<{1}}{2:>{3}}{4:>{5}}{6:>{7}.15e}{8:>{9}.15e}{10:>{11}.15e}",
+        prefix, prefix_width - 1, loop, loop_width, iter, iter_width, cost,
+        value_width, gradient, value_width, step, value_width);
+    Logger<BackendTag>::Instance().Info() << line;
+  }
 };
 
 }  // namespace metada::framework

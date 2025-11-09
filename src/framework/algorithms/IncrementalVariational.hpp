@@ -138,9 +138,6 @@ class IncrementalVariational {
    * diagnostics
    */
   AnalysisResults analyze() {
-    logger_.Info() << "Starting " << cost_function_.getVariationalTypeName()
-                   << " incremental analysis";
-
     std::string var_type = cost_function_.getVariationalTypeName();
 
     // Create cost and gradient function wrappers for the minimizer
@@ -190,15 +187,6 @@ class IncrementalVariational {
 
     // Compute cost breakdown
     computeCostBreakdown(results);
-
-    logger_.Info() << "Incremental variational analysis completed";
-    logger_.Info() << "Final cost: " << results.final_cost;
-    logger_.Info() << "Cost reduction: " << results.cost_reduction;
-    logger_.Info() << "Background cost: " << results.background_cost;
-    logger_.Info() << "Observation cost: " << results.observation_cost;
-    logger_.Info() << "Iterations: " << results.iterations;
-    logger_.Info() << "Converged: " << (results.converged ? "Yes" : "No");
-    logger_.Info() << "Convergence reason: " << results.convergence_reason;
 
     return results;
   }
