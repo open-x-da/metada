@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -98,6 +100,11 @@ int wrfda_extract_observations(const void* iv_ptr, const void* ob_ptr,
 
 // Initialize WRFDA variables for 3D-Var analysis
 void initialize_wrfda_3dvar();
+
+// Trace control helpers
+bool wrfda_trace_is_enabled(void);
+void wrfda_trace_initialize(void);
+void wrfda_trace_finalize(void);
 
 // Update all analysis increment fields in WRFDA grid%xa structure
 // Includes 16 3D fields and 2 2D fields

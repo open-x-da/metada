@@ -6,10 +6,14 @@
 
 #include "WRFConfigBridge.hpp"
 
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <system_error>
 
 namespace metada::backends::wrf {
+
+namespace fs = std::filesystem;
 
 // Initialize static member
 bool WRFConfigManager::wrfda_modules_initialized_ = false;
@@ -40,7 +44,9 @@ void WRFConfigManager::initializeWRFDAModules() {
 }
 
 WRFConfigManager::WRFConfigManager(int domain_id, bool allocate_domain)
-    : domain_id_(domain_id), domain_allocated_(false) {
+    : domain_id_(domain_id),
+      domain_allocated_(false),
+      trace_session_started_(false) {
   // Step 1: Initialize WRFDA modules (once per process)
   try {
     initializeWRFDAModules();
@@ -73,6 +79,22 @@ WRFConfigManager::WRFConfigManager(int domain_id, bool allocate_domain)
           std::to_string(error_code) + ". Check output above for details.");
     }
     std::cout << "WRFDA configuration validated successfully" << std::endl;
+
+    if (wrfda_trace_is_enabled()) {
+      std::cout
+          << "Trace output requested; ensuring ./trace directory exists..."
+          << std::endl;
+      std::error_code trace_ec;
+      fs::create_directories("trace", trace_ec);
+      if (trace_ec) {
+        throw std::runtime_error("Failed to create trace directory 'trace': " +
+                                 trace_ec.message());
+      }
+      wrfda_trace_initialize();
+      trace_session_started_ = true;
+      std::cout << "WRFDA tracing initialized (outputs under ./trace)"
+                << std::endl;
+    }
   } catch (const std::exception& e) {
     throw std::runtime_error(
         std::string("Failed to initialize WRFDA configuration: ") + e.what());
@@ -103,6 +125,13 @@ WRFConfigManager::WRFConfigManager(int domain_id, bool allocate_domain)
   initialized_ = true;
   std::cout << "WRFDA configuration initialized for domain " << domain_id_
             << std::endl;
+}
+
+WRFConfigManager::~WRFConfigManager() {
+  if (trace_session_started_) {
+    wrfda_trace_finalize();
+    trace_session_started_ = false;
+  }
 }
 
 void* WRFConfigManager::getConfigFlagsPtr() const {

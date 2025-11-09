@@ -19,7 +19,7 @@ module metada_wrfda_dispatch
   use da_control, only: sound, synop, pilot, satem, geoamv, polaramv, airep, gpspw, gpsref, &
                         metar, ships, ssmi_rv, ssmi_tb, ssmt1, ssmt2, qscat, profiler, buoy, &
                         bogus, pseudo, radar, radiance, airsr, sonde_sfc, mtgirs, tamdar, &
-                        tamdar_sfc, rain, gpseph, lightning, &
+                        tamdar_sfc, rain, gpseph, lightning, trace_use, &
                         sfc_assi_options, sfc_assi_options_1, trace_use_dull, &
                         var4d_run, num_fgat_time, missing_r, missing_data, num_ob_indexes, &
                         kts, kte, its, ite, jts, jte, Max_StHeight_Diff, kms, kme, &
@@ -38,6 +38,7 @@ module metada_wrfda_dispatch
   use da_tools, only: da_togrid, da_llxy_wrf, da_map_set, da_map_init
   use module_configure, only: grid_config_rec_type
   use da_minimisation, only: da_get_innov_vector
+  use da_tracing, only: da_trace_init, da_trace_entry, da_trace_exit, da_trace_report
 
   implicit none
   
@@ -56,6 +57,9 @@ module metada_wrfda_dispatch
   ! Allocated on first TL call, deallocated on cleanup
   type(y_type), pointer, save :: wrfda_y_tl => null()
   logical, save :: wrfda_y_tl_allocated = .false.
+
+  character(len=*), parameter :: TRACE_ROOT_NAME = "metada_driver"
+  logical, save :: trace_session_active = .false.
   
   ! Map projection information for WRFDA coordinate conversion
   ! Define projection constants
@@ -3787,6 +3791,38 @@ contains
     sfc_assi_options = sfc_assi_options_1
     
   end subroutine initialize_wrfda_3dvar
+
+  logical(c_bool) function wrfda_trace_is_enabled()              &
+      bind(C, name="wrfda_trace_is_enabled")
+    implicit none
+
+    wrfda_trace_is_enabled = trace_use
+  end function wrfda_trace_is_enabled
+
+  subroutine wrfda_trace_initialize() bind(C, name="wrfda_trace_initialize")
+    implicit none
+
+    if (.not. trace_use) return
+    if (trace_session_active) return
+
+    call da_trace_init
+    call da_trace_entry(TRACE_ROOT_NAME)
+    trace_session_active = .true.
+  end subroutine wrfda_trace_initialize
+
+  subroutine wrfda_trace_finalize() bind(C, name="wrfda_trace_finalize")
+    implicit none
+
+    if (.not. trace_session_active) return
+    if (.not. trace_use) then
+      trace_session_active = .false.
+      return
+    end if
+
+    call da_trace_exit(TRACE_ROOT_NAME)
+    call da_trace_report
+    trace_session_active = .false.
+  end subroutine wrfda_trace_finalize
   
 
   ! Initialize domain clock for WRFDA time management

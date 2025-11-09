@@ -93,6 +93,22 @@ void copy_config_to_da_control();
 void validate_wrfda_config(int* error_code);
 
 /**
+ * @brief Query whether tracing is enabled via namelist.trace_use
+ * @return bool True when trace_use=.true. in namelist configuration
+ */
+bool wrfda_trace_is_enabled(void);
+
+/**
+ * @brief Initialize WRFDA tracing subsystem if enabled
+ */
+void wrfda_trace_initialize(void);
+
+/**
+ * @brief Finalize WRFDA tracing subsystem and write reports
+ */
+void wrfda_trace_finalize(void);
+
+/**
  * @brief Convert model config to domain-specific grid config
  *
  * @details This function calls WRF's model_to_grid_config_rec() subroutine
@@ -323,7 +339,7 @@ class WRFConfigManager {
    *
    * @note WRFDA's head_grid persists and is not deallocated
    */
-  ~WRFConfigManager() = default;
+  ~WRFConfigManager();
 
   /**
    * @brief Get domain ID
@@ -390,6 +406,8 @@ class WRFConfigManager {
   int domain_id_;                  ///< Domain ID for this configuration
   bool initialized_ = false;       ///< Initialization status
   bool domain_allocated_ = false;  ///< Whether WRFDA domain was allocated
+  bool trace_session_started_ =
+      false;  ///< Whether tracing was initialized for this session
 
   /// Initialize WRFDA modules (called once globally)
   static void initializeWRFDAModules();
