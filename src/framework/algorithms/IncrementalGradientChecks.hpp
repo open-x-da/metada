@@ -100,8 +100,10 @@ bool checkIncrementalCostFunctionGradient(
   double relative_error = error / (std::abs(analytical_gradient_dot) + 1e-15);
 
   logger.Info() << "Gradient test results:";
-  logger.Info() << "  Analytical gradient (dot d): " << analytical_gradient_dot;
+  logger.Info() << "  Analytical gradient (dot d): " << std::setprecision(13)
+                << std::scientific << analytical_gradient_dot;
   logger.Info() << "  Finite difference gradient (dot d): "
+                << std::setprecision(13) << std::scientific
                 << finite_diff_gradient;
   logger.Info() << "  Absolute error: " << error;
   logger.Info() << "  Relative error: " << relative_error;
@@ -323,7 +325,8 @@ bool checkIncrementalObsOperatorTLAD(
   logger.Info() << "Incremental TL/AD check results:";
   logger.Info() << "  <H'dx, dy> = " << std::setprecision(13) << std::scientific
                 << total_a;
-  logger.Info() << "  <dx, H'^T dy> = " << total_b;
+  logger.Info() << "  <dx, H'^T dy> = " << std::setprecision(13)
+                << std::scientific << total_b;
   logger.Info() << "  Absolute error: " << error;
   logger.Info() << "  Relative error: " << relative_error;
   logger.Info() << "  Tolerance: " << tolerance;
