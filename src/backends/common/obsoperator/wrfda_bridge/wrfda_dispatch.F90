@@ -77,6 +77,7 @@ module metada_wrfda_dispatch
   ! Persistent y_type for weighted residual (jo_grad_y = -R^{-1} · residual)
   ! Computed by wrfda_compute_weighted_residual, used by wrfda_xtoy_adjoint_grid
   type(y_type), save :: persistent_jo_grad_y
+  logical, save :: persistent_jo_grad_allocated = .false.
   
 contains
 
@@ -266,11 +267,18 @@ contains
     call c_f_pointer(y_ptr, y)
     
     ! Deallocate previous gradient if exists
-    call da_deallocate_y(persistent_jo_grad_y)
+    if (persistent_jo_grad_allocated) then
+      call da_deallocate_y(persistent_jo_grad_y)
+      persistent_jo_grad_y%nlocal = 0
+      persistent_jo_grad_y%ntotal = 0
+      persistent_jo_grad_y%num_inst = 0
+      persistent_jo_grad_allocated = .false.
+    end if
     
     ! Allocate residual and gradient structures
     call da_allocate_y(iv, re)
     call da_allocate_y(iv, persistent_jo_grad_y)
+    persistent_jo_grad_allocated = .true.
     
     ! Step 1: WRFDA's proven residual calculation
     ! re = (O-B) - H(xa) for ALL observation types
@@ -4411,6 +4419,53 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     ob_ptr = c_loc(wrfda_ob)
     
   end function wrfda_read_and_allocate_observations
+
+  !> @brief Release observation structures allocated by wrfda_read_and_allocate_observations
+  !> @details Deallocates module-level y_type and iv_type storage using WRFDA
+  !>          helper routines so that subsequent experiments can re-read
+  !>          observations without leaking memory.
+  integer(c_int) function wrfda_release_observations() &
+      bind(C, name="wrfda_release_observations")
+    use da_define_structures, only: da_deallocate_y, da_deallocate_observations
+    implicit none
+
+    wrfda_release_observations = 0_c_int
+
+    if (.not. wrfda_y_tl_allocated .and. .not. wrfda_obs_allocated .and. &
+        .not. persistent_jo_grad_allocated) then
+      return
+    end if
+
+    ! Release tangent-linear y buffer if it was allocated
+    if (wrfda_y_tl_allocated .and. associated(wrfda_y_tl)) then
+      call da_deallocate_y(wrfda_y_tl)
+      deallocate(wrfda_y_tl)
+      nullify(wrfda_y_tl)
+      wrfda_y_tl_allocated = .false.
+    end if
+
+    ! Release persistent Jo gradient storage
+    if (persistent_jo_grad_allocated) then
+      call da_deallocate_y(persistent_jo_grad_y)
+      persistent_jo_grad_y%nlocal = 0
+      persistent_jo_grad_y%ntotal = 0
+      persistent_jo_grad_y%num_inst = 0
+      persistent_jo_grad_allocated = .false.
+    end if
+
+    ! Release main observation structures
+    if (wrfda_obs_allocated) then
+      call da_deallocate_y(wrfda_ob)
+      wrfda_ob%nlocal = 0
+      wrfda_ob%ntotal = 0
+      wrfda_ob%num_inst = 0
+      call da_deallocate_observations(wrfda_iv)
+      wrfda_iv%info(:)%nlocal = 0
+      wrfda_iv%info(:)%ntotal = 0
+      wrfda_obs_allocated = .false.
+    end if
+
+  end function wrfda_release_observations
 
   !> @brief Extract observation counts from WRFDA iv_type structure
   !> @details Returns the number of observations for each observation type

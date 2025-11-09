@@ -164,6 +164,13 @@ int wrfda_read_and_allocate_observations(void* grid_ptr,
                                          void** ob_ptr);
 
 /**
+ * @brief Release observation structures allocated by
+ * wrfda_read_and_allocate_observations.
+ * @return 0 on success, non-zero on error.
+ */
+int wrfda_release_observations(void);
+
+/**
  * @brief Get observation counts for all observation types
  * @param[in] iv_ptr Pointer to WRFDA iv_type structure
  * @param[out] obs_counts Array to receive counts (size: num_ob_indexes)

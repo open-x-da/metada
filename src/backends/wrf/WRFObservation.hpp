@@ -171,6 +171,14 @@ class WRFObservation {
   WRFObservation(WRFObservation&& other) noexcept = default;
   WRFObservation& operator=(WRFObservation&& other) noexcept = default;
 
+  ~WRFObservation() {
+    if (iv_type_data_ != nullptr || y_type_data_ != nullptr) {
+      (void)wrfda_release_observations();
+      iv_type_data_ = nullptr;
+      y_type_data_ = nullptr;
+    }
+  }
+
   /**
    * @brief Initialize observation data structures (framework requirement)
    * @details This is called by the framework. For WRFDA-based initialization,
