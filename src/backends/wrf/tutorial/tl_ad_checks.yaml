@@ -34,7 +34,7 @@ time_window: &time_window "±5m" # Time window around analysis time
 variational_type: "3DVAR"
 
 # Minimization configuration
-minimization_algorithm: lbfgs
+minimization_algorithm: "CG"  # L-BFGS, CG, or SteepestDescent
 max_iterations: 50
 tolerance: 1e-6
 gradient_tolerance: 1e-6
@@ -42,7 +42,7 @@ line_search_enabled: true
 preconditioning_enabled: false
 
 # Control-variable backend configuration
-control_variable_backend: "wrfda-cv5"  # identity (grid%xa), wrfda-cv5 (WRFDA control space)
+control_variable_backend: "identity"  # identity (grid%xa), wrfda-cv5 (WRFDA control space)
 
 wrfda_control:
   be_statistics: "D:/linux/metada/build/be.dat"

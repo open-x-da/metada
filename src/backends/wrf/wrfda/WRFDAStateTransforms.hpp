@@ -21,6 +21,7 @@ extern "C" {
  * @param error_code Output error code (0 = success)
  */
 void wrfda_transform_xtoxa(void* grid_ptr, int* error_code);
+void wrfda_transform_xtoxa_adj(void* grid_ptr, int* error_code);
 
 /**
  * @brief Fortran bridge to da_transfer_xatowrf
@@ -84,6 +85,31 @@ class WRFDAStateTransforms {
     if (error_code != 0) {
       throw std::runtime_error(
           "WRFDA da_transform_xtoxa failed with error code: " +
+          std::to_string(error_code) + getErrorMessage(error_code));
+    }
+  }
+
+  /**
+   * @brief Apply adjoint diagnostic transform to map xa → control space
+   * @details Calls WRFDA's da_transform_xtoxa_adj, which is the adjoint of
+   *          da_transform_xtoxa. This propagates sensitivities from diagnostic
+   *          fields (pressure, density, etc.) back to the control variables.
+   *
+   * @param grid_ptr Pointer to WRF grid structure
+   * @throws std::runtime_error if grid_ptr is null or the routine fails
+   */
+  static void transformXaAdjoint(void* grid_ptr) {
+    if (grid_ptr == nullptr) {
+      throw std::runtime_error(
+          "WRFDAStateTransforms::transformXaAdjoint: grid_ptr is null");
+    }
+
+    int error_code = 0;
+    wrfda_transform_xtoxa_adj(grid_ptr, &error_code);
+
+    if (error_code != 0) {
+      throw std::runtime_error(
+          "WRFDA da_transform_xtoxa_adj failed with error code: " +
           std::to_string(error_code) + getErrorMessage(error_code));
     }
   }

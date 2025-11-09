@@ -7,7 +7,7 @@ module wrfda_state_transforms_bridge
   use iso_c_binding
   use module_domain, only: domain
   use module_configure, only: grid_config_rec_type
-  use da_vtox_transforms, only: da_transform_xtoxa
+  use da_vtox_transforms, only: da_transform_xtoxa, da_transform_xtoxa_adj
   use da_transfer_model, only: da_transfer_xatowrf
   use da_wrfvar_io, only: da_update_firstguess
   implicit none
@@ -16,6 +16,7 @@ module wrfda_state_transforms_bridge
   public :: wrfda_transform_xtoxa_c
   public :: wrfda_transfer_xatowrf_c
   public :: wrfda_update_firstguess_c
+  public :: wrfda_transform_xtoxa_adj_c
 
 contains
 
@@ -60,6 +61,33 @@ contains
     call da_transform_xtoxa(grid)
 
   end subroutine wrfda_transform_xtoxa_c
+
+  !> @brief C-callable bridge to WRFDA's da_transform_xtoxa_adj
+  !> @details Applies the adjoint of the diagnostic transform, mapping derived
+  !>          fields (pressure, density, etc.) back to control-variable space.
+  !>
+  !> @param[in] grid_ptr C pointer to WRF grid (domain) structure
+  !> @param[out] error_code 0 = success, non-zero = error
+  subroutine wrfda_transform_xtoxa_adj_c(grid_ptr, error_code) &
+      bind(C, name="wrfda_transform_xtoxa_adj")
+    implicit none
+
+    type(c_ptr), value, intent(in) :: grid_ptr
+    integer(c_int), intent(out) :: error_code
+
+    type(domain), pointer :: grid
+
+    error_code = 0
+
+    if (.not. c_associated(grid_ptr)) then
+      error_code = 1
+      return
+    end if
+
+    call c_f_pointer(grid_ptr, grid)
+
+    call da_transform_xtoxa_adj(grid)
+  end subroutine wrfda_transform_xtoxa_adj_c
 
   !> @brief C-callable bridge to WRFDA's da_transfer_xatowrf
   !> @details Adds analysis increments to background state and updates all WRF

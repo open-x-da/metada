@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "WRFDAObsOperator_c_api.h"
+#include "wrfda/WRFDAStateTransforms.hpp"
 
 // Forward declarations for WRFDA structure accessors
 extern "C" {
@@ -234,6 +235,13 @@ class WRFObsOperator {
     // This writes the increment data to WRFDA's working memory
     increment.syncToGrid();
 
+    void* grid_ptr = wrfda_get_head_grid_ptr_();
+    if (!grid_ptr) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinear: WRFDA grid pointer is null");
+    }
+    wrfda::WRFDAStateTransforms::transformXToXa(grid_ptr);
+
     // Note: reference_state parameter is not used because WRF grid already
     // contains the state. Background state (grid%xb) is already set up during
     // the nonlinear apply() call in cost function initialization.
@@ -326,6 +334,8 @@ class WRFObsOperator {
                                std::to_string(rc));
     }
 
+    wrfda::WRFDAStateTransforms::transformXaAdjoint(grid_ptr);
+
     // Sync grid%xa back to increment's internal CV storage
     x_adjoint.syncFromGrid();
 
@@ -412,6 +422,7 @@ class WRFObsOperator {
     // Sync grid%xa back to increment's internal CV storage
     // WRFDA's adjoint has populated grid%xa with ALL fields (35+ fields)
     // using the complete workflow: residual → R^{-1} → adjoint H^T
+    wrfda::WRFDAStateTransforms::transformXaAdjoint(grid_ptr);
     x_adjoint.syncFromGrid();
 
     // WRFDA computes the mathematically correct observation gradient:
