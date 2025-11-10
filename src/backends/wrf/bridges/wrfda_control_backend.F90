@@ -9,13 +9,16 @@ module wrfda_control_backend_bridge
   use module_domain,        only : domain
   use module_configure,     only : grid_config_rec_type
   use da_define_structures, only : be_type, xbx_type,                       &
-                                   da_deallocate_background_errors
+                                   da_deallocate_background_errors,        &
+                                   da_initialize_cv
   use da_setup_structures,  only : da_setup_background_errors, da_setup_cv
   use da_transfer_model,    only : da_transfer_wrftoxb
   use da_vtox_transforms,   only : da_transform_vtox, da_transform_vtox_inv, &
                                    da_transform_vtox_adj
   use da_control,           only : cv_size
   implicit none
+
+  real, allocatable, save :: wrfda_control_scratch(:)
 
 contains
 
@@ -61,6 +64,18 @@ contains
     cv_size = be % cv % size
     cv_size_out = cv_size
     be_ptr      = c_loc(be)
+
+    if (cv_size > 0) then
+      if (allocated(wrfda_control_scratch)) then
+        if (size(wrfda_control_scratch) /= cv_size) then
+          deallocate(wrfda_control_scratch)
+        end if
+      end if
+      if (.not. allocated(wrfda_control_scratch)) then
+        allocate(wrfda_control_scratch(cv_size))
+      end if
+      call da_initialize_cv(cv_size, wrfda_control_scratch)
+    end if
   end subroutine wrfda_control_backend_setup
 
   !> @brief Release background-error structure allocated by setup
@@ -80,6 +95,10 @@ contains
     if (associated(be)) then
       call da_deallocate_background_errors(be)
       deallocate(be)
+    end if
+
+    if (allocated(wrfda_control_scratch)) then
+      deallocate(wrfda_control_scratch)
     end if
   end subroutine wrfda_control_backend_finalize
 
@@ -125,6 +144,9 @@ contains
     end if
 
     allocate(control_single(cv_size_in))
+    if (cv_size_in > 0) then
+      call da_initialize_cv(cv_size_in, control_single)
+    end if
     do i = 1, cv_size_in
       control_single(i) = real(control(i), kind(control_single(1)))
     end do
@@ -179,6 +201,9 @@ contains
     end if
 
     allocate(control_single(cv_size_out))
+    if (cv_size_out > 0) then
+      call da_initialize_cv(cv_size_out, control_single)
+    end if
     call da_transfer_wrftoxb(xbx, grid, config_flags)
     call da_transform_vtox_inv(grid, cv_size_out, xbx, be, grid%ep,           &
                                control_single, grid%vv, grid%vp)
@@ -234,7 +259,9 @@ contains
     end if
 
     allocate(control_single(cv_size_grad))
-    control_single = 0.0
+    if (cv_size_grad > 0) then
+      call da_initialize_cv(cv_size_grad, control_single)
+    end if
 
     call da_transfer_wrftoxb(xbx, grid, config_flags)
 
@@ -292,6 +319,9 @@ contains
     end if
 
     allocate(control_single(cv_size_grad))
+    if (cv_size_grad > 0) then
+      call da_initialize_cv(cv_size_grad, control_single)
+    end if
     do i = 1, cv_size_grad
       control_single(i) = real(control_gradient(i), kind(control_single(1)))
     end do
