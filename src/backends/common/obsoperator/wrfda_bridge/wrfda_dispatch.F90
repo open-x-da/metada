@@ -58,6 +58,10 @@ module metada_wrfda_dispatch
   type(y_type), pointer, save :: wrfda_y_tl => null()
   logical, save :: wrfda_y_tl_allocated = .false.
 
+  ! Persistent xbx structure required by control-vector transforms
+  type(xbx_type), save, target :: persistent_xbx
+  logical, save :: persistent_xbx_initialized = .false.
+
   character(len=*), parameter :: TRACE_ROOT_NAME = "metada_driver"
   logical, save :: trace_session_active = .false.
   
@@ -1776,7 +1780,7 @@ contains
       start_year, start_month, start_day, start_hour) &
       bind(C, name="wrfda_init_domain_from_wrf_fields")
     use da_transfer_model, only: da_transfer_wrftoxb
-    use da_define_structures, only: xbx_type
+    use da_setup_structures, only: da_setup_runconstants
     implicit none
     
     ! Grid dimensions
@@ -1806,7 +1810,7 @@ contains
     
     ! Local variables
     type(domain), pointer :: grid
-    type(xbx_type) :: xbx
+    type(xbx_type), pointer :: xbx
     type(grid_config_rec_type) :: config_flags
     integer :: i, j, k, m, idx, idx_3d, staggered_nz
     
@@ -1828,6 +1832,7 @@ contains
     end if
     
     staggered_nz = nz + 1
+    xbx => persistent_xbx
     
     ! Allocate all WRF fields needed by da_transfer_wrftoxb
     ! Note: We only allocate if not already allocated by WRFDA
@@ -1965,6 +1970,11 @@ contains
     ! Call da_transfer_wrftoxb to do all the proper initialization
     ! This computes all derived fields, diagnostics, etc.
     call da_transfer_wrftoxb(xbx, grid, config_flags)
+
+    if (.not. persistent_xbx_initialized) then
+      call da_setup_runconstants(grid, xbx)
+      persistent_xbx_initialized = .true.
+    end if
     
     wrfda_init_domain_from_wrf_fields = 0  ! Success
     
@@ -4047,6 +4057,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   use module_tiles, only: set_tiles
   use da_wrfvar_io, only: da_med_initialdata_input
   use da_transfer_model, only: da_setup_firstguess_wrf
+  use da_setup_structures, only: da_setup_runconstants
   use da_wrf_interfaces, only: wrf_message
   implicit none
   
@@ -4058,7 +4069,6 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   ! Local variables
   type(domain), pointer :: grid
   character(len=512) :: fg_filename
-  type(xbx_type) :: xbx
   type(grid_config_rec_type) :: config_flags
   integer :: i, max_len
   character(len=256) :: msg
@@ -4126,7 +4136,12 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   sfc_assi_options = sfc_assi_options_1
   
   ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
-  call da_setup_firstguess_wrf(xbx, head_grid, config_flags, .false.)
+  call da_setup_firstguess_wrf(persistent_xbx, head_grid, config_flags, .false.)
+
+  if (.not. persistent_xbx_initialized) then
+    call da_setup_runconstants(head_grid, persistent_xbx)
+    persistent_xbx_initialized = .true.
+  end if
   
   write(msg, '(A)') "WRFDA: First guess loaded successfully"
   call wrf_message(msg)
@@ -4609,14 +4624,13 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   function wrfda_transfer_wrftoxb() result(error_code) bind(C, name="wrfda_transfer_wrftoxb")
     use module_domain, only: head_grid, domain
     use module_configure, only: grid_config_rec_type
-    use da_define_structures, only: xbx_type
     use da_transfer_model, only: da_transfer_wrftoxb
+    use da_setup_structures, only: da_setup_runconstants
     implicit none
     
     integer(c_int) :: error_code
     type(domain), pointer :: grid
     type(grid_config_rec_type) :: config_flags
-    type(xbx_type) :: xbx
     
     error_code = 0_c_int
     
@@ -4635,7 +4649,12 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     ! Call WRFDA's da_transfer_wrftoxb to populate grid%xb from WRF fields
     ! This is the standard WRFDA workflow step that must happen before
     ! using observation operators
-    call da_transfer_wrftoxb(xbx, grid, config_flags)
+    call da_transfer_wrftoxb(persistent_xbx, grid, config_flags)
+
+    if (.not. persistent_xbx_initialized) then
+      call da_setup_runconstants(grid, persistent_xbx)
+      persistent_xbx_initialized = .true.
+    end if
     
   end function wrfda_transfer_wrftoxb
 
