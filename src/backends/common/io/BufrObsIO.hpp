@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -496,8 +497,18 @@ class BufrObsIO {
    * @note Current implementation is a placeholder
    */
   void writeBufrRecords(const std::vector<ObsRecord>& records) {
-    // In a real implementation, would encode each record into BUFR format
-    // using the appropriate BUFR API functions
+    if (records.empty()) {
+      return;
+    }
+
+    std::ostringstream message;
+    message << "Writing BUFR records is not implemented. Requested to write "
+            << records.size() << " record";
+    if (records.size() != 1) {
+      message << 's';
+    }
+    message << " to file '" << filename_ << "'.";
+    throw std::runtime_error(message.str());
   }
 
   ConfigBackend config_;

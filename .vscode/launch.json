@@ -181,6 +181,10 @@
             "preLaunchTask": "Prepare WRF Runtime Environment",
             "environment": [
                 {
+                    "name": "PATH",
+                    "value": "C:/msys64/mingw64/bin;C:/msys64/usr/bin;${env:PATH}"
+                },
+                {
                     "name": "GLOG_logtostderr",
                     "value": "1"
                 },
@@ -273,6 +277,10 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
             "environment": [
+                {
+                    "name": "PATH",
+                    "value": "C:/msys64/mingw64/bin;C:/msys64/usr/bin;${env:PATH}"
+                },
                 {
                     "name": "GLOG_logtostderr",
                     "value": "1"

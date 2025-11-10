@@ -455,6 +455,11 @@ class PrepBUFRObservation {
           }
         }
 
+        std::cout << "  Records processed: " << records_processed
+                  << " (filtered: " << records_filtered
+                  << "), levels processed: " << levels_processed
+                  << ", variables stored: " << variables_found << std::endl;
+
         // Count unique locations by grouping observations by location
         std::set<std::string> unique_locations;
         for (const auto& [var_name, var_indices] :

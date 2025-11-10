@@ -199,9 +199,8 @@ class IncrementalMinimization : public NonCopyable {
                  value_width, 1, 0, initial_cost, initial_gradient_norm, 0.0);
 
     optimizer_->setIterationLogger(
-        [this, method_prefix, prefix_width, loop_width, iter_width,
-         value_width](int iter, double /*previous_cost*/, double current_cost,
-                      double gradient_norm, double step_size) {
+        [method_prefix](int iter, double /*previous_cost*/, double current_cost,
+                        double gradient_norm, double step_size) {
           logIteration(method_prefix, prefix_width, loop_width, iter_width,
                        value_width, 1, iter, current_cost, gradient_norm,
                        step_size);

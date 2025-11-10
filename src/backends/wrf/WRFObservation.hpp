@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -528,8 +529,12 @@ class WRFObservation {
    * @param other Observation to add
    */
   void add(const WRFObservation& other) {
-    // TODO: Implement observation addition
-    throw std::runtime_error("Not implemented");
+    std::ostringstream message;
+    message << "Observation addition is not implemented. Current observation "
+            << "contains " << getTotalObservationCount()
+            << " values, operand contains " << other.getTotalObservationCount()
+            << '.';
+    throw std::runtime_error(message.str());
   }
 
   /**
@@ -537,8 +542,12 @@ class WRFObservation {
    * @param other Observation to subtract
    */
   void subtract(const WRFObservation& other) {
-    // TODO: Implement observation subtraction
-    throw std::runtime_error("Not implemented");
+    std::ostringstream message;
+    message << "Observation subtraction is not implemented. Current "
+            << "observation contains " << getTotalObservationCount()
+            << " values, operand contains " << other.getTotalObservationCount()
+            << '.';
+    throw std::runtime_error(message.str());
   }
 
   /**
@@ -546,8 +555,14 @@ class WRFObservation {
    * @param scalar Value to multiply by
    */
   void multiply(double scalar) {
-    // TODO: Implement scalar multiplication
-    throw std::runtime_error("Not implemented");
+    if (scalar == 1.0) {
+      return;
+    }
+
+    std::ostringstream message;
+    message << "Observation scaling by factor " << scalar
+            << " is not implemented.";
+    throw std::runtime_error(message.str());
   }
 
   /**
@@ -556,8 +571,12 @@ class WRFObservation {
    * @return True if equal, false otherwise
    */
   bool equals(const WRFObservation& other) const {
-    // TODO: Implement equality comparison
-    throw std::runtime_error("Not implemented");
+    std::ostringstream message;
+    message << "Observation equality comparison is not implemented. "
+            << "Current observation contains " << getTotalObservationCount()
+            << " values, operand contains " << other.getTotalObservationCount()
+            << '.';
+    throw std::runtime_error(message.str());
   }
 
   /**
@@ -697,8 +716,11 @@ class WRFObservation {
   std::vector<value_type> getObservationsInBox(double min_lat, double max_lat,
                                                double min_lon,
                                                double max_lon) const {
-    // TODO: Implement geographic filtering
-    throw std::runtime_error("Not implemented");
+    std::ostringstream message;
+    message << "Geographic filtering is not implemented for bounding box "
+            << '[' << min_lat << ", " << max_lat << "] x [" << min_lon << ", "
+            << max_lon << "].";
+    throw std::runtime_error(message.str());
   }
 
   /**
@@ -709,8 +731,10 @@ class WRFObservation {
    */
   std::vector<value_type> getObservationsInVerticalRange(
       double min_level, double max_level) const {
-    // TODO: Implement vertical filtering
-    throw std::runtime_error("Not implemented");
+    std::ostringstream message;
+    message << "Vertical filtering is not implemented for levels [" << min_level
+            << ", " << max_level << "].";
+    throw std::runtime_error(message.str());
   }
 
  private:
