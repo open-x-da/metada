@@ -7,21 +7,25 @@
 module wrfda_control_backend_bridge
   use iso_c_binding
   use module_domain,        only : domain
-  use module_configure,     only : grid_config_rec_type
   use da_define_structures, only : be_type, xbx_type,                       &
                                    da_deallocate_background_errors,        &
                                    da_initialize_cv
-  use da_setup_structures,  only : da_setup_background_errors, da_setup_cv,  &
-                                   da_setup_runconstants
-  use da_transfer_model,    only : da_transfer_wrftoxb
+  use da_setup_structures,  only : da_setup_background_errors, da_setup_cv
   use da_vtox_transforms,   only : da_transform_vtox, da_transform_vtox_inv, &
                                    da_transform_vtox_adj
   use da_control,           only : cv_size
   implicit none
 
   real, allocatable, save :: wrfda_control_scratch(:)
-  type(xbx_type), save :: backend_xbx
+  type(xbx_type), pointer, save :: backend_xbx => null()
   logical, save :: backend_xbx_initialized = .false.
+
+  interface
+    function wrfda_get_persistent_xbx() result(xbx_ptr) bind(C, name="wrfda_get_persistent_xbx")
+      use iso_c_binding
+      type(c_ptr) :: xbx_ptr
+    end function wrfda_get_persistent_xbx
+  end interface
 
 contains
 
@@ -59,6 +63,8 @@ contains
 
     call da_setup_background_errors(grid, be)
     call da_setup_cv(be)
+
+    call ensure_backend_xbx_ready()
 
     ! Total control-vector size following da_solve logic
     be % cv % size = be % cv % size_jb + be % cv % size_je + be % cv % size_jp + &
@@ -103,6 +109,11 @@ contains
     if (allocated(wrfda_control_scratch)) then
       deallocate(wrfda_control_scratch)
     end if
+
+    backend_xbx_initialized = .false.
+    if (associated(backend_xbx)) then
+      nullify(backend_xbx)
+    end if
   end subroutine wrfda_control_backend_finalize
 
   subroutine wrfda_control_backend_control_to_state(grid_ptr, be_ptr, control, &
@@ -122,7 +133,6 @@ contains
     type(domain), pointer :: grid
     type(be_type), pointer :: be
     real, allocatable :: control_single(:)
-    type(grid_config_rec_type) :: config_flags
     integer :: i
 
     error_code = 0
@@ -147,17 +157,11 @@ contains
 
     allocate(control_single(cv_size_in))
     if (cv_size_in > 0) then
-      call da_initialize_cv(cv_size_in, control_single)
+    call da_initialize_cv(cv_size_in, control_single)
     end if
     do i = 1, cv_size_in
       control_single(i) = real(control(i), kind(control_single(1)))
     end do
-
-    call da_transfer_wrftoxb(backend_xbx, grid, config_flags)
-    if (.not. backend_xbx_initialized) then
-      call da_setup_runconstants(grid, backend_xbx)
-      backend_xbx_initialized = .true.
-    end if
 
     call da_transform_vtox(grid, cv_size_in, backend_xbx, be, grid%ep,        &
                            control_single, grid%vv, grid%vp)
@@ -182,7 +186,6 @@ contains
     type(domain), pointer :: grid
     type(be_type), pointer :: be
     real, allocatable :: control_single(:)
-    type(grid_config_rec_type) :: config_flags
     integer :: i
 
     error_code = 0
@@ -209,12 +212,6 @@ contains
     if (cv_size_out > 0) then
       call da_initialize_cv(cv_size_out, control_single)
     end if
-    call da_transfer_wrftoxb(backend_xbx, grid, config_flags)
-    if (.not. backend_xbx_initialized) then
-      call da_setup_runconstants(grid, backend_xbx)
-      backend_xbx_initialized = .true.
-    end if
-
     call da_transform_vtox_inv(grid, cv_size_out, backend_xbx, be, grid%ep,   &
                                control_single, grid%vv, grid%vp)
 
@@ -244,7 +241,6 @@ contains
     type(domain), pointer :: grid
     type(be_type), pointer :: be
     real, allocatable :: control_single(:)
-    type(grid_config_rec_type) :: config_flags
     integer :: i
 
     error_code = 0
@@ -270,12 +266,6 @@ contains
     allocate(control_single(cv_size_grad))
     if (cv_size_grad > 0) then
       call da_initialize_cv(cv_size_grad, control_single)
-    end if
-
-    call da_transfer_wrftoxb(backend_xbx, grid, config_flags)
-    if (.not. backend_xbx_initialized) then
-      call da_setup_runconstants(grid, backend_xbx)
-      backend_xbx_initialized = .true.
     end if
 
     call da_transform_vtox_adj(grid, cv_size_grad, backend_xbx, be, grid%ep,  &
@@ -307,7 +297,6 @@ contains
     type(domain), pointer :: grid
     type(be_type), pointer :: be
     real, allocatable :: control_single(:)
-    type(grid_config_rec_type) :: config_flags
     integer :: i
 
     error_code = 0
@@ -338,17 +327,27 @@ contains
       control_single(i) = real(control_gradient(i), kind(control_single(1)))
     end do
 
-    call da_transfer_wrftoxb(backend_xbx, grid, config_flags)
-    if (.not. backend_xbx_initialized) then
-      call da_setup_runconstants(grid, backend_xbx)
-      backend_xbx_initialized = .true.
-    end if
-
     call da_transform_vtox(grid, cv_size_grad, backend_xbx, be, grid%ep,      &
                            control_single, grid%vv, grid%vp)
 
     deallocate(control_single)
   end subroutine wrfda_control_backend_control_gradient_to_state
+
+  subroutine ensure_backend_xbx_ready()
+    type(c_ptr) :: xbx_ptr
+
+    if (backend_xbx_initialized) then
+      return
+    end if
+
+    xbx_ptr = wrfda_get_persistent_xbx()
+    if (.not. c_associated(xbx_ptr)) then
+      return
+    end if
+
+    call c_f_pointer(xbx_ptr, backend_xbx)
+    backend_xbx_initialized = associated(backend_xbx)
+  end subroutine ensure_backend_xbx_ready
 
 end module wrfda_control_backend_bridge
 

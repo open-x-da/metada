@@ -4658,6 +4658,19 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     
   end function wrfda_transfer_wrftoxb
 
+  function wrfda_get_persistent_xbx() result(xbx_ptr) bind(C, name="wrfda_get_persistent_xbx")
+    use iso_c_binding
+    implicit none
+
+    type(c_ptr) :: xbx_ptr
+
+    if (.not. persistent_xbx_initialized) then
+      xbx_ptr = c_null_ptr
+    else
+      xbx_ptr = c_loc(persistent_xbx)
+    end if
+  end function wrfda_get_persistent_xbx
+
   !============================================================================
   ! State Operations - Zero Increment
   !============================================================================
