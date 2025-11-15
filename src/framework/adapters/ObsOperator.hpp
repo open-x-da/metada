@@ -25,7 +25,6 @@ template <typename BackendTag>
 class Observation;
 
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
 class State;
 
 /**

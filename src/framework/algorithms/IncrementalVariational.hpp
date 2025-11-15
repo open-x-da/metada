@@ -6,6 +6,7 @@
 
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
+#include "ControlVariable.hpp"
 #include "ControlVariableBackend.hpp"
 #include "ControlVariableBackendFactory.hpp"
 #include "Ensemble.hpp"
@@ -134,6 +135,11 @@ class IncrementalVariational {
   /**
    * @brief Perform incremental variational data assimilation analysis
    *
+   * @details This method performs the analysis by minimizing the cost function
+   * in control space. The minimization is performed over control variables v,
+   * which are then transformed to state-space increments δx for the final
+   * analysis.
+   *
    * @return Analysis results structure containing the optimized increment and
    * diagnostics
    */
@@ -141,32 +147,38 @@ class IncrementalVariational {
     std::string var_type = cost_function_.getVariationalTypeName();
 
     // Create cost and gradient function wrappers for the minimizer
-    auto cost_func = [this](const Increment<BackendTag>& increment) -> double {
-      return cost_function_.evaluate(increment);
+    // These now work in control space
+    auto cost_func =
+        [this](const ControlVariable<BackendTag>& control) -> double {
+      return cost_function_.evaluate(control);
     };
 
-    auto gradient_func = [this](const Increment<BackendTag>& increment,
-                                Increment<BackendTag>& gradient) -> void {
-      cost_function_.gradient(increment, gradient);
+    auto gradient_func = [this](const ControlVariable<BackendTag>& control,
+                                ControlVariable<BackendTag>& gradient) -> void {
+      cost_function_.gradient(control, gradient);
     };
 
-    // Start with zero increment as initial guess
-    auto initial_increment =
-        control_backend_->createIncrement(background_.geometry()->backend());
-    initial_increment.zero();
+    // Start with zero control variable as initial guess
+    auto initial_control = control_backend_->createControlVariable(
+        background_.geometry()->backend());
+    initial_control.zero();
 
-    // Evaluate initial cost (should be just background term)
-    double initial_cost = cost_func(initial_increment);
+    // Evaluate initial cost (should be zero for zero control variable)
+    double initial_cost = cost_func(initial_control);
     logger_.Info() << "Initial cost: " << initial_cost;
 
-    // Perform minimization over increments
+    // Perform minimization over control variables
+    auto final_control = control_backend_->createControlVariable(
+        background_.geometry()->backend());
+    auto convergence_info = minimizer_.minimize(initial_control, cost_func,
+                                                gradient_func, final_control);
+
+    // Transform final control variable to state-space increment: δx* = U v*
     auto final_increment =
         control_backend_->createIncrement(background_.geometry()->backend());
-    auto convergence_info = minimizer_.minimize(initial_increment, cost_func,
-                                                gradient_func, final_increment);
+    control_backend_->controlToIncrement(final_control, final_increment);
 
     // Create final analysis state: xa = xb + δx*
-    // Extract increment and add to background
     auto analysis_state = background_.clone();
     control_backend_->addIncrementToState(final_increment, analysis_state);
 
@@ -232,11 +244,13 @@ class IncrementalVariational {
   }
 
   /**
-   * @brief Create a control-variable increment compatible with the active
-   *        backend.
+   * @brief Create a control variable compatible with the active backend
+   *
+   * @return Newly created control variable
    */
-  Increment<BackendTag> createControlIncrement() const {
-    return control_backend_->createIncrement(background_.geometry()->backend());
+  ControlVariable<BackendTag> createControlVariable() const {
+    return control_backend_->createControlVariable(
+        background_.geometry()->backend());
   }
 
   /**
@@ -284,18 +298,18 @@ class IncrementalVariational {
   /**
    * @brief Perform gradient test to verify adjoint implementation
    *
-   * @param test_increment Increment around which to test the gradient
+   * @param test_control Control variable around which to test the gradient
    * @param tolerance Tolerance for the gradient test (default: 1e-6)
    * @return True if gradient test passes within tolerance
    */
-  bool performGradientTest(const Increment<BackendTag>& test_increment,
+  bool performGradientTest(const ControlVariable<BackendTag>& test_control,
                            double tolerance = 1e-6) const {
     logger_.Info() << "Performing gradient test for incremental variational "
                       "implementation";
 
     // Use the improved gradient check utility function
     bool test_passed = checkIncrementalCostFunctionGradient<BackendTag>(
-        cost_function_, test_increment, tolerance);
+        cost_function_, test_control, tolerance);
 
     return test_passed;
   }
@@ -371,14 +385,14 @@ class IncrementalVariational {
    * - Observation operator tangent linear/adjoint consistency check
    * - Observation operator tangent linear finite difference check
    *
-   * @param test_increment Increment around which to test the gradient
+   * @param test_control Control variable around which to test the gradient
    * @param tolerance Tolerance for all checks (default: 1e-6)
    * @param epsilons Set of perturbation sizes for FD checks (default: {1e-3,
    * 1e-4, 1e-5, 1e-6, 1e-7})
    * @return True if all verification checks pass within tolerance
    */
   bool performVerificationChecks(
-      const Increment<BackendTag>& test_increment, double tolerance = 1e-6,
+      const ControlVariable<BackendTag>& test_control, double tolerance = 1e-6,
       const std::vector<double>& epsilons = std::vector<double>{
           1e-3, 1e-4, 1e-5, 1e-6, 1e-7}) const {
     logger_.Info()
@@ -386,7 +400,7 @@ class IncrementalVariational {
            "variational implementation";
 
     // 1. Cost function gradient check
-    bool gradient_passed = performGradientTest(test_increment, tolerance);
+    bool gradient_passed = performGradientTest(test_control, tolerance);
 
     // 2. Observation operator checks
     bool obs_ops_passed = performObsOperatorChecks(tolerance, epsilons);

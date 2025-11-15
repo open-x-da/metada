@@ -4,81 +4,121 @@
 #include <string>
 #include <vector>
 
-#include "Increment.hpp"
-#include "NonCopyable.hpp"
-#include "State.hpp"
-
 namespace metada::framework {
 
+// Forward declarations - these will be properly defined in adapter headers
+template <typename BackendTag>
+class Increment;
+
+template <typename BackendTag>
+class ControlVariable;
+
+template <typename BackendTag>
+class State;
+
 /**
- * @brief Abstract interface describing control-variable backend behavior.
+ * @brief Abstract interface for control-variable backend operations
  *
- * @details Concrete implementations encapsulate how control vectors are stored,
- *          created, and mapped back to model space. This abstraction allows the
- *          incremental variational workflow to remain agnostic to the chosen
- *          control-variable representation (e.g., direct grid%xa or WRFDA CV5).
+ * @details In incremental variational data assimilation, the control variable v
+ * is the actual optimization variable, while the increment δx is in state
+ * space. The relationship between them is:
  *
- * @tparam BackendTag Backend tag satisfying framework concepts.
+ *   δx = U v        (forward transformation)
+ *   v^T = δx^T U^T  (adjoint transformation)
+ *
+ * where U is typically related to B^(1/2) (square root of background error
+ * covariance matrix). For example:
+ * - Identity backend: U = I, so v = δx (direct representation)
+ * - WRFDA CV5 backend: U involves balance relationships and vertical/horizontal
+ *   transforms
+ *
+ * This abstraction allows the incremental variational workflow to remain
+ * agnostic to the chosen control-variable representation.
+ *
+ * @tparam BackendTag Backend tag satisfying framework concepts
  */
 template <typename BackendTag>
-class ControlVariableBackend : public NonCopyable {
+class ControlVariableBackend {
  public:
   using IncrementType = Increment<BackendTag>;
+  using ControlVariableType = ControlVariable<BackendTag>;
   using StateType = State<BackendTag>;
-  using GeometryBackendType = typename IncrementType::GeometryBackendType;
-  using ControlVector = std::vector<double>;
 
   ControlVariableBackend() = default;
   virtual ~ControlVariableBackend() = default;
 
-  /**
-   * @brief Create a control increment matching the provided geometry.
-   */
-  virtual IncrementType createIncrement(
-      const GeometryBackendType& geometry) const = 0;
+  // Delete copy and move operations
+  ControlVariableBackend(const ControlVariableBackend&) = delete;
+  ControlVariableBackend& operator=(const ControlVariableBackend&) = delete;
+  ControlVariableBackend(ControlVariableBackend&&) = delete;
+  ControlVariableBackend& operator=(ControlVariableBackend&&) = delete;
 
   /**
-   * @brief Apply an increment to the provided state (xa = xb + δx).
-   */
-  virtual void addIncrementToState(const IncrementType& increment,
-                                   StateType& state) const = 0;
-
-  /**
-   * @brief Human-readable backend name.
+   * @brief Human-readable backend name
+   *
+   * @return Name of the control variable backend (e.g., "identity",
+   * "wrfda_cv5")
    */
   virtual std::string name() const = 0;
 
   /**
-   * @brief Create a control-vector container sized for the provided geometry.
+   * @brief Create a control variable from geometry
+   *
+   * @param geometry Geometry backend defining the domain
+   * @return Newly created control variable
    */
-  virtual ControlVector createControlVector(
-      const GeometryBackendType& geometry) const = 0;
+  virtual ControlVariableType createControlVariable(
+      const typename ControlVariableType::GeometryBackendType& geometry)
+      const = 0;
 
   /**
-   * @brief Convert a state-space increment to control-variable space.
+   * @brief Create an increment from geometry
+   *
+   * @param geometry Geometry backend defining the domain
+   * @return Newly created increment
    */
-  virtual void convertStateIncrementToControl(const IncrementType& increment,
-                                              ControlVector& control) const = 0;
+  virtual IncrementType createIncrement(
+      const typename IncrementType::GeometryBackendType& geometry) const = 0;
 
   /**
-   * @brief Convert control-variable data to a state-space increment.
+   * @brief Forward transformation: δx = U v
+   *
+   * @details Transform control variable to state-space increment. This is used
+   * during cost function evaluation to obtain the increment from the control
+   * variable.
+   *
+   * @param control Control variable in control space
+   * @param increment Output state-space increment (will be overwritten)
    */
-  virtual void convertControlToStateIncrement(
-      const ControlVector& control, IncrementType& increment) const = 0;
+  virtual void controlToIncrement(const ControlVariableType& control,
+                                  IncrementType& increment) const = 0;
 
   /**
-   * @brief Convert a state-space gradient to control-variable space.
+   * @brief Adjoint transformation: ∇_v J = U^T ∇_δx J
+   *
+   * @details Transform state-space gradient to control-space gradient. This is
+   * used during gradient computation to transform the gradient from state space
+   * to control space.
+   *
+   * @param state_gradient Gradient in state space (∇_δx J)
+   * @param control_gradient Output gradient in control space (∇_v J)
    */
-  virtual void convertStateGradientToControl(
+  virtual void incrementAdjointToControl(
       const IncrementType& state_gradient,
-      ControlVector& control_gradient) const = 0;
+      ControlVariableType& control_gradient) const = 0;
 
   /**
-   * @brief Convert a control-variable gradient to state-space.
+   * @brief Apply increment to state: xa = xb + δx
+   *
+   * @details Add a state-space increment to a state to produce the analysis
+   * state. This is used at the end of the minimization to compute the final
+   * analysis state from the background and the optimal increment.
+   *
+   * @param increment State-space increment δx
+   * @param state State to be updated (input: xb, output: xa = xb + δx)
    */
-  virtual void convertControlGradientToState(
-      const ControlVector& control_gradient,
-      IncrementType& state_gradient) const = 0;
+  virtual void addIncrementToState(const IncrementType& increment,
+                                   StateType& state) const = 0;
 };
 
 }  // namespace metada::framework

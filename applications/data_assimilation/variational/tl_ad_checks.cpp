@@ -165,16 +165,16 @@ int main(int argc, char** argv) {
           *control_backend);
       logger.Info() << "Incremental cost function initialized";
 
-      // Create a test increment
-      auto test_increment =
-          control_backend->createIncrement(state.geometry()->backend());
-      test_increment.randomize();
-      logger.Info() << "Test increment created and randomized";
+      // Create a test control variable for gradient check
+      auto test_control =
+          control_backend->createControlVariable(state.geometry()->backend());
+      test_control.randomize();
+      logger.Info() << "Test control variable created and randomized";
 
       // Check: Incremental Cost Function Gradient correctness
       bool incr_cost_func_gradient_passed =
           fwk::checkIncrementalCostFunctionGradient(
-              incremental_cost_function, test_increment, tl_ad_tolerance);
+              incremental_cost_function, test_control, tl_ad_tolerance);
 
       results.push_back(
           {"Incremental Cost Function Gradient", incr_cost_func_gradient_passed,

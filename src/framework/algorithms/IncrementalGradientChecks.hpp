@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "BackendTraits.hpp"
+#include "ControlVariable.hpp"
 #include "Increment.hpp"
 #include "IncrementalCostFunction.hpp"
 #include "Logger.hpp"
@@ -19,35 +20,36 @@ namespace metada::framework {
 
 /**
  * @brief Check the gradient of an incremental cost function using finite
- * differences
+ * differences (control-space formulation)
  *
  * @details This function verifies that the analytical gradient of the
- * incremental cost function matches the finite difference approximation. This
- * is crucial for ensuring the correctness of the adjoint implementation in
- * variational data assimilation.
+ * incremental cost function in control space matches the finite difference
+ * approximation. This is crucial for ensuring the correctness of the adjoint
+ * implementation in variational data assimilation.
  *
  * The test computes:
- * - Analytical gradient: ∇J(δx) computed by the cost function
- * - Finite difference gradient: [J(δx + ε*d) - J(δx - ε*d)] / (2*ε)
+ * - Analytical gradient: ∇_v J(v) computed by the cost function
+ * - Finite difference gradient: [J(v + ε*d) - J(v - ε*d)] / (2*ε)
  * - Relative error: ||∇J_analytical - ∇J_finite|| / ||∇J_analytical||
  *
  * @tparam BackendTag The backend tag type
  * @param cost_function The incremental cost function to test
- * @param test_increment The increment around which to test the gradient
+ * @param test_control The control variable around which to test the gradient
  * @param tolerance The tolerance for the gradient test (default: 1e-6)
  * @return True if the gradient test passes within tolerance
  */
 template <typename BackendTag>
 bool checkIncrementalCostFunctionGradient(
     const IncrementalCostFunction<BackendTag>& cost_function,
-    const Increment<BackendTag>& test_increment, double tolerance = 1e-6) {
+    const ControlVariable<BackendTag>& test_control, double tolerance = 1e-6) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
-  logger.Info() << "Starting incremental gradient test with tolerance: "
+  logger.Info() << "Starting incremental gradient test in control space with "
+                   "tolerance: "
                 << tolerance;
 
-  // Create a random direction for the finite difference test
-  auto direction = Increment<BackendTag>(test_increment.geometry());
+  // Create a random direction in control space for the finite difference test
+  auto direction = test_control;
   direction.randomize();
 
   // Normalize the direction
@@ -61,26 +63,26 @@ bool checkIncrementalCostFunctionGradient(
     if (!dir_data.empty()) {
       dir_data[0] = 1.0;
     }
+    direction.setFromVector(dir_data);
   }
 
-  // For incremental 3D-Var, compute gradient at ZERO increment
-  // This is the correct linearization point for incremental formulation
-  auto zero_increment = Increment<BackendTag>(test_increment.geometry());
-  zero_increment.zero();
+  // For incremental 3D-Var in control space, compute gradient at ZERO control
+  // variable. This is the correct linearization point for incremental
+  // formulation.
+  auto zero_control = test_control;
+  zero_control.zero();
 
-  auto analytical_gradient = Increment<BackendTag>(test_increment.geometry());
-  cost_function.gradient(zero_increment, analytical_gradient);
+  auto analytical_gradient = test_control;
+  cost_function.gradient(zero_control, analytical_gradient);
 
-  // Compute finite difference gradient around ZERO increment
+  // Compute finite difference gradient around ZERO control variable
   // Use larger epsilon for better numerical stability with nonlinear operators
   // Rule of thumb: epsilon ~ sqrt(machine_precision) * scale
   double epsilon = 1e-5;
 
-  // Create perturbed increments: 0 ± ε*d
-  auto perturbed_plus = Increment<BackendTag>(test_increment.geometry());
-  auto perturbed_minus = Increment<BackendTag>(test_increment.geometry());
-  perturbed_plus.zero();
-  perturbed_minus.zero();
+  // Create perturbed control variables: 0 ± ε*d
+  auto perturbed_plus = zero_control;
+  auto perturbed_minus = zero_control;
 
   // Perturb: (0 ± ε*d)
   perturbed_plus += direction * epsilon;
@@ -99,7 +101,7 @@ bool checkIncrementalCostFunctionGradient(
   double error = std::abs(analytical_gradient_dot - finite_diff_gradient);
   double relative_error = error / (std::abs(analytical_gradient_dot) + 1e-15);
 
-  logger.Info() << "Gradient test results:";
+  logger.Info() << "Gradient test results (control space):";
   logger.Info() << "  Analytical gradient (dot d): " << std::setprecision(13)
                 << std::scientific << analytical_gradient_dot;
   logger.Info() << "  Finite difference gradient (dot d): "

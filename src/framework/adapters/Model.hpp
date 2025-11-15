@@ -35,7 +35,6 @@ class Config;
  * @brief Forward declaration of State class
  */
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
 class State;
 
 /**

@@ -54,7 +54,6 @@ class Config;
  * @brief Forward declaration of Increment class
  */
 template <typename BackendTag>
-  requires IncrementBackendType<BackendTag>
 class Increment;
 
 /**
@@ -91,7 +90,6 @@ class Increment;
  * @see Increment
  */
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
 class State : private NonCopyable {
  public:
   using StateBackend = typename traits::BackendTraits<BackendTag>::StateBackend;

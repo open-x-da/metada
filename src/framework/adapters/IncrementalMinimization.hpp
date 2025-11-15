@@ -9,6 +9,8 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "ControlVariable.hpp"
+#include "ControlVariableBackend.hpp"
 #include "Logger.hpp"
 
 // Framework-independent optimizers
@@ -28,13 +30,15 @@ class Config;
  * @brief Framework adapter for incremental minimization algorithms
  *
  * @details This class bridges between the framework types
- * (Increment<BackendTag>) and the pure mathematical optimization algorithms in
- * base::optimization. It converts framework types to std::vector<double>, calls
- * the appropriate optimizer, and converts results back to framework types.
+ * (ControlVariable<BackendTag>) and the pure mathematical optimization
+ * algorithms in base::optimization. It converts framework types to
+ * std::vector<double>, calls the appropriate optimizer, and converts results
+ * back to framework types.
  *
- * The key difference from the regular Minimization class is that this works
- * with increments δx instead of total states x, implementing the incremental
- * variational formulation.
+ * The minimization is performed over control variables v, which are the actual
+ * optimization variables in incremental variational data assimilation. The
+ * control variables are transformed to state-space increments δx inside the
+ * cost function evaluation.
  *
  * @tparam BackendTag The backend tag type
  */
@@ -43,20 +47,21 @@ template <typename BackendTag>
 class IncrementalMinimization : public NonCopyable {
  public:
   /**
-   * @brief Cost function type definition for incremental formulation
+   * @brief Cost function type definition for control-space formulation
    *
-   * Function that takes an increment and returns the cost function value
+   * Function that takes a control variable and returns the cost function value
    */
-  using CostFunction = std::function<double(const Increment<BackendTag>&)>;
+  using CostFunction =
+      std::function<double(const ControlVariable<BackendTag>&)>;
 
   /**
-   * @brief Gradient function type definition for incremental formulation
+   * @brief Gradient function type definition for control-space formulation
    *
-   * Function that takes an increment and computes the gradient into an
-   * increment
+   * Function that takes a control variable and computes the gradient into
+   * another control variable
    */
-  using GradientFunction =
-      std::function<void(const Increment<BackendTag>&, Increment<BackendTag>&)>;
+  using GradientFunction = std::function<void(
+      const ControlVariable<BackendTag>&, ControlVariable<BackendTag>&)>;
 
   /**
    * @brief Convergence information structure
@@ -124,59 +129,52 @@ class IncrementalMinimization : public NonCopyable {
   ~IncrementalMinimization() = default;
 
   /**
-   * @brief Minimize the cost function over increments δx
+   * @brief Minimize the cost function over control variables v
    *
-   * @param initial_increment Initial guess for the increment δx₀
-   * @param cost_func Cost function J(δx)
-   * @param gradient_func Gradient function ∇J(δx)
-   * @param final_increment Output: final optimized increment δx*
+   * @param initial_control Initial guess for the control variable v₀
+   * @param cost_func Cost function J(v)
+   * @param gradient_func Gradient function ∇_v J
+   * @param final_control Output: final optimized control variable v*
    * @return Convergence information
    */
-  ConvergenceInfo minimize(const Increment<BackendTag>& initial_increment,
+  ConvergenceInfo minimize(const ControlVariable<BackendTag>& initial_control,
                            const CostFunction& cost_func,
                            const GradientFunction& gradient_func,
-                           Increment<BackendTag>& final_increment) const {
+                           ControlVariable<BackendTag>& final_control) const {
     logger_.Info() << "Starting incremental minimization with "
                    << optimizer_->getName();
 
-    // Convert initial increment to std::vector<double>
+    // Convert initial control variable to std::vector<double>
     auto initial_vector =
-        control_backend_.createControlVector(initial_increment.geometry());
-    control_backend_.convertStateIncrementToControl(initial_increment,
-                                                    initial_vector);
+        initial_control.template getData<std::vector<double>>();
 
     std::vector<double> final_data(initial_vector.size());
 
-    auto cost_wrapper = [this, &cost_func, &initial_increment](
+    // Cost function wrapper: converts std::vector<double> to ControlVariable
+    auto cost_wrapper = [this, &cost_func, &initial_control](
                             const std::vector<double>& x) -> double {
-      auto control_vector = x;
-      auto temp_increment =
-          control_backend_.createIncrement(initial_increment.geometry());
-      control_backend_.convertControlToStateIncrement(control_vector,
-                                                      temp_increment);
-      return cost_func(temp_increment);
+      auto temp_control =
+          control_backend_.createControlVariable(initial_control.geometry());
+      temp_control.setFromVector(x);
+      return cost_func(temp_control);
     };
 
+    // Gradient wrapper: converts std::vector<double> to ControlVariable for
+    // input and output
     auto gradient_wrapper =
-        [this, &gradient_func, &initial_increment](
+        [this, &gradient_func, &initial_control](
             const std::vector<double>& x) -> std::vector<double> {
-      auto control_vector = x;
-      auto temp_increment =
-          control_backend_.createIncrement(initial_increment.geometry());
-      control_backend_.convertControlToStateIncrement(control_vector,
-                                                      temp_increment);
+      auto temp_control =
+          control_backend_.createControlVariable(initial_control.geometry());
+      temp_control.setFromVector(x);
 
       auto temp_gradient =
-          control_backend_.createIncrement(initial_increment.geometry());
+          control_backend_.createControlVariable(initial_control.geometry());
       temp_gradient.zero();
 
-      gradient_func(temp_increment, temp_gradient);
+      gradient_func(temp_control, temp_gradient);
 
-      auto control_gradient =
-          control_backend_.createControlVector(initial_increment.geometry());
-      control_backend_.convertStateGradientToControl(temp_gradient,
-                                                     control_gradient);
-      return control_gradient;
+      return temp_gradient.template getData<std::vector<double>>();
     };
 
     const double initial_cost = cost_wrapper(initial_vector);
@@ -210,10 +208,10 @@ class IncrementalMinimization : public NonCopyable {
                                                  gradient_wrapper, final_data);
     logSeparator(prefix_width, loop_width, iter_width, value_width);
 
-    final_increment =
-        control_backend_.createIncrement(initial_increment.geometry());
-    control_backend_.convertControlToStateIncrement(final_data,
-                                                    final_increment);
+    // Convert final vector back to control variable
+    final_control =
+        control_backend_.createControlVariable(initial_control.geometry());
+    final_control.setFromVector(final_data);
 
     ConvergenceInfo result;
     result.converged = convergence_info.converged;

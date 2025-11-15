@@ -24,6 +24,7 @@
 #include "../backends/wrf/WRFGeometryIterator.hpp"
 #include "../backends/wrf/WRFState.hpp"
 #include "../backends/wrf/WRFIncrement.hpp"
+#include "../backends/wrf/WRFControlVariable.hpp"
 #include "../backends/wrf/WRFModel.hpp"
 #include "../backends/wrf/WRFBackgroundErrorCovariance.hpp"
 #include "../backends/wrf/WRFObservation.hpp"
@@ -84,6 +85,9 @@ struct BackendTraits<WRFBackendTag> {
   
   /** @brief WRF-specific increment backend implementation */
   using IncrementBackend = backends::wrf::WRFIncrement<ConfigBackend, GeometryBackend>;
+  
+  /** @brief WRF-specific control variable backend implementation */
+  using ControlVariableBackend = backends::wrf::WRFControlVariable<ConfigBackend, GeometryBackend>;
   
   /** @brief WRF-specific ensemble backend implementation (placeholder) */
   using EnsembleBackend = void; // TODO: Implement WRFEnsemble

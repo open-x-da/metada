@@ -19,7 +19,6 @@ template <typename BackendTag>
 class Config;
 
 template <typename BackendTag>
-  requires IncrementBackendType<BackendTag>
 class Increment;
 
 /**

@@ -12,7 +12,6 @@ template <typename BackendTag>
 class Geometry;
 
 template <typename BackendTag>
-  requires IncrementBackendType<BackendTag>
 class Increment {
  public:
   using IncrementBackendType =

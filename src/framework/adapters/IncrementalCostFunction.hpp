@@ -3,6 +3,7 @@
 #include "BackendTraits.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "ConfigConcepts.hpp"
+#include "ControlVariable.hpp"
 #include "ControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
@@ -97,17 +98,29 @@ class IncrementalCostFunction : public NonCopyable {
       delete;
 
   /**
-   * @brief Evaluate the incremental cost function at increment δx
+   * @brief Evaluate the incremental cost function at control variable v
    *
-   * @param increment Analysis increment δx
-   * @return Cost function value J(δx)
+   * @details The cost function in control space is:
+   *   J(v) = 1/2 ||v||² + 1/2 Σᵢ ||dᵢ - Hᵢ(δx(v))||²_Rᵢ
+   *
+   * where δx = U v is the transformation from control to state space.
+   *
+   * @param control Control variable v
+   * @return Cost function value J(v)
    */
-  double evaluate(const Increment<BackendTag>& increment) const {
+  double evaluate(const ControlVariable<BackendTag>& control) const {
     double total_cost = 0.0;
 
-    double bg_cost = 0.5 * bg_error_cov_.quadraticForm(increment);
+    // Background term in control space: 1/2 ||v||²
+    // (The B^(-1) is absorbed into the transformation U)
+    double bg_cost = 0.5 * control.dot(control);
     total_cost += bg_cost;
 
+    // Transform control variable to state-space increment: δx = U v
+    auto increment = control_backend_.createIncrement(control.geometry());
+    control_backend_.controlToIncrement(control, increment);
+
+    // Observation term: 1/2 Σᵢ ||dᵢ - Hᵢ(δx)||²_Rᵢ
     double obs_cost = 0.0;
     if (var_type_ == VariationalType::ThreeDVAR) {
       obs_cost = evaluateObservationCost3DVAR(increment);
@@ -123,25 +136,54 @@ class IncrementalCostFunction : public NonCopyable {
   }
 
   /**
-   * @brief Compute the gradient of the incremental cost function
+   * @brief Compute the gradient of the incremental cost function in control
+   * space
    *
-   * @param increment Current increment δx
-   * @param gradient Output gradient vector ∇J(δx)
+   * @details The gradient in control space is:
+   *   ∇_v J = v + U^T ∇_δx J_obs
+   *
+   * where:
+   * - v is the control variable
+   * - U^T is the adjoint transformation operator
+   * - ∇_δx J_obs is the gradient of the observation term w.r.t. increment
+   *
+   * @param control Current control variable v
+   * @param gradient Output gradient vector ∇_v J (in control space)
    */
-  void gradient(const Increment<BackendTag>& increment,
-                Increment<BackendTag>& gradient) const {
+  void gradient(const ControlVariable<BackendTag>& control,
+                ControlVariable<BackendTag>& gradient) const {
     gradient.zero();
 
-    auto bg_gradient = bg_error_cov_.applyInverse(increment);
-    gradient += bg_gradient;
+    // Background term gradient in control space: ∇_v J_b = v
+    // (The B^(-1) is absorbed into the transformation U)
+    gradient.axpy(1.0, control);
+
+    // Transform control variable to state-space increment: δx = U v
+    auto increment = control_backend_.createIncrement(control.geometry());
+    control_backend_.controlToIncrement(control, increment);
+
+    // Compute observation term gradient in state space
+    auto state_gradient = control_backend_.createIncrement(control.geometry());
+    state_gradient.zero();
 
     if (var_type_ == VariationalType::ThreeDVAR) {
-      computeObservationGradient3DVAR(increment, gradient);
+      computeObservationGradient3DVAR(increment, state_gradient);
     } else if (var_type_ == VariationalType::FGAT) {
-      computeObservationGradientFGAT(increment, gradient);
+      computeObservationGradientFGAT(increment, state_gradient);
     } else {
-      computeObservationGradient4DVAR(increment, gradient);
+      computeObservationGradient4DVAR(increment, state_gradient);
     }
+
+    // Transform state-space gradient to control-space gradient: ∇_v J_obs = U^T
+    // ∇_δx J_obs
+    auto control_gradient_obs =
+        control_backend_.createControlVariable(control.geometry());
+    control_gradient_obs.zero();
+    control_backend_.incrementAdjointToControl(state_gradient,
+                                               control_gradient_obs);
+
+    // Add observation term gradient to total gradient
+    gradient.axpy(1.0, control_gradient_obs);
   }
 
   /**

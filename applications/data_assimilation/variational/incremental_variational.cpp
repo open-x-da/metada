@@ -140,13 +140,13 @@ int main(int argc, char** argv) {
 
     // Optional: Perform gradient test if requested
     if (config.Get("perform_gradient_test").asBool()) {
-      // Create a small test increment
-      auto test_increment = incremental_variational.createControlIncrement();
-      test_increment.randomize();
-      test_increment *= 0.01;  // Small perturbation
+      // Create a small test control variable
+      auto test_control = incremental_variational.createControlVariable();
+      test_control.randomize();
+      test_control *= 0.01;  // Small perturbation
 
       bool gradient_test_passed =
-          incremental_variational.performGradientTest(test_increment);
+          incremental_variational.performGradientTest(test_control);
       logger.Info() << "Incremental gradient test "
                     << (gradient_test_passed ? "PASSED" : "FAILED");
     }
