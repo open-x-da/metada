@@ -690,6 +690,79 @@ contains
     wrfda_xtoy_adjoint_grid = 0_c_int
   end function wrfda_xtoy_adjoint_grid
 
+  !> @brief Control-space adjoint wrapper. Calls WRFDA's da_transform_vtoy_adj
+  !>        and packs the control vector (cv) into a linear array.
+  integer(c_int) function wrfda_vtoy_adjoint_control(grid_ptr, iv_ptr, control_gradient_out, control_size) &
+       bind(C, name="wrfda_vtoy_adjoint_control")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_int, c_double
+    use da_minimisation, only: da_transform_vtoy_adj
+    use da_define_structures, only: be_type, xbx_type, iv_type, y_type, &
+                                    vp_type,                           &
+                                    da_allocate_y, da_deallocate_y,    &
+                                    da_zero_vp_type
+    use module_configure, only: grid_config_rec_type
+    use module_domain, only: domain
+    use da_control, only: cv_size
+    implicit none
+    interface
+      function wrfda_control_backend_get_be_ptr() result(be_cptr) bind(C, name="wrfda_control_backend_get_be_ptr")
+        use iso_c_binding
+        type(c_ptr) :: be_cptr
+      end function wrfda_control_backend_get_be_ptr
+      function wrfda_get_persistent_xbx() result(xbx_ptr) bind(C, name="wrfda_get_persistent_xbx")
+        use iso_c_binding
+        type(c_ptr) :: xbx_ptr
+      end function wrfda_get_persistent_xbx
+    end interface
+    type(c_ptr), value :: grid_ptr, iv_ptr
+    real(c_double), intent(out) :: control_gradient_out(*)
+    integer(c_int), value :: control_size
+    type(domain), pointer :: grid
+    type(iv_type), pointer :: iv
+    type(be_type), pointer :: be
+    type(xbx_type), pointer :: xbx
+    type(grid_config_rec_type) :: config_flags
+    real, allocatable :: cv(:)
+    integer :: i
+
+    wrfda_vtoy_adjoint_control = 1_c_int
+
+    if (.not. c_associated(grid_ptr)) return
+    if (.not. c_associated(iv_ptr)) return
+
+    call c_f_pointer(grid_ptr, grid)
+    call c_f_pointer(iv_ptr, iv)
+    if (.not. associated(grid) .or. .not. associated(iv)) return
+
+    ! Fetch BE and XBX from backend/control setup
+    call c_f_pointer(wrfda_control_backend_get_be_ptr(), be)
+    call c_f_pointer(wrfda_get_persistent_xbx(), xbx)
+    if (.not. associated(be) .or. .not. associated(xbx)) return
+
+    if (control_size <= 0) return
+    ! Ensure output buffer can hold full CV5 size
+    if (cv_size <= 0) return
+    if (control_size < cv_size) return
+    allocate(cv(cv_size))
+    cv = 0.0
+    ! Zero domain control-variable work arrays
+    call da_zero_vp_type(grid%vp)
+    call da_zero_vp_type(grid%vv)
+
+    ! Perform control-space adjoint: fills cv(:)
+    call da_transform_vtoy_adj(cv_size, be, grid%ep, cv, iv, grid%vp, grid%vv, xbx, &
+                               persistent_jo_grad_y, grid, config_flags, .true.)
+
+    do i = 1, cv_size
+      control_gradient_out(i) = cv(i)
+    end do
+
+    deallocate(cv)
+    wrfda_vtoy_adjoint_control = 0_c_int
+  end function wrfda_vtoy_adjoint_control
+
+  ! (deprecated) wrfda_vtoy_adjoint_control removed for compatibility
+
   !> @brief Pure adjoint operator for TL/AD testing (without R^{-1} weighting)
   !> @details Takes raw dy values and applies H'^T directly without R^{-1} weighting.
   !>          Used for gradient checks: <H'dx, dy> = <dx, H'^T dy>

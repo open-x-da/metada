@@ -57,6 +57,18 @@ int wrfda_xtoy_adjoint_grid(const void* grid_ptr, const void* iv_ptr);
 int wrfda_xtoy_adjoint_pure(const void* grid_ptr, const void* iv_ptr,
                             const double* dy_values, int num_values);
 
+// Control-space adjoint entrypoint (if available in WRFDA build). Returns 0 on
+// success; non-zero if not available or failed. Callers should fall back to
+// state-adjoint + U^T when non-zero is returned.
+int wrfda_vtoy_adjoint_control(const void* grid_ptr, const void* iv_ptr,
+                               double* control_gradient_out, int control_size);
+
+// (deprecated note) When wrfda_vtoy_adjoint_control is unavailable, use
+// state-adjoint + U^T path instead.
+
+// Get current WRFDA CV5 control vector size
+int wrfda_control_backend_get_cv_size(void);
+
 // Enhanced function for constructing iv_type with detailed observation
 // information
 int wrfda_construct_iv_from_observations(

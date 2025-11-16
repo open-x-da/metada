@@ -141,7 +141,7 @@ class WRFDACV5ControlVariableBackend
    */
   void controlToIncrement(const ControlVariableType& control,
                           IncrementType& increment) const override {
-    auto* grid_ptr = control.geometry().getGridPtr();
+    auto* grid_ptr = increment.geometry().getGridPtr();
     if (grid_ptr == nullptr) {
       throw std::runtime_error(
           "WRFDACV5ControlVariableBackend::controlToIncrement: grid pointer is "

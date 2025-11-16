@@ -80,7 +80,17 @@ class ObsOperator : public NonCopyable {
   explicit ObsOperator(
       const Config<BackendTag>& config,
       const ControlVariableBackend<BackendTag>& control_backend)
-      : backend_(config.backend()), control_backend_(&control_backend) {
+      : backend_([&]() {
+          using CB = typename traits::BackendTraits<BackendTag>::ConfigBackend;
+          using B = ObsOperatorBackend;
+          const CB& cfg = config.backend();
+          if constexpr (requires { B{cfg, control_backend}; }) {
+            return B(cfg, control_backend);
+          } else {
+            return B(cfg);
+          }
+        }()),
+        control_backend_(&control_backend) {
     logger_.Info() << "ObsOperator constructed with control variable backend";
   }
 
@@ -166,10 +176,16 @@ class ObsOperator : public NonCopyable {
           config_map["required_obs_vars"] =
               framework::ConfigValue(required_obs_vars);
 
-          // Create and return backend with the augmented config map
+          // Create and return backend with the augmented config map, passing
+          // control backend if supported
           using CB = typename traits::BackendTraits<BackendTag>::ConfigBackend;
           CB cfg(config_map);
-          return ObsOperatorBackend(cfg);
+          using B = ObsOperatorBackend;
+          if constexpr (requires { B{cfg, control_backend}; }) {
+            return B(cfg, control_backend);
+          } else {
+            return B(cfg);
+          }
         }()),
         control_backend_(&control_backend) {
     logger_.Info()
@@ -418,20 +434,35 @@ ControlVariable<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
     const std::vector<double>& obs_adjoint,
     const State<BackendTag>& reference_state,
     const Observation<BackendTag>& obs) const {
-  // Apply adjoint in state space: ∇_δx = H^T(delta_y)
-  auto state_gradient =
-      control_backend_->createIncrement(reference_state.geometry()->backend());
-  state_gradient.zero();
-  backend_.applyAdjoint(obs_adjoint, reference_state.backend(),
-                        state_gradient.backend(), obs.backend());
+  // If backend provides a control-space adjoint that returns a control vector,
+  // delegate to it and wrap the backend result.
+  if constexpr (requires {
+                  backend_.applyAdjoint(obs_adjoint, reference_state.backend(),
+                                        obs.backend());
+                }) {
+    auto control_gradient_backend = backend_.applyAdjoint(
+        obs_adjoint, reference_state.backend(), obs.backend());
+    // Wrap backend control result into ControlVariable adapter
+    auto control_gradient = control_backend_->createControlVariable(
+        reference_state.geometry()->backend());
+    control_gradient.zero();
+    control_gradient.backend() = std::move(control_gradient_backend);
+    return control_gradient;
+  } else {
+    // Fallback: Apply adjoint in state space and transform to control space
+    auto state_gradient = control_backend_->createIncrement(
+        reference_state.geometry()->backend());
+    state_gradient.zero();
+    backend_.applyAdjoint(obs_adjoint, reference_state.backend(),
+                          state_gradient.backend(), obs.backend());
 
-  // Transform to control space: ∇_v = U^T ∇_δx
-  auto control_gradient = control_backend_->createControlVariable(
-      reference_state.geometry()->backend());
-  control_gradient.zero();
-  control_backend_->incrementAdjointToControl(state_gradient, control_gradient);
-
-  return control_gradient;
+    auto control_gradient = control_backend_->createControlVariable(
+        reference_state.geometry()->backend());
+    control_gradient.zero();
+    control_backend_->incrementAdjointToControl(state_gradient,
+                                                control_gradient);
+    return control_gradient;
+  }
 }
 
 }  // namespace metada::framework

@@ -19,6 +19,7 @@ module wrfda_control_backend_bridge
   real, allocatable, save :: wrfda_control_scratch(:)
   type(xbx_type), pointer, save :: backend_xbx => null()
   logical, save :: backend_xbx_initialized = .false.
+  type(be_type), pointer, save :: backend_be => null()
 
   interface
     function wrfda_get_persistent_xbx() result(xbx_ptr) bind(C, name="wrfda_get_persistent_xbx")
@@ -52,6 +53,7 @@ contains
     call c_f_pointer(grid_ptr, grid)
 
     allocate(be)
+    backend_be => be
 
     ! Reset control-variable bookkeeping before setup
     be % cv % size_jb = 0
@@ -114,7 +116,32 @@ contains
     if (associated(backend_xbx)) then
       nullify(backend_xbx)
     end if
+    if (associated(backend_be)) then
+      nullify(backend_be)
+    end if
   end subroutine wrfda_control_backend_finalize
+
+  !> @brief Return BE pointer saved during setup (for Fortran-side callers)
+  function wrfda_control_backend_get_be_ptr() result(be_cptr) bind(C, name="wrfda_control_backend_get_be_ptr")
+    use iso_c_binding, only : c_ptr, c_loc, c_null_ptr
+    type(c_ptr) :: be_cptr
+    if (associated(backend_be)) then
+      be_cptr = c_loc(backend_be)
+    else
+      be_cptr = c_null_ptr
+    end if
+  end function wrfda_control_backend_get_be_ptr
+
+  !> @brief Return current control vector size (CV5) from backend BE
+  integer(c_int) function wrfda_control_backend_get_cv_size() bind(C, name="wrfda_control_backend_get_cv_size")
+    use iso_c_binding, only : c_int
+    use da_control, only : cv_size
+    if (associated(backend_be)) then
+      wrfda_control_backend_get_cv_size = backend_be % cv % size
+    else
+      wrfda_control_backend_get_cv_size = cv_size
+    end if
+  end function wrfda_control_backend_get_cv_size
 
   subroutine wrfda_control_backend_control_to_state(grid_ptr, be_ptr, control, &
                                                    cv_size_in, error_code)      &

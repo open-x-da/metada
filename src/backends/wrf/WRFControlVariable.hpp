@@ -31,12 +31,29 @@ class WRFControlVariable {
   using GeometryType = GeometryBackend;
 
   /**
-   * @brief Constructor from geometry
+   * @brief Default constructor (no geometry dependency)
+   */
+  WRFControlVariable() : data_() {}
+
+  /**
+   * @brief Compatibility constructor that accepts geometry
    *
-   * @param geometry WRF geometry defining the domain
+   * @note Geometry is not used to size CV5 control vectors; it is stored
+   *       only for API compatibility and optional metric setup paths.
    */
   explicit WRFControlVariable(const GeometryBackend& geometry)
-      : geometry_(&geometry), data_(computeSize(geometry), 0.0) {}
+      : geometry_(&geometry), data_() {}
+
+  /**
+   * @brief Factory to create control variable from geometry
+   *
+   * @param geometry WRF geometry defining the domain
+   * @return Control variable with zero-sized storage (backend will resize)
+   */
+  static WRFControlVariable createFromGeometry(
+      const GeometryBackend& geometry) {
+    return WRFControlVariable(geometry);
+  }
 
   /**
    * @brief Set all elements to zero
@@ -147,11 +164,17 @@ class WRFControlVariable {
   }
 
   /**
-   * @brief Access to geometry
-   *
+   * @brief Access to geometry (if provided)
    * @return Const reference to geometry
+   * @throws std::runtime_error if geometry was not provided
    */
-  const GeometryBackend& geometry() const { return *geometry_; }
+  const GeometryBackend& geometry() const {
+    if (geometry_ == nullptr) {
+      throw std::runtime_error(
+          "WRFControlVariable: geometry() requested but not set");
+    }
+    return *geometry_;
+  }
 
   // Arithmetic operators
 
@@ -218,8 +241,8 @@ class WRFControlVariable {
     return total_size;
   }
 
-  const GeometryBackend* geometry_;  ///< Pointer to geometry
-  std::vector<double> data_;         ///< Control variable data
+  const GeometryBackend* geometry_ = nullptr;  ///< Optional geometry
+  std::vector<double> data_;                   ///< Control variable data
   void* metricGridPtr_ = nullptr;
   void* metricBePtr_ = nullptr;
   int metricCvSize_ = 0;
