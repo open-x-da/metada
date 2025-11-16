@@ -14,6 +14,7 @@ namespace metada::backends::gmock {
  * @tparam StateBackend Type of the state backend
  * @tparam ObsBackend Type of the observation backend
  * @tparam IncrementBackend Type of the increment backend
+ * @tparam ControlVariableBackend Type of the control variable backend
  *
  * This class provides mock methods for all observation operator operations:
  * - Initialization and configuration
@@ -24,7 +25,7 @@ namespace metada::backends::gmock {
  * observation operators.
  */
 template <typename ConfigBackend, typename StateBackend, typename ObsBackend,
-          typename IncrementBackend>
+          typename IncrementBackend, typename ControlVariableBackend>
 class MockObsOperator {
  public:
   /**
@@ -71,6 +72,14 @@ class MockObsOperator {
    * @param config Configuration backend reference
    */
   MockObsOperator(const ConfigBackend& config) : config_(config) {
+    initialize(config);
+  }
+  /**
+   * @brief Overload with control backend (ignored for mock)
+   */
+  MockObsOperator(const ConfigBackend& config,
+                  const ControlVariableBackend& control_backend)
+      : config_(config), control_backend_(&control_backend) {
     initialize(config);
   }
 
@@ -166,9 +175,13 @@ class MockObsOperator {
    */
   MOCK_METHOD(bool, isLinear, (), (const));
 
+  // No control-space methods needed for mock backend
+
  private:
   /** @brief Reference to the configuration backend */
   const ConfigBackend& config_;
+  /** @brief Pointer to control variable backend */
+  const ControlVariableBackend* control_backend_ = nullptr;
 };
 
 }  // namespace metada::backends::gmock

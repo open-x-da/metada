@@ -6,12 +6,12 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
-#include "Increment.hpp"
+#include "ControlVariable.hpp"
+#include "ControlVariableBackend.hpp"
 #include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObsOperatorConcepts.hpp"
 #include "ObservationConcepts.hpp"
-#include "StateConcepts.hpp"
 
 namespace metada::framework {
 
@@ -26,6 +26,9 @@ class Observation;
 
 template <typename BackendTag>
 class State;
+
+template <typename BackendTag>
+class ControlVariableBackend;
 
 /**
  * @brief Adapter class for observation operators in data assimilation systems
@@ -72,10 +75,13 @@ class ObsOperator : public NonCopyable {
    *
    * @tparam ConfigBackend The configuration backend type
    * @param config Configuration object containing initialization parameters
+   * @param control_backend Control variable backend for transformations
    */
-  explicit ObsOperator(const Config<BackendTag>& config)
-      : backend_(config.backend()) {
-    logger_.Info() << "ObsOperator constructed";
+  explicit ObsOperator(
+      const Config<BackendTag>& config,
+      const ControlVariableBackend<BackendTag>& control_backend)
+      : backend_(config.backend()), control_backend_(&control_backend) {
+    logger_.Info() << "ObsOperator constructed with control variable backend";
   }
 
   /**
@@ -89,9 +95,11 @@ class ObsOperator : public NonCopyable {
    *
    * @param config Configuration object containing initialization parameters
    * @param obs Observation object to derive required variables from
+   * @param control_backend Control variable backend for transformations
    */
   ObsOperator(const Config<BackendTag>& config,
-              const Observation<BackendTag>& obs)
+              const Observation<BackendTag>& obs,
+              const ControlVariableBackend<BackendTag>& control_backend)
       : backend_([&]() {
           // Extract observation types and variables
           const auto type_names = obs.getTypeNames();
@@ -159,10 +167,11 @@ class ObsOperator : public NonCopyable {
               framework::ConfigValue(required_obs_vars);
 
           // Create and return backend with the augmented config map
-          return ObsOperatorBackend(
-              typename traits::BackendTraits<BackendTag>::ConfigBackend(
-                  config_map));
-        }()) {
+          using CB = typename traits::BackendTraits<BackendTag>::ConfigBackend;
+          CB cfg(config_map);
+          return ObsOperatorBackend(cfg);
+        }()),
+        control_backend_(&control_backend) {
     logger_.Info()
         << "ObsOperator constructed with observation-derived configuration";
   }
@@ -176,7 +185,8 @@ class ObsOperator : public NonCopyable {
    * @param other The observation operator to move from
    */
   ObsOperator(ObsOperator&& other) noexcept
-      : backend_(std::move(other.backend_)) {}
+      : backend_(std::move(other.backend_)),
+        control_backend_(other.control_backend_) {}
 
   /**
    * @brief Move assignment operator
@@ -246,45 +256,57 @@ class ObsOperator : public NonCopyable {
   }
 
   /**
-   * @brief Apply tangent linear observation operator: H dx
+   * @brief Apply tangent linear observation operator in control space: H' U v
    *
-   * @details Applies the tangent linear of the observation operator to a state
-   * increment. This is used in variational data assimilation for computing the
-   * linearized observation operator around a reference trajectory.
+   * @details Applies the tangent linear of the observation operator to a
+   * control variable. This method delegates to the backend's control-space
+   * method, which handles the transformation from control space to state space
+   * internally.
    *
    * @tparam StateBackend The state backend type
    * @tparam ObsBackend The observation backend type
-   * @param state_increment State increment to transform
+   * @param control Control variable to transform
    * @param reference_state Reference state around which to linearize
    * @param obs Reference observations for context
-   * @return Vector containing the transformed increment in observation space
+   * @return Vector containing the transformed result in observation space
    * @throws std::runtime_error If the observation operator is not initialized
    */
   template <typename StateBackend, typename ObsBackend>
   std::vector<double> applyTangentLinear(
-      const Increment<StateBackend>& state_increment,
+      const ControlVariable<StateBackend>& control,
       const State<StateBackend>& reference_state,
       const Observation<ObsBackend>& obs) const {
+    // Transform control to state: δx = U v
+    auto increment = control_backend_->createIncrement(control.geometry());
+    control_backend_->controlToIncrement(control, increment);
+
+    // Apply tangent linear: H'(δx)
     return backend_.applyTangentLinear(
-        state_increment.backend(), reference_state.backend(), obs.backend());
+        increment.backend(), reference_state.backend(), obs.backend());
   }
 
   /**
-   * @brief Apply adjoint observation operator: H^T delta_y
+   * @brief Apply adjoint observation operator in control space: U^T H^T delta_y
    *
    * @details Applies the adjoint of the observation operator to an observation
-   * increment. This maps from observation space back to state space and is
-   * essential for computing gradients in variational data assimilation.
+   * increment and returns the result in control space. This method handles the
+   * transformation from state space to control space internally.
+   *
+   * Steps:
+   * 1. Apply adjoint: ∇_δx = H^T(delta_y)
+   * 2. Transform to control: ∇_v = U^T ∇_δx
+   * 3. Return result in control space
    *
    * @param obs_increment Observation space increment
    * @param reference_state Reference state around which the adjoint is computed
    * @param obs Observations to determine grid coordinates for adjoint mapping
-   * @return State increment containing the adjoint transformation result
+   * @return Control variable containing the adjoint transformation result
    * @throws std::runtime_error If the observation operator is not initialized
    */
-  Increment<BackendTag> applyAdjoint(const std::vector<double>& obs_increment,
-                                     const State<BackendTag>& reference_state,
-                                     const Observation<BackendTag>& obs) const;
+  ControlVariable<BackendTag> applyAdjoint(
+      const std::vector<double>& obs_increment,
+      const State<BackendTag>& reference_state,
+      const Observation<BackendTag>& obs) const;
 
   template <typename StateBackend, typename ObsBackend>
   bool hasNativeIncrementalCost(const State<StateBackend>& reference_state,
@@ -321,20 +343,24 @@ class ObsOperator : public NonCopyable {
   }
 
   /**
-   * @brief Apply pure adjoint observation operator without WRFDA-specific
-   *        residual logic
+   * @brief Apply pure adjoint observation operator in control space: U^T H'^T
+   * delta_y
    *
-   * @details When available, this calls the backend's direct adjoint routine
-   * that simply applies H'^T to the supplied observation-space vector. This is
-   * used when MetaDA manages the residual and R^{-1} weighting itself. If the
-   * backend does not provide a pure adjoint, the call falls back to the
-   * standard applyAdjoint implementation.
+   * @details This method delegates to the backend's control-space adjoint
+   * method, which handles the transformation between control and state space
+   * internally. For now, this is equivalent to applyAdjoint since backends
+   * handle both weighted and pure adjoints through the same interface.
    */
   template <typename StateBackend, typename ObsBackend>
-  Increment<BackendTag> applyAdjointPure(
+  ControlVariable<BackendTag> applyAdjointPure(
       const std::vector<double>& obs_increment,
       const State<StateBackend>& reference_state,
       const Observation<ObsBackend>& obs) const {
+    // Apply pure adjoint in state space if available; otherwise fallback
+    auto state_gradient = control_backend_->createIncrement(
+        reference_state.geometry()->backend());
+    state_gradient.zero();
+
     if constexpr (requires {
                     backend_.applyAdjointPure(obs_increment,
                                               reference_state.backend(),
@@ -342,13 +368,20 @@ class ObsOperator : public NonCopyable {
                   }) {
       auto backend_increment = backend_.applyAdjointPure(
           obs_increment, reference_state.backend(), obs.backend());
-      auto result = Increment<BackendTag>::createFromGeometry(
-          reference_state.geometry()->backend());
-      result.backend() = std::move(backend_increment);
-      return result;
+      state_gradient.backend() = std::move(backend_increment);
     } else {
-      return applyAdjoint(obs_increment, reference_state, obs);
+      backend_.applyAdjoint(obs_increment, reference_state.backend(),
+                            state_gradient.backend(), obs.backend());
     }
+
+    // Transform to control space: ∇_v = U^T ∇_δx
+    auto control_gradient = control_backend_->createControlVariable(
+        reference_state.geometry()->backend());
+    control_gradient.zero();
+    control_backend_->incrementAdjointToControl(state_gradient,
+                                                control_gradient);
+
+    return control_gradient;
   }
 
   /**
@@ -373,23 +406,32 @@ class ObsOperator : public NonCopyable {
 
  private:
   ObsOperatorBackend backend_; /**< Backend implementation */
+  const ControlVariableBackend<BackendTag>*
+      control_backend_; /**< Control variable backend for transformations */
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 
 // Implementation of applyAdjoint for ObsOperator
 template <typename BackendTag>
   requires ObsOperatorBackendType<BackendTag>
-Increment<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
+ControlVariable<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
     const std::vector<double>& obs_adjoint,
     const State<BackendTag>& reference_state,
     const Observation<BackendTag>& obs) const {
-  // Create an increment from geometry
-  auto x_adjoint = Increment<BackendTag>::createFromGeometry(
-      reference_state.geometry()->backend());
-  x_adjoint.zero();
+  // Apply adjoint in state space: ∇_δx = H^T(delta_y)
+  auto state_gradient =
+      control_backend_->createIncrement(reference_state.geometry()->backend());
+  state_gradient.zero();
   backend_.applyAdjoint(obs_adjoint, reference_state.backend(),
-                        x_adjoint.backend(), obs.backend());
-  return x_adjoint;
+                        state_gradient.backend(), obs.backend());
+
+  // Transform to control space: ∇_v = U^T ∇_δx
+  auto control_gradient = control_backend_->createControlVariable(
+      reference_state.geometry()->backend());
+  control_gradient.zero();
+  control_backend_->incrementAdjointToControl(state_gradient, control_gradient);
+
+  return control_gradient;
 }
 
 }  // namespace metada::framework

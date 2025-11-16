@@ -16,9 +16,11 @@
 
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
+#include "ControlVariableBackend.hpp"
 #include "CostFunction.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
 #include "MockBackendTraits.hpp"
@@ -77,12 +79,17 @@ class OperatorChecksTest : public ::testing::Test {
       std::vector<double> test_data = {1.0, 2.0, 3.0};
       state_->backend().setData(test_data);
 
+      // Create identity control variable backend for tests
+      control_backend_ = std::make_shared<
+          framework::IdentityControlVariableBackend<traits::MockBackendTag>>();
+
     } catch (const std::exception& e) {
       std::cerr << "Setup failed: " << e.what() << std::endl;
     }
   }
 
   void TearDown() override {
+    control_backend_.reset();
     state_.reset();
     obs_.reset();
     geometry_.reset();
@@ -95,6 +102,8 @@ class OperatorChecksTest : public ::testing::Test {
   std::unique_ptr<framework::Geometry<traits::MockBackendTag>> geometry_;
   std::unique_ptr<framework::State<traits::MockBackendTag>> state_;
   std::unique_ptr<framework::Observation<traits::MockBackendTag>> obs_;
+  std::shared_ptr<framework::ControlVariableBackend<traits::MockBackendTag>>
+      control_backend_;
 };
 
 /**
@@ -202,7 +211,8 @@ TEST_F(OperatorChecksTest, OperatorChecksInterface) {
 
   // Create concrete observation and obs operator objects
   auto obs1 = framework::Observation<traits::MockBackendTag>(*config_);
-  auto obs_op1 = framework::ObsOperator<traits::MockBackendTag>(*config_);
+  auto obs_op1 = framework::ObsOperator<traits::MockBackendTag>(
+      *config_, *control_backend_);
 
   observations.push_back(std::move(obs1));
   obs_operators.push_back(std::move(obs_op1));
@@ -242,7 +252,8 @@ TEST_F(OperatorChecksTest, CostFunctionInterface) {
 
     // Create concrete observation and obs operator objects
     auto obs1 = framework::Observation<traits::MockBackendTag>(*config_);
-    auto obs_op1 = framework::ObsOperator<traits::MockBackendTag>(*config_);
+    auto obs_op1 = framework::ObsOperator<traits::MockBackendTag>(
+        *config_, *control_backend_);
 
     observations.push_back(std::move(obs1));
     obs_operators.push_back(std::move(obs_op1));

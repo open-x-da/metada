@@ -18,9 +18,11 @@
 
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
+#include "ControlVariableBackend.hpp"
 #include "CostFunction.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
 #include "Model.hpp"
@@ -71,12 +73,17 @@ class ConcreteOperatorChecksTest : public ::testing::Test {
       obs_->backend().setObservations(obs_data);
       obs_->backend().setCovariance({1.0, 1.0});
 
+      // Create identity control variable backend for tests
+      control_backend_ =
+          std::make_shared<IdentityControlVariableBackend<BackendTag>>();
+
     } catch (const std::exception& e) {
       std::cerr << "Setup failed: " << e.what() << std::endl;
     }
   }
 
   void TearDown() override {
+    control_backend_.reset();
     state_.reset();
     obs_.reset();
     geometry_.reset();
@@ -89,6 +96,7 @@ class ConcreteOperatorChecksTest : public ::testing::Test {
   std::unique_ptr<Geometry<BackendTag>> geometry_;
   std::unique_ptr<State<BackendTag>> state_;
   std::unique_ptr<Observation<BackendTag>> obs_;
+  std::shared_ptr<ControlVariableBackend<BackendTag>> control_backend_;
 };
 
 /**
@@ -114,7 +122,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientCheck) {
   std::vector<ObsOperator<BackendTag>> obs_operators;
 
   auto obs1 = Observation<BackendTag>(*config_);
-  auto obs_op1 = ObsOperator<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_, *control_backend_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -168,7 +176,7 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorTLADCheck) {
 
   // Create observation operators
   std::vector<ObsOperator<BackendTag>> obs_operators;
-  auto obs_op = ObsOperator<BackendTag>(*config_);
+  auto obs_op = ObsOperator<BackendTag>(*config_, *control_backend_);
   obs_operators.push_back(std::move(obs_op));
 
   // Create observations
@@ -209,7 +217,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientConsistency) {
   std::vector<ObsOperator<BackendTag>> obs_operators;
 
   auto obs1 = Observation<BackendTag>(*config_);
-  auto obs_op1 = ObsOperator<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_, *control_backend_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -240,7 +248,7 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorLinearity) {
   }
 
   // Create observation operator
-  auto obs_op = ObsOperator<BackendTag>(*config_);
+  auto obs_op = ObsOperator<BackendTag>(*config_, *control_backend_);
 
   // Create two states
   auto state1 = State<BackendTag>(*config_, *geometry_);
@@ -291,7 +299,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientMultipleDirections) {
   std::vector<ObsOperator<BackendTag>> obs_operators;
 
   auto obs1 = Observation<BackendTag>(*config_);
-  auto obs_op1 = ObsOperator<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_, *control_backend_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -336,7 +344,7 @@ TEST_F(ConcreteOperatorChecksTest, CostFunctionGradientUnitDirections) {
   std::vector<ObsOperator<BackendTag>> obs_operators;
 
   auto obs1 = Observation<BackendTag>(*config_);
-  auto obs_op1 = ObsOperator<BackendTag>(*config_);
+  auto obs_op1 = ObsOperator<BackendTag>(*config_, *control_backend_);
 
   obs1.backend().setObservations({2.0, 3.5});
   obs1.backend().setCovariance({1.0, 1.0});
@@ -370,7 +378,7 @@ TEST_F(ConcreteOperatorChecksTest, ObsOperatorTangentLinearCheck) {
 
   // Create observation operators
   std::vector<ObsOperator<BackendTag>> obs_operators;
-  auto obs_op = ObsOperator<BackendTag>(*config_);
+  auto obs_op = ObsOperator<BackendTag>(*config_, *control_backend_);
   obs_operators.push_back(std::move(obs_op));
 
   // Create observations

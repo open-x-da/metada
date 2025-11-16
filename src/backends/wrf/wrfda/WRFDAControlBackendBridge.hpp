@@ -25,6 +25,10 @@ void wrfda_control_backend_control_gradient_to_state(void* grid_ptr,
                                                      const double* control_grad,
                                                      int cv_size_grad,
                                                      int* error_code);
+void wrfda_control_backend_control_dot(void* grid_ptr, void* be_ptr,
+                                       const double* control_a,
+                                       const double* control_b, int cv_size,
+                                       double* dot_value, int* error_code);
 }  // extern "C"
 
 class WRFDAControlBackendBridge {
@@ -78,7 +82,8 @@ class WRFDAControlBackendBridge {
 
   static void stateGradientToControl(void* grid_ptr, void* be_ptr,
                                      double* control_gradient, int cv_size) {
-    if (grid_ptr == nullptr || be_ptr == nullptr || control_gradient == nullptr) {
+    if (grid_ptr == nullptr || be_ptr == nullptr ||
+        control_gradient == nullptr) {
       throw std::runtime_error(
           "WRFDAControlBackendBridge::stateGradientToControl received null "
           "pointer");
@@ -97,7 +102,8 @@ class WRFDAControlBackendBridge {
   static void controlGradientToState(void* grid_ptr, void* be_ptr,
                                      const double* control_gradient,
                                      int cv_size) {
-    if (grid_ptr == nullptr || be_ptr == nullptr || control_gradient == nullptr) {
+    if (grid_ptr == nullptr || be_ptr == nullptr ||
+        control_gradient == nullptr) {
       throw std::runtime_error(
           "WRFDAControlBackendBridge::controlGradientToState received null "
           "pointer");
@@ -112,7 +118,26 @@ class WRFDAControlBackendBridge {
           std::to_string(error_code));
     }
   }
+
+  static double controlDot(void* grid_ptr, void* be_ptr,
+                           const double* control_a, const double* control_b,
+                           int cv_size) {
+    if (grid_ptr == nullptr || be_ptr == nullptr || control_a == nullptr ||
+        control_b == nullptr) {
+      throw std::runtime_error(
+          "WRFDAControlBackendBridge::controlDot received null pointer");
+    }
+    double dot_value = 0.0;
+    int error_code = 0;
+    wrfda_control_backend_control_dot(grid_ptr, be_ptr, control_a, control_b,
+                                      cv_size, &dot_value, &error_code);
+    if (error_code != 0) {
+      throw std::runtime_error(
+          "WRFDAControlBackendBridge::controlDot failed with error code " +
+          std::to_string(error_code));
+    }
+    return dot_value;
+  }
 };
 
 }  // namespace metada::backends::wrf::wrfda
-

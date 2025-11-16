@@ -116,21 +116,21 @@ class IncrementalCostFunction : public NonCopyable {
     double bg_cost = 0.5 * control.dot(control);
     total_cost += bg_cost;
 
-    // Transform control variable to state-space increment: δx = U v
-    auto increment = control_backend_.createIncrement(control.geometry());
-    control_backend_.controlToIncrement(control, increment);
-
-    // Observation term: 1/2 Σᵢ ||dᵢ - Hᵢ(δx)||²_Rᵢ
+    // Observation term: 1/2 Σᵢ ||dᵢ - Hᵢ(U v)||²_Rᵢ
+    // The observation cost methods work in control space
     double obs_cost = 0.0;
     if (var_type_ == VariationalType::ThreeDVAR) {
-      obs_cost = evaluateObservationCost3DVAR(increment);
+      obs_cost = evaluateObservationCost3DVAR(control);
     } else if (var_type_ == VariationalType::FGAT) {
-      obs_cost = evaluateObservationCostFGAT(increment);
+      obs_cost = evaluateObservationCostFGAT(control);
     } else {
-      obs_cost = evaluateObservationCost4DVAR(increment);
+      obs_cost = evaluateObservationCost4DVAR(control);
     }
 
     total_cost += obs_cost;
+
+    logger_.Info() << "Cost diagnostics: background=" << bg_cost
+                   << ", observation=" << obs_cost << ", total=" << total_cost;
 
     return total_cost;
   }
@@ -140,12 +140,14 @@ class IncrementalCostFunction : public NonCopyable {
    * space
    *
    * @details The gradient in control space is:
-   *   ∇_v J = v + U^T ∇_δx J_obs
+   *   ∇_v J = v + ∇_v J_obs
    *
    * where:
-   * - v is the control variable
-   * - U^T is the adjoint transformation operator
-   * - ∇_δx J_obs is the gradient of the observation term w.r.t. increment
+   * - v is the control variable (background term gradient)
+   * - ∇_v J_obs is the observation term gradient in control space
+   *
+   * All transformations between control and state space are handled internally
+   * by the observation gradient computation methods.
    *
    * @param control Current control variable v
    * @param gradient Output gradient vector ∇_v J (in control space)
@@ -155,35 +157,26 @@ class IncrementalCostFunction : public NonCopyable {
     gradient.zero();
 
     // Background term gradient in control space: ∇_v J_b = v
-    // (The B^(-1) is absorbed into the transformation U)
+    // (The B^(-1) is absorbed into the control variable transformation U)
     gradient.axpy(1.0, control);
 
-    // Transform control variable to state-space increment: δx = U v
-    auto increment = control_backend_.createIncrement(control.geometry());
-    control_backend_.controlToIncrement(control, increment);
-
-    // Compute observation term gradient in state space
-    auto state_gradient = control_backend_.createIncrement(control.geometry());
-    state_gradient.zero();
-
-    if (var_type_ == VariationalType::ThreeDVAR) {
-      computeObservationGradient3DVAR(increment, state_gradient);
-    } else if (var_type_ == VariationalType::FGAT) {
-      computeObservationGradientFGAT(increment, state_gradient);
-    } else {
-      computeObservationGradient4DVAR(increment, state_gradient);
-    }
-
-    // Transform state-space gradient to control-space gradient: ∇_v J_obs = U^T
-    // ∇_δx J_obs
+    // Compute observation term gradient directly in control space
     auto control_gradient_obs =
         control_backend_.createControlVariable(control.geometry());
     control_gradient_obs.zero();
-    control_backend_.incrementAdjointToControl(state_gradient,
-                                               control_gradient_obs);
+
+    if (var_type_ == VariationalType::ThreeDVAR) {
+      computeObservationGradient3DVAR(control, control_gradient_obs);
+    } else if (var_type_ == VariationalType::FGAT) {
+      computeObservationGradientFGAT(control, control_gradient_obs);
+    } else {
+      computeObservationGradient4DVAR(control, control_gradient_obs);
+    }
 
     // Add observation term gradient to total gradient
     gradient.axpy(1.0, control_gradient_obs);
+
+    logGradientDiagnostics(control, control_gradient_obs, gradient);
   }
 
   /**
@@ -290,15 +283,16 @@ class IncrementalCostFunction : public NonCopyable {
   }
 
   /**
-   * @brief Evaluate observation cost for 3DVAR (incremental form)
+   * @brief Evaluate observation cost for 3DVAR in control space
    */
   double evaluateObservationCost3DVAR(
-      const Increment<BackendTag>& increment) const {
+      const ControlVariable<BackendTag>& control) const {
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
+    // Apply tangent linear in control space: H' U v
     auto simulated_increment =
-        obs_op.applyTangentLinear(increment, background_, obs);
+        obs_op.applyTangentLinear(control, background_, obs);
 
     if (obs_op.hasNativeIncrementalCost(background_, obs)) {
       (void)simulated_increment;
@@ -315,18 +309,19 @@ class IncrementalCostFunction : public NonCopyable {
   }
 
   /**
-   * @brief Evaluate observation cost for FGAT (incremental form)
+   * @brief Evaluate observation cost for FGAT in control space
    */
   double evaluateObservationCostFGAT(
-      const Increment<BackendTag>& increment) const {
+      const ControlVariable<BackendTag>& control) const {
     double total_cost = 0.0;
 
     for (size_t i = 0; i < observations_.size(); ++i) {
       const auto& obs = observations_[i];
       const auto& obs_op = obs_operators_[i];
 
+      // Apply tangent linear in control space: H' U v
       auto simulated_increment =
-          obs_op.applyTangentLinear(increment, background_, obs);
+          obs_op.applyTangentLinear(control, background_, obs);
 
       auto residual = computeInnovation(innovations_[i], simulated_increment);
       auto weighted_residual = obs.applyInverseCovariance(residual);
@@ -339,66 +334,113 @@ class IncrementalCostFunction : public NonCopyable {
   }
 
   /**
-   * @brief Evaluate observation cost for 4DVAR (incremental form)
+   * @brief Evaluate observation cost for 4DVAR in control space
    */
   double evaluateObservationCost4DVAR(
-      const Increment<BackendTag>& increment) const {
-    return evaluateObservationCostFGAT(increment);
+      const ControlVariable<BackendTag>& control) const {
+    return evaluateObservationCostFGAT(control);
   }
 
   /**
-   * @brief Compute observation gradient for 3DVAR (incremental form)
+   * @brief Compute observation gradient for 3DVAR in control space
+   *
+   * @details Computes ∇_v J_obs directly in control space. The ObsOperator
+   * handles all internal transformations between control and state space.
+   *
+   * @param control Control variable v
+   * @param gradient Output gradient in control space
    */
-  void computeObservationGradient3DVAR(const Increment<BackendTag>& increment,
-                                       Increment<BackendTag>& gradient) const {
+  void computeObservationGradient3DVAR(
+      const ControlVariable<BackendTag>& control,
+      ControlVariable<BackendTag>& gradient) const {
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
+    // Apply tangent linear in control space: H' U v
     auto simulated_increment =
-        obs_op.applyTangentLinear(increment, background_, obs);
+        obs_op.applyTangentLinear(control, background_, obs);
 
     if (obs_op.hasNativeIncrementalCost(background_, obs)) {
       (void)simulated_increment;
       std::vector<double> empty;
-      auto adjoint_increment = obs_op.applyAdjoint(empty, background_, obs);
-      gradient += adjoint_increment;
-      return;
+      // Apply adjoint in control space: U^T H^T
+      auto control_gradient = obs_op.applyAdjoint(empty, background_, obs);
+      gradient += control_gradient;
+    } else {
+      auto residual = computeInnovation(innovations_[0], simulated_increment);
+      auto weighted_residual = obs.applyInverseCovariance(residual);
+      // Apply pure adjoint in control space: U^T H'^T
+      auto control_gradient =
+          obs_op.applyAdjointPure(weighted_residual, background_, obs);
+      gradient -= control_gradient;
     }
-
-    auto residual = computeInnovation(innovations_[0], simulated_increment);
-    auto weighted_residual = obs.applyInverseCovariance(residual);
-
-    auto adjoint_increment =
-        obs_op.applyAdjointPure(weighted_residual, background_, obs);
-    gradient -= adjoint_increment;
   }
 
   /**
-   * @brief Compute observation gradient for FGAT (incremental form)
+   * @brief Compute observation gradient for FGAT in control space
+   *
+   * @details Computes ∇_v J_obs for FGAT by accumulating gradients from all
+   * time windows. The ObsOperator handles all internal transformations.
+   *
+   * @param control Control variable v
+   * @param gradient Output gradient in control space
    */
-  void computeObservationGradientFGAT(const Increment<BackendTag>& increment,
-                                      Increment<BackendTag>& gradient) const {
+  void computeObservationGradientFGAT(
+      const ControlVariable<BackendTag>& control,
+      ControlVariable<BackendTag>& gradient) const {
     for (size_t i = 0; i < observations_.size(); ++i) {
       const auto& obs = observations_[i];
       const auto& obs_op = obs_operators_[i];
 
+      // Apply tangent linear in control space: H' U v
       auto simulated_increment =
-          obs_op.applyTangentLinear(increment, background_, obs);
+          obs_op.applyTangentLinear(control, background_, obs);
+
+      if (obs_op.hasNativeIncrementalCost(background_, obs)) {
+        (void)simulated_increment;
+        std::vector<double> empty;
+        // Apply adjoint in control space: U^T H^T
+        auto control_gradient = obs_op.applyAdjoint(empty, background_, obs);
+        gradient += control_gradient;
+        continue;
+      }
+
       auto residual = computeInnovation(innovations_[i], simulated_increment);
       auto weighted_residual = obs.applyInverseCovariance(residual);
 
-      auto adjoint_increment =
+      // Apply pure adjoint in control space: U^T H'^T
+      auto control_gradient =
           obs_op.applyAdjointPure(weighted_residual, background_, obs);
-      gradient -= adjoint_increment;
+      gradient -= control_gradient;
     }
   }
 
   /**
-   * @brief Compute observation gradient for 4DVAR (incremental form)
+   * @brief Compute observation gradient for 4DVAR in control space
+   *
+   * @details For now, 4DVAR uses the same implementation as FGAT.
+   * Full 4DVAR would require model adjoint integration.
+   *
+   * @param control Control variable v
+   * @param gradient Output gradient in control space
    */
-  void computeObservationGradient4DVAR(const Increment<BackendTag>& increment,
-                                       Increment<BackendTag>& gradient) const {
-    computeObservationGradientFGAT(increment, gradient);
+  void computeObservationGradient4DVAR(
+      const ControlVariable<BackendTag>& control,
+      ControlVariable<BackendTag>& gradient) const {
+    computeObservationGradientFGAT(control, gradient);
+  }
+
+  void logGradientDiagnostics(
+      const ControlVariable<BackendTag>& control,
+      const ControlVariable<BackendTag>& control_obs_gradient,
+      const ControlVariable<BackendTag>& total_gradient) const {
+    const double control_norm = control.norm();
+    const double control_obs_norm = control_obs_gradient.norm();
+    const double total_norm = total_gradient.norm();
+
+    logger_.Info() << "Gradient diagnostics: |v|=" << control_norm
+                   << ", |grad_obs_control|=" << control_obs_norm
+                   << ", |grad_total|=" << total_norm;
   }
 
   /**

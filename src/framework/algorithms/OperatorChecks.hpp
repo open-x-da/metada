@@ -7,7 +7,10 @@
 #include <numeric>
 #include <vector>
 
+#include "ControlVariable.hpp"
+#include "ControlVariableBackend.hpp"
 #include "CostFunction.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
 #include "ObsOperator.hpp"
@@ -60,10 +63,12 @@ bool checkObsOperatorTLAD(
     return false;
   }
 
-  // 1. Create random state increment dx and obs increment dy
-  auto dx =
-      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
-  dx.randomize();
+  // 1. Create random control variable and obs increment dy
+  // Use identity backend for these checks (control = increment)
+  IdentityControlVariableBackend<BackendTag> identity_backend;
+  auto control_var =
+      identity_backend.createControlVariable(state.geometry()->backend());
+  control_var.randomize();
 
   // Create observation increments for all observations
   std::vector<std::vector<double>> dy_vectors;
@@ -76,16 +81,17 @@ bool checkObsOperatorTLAD(
   // 2. Apply tangent linear: H dx for all operators
   std::vector<std::vector<double>> Hdx_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto Hdx = obs_operators[i].applyTangentLinear(dx, state, observations[i]);
+    auto Hdx = obs_operators[i].applyTangentLinear(control_var, state,
+                                                   observations[i]);
     Hdx_vectors.push_back(std::move(Hdx));
   }
 
   // 3. Apply adjoint: H^T dy for all operators
-  std::vector<Increment<BackendTag>> HTdy_increments;
+  std::vector<ControlVariable<BackendTag>> HTdy_controls;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
     auto HTdy =
         obs_operators[i].applyAdjoint(dy_vectors[i], state, observations[i]);
-    HTdy_increments.push_back(std::move(HTdy));
+    HTdy_controls.push_back(std::move(HTdy));
   }
 
   // 4. Compute inner products for all operators
@@ -93,7 +99,7 @@ bool checkObsOperatorTLAD(
   for (size_t i = 0; i < obs_operators.size(); ++i) {
     double a = std::inner_product(Hdx_vectors[i].begin(), Hdx_vectors[i].end(),
                                   dy_vectors[i].begin(), 0.0);
-    double b = dx.dot(HTdy_increments[i]);
+    double b = control_var.dot(HTdy_controls[i]);
     total_a += a;
     total_b += b;
   }
@@ -164,16 +170,22 @@ bool checkObsOperatorTangentLinear(
   std::vector<double> used_epsilons;
   std::vector<double> convergence_rates;
 
-  // 1. Create random state increment
-  auto dx =
-      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
-  dx.randomize();
+  // 1. Create random control variable
+  // Use identity backend for these checks (control = increment)
+  IdentityControlVariableBackend<BackendTag> identity_backend;
+  auto control_var =
+      identity_backend.createControlVariable(state.geometry()->backend());
+  control_var.randomize();
+
+  // Also create increment for state perturbation
+  auto dx = identity_backend.createIncrement(state.geometry()->backend());
+  identity_backend.controlToIncrement(control_var, dx);
 
   // 2. Apply tangent linear: H dx for all operators
   std::vector<std::vector<double>> Hdx_tl_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto Hdx_tl =
-        obs_operators[i].applyTangentLinear(dx, state, observations[i]);
+    auto Hdx_tl = obs_operators[i].applyTangentLinear(control_var, state,
+                                                      observations[i]);
     Hdx_tl_vectors.push_back(std::move(Hdx_tl));
   }
 

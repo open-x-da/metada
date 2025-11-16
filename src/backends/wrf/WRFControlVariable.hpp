@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "WRFGeometry.hpp"
+#include "wrfda/WRFDAControlBackendBridge.hpp"
 
 namespace metada::backends::wrf {
 
@@ -78,6 +79,11 @@ class WRFControlVariable {
     if (data_.size() != other.data_.size()) {
       throw std::runtime_error("WRFControlVariable::dot: size mismatch");
     }
+    if (hasMetricContext_ && other.hasMetricContext_) {
+      return wrfda::WRFDAControlBackendBridge::controlDot(
+          metricGridPtr_, metricBePtr_, data_.data(), other.data_.data(),
+          metricCvSize_);
+    }
     double result = 0.0;
     for (size_t i = 0; i < data_.size(); ++i) {
       result += data_[i] * other.data_[i];
@@ -124,6 +130,21 @@ class WRFControlVariable {
    * @param new_size Desired storage size.
    */
   void resize(size_t new_size) { data_.assign(new_size, 0.0); }
+
+  /**
+   * @brief Configure metric context for WRFDA CV5 inner products.
+   *
+   * @param grid_ptr Pointer to WRFDA domain (grid)
+   * @param be_ptr Pointer to background error structure
+   * @param cv_size Control vector size managed by WRFDA
+   */
+  void setMetricContext(void* grid_ptr, void* be_ptr, int cv_size) {
+    metricGridPtr_ = grid_ptr;
+    metricBePtr_ = be_ptr;
+    metricCvSize_ = cv_size;
+    hasMetricContext_ = (metricGridPtr_ != nullptr && metricBePtr_ != nullptr &&
+                         metricCvSize_ > 0);
+  }
 
   /**
    * @brief Access to geometry
@@ -199,6 +220,10 @@ class WRFControlVariable {
 
   const GeometryBackend* geometry_;  ///< Pointer to geometry
   std::vector<double> data_;         ///< Control variable data
+  void* metricGridPtr_ = nullptr;
+  void* metricBePtr_ = nullptr;
+  int metricCvSize_ = 0;
+  bool hasMetricContext_ = false;
 };
 
 }  // namespace metada::backends::wrf

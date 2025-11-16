@@ -14,14 +14,6 @@
 namespace metada::framework {
 
 /**
- * @brief Supported control-variable backend implementations.
- */
-enum class ControlVariableBackendKind {
-  Identity,  ///< Direct grid%xa control vector (current default)
-  WrfdaCv5   ///< WRFDA CV5 control vector (placeholder for future integration)
-};
-
-/**
  * @brief Convert backend kind to human-readable name.
  */
 inline std::string controlBackendKindToString(ControlVariableBackendKind kind) {

@@ -70,28 +70,34 @@ int main(int argc, char** argv) {
     // Initialize model
     fwk::Model<BackendTag> model(config.GetSubsection("model"));
 
-    // Initialize observation operators
-    // For 3DVAR, we need a single observation operator matching the observation
-    // structure
-    std::vector<fwk::ObsOperator<BackendTag>> obs_operators;
-    obs_operators.emplace_back(config.GetSubsection("obs_operator"),
-                               observations.front());
-
-    logger.Info() << "Loaded observation operator for " << var_type
-                  << " analysis";
-
     // Initialize background error covariance
     fwk::BackgroundErrorCovariance<BackendTag> bg_error_cov(
         config.GetSubsection("background_covariance"));
 
+    // Determine and create control variable backend
     auto control_backend_kind =
         fwk::ControlVariableBackendFactory<BackendTag>::determineBackend(
             config);
+    std::shared_ptr<fwk::ControlVariableBackend<BackendTag>> control_backend =
+        fwk::ControlVariableBackendFactory<BackendTag>::createBackend(
+            control_backend_kind, config);
+
+    logger.Info() << "Control variable backend: " << control_backend->name();
+
+    // Initialize observation operators with control variable backend
+    // For 3DVAR, we need a single observation operator matching the observation
+    // structure
+    std::vector<fwk::ObsOperator<BackendTag>> obs_operators;
+    obs_operators.emplace_back(config.GetSubsection("obs_operator"),
+                               observations.front(), *control_backend);
+
+    logger.Info() << "Loaded observation operator for " << var_type
+                  << " analysis";
 
     // Create incremental variational algorithm instance
     fwk::IncrementalVariational<BackendTag> incremental_variational(
         config, background, observations, obs_operators, model, bg_error_cov,
-        control_backend_kind);
+        control_backend);
 
     logger.Info() << "Starting " << var_type << " incremental analysis...";
 

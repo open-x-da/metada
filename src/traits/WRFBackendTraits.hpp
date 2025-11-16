@@ -87,7 +87,8 @@ struct BackendTraits<WRFBackendTag> {
   using IncrementBackend = backends::wrf::WRFIncrement<ConfigBackend, GeometryBackend>;
   
   /** @brief WRF-specific control variable backend implementation */
-  using ControlVariableBackend = backends::wrf::WRFControlVariable<ConfigBackend, GeometryBackend>;
+  using ControlVariableBackend =
+      backends::wrf::WRFControlVariable<ConfigBackend, GeometryBackend>;
   
   /** @brief WRF-specific ensemble backend implementation (placeholder) */
   using EnsembleBackend = void; // TODO: Implement WRFEnsemble
@@ -99,7 +100,7 @@ struct BackendTraits<WRFBackendTag> {
   using ObservationIteratorBackend = metada::backends::common::observation::PrepBUFRObservationIterator;
   
   /** @brief WRF observation operator backend implementation */
-  using ObsOperatorBackend = backends::wrf::WRFObsOperator<StateBackend, ObservationBackend, IncrementBackend>;
+  using ObsOperatorBackend = backends::wrf::WRFObsOperator<StateBackend, ObservationBackend, IncrementBackend, ControlVariableBackend>;
   
   /** @brief WRF-specific model backend implementation */
   using ModelBackend = backends::wrf::WRFModel<ConfigBackend, StateBackend, IncrementBackend>;

@@ -30,12 +30,16 @@ namespace metada::backends::wrf {
  * 3. Provide WRF-specific configuration and initialization
  * 4. Handle linearization and adjoint operations
  * 5. Bridge between framework types and WRFDA C API
+ * 6. Handle control space transformations internally using
+ * ControlVariableBackend
  *
  * @tparam StateBackend The WRF state backend type
  * @tparam ObsBackend The WRF observation backend type
  * @tparam IncrementBackend The WRF increment backend type
+ * @tparam ControlVariableBackend The control variable backend type
  */
-template <typename StateBackend, typename ObsBackend, typename IncrementBackend>
+template <typename StateBackend, typename ObsBackend, typename IncrementBackend,
+          typename ControlVariableBackend>
 class WRFObsOperator {
  public:
   // Delete default constructor and copying (required by framework concept)
@@ -44,14 +48,25 @@ class WRFObsOperator {
   WRFObsOperator& operator=(const WRFObsOperator&) = delete;
 
   /**
-   * @brief Constructor with configuration
+   * @brief Constructor with configuration and control backend
    * @param config Configuration object containing operator settings
+   * @param control_backend Control variable backend for transformations
    *
    * @details Initializes the WRF observation operator with the provided
-   * configuration and calls WRFDA initialization directly.
+   * configuration and calls WRFDA initialization directly. Stores the control
+   * backend for handling control ↔ state transformations internally.
    */
   template <typename ConfigBackend>
-  explicit WRFObsOperator(const ConfigBackend& config) : initialized_(false) {
+  explicit WRFObsOperator(const ConfigBackend& config,
+                          const ControlVariableBackend& control_backend)
+      : initialized_(false), control_backend_(&control_backend) {
+    initialize(config);
+  }
+
+  // Overload: accept config only (control backend managed by adapter)
+  template <typename ConfigBackend>
+  explicit WRFObsOperator(const ConfigBackend& config)
+      : initialized_(false), control_backend_(nullptr) {
     initialize(config);
   }
 
@@ -60,8 +75,10 @@ class WRFObsOperator {
    * @param other WRFObsOperator to move from
    */
   WRFObsOperator(WRFObsOperator&& other) noexcept
-      : initialized_(other.initialized_) {
+      : initialized_(other.initialized_),
+        control_backend_(other.control_backend_) {
     other.initialized_ = false;
+    other.control_backend_ = nullptr;
   }
 
   /**
@@ -72,7 +89,9 @@ class WRFObsOperator {
   WRFObsOperator& operator=(WRFObsOperator&& other) noexcept {
     if (this != &other) {
       initialized_ = other.initialized_;
+      control_backend_ = other.control_backend_;
       other.initialized_ = false;
+      other.control_backend_ = nullptr;
     }
     return *this;
   }
@@ -475,6 +494,116 @@ class WRFObsOperator {
     return jo_cost;
   }
 
+  //============================================================================
+  // Control Space Methods (New Interface)
+  //============================================================================
+
+  /**
+   * @brief Apply tangent linear operator in control space: H'(U·v)
+   * @param control Control variable v
+   * @param reference_state Reference state around which to linearize
+   * @param obs Observations defining observation locations
+   * @return Vector of observation increments H'(xb)·U·v
+   *
+   * @details This method handles the full transformation pipeline:
+   * 1. Transform control to state: δx = U·v
+   * 2. Apply tangent linear: H'(δx)
+   * The control backend handles the U transformation internally.
+   */
+  template <typename ControlVarBackend, typename StateBackendArg,
+            typename ObsBackendArg>
+  std::vector<double> applyTangentLinearControl(
+      const ControlVarBackend& control, const StateBackendArg& reference_state,
+      const ObsBackendArg& obs) const {
+    if (!control_backend_) {
+      throw std::runtime_error(
+          "Control backend not set in WRFObsOperator constructor");
+    }
+
+    // Transform control to increment: δx = U·v
+    auto increment =
+        control_backend_->createIncrement(reference_state.geometry());
+    control_backend_->controlToIncrement(control, increment);
+
+    // Apply tangent linear in state space: H'(δx)
+    return applyTangentLinear(increment, reference_state, obs);
+  }
+
+  /**
+   * @brief Apply adjoint operator in control space: U^T·H^T(...)
+   * @param obs_adjoint Observation space adjoint vector (IGNORED for WRF)
+   * @param reference_state Reference state
+   * @param obs Observations
+   * @return Control variable gradient ∇_v J = U^T·H^T·R^{-1}·re
+   *
+   * @details This method handles the full transformation pipeline:
+   * 1. Apply adjoint in state space: ∇_δx = H^T·R^{-1}·re
+   * 2. Transform to control space: ∇_v = U^T·∇_δx
+   * The control backend handles the U^T transformation internally.
+   *
+   * @note For WRF backend, obs_adjoint is IGNORED. WRFDA computes weighted
+   * residuals internally using its proven workflow.
+   */
+  template <typename ControlVarBackend, typename StateBackendArg,
+            typename ObsBackendArg>
+  ControlVarBackend applyAdjointControl(const std::vector<double>& obs_adjoint,
+                                        const StateBackendArg& reference_state,
+                                        const ObsBackendArg& obs) const {
+    if (!control_backend_) {
+      throw std::runtime_error(
+          "Control backend not set in WRFObsOperator constructor");
+    }
+
+    // Apply adjoint in state space: ∇_δx = H^T·R^{-1}·re
+    auto state_gradient = IncrementBackend(reference_state.geometry());
+    state_gradient.zero();
+    applyAdjoint(obs_adjoint, reference_state, state_gradient, obs);
+
+    // Transform to control space: ∇_v = U^T·∇_δx
+    auto control_gradient =
+        control_backend_->createControlVariable(reference_state.geometry());
+    control_gradient.zero();
+    control_backend_->incrementAdjointToControl(state_gradient,
+                                                control_gradient);
+
+    return control_gradient;
+  }
+
+  /**
+   * @brief Apply pure adjoint operator in control space: U^T·H'^T·dy
+   * @param obs_adjoint Observation space adjoint vector
+   * @param reference_state Reference state
+   * @param obs Observations
+   * @return Control variable gradient U^T·H'^T·dy
+   *
+   * @details This method handles the full transformation pipeline for pure
+   * adjoint (without R^{-1} weighting):
+   * 1. Apply pure adjoint in state space: ∇_δx = H'^T·dy
+   * 2. Transform to control space: ∇_v = U^T·∇_δx
+   */
+  template <typename ControlVarBackend, typename StateBackendArg,
+            typename ObsBackendArg>
+  ControlVarBackend applyAdjointPureControl(
+      const std::vector<double>& obs_adjoint,
+      const StateBackendArg& reference_state, const ObsBackendArg& obs) const {
+    if (!control_backend_) {
+      throw std::runtime_error(
+          "Control backend not set in WRFObsOperator constructor");
+    }
+
+    // Apply pure adjoint in state space: ∇_δx = H'^T·dy
+    auto state_gradient = applyAdjointPure(obs_adjoint, reference_state, obs);
+
+    // Transform to control space: ∇_v = U^T·∇_δx
+    auto control_gradient =
+        control_backend_->createControlVariable(reference_state.geometry());
+    control_gradient.zero();
+    control_backend_->incrementAdjointToControl(state_gradient,
+                                                control_gradient);
+
+    return control_gradient;
+  }
+
   /**
    * @brief Get required state variables
    * @return Reference to vector of required state variable names
@@ -517,6 +646,9 @@ class WRFObsOperator {
 
   /// Last computed observation cost (from wrfda_compute_weighted_residual)
   mutable double last_observation_cost_ = 0.0;
+
+  /// Control variable backend for transformations
+  const ControlVariableBackend* control_backend_;
 
  public:
   /**

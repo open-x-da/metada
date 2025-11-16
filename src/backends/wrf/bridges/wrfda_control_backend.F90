@@ -333,6 +333,75 @@ contains
     deallocate(control_single)
   end subroutine wrfda_control_backend_control_gradient_to_state
 
+  subroutine wrfda_control_backend_control_dot(grid_ptr, be_ptr, control_a,   &
+                                               control_b, cv_size_in,         &
+                                               dot_value, error_code)         &
+      bind(C, name="wrfda_control_backend_control_dot")
+    use iso_c_binding, only : c_ptr, c_f_pointer, c_associated, c_int,        &
+                              c_double
+    use module_domain, only : domain
+    use da_define_structures, only : be_type
+    implicit none
+
+    type(c_ptr), value :: grid_ptr
+    type(c_ptr), value :: be_ptr
+    real(c_double), intent(in) :: control_a(*)
+    real(c_double), intent(in) :: control_b(*)
+    integer(c_int), value :: cv_size_in
+    real(c_double), intent(out) :: dot_value
+    integer(c_int), intent(out) :: error_code
+
+    type(domain), pointer :: grid
+    type(be_type), pointer :: be
+    real, allocatable :: control_single_a(:)
+    real, allocatable :: control_single_b(:)
+    integer :: i
+    real :: dot_single
+
+    error_code = 0
+    dot_value = 0.0_c_double
+
+    if (.not. c_associated(grid_ptr)) then
+      error_code = 1
+      return
+    end if
+
+    if (.not. c_associated(be_ptr)) then
+      error_code = 2
+      return
+    end if
+
+    if (cv_size_in <= 0) then
+      error_code = 3
+      return
+    end if
+
+    call c_f_pointer(grid_ptr, grid)
+    call c_f_pointer(be_ptr, be)
+
+    allocate(control_single_a(cv_size_in))
+    allocate(control_single_b(cv_size_in))
+
+    if (cv_size_in > 0) then
+      call da_initialize_cv(cv_size_in, control_single_a)
+      call da_initialize_cv(cv_size_in, control_single_b)
+    end if
+
+    do i = 1, cv_size_in
+      control_single_a(i) = real(control_a(i), kind(control_single_a(1)))
+      control_single_b(i) = real(control_b(i), kind(control_single_b(1)))
+    end do
+
+    dot_single = 0.0
+    do i = 1, cv_size_in
+      dot_single = dot_single + control_single_a(i) * control_single_b(i)
+    end do
+    dot_value = real(dot_single, kind=c_double)
+
+    deallocate(control_single_a)
+    deallocate(control_single_b)
+  end subroutine wrfda_control_backend_control_dot
+
   subroutine ensure_backend_xbx_ready()
     type(c_ptr) :: xbx_ptr
 

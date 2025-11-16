@@ -25,8 +25,10 @@
 
 #include "ApplicationContext.hpp"
 #include "Config.hpp"
+#include "ControlVariableBackend.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "SimpleBackendTraits.hpp"
@@ -101,14 +103,18 @@ int main(int argc, char* argv[]) {
     logger.Info() << "Observations loaded for " << observations.size()
                   << " time windows";
 
+    // Create identity control backend for ensemble methods
+    auto control_backend =
+        std::make_shared<fwk::IdentityControlVariableBackend<BackendTag>>();
+
     // Initialize observation operators for multiple time windows
     std::vector<std::unique_ptr<fwk::ObsOperator<BackendTag>>> obs_operators;
     auto obs_operator_config = config.GetSubsection("obs_operator");
 
     // Create observation operators for each time window
     for (int t = 0; t < num_time_windows; ++t) {
-      auto obs_op =
-          std::make_unique<fwk::ObsOperator<BackendTag>>(obs_operator_config);
+      auto obs_op = std::make_unique<fwk::ObsOperator<BackendTag>>(
+          obs_operator_config, *control_backend);
       obs_operators.push_back(std::move(obs_op));
     }
 

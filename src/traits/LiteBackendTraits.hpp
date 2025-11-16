@@ -59,8 +59,9 @@ struct BackendTraits<LiteBackendTag> {
   using StateBackend = metada::backends::lite::LiteState;
   using GeometryBackend = metada::backends::lite::LiteGeometry;
   using IncrementBackend = metada::backends::lite::LiteIncrement;
+  using ControlVariableBackend = metada::backends::lite::LiteIncrement;
   using ObservationBackend = metada::backends::lite::LiteObs;
-  using ObsOperatorBackend = metada::backends::lite::LiteObsOperator;
+  using ObsOperatorBackend = metada::backends::lite::LiteObsOperator<ControlVariableBackend>;
   using ModelBackend = metada::backends::lite::LiteModel;
   using BackgroundErrorCovarianceBackend =
       metada::backends::lite::LiteBEC;

@@ -17,6 +17,8 @@ namespace metada::backends::lite {
  */
 class LiteIncrement {
  public:
+  // Default constructor for convenience in tests/operators
+  LiteIncrement() : data_(3, 0.0) {}
   explicit LiteIncrement(const LiteGeometry& geometry)
       : data_(3, 0.0) {  // 3 variables: temperature, pressure, humidity
     (void)geometry;      // Unused for now

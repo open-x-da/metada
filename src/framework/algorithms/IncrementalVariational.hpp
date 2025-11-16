@@ -81,6 +81,7 @@ class IncrementalVariational {
    * @param obs_operators Vector of observation operators for each time
    * @param model Model for forward and adjoint integration
    * @param bg_error_cov Background error covariance
+   * @param control_backend Control variable backend instance
    */
   IncrementalVariational(
       const Config<BackendTag>& config, const State<BackendTag>& background,
@@ -88,17 +89,15 @@ class IncrementalVariational {
       const std::vector<ObsOperator<BackendTag>>& obs_operators,
       Model<BackendTag>& model,
       const BackgroundErrorCovariance<BackendTag>& bg_error_cov,
-      ControlVariableBackendKind control_backend_kind)
+      std::shared_ptr<ControlVariableBackend<BackendTag>> control_backend)
       : config_(config),
         background_(background),
         observations_(observations),
         obs_operators_(obs_operators),
         model_(model),
         bg_error_cov_(bg_error_cov),
-        control_backend_kind_(control_backend_kind),
-        control_backend_(
-            ControlVariableBackendFactory<BackendTag>::createBackend(
-                control_backend_kind_, config)),
+        control_backend_(std::move(control_backend)),
+        control_backend_kind_(control_backend_->kind()),
         cost_function_(config, background, observations, obs_operators, model,
                        bg_error_cov, *control_backend_),
         minimizer_(config, *control_backend_),
@@ -465,8 +464,8 @@ class IncrementalVariational {
   const std::vector<ObsOperator<BackendTag>>& obs_operators_;
   Model<BackendTag>& model_;
   const BackgroundErrorCovariance<BackendTag>& bg_error_cov_;
+  std::shared_ptr<ControlVariableBackend<BackendTag>> control_backend_;
   ControlVariableBackendKind control_backend_kind_;
-  std::unique_ptr<ControlVariableBackend<BackendTag>> control_backend_;
   IncrementalCostFunction<BackendTag> cost_function_;
   IncrementalMinimization<BackendTag> minimizer_;
   std::string output_base_file_;

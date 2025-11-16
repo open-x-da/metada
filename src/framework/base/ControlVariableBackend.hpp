@@ -6,6 +6,14 @@
 
 namespace metada::framework {
 
+/**
+ * @brief Supported control-variable backend implementations.
+ */
+enum class ControlVariableBackendKind {
+  Identity,  ///< Direct grid%xa control vector (current default)
+  WrfdaCv5   ///< WRFDA CV5 control vector
+};
+
 // Forward declarations - these will be properly defined in adapter headers
 template <typename BackendTag>
 class Increment;
@@ -60,6 +68,13 @@ class ControlVariableBackend {
    * "wrfda_cv5")
    */
   virtual std::string name() const = 0;
+
+  /**
+   * @brief Get the backend kind identifier
+   *
+   * @return Backend kind enum value
+   */
+  virtual ControlVariableBackendKind kind() const = 0;
 
   /**
    * @brief Create a control variable from geometry

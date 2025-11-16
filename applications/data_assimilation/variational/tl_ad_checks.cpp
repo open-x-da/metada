@@ -131,13 +131,6 @@ int main(int argc, char** argv) {
     observations.emplace_back(std::move(observation));
     logger.Info() << "Observations initialized";
 
-    // Initialize observation operator
-    fwk::ObsOperator<BackendTag> obs_operator(
-        config.GetSubsection("obs_operator"));
-    std::vector<fwk::ObsOperator<BackendTag>> obs_operators;
-    obs_operators.emplace_back(std::move(obs_operator));
-    logger.Info() << "Observation operator initialized";
-
     // Initialize background error covariance (needed for cost function)
     fwk::BackgroundErrorCovariance<BackendTag> bg_error_cov(
         config.GetSubsection("background_covariance"));
@@ -147,13 +140,22 @@ int main(int argc, char** argv) {
     fwk::Model<BackendTag> model(config.GetSubsection("model"));
     logger.Info() << "Model initialized";
 
+    // Create control variable backend first
     auto control_backend_kind =
         fwk::ControlVariableBackendFactory<BackendTag>::determineBackend(
             config);
-    auto control_backend =
+    std::shared_ptr<fwk::ControlVariableBackend<BackendTag>> control_backend =
         fwk::ControlVariableBackendFactory<BackendTag>::createBackend(
             control_backend_kind, config);
     logger.Info() << "Control variable backend: " << control_backend->name();
+
+    // Initialize observation operator with control backend
+    fwk::ObsOperator<BackendTag> obs_operator(
+        config.GetSubsection("obs_operator"), observations.front(),
+        *control_backend);
+    std::vector<fwk::ObsOperator<BackendTag>> obs_operators;
+    obs_operators.emplace_back(std::move(obs_operator));
+    logger.Info() << "Observation operator initialized";
 
     // Perform Incremental Cost Function checks
     logger.Info() << "\n=== Performing Incremental Cost Function Checks ===";

@@ -16,8 +16,10 @@
 
 #include "ApplicationContext.hpp"
 #include "Config.hpp"
+#include "ControlVariableBackend.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "SimpleBackendTraits.hpp"
@@ -49,8 +51,12 @@ int main(int argc, char** argv) {
     fwk::Observation<BackendTag> observations(
         config.GetSubsection("observations"));
 
+    // Create identity control backend for ensemble methods
+    auto control_backend =
+        std::make_shared<fwk::IdentityControlVariableBackend<BackendTag>>();
+
     fwk::ObsOperator<BackendTag> obs_operator(
-        config.GetSubsection("obs_operator"));
+        config.GetSubsection("obs_operator"), *control_backend);
 
     // Run LETKF analysis
     fwk::LETKF<BackendTag> letkf(ensemble, observations, obs_operator,

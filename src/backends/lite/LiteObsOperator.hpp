@@ -15,7 +15,10 @@ namespace metada::backends::lite {
  * Implements the same linear observation operator as LiteObs
  *
  * This class is designed to comply with the ObsOperatorBackendImpl concept.
+ *
+ * @tparam ControlVariableBackend Type of control variable backend
  */
+template <typename ControlVariableBackend>
 class LiteObsOperator {
  public:
   // Deleted default constructor (concept compliance)
@@ -29,6 +32,16 @@ class LiteObsOperator {
   LiteObsOperator& operator=(LiteObsOperator&&) noexcept = default;
 
   // Explicit templated config constructor (concept compliance)
+  template <typename ConfigBackend>
+  explicit LiteObsOperator(
+      [[maybe_unused]] const ConfigBackend& config,
+      [[maybe_unused]] const ControlVariableBackend& control_backend)
+      : control_backend_(nullptr) {
+    required_state_vars_ = {"temperature", "pressure", "humidity"};
+    required_obs_vars_ = {"temperature", "pressure"};
+  }
+
+  // Overload: accept config only (control backend not required for lite)
   template <typename ConfigBackend>
   explicit LiteObsOperator([[maybe_unused]] const ConfigBackend& config) {
     required_state_vars_ = {"temperature", "pressure", "humidity"};
@@ -116,9 +129,12 @@ class LiteObsOperator {
     // Stub implementation
   }
 
+  // No control-space methods needed for lite backend (identity control)
+
  private:
   std::vector<std::string> required_state_vars_;
   std::vector<std::string> required_obs_vars_;
+  const ControlVariableBackend* control_backend_ = nullptr;
 };
 
 }  // namespace metada::backends::lite

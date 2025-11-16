@@ -3,6 +3,8 @@
 #include "BackendTraits.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "ConfigConcepts.hpp"
+#include "ControlVariable.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
 #include "Model.hpp"
@@ -293,7 +295,16 @@ class CostFunction : public NonCopyable {
     auto weighted_innovation = obs.applyInverseCovariance(innovation);
 
     // H^T R^-1 (H(x) - y)
-    auto obs_gradient = obs_op.applyAdjoint(weighted_innovation, state, obs);
+    // applyAdjoint now returns ControlVariable, convert to Increment
+    auto obs_gradient_control =
+        obs_op.applyAdjoint(weighted_innovation, state, obs);
+
+    // Convert control variable to increment using identity backend
+    IdentityControlVariableBackend<BackendTag> identity_backend;
+    auto obs_gradient =
+        identity_backend.createIncrement(state.geometry()->backend());
+    identity_backend.controlToIncrement(obs_gradient_control, obs_gradient);
+
     gradient += obs_gradient;
   }
 
@@ -320,8 +331,16 @@ class CostFunction : public NonCopyable {
       auto simulated_obs = obs_op.apply(current_state, obs);
       auto innovation = computeInnovation(obs, simulated_obs);
       auto weighted_innovation = obs.applyInverseCovariance(innovation);
-      auto obs_gradient =
+
+      // applyAdjoint now returns ControlVariable, convert to Increment
+      auto obs_gradient_control =
           obs_op.applyAdjoint(weighted_innovation, current_state, obs);
+
+      // Convert control variable to increment using identity backend
+      IdentityControlVariableBackend<BackendTag> identity_backend;
+      auto obs_gradient =
+          identity_backend.createIncrement(state.geometry()->backend());
+      identity_backend.controlToIncrement(obs_gradient_control, obs_gradient);
 
       // For FGAT, we approximate by not using model adjoint
       gradient += obs_gradient;
@@ -362,8 +381,16 @@ class CostFunction : public NonCopyable {
       auto simulated_obs = obs_op.apply(state_at_time, obs);
       auto innovation = computeInnovation(obs, simulated_obs);
       auto weighted_innovation = obs.applyInverseCovariance(innovation);
-      auto obs_adjoint =
+
+      // applyAdjoint now returns ControlVariable, convert to Increment
+      auto obs_adjoint_control =
           obs_op.applyAdjoint(weighted_innovation, state_at_time, obs);
+
+      // Convert control variable to increment using identity backend
+      IdentityControlVariableBackend<BackendTag> identity_backend;
+      auto obs_adjoint =
+          identity_backend.createIncrement(state.geometry()->backend());
+      identity_backend.controlToIncrement(obs_adjoint_control, obs_adjoint);
 
       adjoint_forcing += obs_adjoint;
 

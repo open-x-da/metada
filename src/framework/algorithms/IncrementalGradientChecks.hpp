@@ -257,31 +257,33 @@ bool checkIncrementalObsOperatorTLAD(
   logger.Info() << "Starting incremental observation operator TL/AD check with "
                 << obs_operators.size() << " operators";
 
-  // 1. Create random state increment dx
-  auto dx = Increment<BackendTag>::createFromGeometry(
+  // 1. Create random control variable (for TL/AD checks, use identity backend)
+  IdentityControlVariableBackend<BackendTag> identity_backend;
+  auto control_var = identity_backend.createControlVariable(
       background_state.geometry()->backend());
-  dx.randomize();
+  control_var.randomize();
 
-  // Normalize the increment for numerical stability
-  double dx_norm = dx.norm();
-  if (dx_norm > 0.0) {
-    dx *= (1.0 / dx_norm);
+  // Normalize the control variable for numerical stability
+  double control_norm = control_var.norm();
+  if (control_norm > 0.0) {
+    control_var *= (1.0 / control_norm);
   } else {
-    logger.Warning() << "Random increment has zero norm, using unit increment";
-    dx.zero();
-    auto dx_data = dx.template getData<std::vector<double>>();
-    if (!dx_data.empty()) {
-      dx_data[0] = 1.0;
+    logger.Warning()
+        << "Random control variable has zero norm, using unit control";
+    control_var.zero();
+    auto control_data = control_var.template getData<std::vector<double>>();
+    if (!control_data.empty()) {
+      control_data[0] = 1.0;
     }
   }
 
-  // 2. Apply tangent linear: H' dx for all operators
+  // 2. Apply tangent linear: H' control_var for all operators
   // This must be done BEFORE creating dy to get the correct observation space
   // size
   std::vector<std::vector<double>> Hdx_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto Hdx = obs_operators[i].applyTangentLinear(dx, background_state,
-                                                   observations[i]);
+    auto Hdx = obs_operators[i].applyTangentLinear(
+        control_var, background_state, observations[i]);
     Hdx_vectors.push_back(std::move(Hdx));
   }
 
@@ -298,15 +300,12 @@ bool checkIncrementalObsOperatorTLAD(
 
   // 4. Apply adjoint: H'^T dy for all operators
   // For TL/AD testing, we need the PURE adjoint (without R^{-1} weighting)
-  std::vector<Increment<BackendTag>> HTdy_increments;
+  std::vector<ControlVariable<BackendTag>> HTdy_controls;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    // Use the pure adjoint method from the backend for TL/AD testing
-    auto HTdy_backend = obs_operators[i].backend().applyAdjointPure(
-        dy_vectors[i], background_state.backend(), observations[i].backend());
-    // Wrap the backend increment in an adapter increment
-    Increment<BackendTag> HTdy(background_state.geometry()->backend());
-    HTdy.backend() = std::move(HTdy_backend);
-    HTdy_increments.push_back(std::move(HTdy));
+    // Use applyAdjointPure which returns a ControlVariable
+    auto HTdy_control = obs_operators[i].applyAdjointPure(
+        dy_vectors[i], background_state, observations[i]);
+    HTdy_controls.push_back(std::move(HTdy_control));
   }
 
   // 5. Compute inner products for all operators
@@ -314,7 +313,7 @@ bool checkIncrementalObsOperatorTLAD(
   for (size_t i = 0; i < obs_operators.size(); ++i) {
     double a = std::inner_product(Hdx_vectors[i].begin(), Hdx_vectors[i].end(),
                                   dy_vectors[i].begin(), 0.0);
-    double b = dx.dot(HTdy_increments[i]);
+    double b = control_var.dot(HTdy_controls[i]);
     total_a += a;
     total_b += b;
   }
@@ -409,28 +408,36 @@ bool checkIncrementalObsOperatorTangentLinear(
   std::vector<double> convergence_rates;
 
   // 1. Create random state increment
-  auto dx = Increment<BackendTag>::createFromGeometry(
+  // 1. Create random control variable (for TL checks, use identity backend)
+  IdentityControlVariableBackend<BackendTag> identity_backend;
+  auto control_var = identity_backend.createControlVariable(
       background_state.geometry()->backend());
-  dx.randomize();
+  control_var.randomize();
 
-  // Normalize the increment for numerical stability
-  double dx_norm = dx.norm();
-  if (dx_norm > 0.0) {
-    dx *= (1.0 / dx_norm);
+  // Normalize the control variable for numerical stability
+  double control_norm = control_var.norm();
+  if (control_norm > 0.0) {
+    control_var *= (1.0 / control_norm);
   } else {
-    logger.Warning() << "Random increment has zero norm, using unit increment";
-    dx.zero();
-    auto dx_data = dx.template getData<std::vector<double>>();
-    if (!dx_data.empty()) {
-      dx_data[0] = 1.0;
+    logger.Warning()
+        << "Random control variable has zero norm, using unit control";
+    control_var.zero();
+    auto control_data = control_var.template getData<std::vector<double>>();
+    if (!control_data.empty()) {
+      control_data[0] = 1.0;
     }
   }
 
-  // 2. Apply tangent linear: H' dx for all operators
+  // Convert control to increment for state perturbation
+  auto dx =
+      identity_backend.createIncrement(background_state.geometry()->backend());
+  identity_backend.controlToIncrement(control_var, dx);
+
+  // 2. Apply tangent linear: H' control_var for all operators
   std::vector<std::vector<double>> Hdx_tl_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto Hdx_tl = obs_operators[i].applyTangentLinear(dx, background_state,
-                                                      observations[i]);
+    auto Hdx_tl = obs_operators[i].applyTangentLinear(
+        control_var, background_state, observations[i]);
     Hdx_tl_vectors.push_back(std::move(Hdx_tl));
   }
 

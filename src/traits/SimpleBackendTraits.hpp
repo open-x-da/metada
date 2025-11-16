@@ -80,6 +80,9 @@ struct BackendTraits<SimpleBackendTag> {
   /** @brief Simple increment backend implementation */
   using IncrementBackend = backends::simple::SimpleIncrement;
   
+  /** @brief Simple control variable backend implementation (same as increment for simple backend) */
+  using ControlVariableBackend = backends::simple::SimpleIncrement;
+  
   /** @brief Simple observation backend implementation */
   using ObservationBackend = backends::common::observation::GridObservation;
   
@@ -87,7 +90,7 @@ struct BackendTraits<SimpleBackendTag> {
   using ObservationIteratorBackend = metada::backends::common::observation::GridObservationIterator;
   
   /** @brief Identity observation operator backend implementation */
-  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend>;
+  using ObsOperatorBackend = backends::common::obsoperator::IdentityObsOperator<StateBackend, ObservationBackend, ControlVariableBackend>;
   
   /** @brief Simple model backend implementation */
   using ModelBackend = backends::simple::SimpleModel;

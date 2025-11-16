@@ -74,6 +74,15 @@ class WRFDACV5ControlVariableBackend
   std::string name() const override { return "wrfda_cv5"; }
 
   /**
+   * @brief Get backend kind
+   *
+   * @return ControlVariableBackendKind::WrfdaCv5
+   */
+  framework::ControlVariableBackendKind kind() const override {
+    return framework::ControlVariableBackendKind::WrfdaCv5;
+  }
+
+  /**
    * @brief Create a control variable from geometry
    *
    * @param geometry Geometry backend defining the domain
@@ -90,7 +99,18 @@ class WRFDACV5ControlVariableBackend
           "is null");
     }
     ensureBackendInitialized(grid_ptr);
-    control.backend().resize(static_cast<size_t>(cv_size_));
+    // Some ControlVariable backends expose backend-specific methods; guard use
+    if constexpr (requires {
+                    control.backend().resize(static_cast<size_t>(0));
+                  }) {
+      control.backend().resize(static_cast<size_t>(cv_size_));
+    }
+    if constexpr (requires {
+                    control.backend().setMetricContext((void*)nullptr,
+                                                       (void*)nullptr, 0);
+                  }) {
+      control.backend().setMetricContext(grid_ptr, be_ptr_, cv_size_);
+    }
     control.zero();
     return control;
   }
@@ -170,7 +190,20 @@ class WRFDACV5ControlVariableBackend
     wrfda::WRFDAControlBackendBridge::stateGradientToControl(
         grid_ptr, be_ptr_, control_buffer.data(), cv_size_);
 
-    control_gradient.backend().setFromVector(control_buffer);
+    if constexpr (requires {
+                    control_gradient.backend().setFromVector(
+                        std::declval<std::vector<double>&>());
+                  }) {
+      control_gradient.backend().setFromVector(control_buffer);
+    } else if constexpr (requires {
+                           control_gradient.setData(
+                               std::declval<std::vector<double>&>());
+                         }) {
+      control_gradient.setData(control_buffer);
+    } else {
+      // Fallback: populate via public API if available; otherwise ignore
+      (void)control_buffer;
+    }
   }
 
   /**

@@ -36,11 +36,14 @@ using framework::CoordinateSystem;
  * - Provides configuration-based initialization
  * - Works with any state and observation backends that provide required
  * interfaces
+ * - Handles control space transformations internally
  *
  * @tparam StateBackend Type of state backend to operate on
  * @tparam ObsBackend Type of observation backend to operate on
+ * @tparam ControlVariableBackend Type of control variable backend
  */
-template <typename StateBackend, typename ObsBackend>
+template <typename StateBackend, typename ObsBackend,
+          typename ControlVariableBackend>
 class IdentityObsOperator {
  public:
   // Delete default constructor
@@ -51,10 +54,20 @@ class IdentityObsOperator {
   IdentityObsOperator& operator=(const IdentityObsOperator&) = delete;
 
   /**
-   * @brief Constructor that initializes from configuration
+   * @brief Constructor that initializes from configuration and control backend
    * @tparam ConfigBackend Type of configuration backend
    * @param config Configuration backend instance
+   * @param control_backend Control variable backend for transformations
    */
+  template <typename ConfigBackend>
+  explicit IdentityObsOperator(
+      const ConfigBackend& config,
+      [[maybe_unused]] const ControlVariableBackend& control_backend)
+      : control_backend_(nullptr) {
+    initialize(config);
+  }
+
+  // Overload: accept config only (no control backend needed for identity)
   template <typename ConfigBackend>
   explicit IdentityObsOperator(const ConfigBackend& config) {
     initialize(config);
@@ -67,8 +80,10 @@ class IdentityObsOperator {
   IdentityObsOperator(IdentityObsOperator&& other) noexcept
       : initialized_(other.initialized_),
         required_state_vars_(std::move(other.required_state_vars_)),
-        required_obs_vars_(std::move(other.required_obs_vars_)) {
+        required_obs_vars_(std::move(other.required_obs_vars_)),
+        control_backend_(other.control_backend_) {
     other.initialized_ = false;
+    other.control_backend_ = nullptr;
   }
 
   /**
@@ -81,7 +96,9 @@ class IdentityObsOperator {
       initialized_ = other.initialized_;
       required_state_vars_ = std::move(other.required_state_vars_);
       required_obs_vars_ = std::move(other.required_obs_vars_);
+      control_backend_ = other.control_backend_;
       other.initialized_ = false;
+      other.control_backend_ = nullptr;
     }
     return *this;
   }
@@ -383,6 +400,71 @@ class IdentityObsOperator {
    * @return True (identity operator is linear)
    */
   bool isLinear() const { return true; }
+
+  //============================================================================
+  // Control Space Methods (New Interface)
+  //============================================================================
+
+  /**
+   * @brief Apply tangent linear operator in control space
+   * @param control Control variable v
+   * @param reference_state Reference state around which to linearize
+   * @param obs Observations defining observation locations
+   * @return Vector of observation increments H'(xb)·U·v
+   *
+   * @details For identity backend, control = increment, so this just delegates
+   * to the state-space tangent linear after transformation.
+   */
+  template <typename ControlVarBackend, typename StateBackendArg,
+            typename ObsBackendArg>
+  std::vector<double> applyTangentLinearControl(
+      const ControlVarBackend& control, const StateBackendArg& reference_state,
+      const ObsBackendArg& obs) const {
+    if (!control_backend_) {
+      throw std::runtime_error(
+          "Control backend not set in IdentityObsOperator constructor");
+    }
+
+    // Transform control to increment: δx = U·v
+    auto increment =
+        control_backend_->createIncrement(reference_state.geometry());
+    control_backend_->controlToIncrement(control, increment);
+
+    // Apply tangent linear in state space
+    return applyTangentLinear(increment, reference_state, obs);
+  }
+
+  /**
+   * @brief Apply adjoint operator in control space
+   * @param obs_adjoint Observation space adjoint vector
+   * @param reference_state Reference state
+   * @param obs Observations
+   * @return Control variable gradient ∇_v J = U^T·H^T·obs_adjoint
+   */
+  template <typename ControlVarBackend, typename StateBackendArg,
+            typename ObsBackendArg>
+  ControlVarBackend applyAdjointControl(const std::vector<double>& obs_adjoint,
+                                        const StateBackendArg& reference_state,
+                                        const ObsBackendArg& obs) const {
+    if (!control_backend_) {
+      throw std::runtime_error(
+          "Control backend not set in IdentityObsOperator constructor");
+    }
+
+    // Apply adjoint in state space: ∇_δx = H^T·obs_adjoint
+    auto state_gradient = reference_state.clone();
+    state_gradient->zero();
+    applyAdjoint(obs_adjoint, reference_state, *state_gradient, obs);
+
+    // Transform to control space: ∇_v = U^T·∇_δx
+    auto control_gradient =
+        control_backend_->createControlVariable(reference_state.geometry());
+    control_gradient.zero();
+    control_backend_->incrementAdjointToControl(*state_gradient,
+                                                control_gradient);
+
+    return control_gradient;
+  }
 
  private:
   /**
@@ -761,6 +843,8 @@ class IdentityObsOperator {
   std::vector<std::string> required_state_vars_;  ///< Required state variables
   std::vector<std::string>
       required_obs_vars_;  ///< Required observation variables
+  const ControlVariableBackend* control_backend_ =
+      nullptr;  ///< Control variable backend for transformations
 };
 
 }  // namespace metada::backends::common::obsoperator
