@@ -182,22 +182,23 @@ class IncrementalVariational {
     control_backend_->addIncrementToState(final_increment, analysis_state);
 
     // Create results structure
+    // Compute costs consistently in control space to avoid norm mismatches:
+    // J_b = 1/2 v^T v, J_o = J_total - J_b
+    const double bg_cost_control = 0.5 * final_control.dot(final_control);
+    const double total_cost_control = cost_function_.evaluate(final_control);
     AnalysisResults results{
-        std::move(analysis_state),    // analysis_state
-        std::move(final_increment),   // analysis_increment
-        convergence_info.final_cost,  // final_cost
-        0.0,                          // background_cost (computed later)
-        0.0,                          // observation_cost (computed later)
-        initial_cost - convergence_info.final_cost,  // cost_reduction
-        convergence_info.iterations,                 // iterations
-        convergence_info.converged,                  // converged
-        convergence_info.convergence_reason,         // convergence_reason
-        var_type,                                    // variational_type
-        {}                                           // cost_evolution
+        std::move(analysis_state),             // analysis_state
+        std::move(final_increment),            // analysis_increment
+        total_cost_control,                    // final_cost
+        bg_cost_control,                       // background_cost
+        total_cost_control - bg_cost_control,  // observation_cost
+        initial_cost - total_cost_control,     // cost_reduction
+        convergence_info.iterations,           // iterations
+        convergence_info.converged,            // converged
+        convergence_info.convergence_reason,   // convergence_reason
+        var_type,                              // variational_type
+        {}                                     // cost_evolution
     };
-
-    // Compute cost breakdown
-    computeCostBreakdown(results);
 
     return results;
   }
