@@ -411,12 +411,13 @@ class WRFObsOperator {
           "TL operator has been called.");
     }
 
-    // Use WRFDA's proven workflow instead of manual residual computation:
+    // Use WRFDA's proven modular workflow:
     // 1. da_calculate_residual: re = (O-B) - H'(δx)
     //    where H'(δx) is in wrfda_y_tl from applyTangentLinear
     // 2. da_calculate_grady: jo_grad_y = -R^{-1} · re
-    // 3. Jo = -0.5 * Σ(re · jo_grad_y) = 0.5 * re^T · R^{-1} · re
-    // This replaces MetaDA's manual residual and R^{-1} application
+    //    This uses observation-specific da_calculate_grady_* functions
+    // 3. Jo = 0.5 * re^T · R^{-1} · re (computed via da_jo_and_grady)
+    // This modular approach matches WRFDA's internal structure
     double jo_cost = 0.0;
     int rc = wrfda_compute_weighted_residual(iv_ptr, y_tl_ptr, &jo_cost);
     if (rc != 0) {

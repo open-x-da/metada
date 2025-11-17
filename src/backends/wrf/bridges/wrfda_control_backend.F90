@@ -7,13 +7,18 @@
 module wrfda_control_backend_bridge
   use iso_c_binding
   use module_domain,        only : domain
+  use module_dm,            only : wrf_dm_sum_real, wrf_dm_sum_integer
   use da_define_structures, only : be_type, xbx_type,                       &
                                    da_deallocate_background_errors,        &
-                                   da_initialize_cv
-  use da_setup_structures,  only : da_setup_background_errors, da_setup_cv
+                                   da_initialize_cv, da_zero_vp_type
+  use da_setup_structures,  only : da_setup_background_errors
   use da_vtox_transforms,   only : da_transform_vtox, da_transform_vtox_inv, &
                                    da_transform_vtox_adj
-  use da_control,           only : cv_size
+  use da_control,           only : cv_size, trace_use, test_dm_exact, &
+                                   rootproc, cv_size_domain
+  use da_tools,             only : da_trace_entry, da_trace_exit
+  use da_par_util,          only : da_cv_to_global
+  use da_wrf_interfaces,    only : wrf_dm_bcast_real
   implicit none
 
   real, allocatable, save :: wrfda_control_scratch(:)
@@ -64,18 +69,21 @@ contains
     be % cv % size_jt = 0
 
     call da_setup_background_errors(grid, be)
-    call da_setup_cv(be)
-
-    call ensure_backend_xbx_ready()
+    ! Note: da_setup_background_errors internally calls da_setup_cv(be) at line 117
+    ! So we don't need to call it separately here
 
     ! Total control-vector size following da_solve logic
+    ! Compute cv_size early so we can use it for initialization
     be % cv % size = be % cv % size_jb + be % cv % size_je + be % cv % size_jp + &
                      be % cv % size_js + be % cv % size_jl + be % cv % size_jt
 
     cv_size = be % cv % size
-    cv_size_out = cv_size
-    be_ptr      = c_loc(be)
 
+    ! Match WRFDA's initialization sequence from da_solve.inc:
+    ! 1. Initialize control variable (cvt) before zeroing work arrays
+    ! 2. Zero work arrays (vp, vv)
+    ! 3. Initialize another control variable (xhat) after zeroing
+    ! This matches the exact sequence in WRFDA trace (lines 2541-2548)
     if (cv_size > 0) then
       if (allocated(wrfda_control_scratch)) then
         if (size(wrfda_control_scratch) /= cv_size) then
@@ -85,8 +93,27 @@ contains
       if (.not. allocated(wrfda_control_scratch)) then
         allocate(wrfda_control_scratch(cv_size))
       end if
+      ! First da_initialize_cv call (for cvt-equivalent) before da_zero_vp_type
+      ! This matches WRFDA's da_initialize_cv(cv_size, cvt) at line 655
       call da_initialize_cv(cv_size, wrfda_control_scratch)
     end if
+
+    ! Zero domain control-variable work arrays
+    ! Note: vp and vv are domain-level work arrays used by control transforms
+    ! This matches WRFDA's da_zero_vp_type calls at lines 656-657
+    call da_zero_vp_type(grid%vp)
+    call da_zero_vp_type(grid%vv)
+
+    ! Second da_initialize_cv call (for xhat-equivalent) after da_zero_vp_type
+    ! In WRFDA, this initializes xhat which is used in the minimization loop
+    ! This matches WRFDA's da_initialize_cv(cv_size, xhat) at line 805
+    if (cv_size > 0 .and. allocated(wrfda_control_scratch)) then
+      call da_initialize_cv(cv_size, wrfda_control_scratch)
+    end if
+
+    call ensure_backend_xbx_ready()
+    cv_size_out = cv_size
+    be_ptr      = c_loc(be)
   end subroutine wrfda_control_backend_setup
 
   !> @brief Release background-error structure allocated by setup
@@ -183,9 +210,7 @@ contains
     end if
 
     allocate(control_single(cv_size_in))
-    if (cv_size_in > 0) then
-    call da_initialize_cv(cv_size_in, control_single)
-    end if
+    control_single = 0.0
     do i = 1, cv_size_in
       control_single(i) = real(control(i), kind(control_single(1)))
     end do
@@ -236,9 +261,7 @@ contains
     end if
 
     allocate(control_single(cv_size_out))
-    if (cv_size_out > 0) then
-      call da_initialize_cv(cv_size_out, control_single)
-    end if
+    control_single = 0.0
     call da_transform_vtox_inv(grid, cv_size_out, backend_xbx, be, grid%ep,   &
                                control_single, grid%vv, grid%vp)
 
@@ -291,10 +314,7 @@ contains
     end if
 
     allocate(control_single(cv_size_grad))
-    if (cv_size_grad > 0) then
-      call da_initialize_cv(cv_size_grad, control_single)
-    end if
-
+    control_single = 0.0
     call da_transform_vtox_adj(grid, cv_size_grad, backend_xbx, be, grid%ep,  &
                                grid%vp, grid%vv, control_single)
 
@@ -347,9 +367,7 @@ contains
     end if
 
     allocate(control_single(cv_size_grad))
-    if (cv_size_grad > 0) then
-      call da_initialize_cv(cv_size_grad, control_single)
-    end if
+    control_single = 0.0
     do i = 1, cv_size_grad
       control_single(i) = real(control_gradient(i), kind(control_single(1)))
     end do
@@ -367,6 +385,7 @@ contains
     use iso_c_binding, only : c_ptr, c_f_pointer, c_associated, c_int,        &
                               c_double
     use module_domain, only : domain
+    use module_dm, only : wrf_dm_sum_real
     use da_define_structures, only : be_type
     implicit none
 
@@ -408,21 +427,18 @@ contains
 
     allocate(control_single_a(cv_size_in))
     allocate(control_single_b(cv_size_in))
-
-    if (cv_size_in > 0) then
-      call da_initialize_cv(cv_size_in, control_single_a)
-      call da_initialize_cv(cv_size_in, control_single_b)
-    end if
+    control_single_a = 0.0
+    control_single_b = 0.0
 
     do i = 1, cv_size_in
       control_single_a(i) = real(control_a(i), kind(control_single_a(1)))
       control_single_b(i) = real(control_b(i), kind(control_single_b(1)))
     end do
 
-    dot_single = 0.0
-    do i = 1, cv_size_in
-      dot_single = dot_single + control_single_a(i) * control_single_b(i)
-    end do
+    ! Use WRFDA's da_dot_cv function for proper control-space dot product
+    ! This function is included from da_dot_cv.inc as a contained procedure
+    dot_single = da_dot_cv(cv_size_in, control_single_a, control_single_b, &
+                           grid, be%cv_mz, be%ncv_mz)
     dot_value = real(dot_single, kind=c_double)
 
     deallocate(control_single_a)
@@ -444,6 +460,15 @@ contains
     call c_f_pointer(xbx_ptr, backend_xbx)
     backend_xbx_initialized = associated(backend_xbx)
   end subroutine ensure_backend_xbx_ready
+
+  ! Include da_dot.inc first (needed by da_dot_cv)
+  ! This defines da_dot function
+  ! Path: from src/backends/wrf/bridges/ go up 5 levels to workspace root, then to WRF
+#include "../../../../../WRF/var/da/da_minimisation/da_dot.inc"
+  
+  ! Include da_dot_cv.inc (the actual implementation)
+  ! This defines da_dot_cv function
+#include "../../../../../WRF/var/da/da_minimisation/da_dot_cv.inc"
 
 end module wrfda_control_backend_bridge
 

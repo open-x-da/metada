@@ -285,17 +285,23 @@ contains
     persistent_jo_grad_allocated = .true.
     
     ! Step 1: WRFDA's proven residual calculation
-    ! re = (O-B) - H(xa) for ALL observation types
+    ! re = (O-B) - H(δx) for ALL observation types
     call da_calculate_residual(iv, y, re)
     
-    ! Step 2: Use WRFDA's proven da_jo_and_grady to get BOTH Jo and jo_grad_y
-    ! This is identical to what native WRFDA does
+    ! Step 2: Use WRFDA's da_calculate_grady to compute jo_grad_y = -R^{-1} · re
+    ! This is the modular approach matching WRFDA's internal structure
+    ! da_calculate_grady calls observation-specific da_calculate_grady_* functions
+    call da_calculate_grady(iv, re, persistent_jo_grad_y)
+    
+    ! Step 3: Compute Jo = 0.5 * re^T · R^{-1} · re using da_jo_and_grady
+    ! We use da_jo_and_grady with the already-computed jo_grad_y to get Jo
+    ! Note: da_jo_and_grady will recompute jo_grad_y internally, but we keep our persistent_jo_grad_y
     call da_jo_and_grady(iv, re, jot, jo, persistent_jo_grad_y)
     
     ! Convert to C double
     jo_cost = real(jot, c_double)
     
-    ! Cleanup residual only
+    ! Cleanup residual only (keep persistent_jo_grad_y for adjoint)
     call da_deallocate_y(re)
     
     wrfda_compute_weighted_residual = 0_c_int
@@ -745,9 +751,6 @@ contains
     if (control_size < cv_size) return
     allocate(cv(cv_size))
     cv = 0.0
-    ! Zero domain control-variable work arrays
-    call da_zero_vp_type(grid%vp)
-    call da_zero_vp_type(grid%vv)
 
     ! Perform control-space adjoint: fills cv(:)
     call da_transform_vtoy_adj(cv_size, be, grid%ep, cv, iv, grid%vp, grid%vv, xbx, &
