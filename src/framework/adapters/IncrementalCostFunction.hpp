@@ -365,7 +365,7 @@ class IncrementalCostFunction : public NonCopyable {
       std::vector<double> empty;
       // Apply adjoint in control space: U^T H^T
       auto control_gradient = obs_op.applyAdjoint(empty, background_, obs);
-      gradient += control_gradient;
+      gradient = control_gradient;
     } else {
       auto residual = computeInnovation(innovations_[0], simulated_increment);
       auto weighted_residual = obs.applyInverseCovariance(residual);
