@@ -162,10 +162,6 @@ class IncrementalVariational {
         background_.geometry()->backend());
     initial_control.zero();
 
-    // Evaluate initial cost (should be zero for zero control variable)
-    double initial_cost = cost_func(initial_control);
-    logger_.Info() << "Initial cost: " << initial_cost;
-
     // Perform minimization over control variables
     auto final_control = control_backend_->createControlVariable(
         background_.geometry()->backend());
@@ -192,12 +188,12 @@ class IncrementalVariational {
         total_cost_control,                    // final_cost
         bg_cost_control,                       // background_cost
         total_cost_control - bg_cost_control,  // observation_cost
-        initial_cost - total_cost_control,     // cost_reduction
-        convergence_info.iterations,           // iterations
-        convergence_info.converged,            // converged
-        convergence_info.convergence_reason,   // convergence_reason
-        var_type,                              // variational_type
-        {}                                     // cost_evolution
+        convergence_info.initial_cost - total_cost_control,  // cost_reduction
+        convergence_info.iterations,                         // iterations
+        convergence_info.converged,                          // converged
+        convergence_info.convergence_reason,  // convergence_reason
+        var_type,                             // variational_type
+        {}                                    // cost_evolution
     };
 
     return results;
