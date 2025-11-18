@@ -535,10 +535,6 @@ contains
     do i = 1, cv_size
       cv(i) = control_input(i)
     end do
-
-    ! Zero work arrays before transform
-    call da_zero_vp_type(grid%vp)
-    call da_zero_vp_type(grid%vv)
     
     ! CRITICAL: Ensure y structure is allocated before zeroing
     ! The y structure must be allocated with da_allocate_y before da_zero_y can be called
