@@ -9,6 +9,7 @@
 
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
+#include "ConfigValue.hpp"
 #include "ControlVariable.hpp"
 #include "ControlVariableBackend.hpp"
 #include "Logger.hpp"
@@ -18,6 +19,7 @@
 #include "LBFGSOptimizer.hpp"
 #include "OptimizerBase.hpp"
 #include "SteepestDescentOptimizer.hpp"
+#include "WRFDAConjugateGradientOptimizer.hpp"
 
 namespace metada::framework {
 
@@ -267,6 +269,16 @@ class IncrementalMinimization : public NonCopyable {
     } else if (algorithm == "CG") {
       return std::make_unique<base::optimization::ConjugateGradientOptimizer>(
           max_iterations, tolerance, gradient_tolerance);
+    } else if (algorithm == "WRFDA-CG" || algorithm == "WRFDA_CG") {
+      // WRFDA-aligned CG optimizer matching da_minimise_cg workflow
+      bool use_cost_approximation =
+          config.Get("use_cost_approximation", ConfigValue(true)).asBool();
+      bool orthonorm_gradient =
+          config.Get("orthonorm_gradient", ConfigValue(true)).asBool();
+      return std::make_unique<
+          base::optimization::WRFDAConjugateGradientOptimizer>(
+          max_iterations, tolerance, gradient_tolerance, use_cost_approximation,
+          orthonorm_gradient);
     } else if (algorithm == "SteepestDescent") {
       return std::make_unique<base::optimization::SteepestDescentOptimizer>(
           max_iterations, tolerance, gradient_tolerance);

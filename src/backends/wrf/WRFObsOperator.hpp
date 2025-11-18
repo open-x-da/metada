@@ -532,6 +532,88 @@ class WRFObsOperator {
   }
 
   /**
+   * @brief Apply tangent linear operator in control space using
+   * da_transform_vtoy: H'(U·v)
+   * @param control Control variable v
+   * @param reference_state Reference state around which to linearize
+   * @param obs Observations defining observation locations
+   * @return Vector of observation increments H'(xb)·U·v
+   *
+   * @details This method uses WRFDA's da_transform_vtoy directly, matching the
+   * workflow in da_calculate_gradj when computing gradients along search
+   * directions during CG iterations. This is more efficient than the two-step
+   * process (control→state→obs) and matches WRFDA's exact workflow.
+   *
+   * Workflow:
+   * 1. Call da_transform_vtoy: y = H'(U·v)
+   * 2. Extract observations from y structure
+   */
+  template <typename ControlVarBackend, typename StateBackendArg,
+            typename ObsBackendArg>
+  std::vector<double> applyTangentLinearControlDirect(
+      const ControlVarBackend& control, const StateBackendArg& reference_state,
+      const ObsBackendArg& obs) const {
+    (void)reference_state;  // Used implicitly via WRFDA structures
+    (void)obs;              // Used implicitly via WRFDA structures
+
+    void* grid_ptr = wrfda_get_head_grid_ptr_();
+    void* iv_ptr = wrfda_get_iv_ptr();
+    void* y_ptr = wrfda_get_y_tl_ptr();
+
+    if (!grid_ptr || !iv_ptr || !y_ptr) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinearControlDirect: WRFDA structures "
+          "not available");
+    }
+
+    // Get control vector data
+    auto control_data = control.getData();
+    int cv_size = wrfda_control_backend_get_cv_size();
+
+    if (cv_size <= 0 || static_cast<int>(control_data.size()) != cv_size) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinearControlDirect: control size "
+          "mismatch");
+    }
+
+    // Call da_transform_vtoy directly: y = H'(U·v)
+    int rc = wrfda_transform_vtoy(grid_ptr, iv_ptr, control_data.data(),
+                                  cv_size, y_ptr);
+    if (rc != 0) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinearControlDirect: "
+          "wrfda_transform_vtoy failed with code " +
+          std::to_string(rc));
+    }
+
+    // Extract observations from y structure
+    // Use the same approach as applyTangentLinear - get count from innovations
+    int num_obs = 0;
+    rc = wrfda_count_innovations(iv_ptr, &num_obs);
+    if (rc != 0 || num_obs <= 0) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinearControlDirect: "
+          "wrfda_count_innovations failed");
+    }
+
+    std::vector<double> out_y(num_obs);
+    // wrfda_extract_observations extracts from y_type structure (y_ptr)
+    int actual_count = num_obs;
+    rc = wrfda_extract_observations(iv_ptr, y_ptr, out_y.data(), &actual_count);
+    if (rc != 0) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinearControlDirect: "
+          "wrfda_extract_observations failed");
+    }
+    // Resize output if actual count differs
+    if (actual_count != num_obs) {
+      out_y.resize(actual_count);
+    }
+
+    return out_y;
+  }
+
+  /**
    * @brief Apply adjoint operator in control space: U^T·H^T(...)
    * @param obs_adjoint Observation space adjoint vector (IGNORED for WRF)
    * @param reference_state Reference state
@@ -724,7 +806,7 @@ class WRFObsOperator {
   mutable double last_observation_cost_ = 0.0;
 
   /// Control variable backend for transformations
-  const ControlVariableBackend* control_backend_;
+  const ControlVariableBackend* control_backend_ = nullptr;
 
  public:
   /**

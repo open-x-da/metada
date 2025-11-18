@@ -354,303 +354,6 @@ contains
     wrfda_compute_jo_only = 0_c_int
   end function wrfda_compute_jo_only
 
-  !> @brief Compute observation cost Jo using WRFDA's proven formula
-  !> @details Computes Jo = -0.5 * Σ(re · jo_grad_y) = 0.5 * re^T · R^{-1} · re
-  !>          following WRFDA's da_jo_and_grady_* pattern.
-  !>
-  !> @param[in] iv Innovation vector (for obs type checking)
-  !> @param[in] re Residual vector
-  !> @param[in] jo_grad_y Weighted residual (gradient)
-  !> @param[out] jo_cost Total observation cost
-  subroutine wrfda_compute_jo(iv, re, jo_grad_y, jo_cost)
-    use da_control, only: num_ob_indexes
-    implicit none
-    
-    type(iv_type), intent(in) :: iv
-    type(y_type), intent(in) :: re, jo_grad_y
-    real(c_double), intent(out) :: jo_cost
-    
-    integer :: n, k
-    real(c_double) :: jo_sum
-    
-    jo_sum = 0.0_c_double
-    
-    ! Sound observations (upper-air soundings)
-    if (iv%info(sound)%nlocal > 0) then
-      do n = 1, iv%info(sound)%nlocal
-        do k = 1, iv%info(sound)%levels(n)
-          if (iv%info(sound)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%sound(n)%u(k) * jo_grad_y%sound(n)%u(k)
-            jo_sum = jo_sum - re%sound(n)%v(k) * jo_grad_y%sound(n)%v(k)
-            jo_sum = jo_sum - re%sound(n)%t(k) * jo_grad_y%sound(n)%t(k)
-            jo_sum = jo_sum - re%sound(n)%q(k) * jo_grad_y%sound(n)%q(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! SYNOP observations (surface synoptic)
-    if (iv%info(synop)%nlocal > 0) then
-      do n = 1, iv%info(synop)%nlocal
-        if (iv%info(synop)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%synop(n)%u * jo_grad_y%synop(n)%u
-          jo_sum = jo_sum - re%synop(n)%v * jo_grad_y%synop(n)%v
-          jo_sum = jo_sum - re%synop(n)%t * jo_grad_y%synop(n)%t
-          jo_sum = jo_sum - re%synop(n)%p * jo_grad_y%synop(n)%p
-          jo_sum = jo_sum - re%synop(n)%q * jo_grad_y%synop(n)%q
-        end if
-      end do
-    end if
-    
-    ! METAR observations (surface aviation)
-    if (iv%info(metar)%nlocal > 0) then
-      do n = 1, iv%info(metar)%nlocal
-        if (iv%info(metar)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%metar(n)%u * jo_grad_y%metar(n)%u
-          jo_sum = jo_sum - re%metar(n)%v * jo_grad_y%metar(n)%v
-          jo_sum = jo_sum - re%metar(n)%t * jo_grad_y%metar(n)%t
-          jo_sum = jo_sum - re%metar(n)%p * jo_grad_y%metar(n)%p
-          jo_sum = jo_sum - re%metar(n)%q * jo_grad_y%metar(n)%q
-        end if
-      end do
-    end if
-    
-    ! Ships observations (ships and buoys)
-    if (iv%info(ships)%nlocal > 0) then
-      do n = 1, iv%info(ships)%nlocal
-        if (iv%info(ships)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%ships(n)%u * jo_grad_y%ships(n)%u
-          jo_sum = jo_sum - re%ships(n)%v * jo_grad_y%ships(n)%v
-          jo_sum = jo_sum - re%ships(n)%t * jo_grad_y%ships(n)%t
-          jo_sum = jo_sum - re%ships(n)%p * jo_grad_y%ships(n)%p
-          jo_sum = jo_sum - re%ships(n)%q * jo_grad_y%ships(n)%q
-        end if
-      end do
-    end if
-    
-    ! Buoy observations (moored/drifting buoys)
-    if (iv%info(buoy)%nlocal > 0) then
-      do n = 1, iv%info(buoy)%nlocal
-        if (iv%info(buoy)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%buoy(n)%u * jo_grad_y%buoy(n)%u
-          jo_sum = jo_sum - re%buoy(n)%v * jo_grad_y%buoy(n)%v
-          jo_sum = jo_sum - re%buoy(n)%t * jo_grad_y%buoy(n)%t
-          jo_sum = jo_sum - re%buoy(n)%p * jo_grad_y%buoy(n)%p
-          jo_sum = jo_sum - re%buoy(n)%q * jo_grad_y%buoy(n)%q
-        end if
-      end do
-    end if
-    
-    ! Pilot observations (pilot balloons - wind only, multi-level)
-    if (iv%info(pilot)%nlocal > 0) then
-      do n = 1, iv%info(pilot)%nlocal
-        do k = 1, iv%info(pilot)%levels(n)
-          if (iv%info(pilot)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%pilot(n)%u(k) * jo_grad_y%pilot(n)%u(k)
-            jo_sum = jo_sum - re%pilot(n)%v(k) * jo_grad_y%pilot(n)%v(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! AIREP observations (aircraft reports - multi-level)
-    if (iv%info(airep)%nlocal > 0) then
-      do n = 1, iv%info(airep)%nlocal
-        do k = 1, iv%info(airep)%levels(n)
-          if (iv%info(airep)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%airep(n)%u(k) * jo_grad_y%airep(n)%u(k)
-            jo_sum = jo_sum - re%airep(n)%v(k) * jo_grad_y%airep(n)%v(k)
-            jo_sum = jo_sum - re%airep(n)%t(k) * jo_grad_y%airep(n)%t(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! GPSPW observations (GPS precipitable water - single level)
-    if (iv%info(gpspw)%nlocal > 0) then
-      do n = 1, iv%info(gpspw)%nlocal
-        if (iv%info(gpspw)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%gpspw(n)%tpw * jo_grad_y%gpspw(n)%tpw
-        end if
-      end do
-    end if
-    
-    ! GPSREF observations (GPS refractivity - multi-level)
-    if (iv%info(gpsref)%nlocal > 0) then
-      do n = 1, iv%info(gpsref)%nlocal
-        do k = 1, iv%info(gpsref)%levels(n)
-          if (iv%info(gpsref)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%gpsref(n)%ref(k) * jo_grad_y%gpsref(n)%ref(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! Profiler observations (wind profilers - multi-level)
-    if (iv%info(profiler)%nlocal > 0) then
-      do n = 1, iv%info(profiler)%nlocal
-        do k = 1, iv%info(profiler)%levels(n)
-          if (iv%info(profiler)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%profiler(n)%u(k) * jo_grad_y%profiler(n)%u(k)
-            jo_sum = jo_sum - re%profiler(n)%v(k) * jo_grad_y%profiler(n)%v(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! QSCAT observations (QuikSCAT winds - single level)
-    if (iv%info(qscat)%nlocal > 0) then
-      do n = 1, iv%info(qscat)%nlocal
-        if (iv%info(qscat)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%qscat(n)%u * jo_grad_y%qscat(n)%u
-          jo_sum = jo_sum - re%qscat(n)%v * jo_grad_y%qscat(n)%v
-        end if
-      end do
-    end if
-    
-    ! GEOAMV observations (geostationary AMVs - multi-level)
-    if (iv%info(geoamv)%nlocal > 0) then
-      do n = 1, iv%info(geoamv)%nlocal
-        do k = 1, iv%info(geoamv)%levels(n)
-          if (iv%info(geoamv)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%geoamv(n)%u(k) * jo_grad_y%geoamv(n)%u(k)
-            jo_sum = jo_sum - re%geoamv(n)%v(k) * jo_grad_y%geoamv(n)%v(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! POLARAMV observations (polar AMVs - multi-level)
-    if (iv%info(polaramv)%nlocal > 0) then
-      do n = 1, iv%info(polaramv)%nlocal
-        do k = 1, iv%info(polaramv)%levels(n)
-          if (iv%info(polaramv)%proc_domain(k,n)) then
-            jo_sum = jo_sum - re%polaramv(n)%u(k) * jo_grad_y%polaramv(n)%u(k)
-            jo_sum = jo_sum - re%polaramv(n)%v(k) * jo_grad_y%polaramv(n)%v(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! Bogus observations (synthetic vortex - multi-level with surface slp)
-    if (iv%info(bogus)%nlocal > 0) then
-      do n = 1, iv%info(bogus)%nlocal
-        if (iv%info(bogus)%proc_domain(1,n)) then
-          ! Sea level pressure (single level)
-          jo_sum = jo_sum - re%bogus(n)%slp * jo_grad_y%bogus(n)%slp
-          ! Multi-level fields
-          do k = 1, iv%info(bogus)%levels(n)
-            jo_sum = jo_sum - re%bogus(n)%u(k) * jo_grad_y%bogus(n)%u(k)
-            jo_sum = jo_sum - re%bogus(n)%v(k) * jo_grad_y%bogus(n)%v(k)
-            jo_sum = jo_sum - re%bogus(n)%t(k) * jo_grad_y%bogus(n)%t(k)
-            jo_sum = jo_sum - re%bogus(n)%q(k) * jo_grad_y%bogus(n)%q(k)
-          end do
-        end if
-      end do
-    end if
-    
-    ! SATEM observations (satellite thickness - multi-level)
-    if (iv%info(satem)%nlocal > 0) then
-      do n = 1, iv%info(satem)%nlocal
-        do k = 1, iv%info(satem)%levels(n)
-          if (iv%info(satem)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%satem(n)%thickness(k) * jo_grad_y%satem(n)%thickness(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! SSMI_TB observations (SSMI brightness temperature - multi-channel)
-    if (iv%info(ssmi_tb)%nlocal > 0) then
-      do n = 1, iv%info(ssmi_tb)%nlocal
-        if (iv%info(ssmi_tb)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%ssmi_tb(n)%tb19h * jo_grad_y%ssmi_tb(n)%tb19h
-          jo_sum = jo_sum - re%ssmi_tb(n)%tb19v * jo_grad_y%ssmi_tb(n)%tb19v
-          jo_sum = jo_sum - re%ssmi_tb(n)%tb22v * jo_grad_y%ssmi_tb(n)%tb22v
-          jo_sum = jo_sum - re%ssmi_tb(n)%tb37h * jo_grad_y%ssmi_tb(n)%tb37h
-          jo_sum = jo_sum - re%ssmi_tb(n)%tb37v * jo_grad_y%ssmi_tb(n)%tb37v
-          jo_sum = jo_sum - re%ssmi_tb(n)%tb85h * jo_grad_y%ssmi_tb(n)%tb85h
-          jo_sum = jo_sum - re%ssmi_tb(n)%tb85v * jo_grad_y%ssmi_tb(n)%tb85v
-        end if
-      end do
-    end if
-    
-    ! SSMI_RV observations (SSMI rain rate - single level)
-    if (iv%info(ssmi_rv)%nlocal > 0) then
-      do n = 1, iv%info(ssmi_rv)%nlocal
-        if (iv%info(ssmi_rv)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%ssmi_rv(n)%speed * jo_grad_y%ssmi_rv(n)%speed
-          jo_sum = jo_sum - re%ssmi_rv(n)%tpw * jo_grad_y%ssmi_rv(n)%tpw
-        end if
-      end do
-    end if
-    
-    ! SSMT1 observations (SSM/T1 - multi-level)
-    if (iv%info(ssmt1)%nlocal > 0) then
-      do n = 1, iv%info(ssmt1)%nlocal
-        do k = 1, iv%info(ssmt1)%levels(n)
-          if (iv%info(ssmt1)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%ssmt1(n)%t(k) * jo_grad_y%ssmt1(n)%t(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! SSMT2 observations (SSM/T2 - multi-level)
-    if (iv%info(ssmt2)%nlocal > 0) then
-      do n = 1, iv%info(ssmt2)%nlocal
-        do k = 1, iv%info(ssmt2)%levels(n)
-          if (iv%info(ssmt2)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%ssmt2(n)%rh(k) * jo_grad_y%ssmt2(n)%rh(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! Sonde_sfc observations (sonde surface level)
-    if (iv%info(sonde_sfc)%nlocal > 0) then
-      do n = 1, iv%info(sonde_sfc)%nlocal
-        if (iv%info(sonde_sfc)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%sonde_sfc(n)%u * jo_grad_y%sonde_sfc(n)%u
-          jo_sum = jo_sum - re%sonde_sfc(n)%v * jo_grad_y%sonde_sfc(n)%v
-          jo_sum = jo_sum - re%sonde_sfc(n)%t * jo_grad_y%sonde_sfc(n)%t
-          jo_sum = jo_sum - re%sonde_sfc(n)%p * jo_grad_y%sonde_sfc(n)%p
-          jo_sum = jo_sum - re%sonde_sfc(n)%q * jo_grad_y%sonde_sfc(n)%q
-        end if
-      end do
-    end if
-    
-    ! TAMDAR observations (TAMDAR aircraft - multi-level)
-    if (iv%info(tamdar)%nlocal > 0) then
-      do n = 1, iv%info(tamdar)%nlocal
-        do k = 1, iv%info(tamdar)%levels(n)
-          if (iv%info(tamdar)%proc_domain(1,n)) then
-            jo_sum = jo_sum - re%tamdar(n)%u(k) * jo_grad_y%tamdar(n)%u(k)
-            jo_sum = jo_sum - re%tamdar(n)%v(k) * jo_grad_y%tamdar(n)%v(k)
-            jo_sum = jo_sum - re%tamdar(n)%t(k) * jo_grad_y%tamdar(n)%t(k)
-            jo_sum = jo_sum - re%tamdar(n)%q(k) * jo_grad_y%tamdar(n)%q(k)
-          end if
-        end do
-      end do
-    end if
-    
-    ! TAMDAR_SFC observations (TAMDAR surface)
-    if (iv%info(tamdar_sfc)%nlocal > 0) then
-      do n = 1, iv%info(tamdar_sfc)%nlocal
-        if (iv%info(tamdar_sfc)%proc_domain(1,n)) then
-          jo_sum = jo_sum - re%tamdar_sfc(n)%u * jo_grad_y%tamdar_sfc(n)%u
-          jo_sum = jo_sum - re%tamdar_sfc(n)%v * jo_grad_y%tamdar_sfc(n)%v
-          jo_sum = jo_sum - re%tamdar_sfc(n)%t * jo_grad_y%tamdar_sfc(n)%t
-          jo_sum = jo_sum - re%tamdar_sfc(n)%p * jo_grad_y%tamdar_sfc(n)%p
-          jo_sum = jo_sum - re%tamdar_sfc(n)%q * jo_grad_y%tamdar_sfc(n)%q
-        end if
-      end do
-    end if
-    
-    ! Apply the 0.5 factor following WRFDA's convention
-    jo_cost = 0.5_c_double * jo_sum
-    
-  end subroutine wrfda_compute_jo
 
   !> @brief Adjoint operator: H^T·jo_grad_y using WRFDA's proven da_transform_xtoy_adj
   !> @details Uses WRFDA's top-level da_transform_xtoy_adj which automatically dispatches
@@ -764,6 +467,101 @@ contains
     wrfda_vtoy_adjoint_control = 0_c_int
   end function wrfda_vtoy_adjoint_control
 
+  !> @brief Control-to-observation-space transform: y = H'(U·v)
+  !> @details This matches WRFDA's da_transform_vtoy, used during CG iterations
+  !>          when computing gradients along search directions.
+  !> @param[in] grid_ptr Pointer to WRFDA grid structure
+  !> @param[in] iv_ptr Pointer to innovation vector structure
+  !> @param[in] control_input Control variable vector v
+  !> @param[in] control_size Size of control vector
+  !> @param[in,out] y_ptr Pointer to y_type structure (output: y = H'(U·v))
+  !> @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_transform_vtoy(grid_ptr, iv_ptr, control_input, control_size, y_ptr) &
+       bind(C, name="wrfda_transform_vtoy")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_int, c_double
+    use da_minimisation, only: da_transform_vtoy
+    use da_define_structures, only: be_type, xbx_type, iv_type, y_type, &
+                                    vp_type, da_allocate_y, da_deallocate_y, &
+                                    da_zero_vp_type, da_zero_y
+    use module_configure, only: grid_config_rec_type
+    use module_domain, only: domain
+    use da_control, only: cv_size
+    implicit none
+    interface
+      function wrfda_control_backend_get_be_ptr() result(be_cptr) bind(C, name="wrfda_control_backend_get_be_ptr")
+        use iso_c_binding
+        type(c_ptr) :: be_cptr
+      end function wrfda_control_backend_get_be_ptr
+      function wrfda_get_persistent_xbx() result(xbx_ptr) bind(C, name="wrfda_get_persistent_xbx")
+        use iso_c_binding
+        type(c_ptr) :: xbx_ptr
+      end function wrfda_get_persistent_xbx
+    end interface
+    type(c_ptr), value :: grid_ptr, iv_ptr, y_ptr
+    real(c_double), intent(in) :: control_input(*)
+    integer(c_int), value :: control_size
+    type(domain), pointer :: grid
+    type(iv_type), pointer :: iv
+    type(y_type), pointer :: y
+    type(be_type), pointer :: be
+    type(xbx_type), pointer :: xbx
+    type(grid_config_rec_type) :: config_flags
+    real, allocatable :: cv(:)
+    real :: zero_value
+    integer :: i
+
+    wrfda_transform_vtoy = 1_c_int
+
+    if (.not. c_associated(grid_ptr)) return
+    if (.not. c_associated(iv_ptr)) return
+    if (.not. c_associated(y_ptr)) return
+
+    call c_f_pointer(grid_ptr, grid)
+    call c_f_pointer(iv_ptr, iv)
+    call c_f_pointer(y_ptr, y)
+    if (.not. associated(grid) .or. .not. associated(iv) .or. .not. associated(y)) return
+
+    ! Fetch BE and XBX from backend/control setup
+    call c_f_pointer(wrfda_control_backend_get_be_ptr(), be)
+    call c_f_pointer(wrfda_get_persistent_xbx(), xbx)
+    if (.not. associated(be) .or. .not. associated(xbx)) return
+
+    if (control_size <= 0) return
+    if (cv_size <= 0) return
+    if (control_size < cv_size) return
+    allocate(cv(cv_size))
+
+    ! Copy control input to local array
+    do i = 1, cv_size
+      cv(i) = control_input(i)
+    end do
+
+    ! Zero work arrays before transform
+    call da_zero_vp_type(grid%vp)
+    call da_zero_vp_type(grid%vv)
+    
+    ! CRITICAL: Ensure y structure is allocated before zeroing
+    ! The y structure must be allocated with da_allocate_y before da_zero_y can be called
+    ! Check if y structure is allocated by checking if synop pointer is associated
+    ! If not allocated, allocate it now
+    ! Note: y%synop is a pointer, so we use associated() not allocated()
+    if (.not. associated(y%synop)) then
+      call da_allocate_y(iv, y)
+    end if
+    
+    ! Zero y structure before transform (matches WRFDA pattern)
+    ! Note: da_zero_y signature is da_zero_y(iv, y, zero_value) - zeroes all observation fields
+    zero_value = 0.0
+    call da_zero_y(iv, y, zero_value)
+
+    ! Perform control-to-observation-space transform: y = H'(U·v)
+    call da_transform_vtoy(cv_size, be, grid%ep, cv, iv, grid%vp, grid%vv, xbx, &
+                          y, grid, config_flags)
+
+    deallocate(cv)
+    wrfda_transform_vtoy = 0_c_int
+  end function wrfda_transform_vtoy
+
   ! (deprecated) wrfda_vtoy_adjoint_control removed for compatibility
 
   !> @brief Pure adjoint operator for TL/AD testing (without R^{-1} weighting)
@@ -777,8 +575,14 @@ contains
   !> @return 0 on success, non-zero on error
   integer(c_int) function wrfda_xtoy_adjoint_pure(grid_ptr, iv_ptr, dy_values, num_values) &
        bind(C, name="wrfda_xtoy_adjoint_pure")
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_int, c_double
     use da_obs, only: da_transform_xtoy_adj
-    use da_define_structures, only: da_zero_x
+    use da_define_structures, only: iv_type, y_type, da_allocate_y, da_deallocate_y, da_zero_x
+    use module_domain, only: domain
+    use da_control, only: synop, metar, ships, sound, buoy, airep, pilot, sonde_sfc, &
+                          geoamv, polaramv, gpspw, gpsref, gpseph, qscat, profiler, &
+                          ssmi_rv, ssmi_tb, ssmt1, ssmt2, satem, pseudo, bogus, &
+                          airsr, mtgirs, tamdar, tamdar_sfc, rain, radar, lightning
     implicit none
     type(c_ptr), value :: grid_ptr, iv_ptr
     real(c_double), intent(in) :: dy_values(*)
@@ -832,7 +636,7 @@ contains
       end do
     end if
     
-    ! 2. METAR family
+    ! 2. METAR family (residual_synop_type has real scalars, not field_type)
     if (associated(dy_y%metar) .and. associated(iv%metar) .and. iv%info(metar)%nlocal > 0) then
       do n = 1, iv%info(metar)%nlocal
         if (iv%metar(n)%u%qc == 0 .and. abs(iv%metar(n)%u%inv) > 1.0e-10) then
@@ -908,7 +712,7 @@ contains
       end do
     end if
     
-    ! 5. BUOY family
+    ! 5. BUOY family (residual_synop_type has real scalars, not field_type)
     if (associated(dy_y%buoy) .and. associated(iv%buoy) .and. iv%info(buoy)%nlocal > 0) then
       do n = 1, iv%info(buoy)%nlocal
         if (iv%buoy(n)%u%qc == 0 .and. abs(iv%buoy(n)%u%inv) > 1.0e-10) then
@@ -934,7 +738,7 @@ contains
       end do
     end if
     
-    ! 6. AIREP family - multi-level
+    ! 6. AIREP family - multi-level (residual_airep_type has real pointer arrays, not field_type)
     if (associated(dy_y%airep) .and. associated(iv%airep) .and. iv%info(airep)%nlocal > 0) then
       do n = 1, iv%info(airep)%nlocal
         do k = 1, iv%info(airep)%levels(n)
@@ -954,7 +758,7 @@ contains
       end do
     end if
     
-    ! 7. PILOT family - multi-level
+    ! 7. PILOT family - multi-level (residual_pilot_type has real pointer arrays, not field_type)
     if (associated(dy_y%pilot) .and. associated(iv%pilot) .and. iv%info(pilot)%nlocal > 0) then
       do n = 1, iv%info(pilot)%nlocal
         do k = 1, iv%info(pilot)%levels(n)
@@ -970,7 +774,7 @@ contains
       end do
     end if
     
-    ! 8. SONDE_SFC family
+    ! 8. SONDE_SFC family (residual_synop_type has real scalars, not field_type)
     if (associated(dy_y%sonde_sfc) .and. associated(iv%sonde_sfc) .and. iv%info(sonde_sfc)%nlocal > 0) then
       do n = 1, iv%info(sonde_sfc)%nlocal
         if (iv%sonde_sfc(n)%u%qc == 0 .and. abs(iv%sonde_sfc(n)%u%inv) > 1.0e-10) then
@@ -996,7 +800,7 @@ contains
       end do
     end if
     
-    ! 9. GEOAMV family - multi-level
+    ! 9. GEOAMV family - multi-level (residual_geoamv_type has real pointer arrays, not field_type)
     if (associated(dy_y%geoamv) .and. associated(iv%geoamv) .and. iv%info(geoamv)%nlocal > 0) then
       do n = 1, iv%info(geoamv)%nlocal
         do k = 1, iv%info(geoamv)%levels(n)
@@ -1012,7 +816,7 @@ contains
       end do
     end if
     
-    ! 10. POLARAMV family - multi-level
+    ! 10. POLARAMV family - multi-level (residual_polaramv_type has real pointer arrays, not field_type)
     if (associated(dy_y%polaramv) .and. associated(iv%polaramv) .and. iv%info(polaramv)%nlocal > 0) then
       do n = 1, iv%info(polaramv)%nlocal
         do k = 1, iv%info(polaramv)%levels(n)
@@ -1028,7 +832,7 @@ contains
       end do
     end if
     
-    ! 11. GPSPW family
+    ! 11. GPSPW family (residual_gpspw_type has real scalar, not field_type)
     if (associated(dy_y%gpspw) .and. associated(iv%gpspw) .and. iv%info(gpspw)%nlocal > 0) then
       do n = 1, iv%info(gpspw)%nlocal
         if (iv%gpspw(n)%tpw%qc == 0 .and. abs(iv%gpspw(n)%tpw%inv) > 1.0e-10) then
@@ -1038,7 +842,7 @@ contains
       end do
     end if
     
-    ! 12. GPSREF family - multi-level
+    ! 12. GPSREF family - multi-level (residual_gpsref_type has real pointer arrays, not field_type)
     if (associated(dy_y%gpsref) .and. associated(iv%gpsref) .and. iv%info(gpsref)%nlocal > 0) then
       do n = 1, iv%info(gpsref)%nlocal
         do k = 1, iv%info(gpsref)%levels(n)
@@ -1062,7 +866,7 @@ contains
       end do
     end if
     
-    ! 13. GPSEPH family - multi-level
+    ! 13. GPSEPH family - multi-level (residual_gpseph_type has real pointer array, not field_type)
     if (associated(dy_y%gpseph) .and. associated(iv%gpseph) .and. iv%info(gpseph)%nlocal > 0) then
       do n = 1, iv%info(gpseph)%nlocal
         do k = 1, iv%info(gpseph)%levels(n)
@@ -1074,7 +878,7 @@ contains
       end do
     end if
     
-    ! 14. QSCAT family
+    ! 14. QSCAT family (residual_qscat_type has real scalars, not field_type)
     if (associated(dy_y%qscat) .and. associated(iv%qscat) .and. iv%info(qscat)%nlocal > 0) then
       do n = 1, iv%info(qscat)%nlocal
         if (iv%qscat(n)%u%qc == 0 .and. abs(iv%qscat(n)%u%inv) > 1.0e-10) then
@@ -1088,7 +892,7 @@ contains
       end do
     end if
     
-    ! 15. PROFILER family - multi-level
+    ! 15. PROFILER family - multi-level (residual_pilot_type has real pointer arrays, not field_type)
     if (associated(dy_y%profiler) .and. associated(iv%profiler) .and. iv%info(profiler)%nlocal > 0) then
       do n = 1, iv%info(profiler)%nlocal
         do k = 1, iv%info(profiler)%levels(n)
@@ -1104,7 +908,7 @@ contains
       end do
     end if
     
-    ! 16. SSMI_RV family
+    ! 16. SSMI_RV family (residual_ssmi_rv_type has real scalars, not field_type)
     if (associated(dy_y%ssmi_rv) .and. associated(iv%ssmi_rv) .and. iv%info(ssmi_rv)%nlocal > 0) then
       do n = 1, iv%info(ssmi_rv)%nlocal
         if (iv%ssmi_rv(n)%Speed%qc == 0 .and. abs(iv%ssmi_rv(n)%Speed%inv) > 1.0e-10) then
@@ -1118,7 +922,7 @@ contains
       end do
     end if
     
-    ! 17. SSMI_TB family
+    ! 17. SSMI_TB family (residual_ssmi_tb_type has real scalars, not field_type)
     if (associated(dy_y%ssmi_tb) .and. associated(iv%ssmi_tb) .and. iv%info(ssmi_tb)%nlocal > 0) then
       do n = 1, iv%info(ssmi_tb)%nlocal
         if (iv%ssmi_tb(n)%tb19h%qc == 0 .and. abs(iv%ssmi_tb(n)%tb19h%inv) > 1.0e-10) then
@@ -1152,7 +956,7 @@ contains
       end do
     end if
     
-    ! 18. SSMT1 family - multi-level
+    ! 18. SSMT1 family - multi-level (residual_ssmt1_type has real pointer array, not field_type)
     if (associated(dy_y%ssmt1) .and. associated(iv%ssmt1) .and. iv%info(ssmt1)%nlocal > 0) then
       do n = 1, iv%info(ssmt1)%nlocal
         do k = 1, iv%info(ssmt1)%levels(n)
@@ -1164,7 +968,7 @@ contains
       end do
     end if
     
-    ! 19. SSMT2 family - multi-level
+    ! 19. SSMT2 family - multi-level (residual_ssmt2_type has real pointer array, not field_type)
     if (associated(dy_y%ssmt2) .and. associated(iv%ssmt2) .and. iv%info(ssmt2)%nlocal > 0) then
       do n = 1, iv%info(ssmt2)%nlocal
         do k = 1, iv%info(ssmt2)%levels(n)
@@ -1176,7 +980,7 @@ contains
       end do
     end if
     
-    ! 20. SATEM family - multi-level
+    ! 20. SATEM family - multi-level (residual_satem_type has real pointer array, not field_type)
     if (associated(dy_y%satem) .and. associated(iv%satem) .and. iv%info(satem)%nlocal > 0) then
       do n = 1, iv%info(satem)%nlocal
         do k = 1, iv%info(satem)%levels(n)
@@ -1188,7 +992,7 @@ contains
       end do
     end if
     
-    ! 21. PSEUDO family
+    ! 21. PSEUDO family (residual_pseudo_type has real scalars, not field_type)
     if (associated(dy_y%pseudo) .and. associated(iv%pseudo) .and. iv%info(pseudo)%nlocal > 0) then
       do n = 1, iv%info(pseudo)%nlocal
         if (iv%pseudo(n)%u%qc == 0 .and. abs(iv%pseudo(n)%u%inv) > 1.0e-10) then
@@ -1214,7 +1018,7 @@ contains
       end do
     end if
     
-    ! 22. BOGUS family - multi-level
+    ! 22. BOGUS family - multi-level (residual_bogus_type has real pointer arrays and scalar, not field_type)
     if (associated(dy_y%bogus) .and. associated(iv%bogus) .and. iv%info(bogus)%nlocal > 0) then
       do n = 1, iv%info(bogus)%nlocal
         do k = 1, iv%info(bogus)%levels(n)
@@ -1242,7 +1046,7 @@ contains
       end do
     end if
     
-    ! 23. AIRSR family - multi-level
+    ! 23. AIRSR family - multi-level (residual_airsr_type has real pointer arrays, not field_type)
     if (associated(dy_y%airsr) .and. associated(iv%airsr) .and. iv%info(airsr)%nlocal > 0) then
       do n = 1, iv%info(airsr)%nlocal
         do k = 1, iv%info(airsr)%levels(n)
@@ -1258,7 +1062,7 @@ contains
       end do
     end if
     
-    ! 24. MTGIRS family - multi-level
+    ! 24. MTGIRS family - multi-level (residual_mtgirs_type has real pointer arrays, not field_type)
     if (associated(dy_y%mtgirs) .and. associated(iv%mtgirs) .and. iv%info(mtgirs)%nlocal > 0) then
       do n = 1, iv%info(mtgirs)%nlocal
         do k = 1, iv%info(mtgirs)%levels(n)
@@ -1282,7 +1086,7 @@ contains
       end do
     end if
     
-    ! 25. TAMDAR family - multi-level
+    ! 25. TAMDAR family - multi-level (residual_tamdar_type has real pointer arrays, not field_type)
     if (associated(dy_y%tamdar) .and. associated(iv%tamdar) .and. iv%info(tamdar)%nlocal > 0) then
       do n = 1, iv%info(tamdar)%nlocal
         do k = 1, iv%info(tamdar)%levels(n)
@@ -1306,7 +1110,7 @@ contains
       end do
     end if
     
-    ! 26. TAMDAR_SFC family
+    ! 26. TAMDAR_SFC family (residual_synop_type has real scalars, not field_type)
     if (associated(dy_y%tamdar_sfc) .and. associated(iv%tamdar_sfc) .and. iv%info(tamdar_sfc)%nlocal > 0) then
       do n = 1, iv%info(tamdar_sfc)%nlocal
         if (iv%tamdar_sfc(n)%u%qc == 0 .and. abs(iv%tamdar_sfc(n)%u%inv) > 1.0e-10) then
@@ -1332,7 +1136,7 @@ contains
       end do
     end if
     
-    ! 27. RAIN family
+    ! 27. RAIN family (residual_rain_type has real scalar, not field_type)
     if (associated(dy_y%rain) .and. associated(iv%rain) .and. iv%info(rain)%nlocal > 0) then
       do n = 1, iv%info(rain)%nlocal
         if (iv%rain(n)%rain%qc == 0 .and. abs(iv%rain(n)%rain%inv) > 1.0e-10) then
@@ -1342,7 +1146,7 @@ contains
       end do
     end if
     
-    ! 28. RADAR family - multi-level
+    ! 28. RADAR family - multi-level (residual_radar_type has real pointer arrays, not field_type)
     if (associated(dy_y%radar) .and. associated(iv%radar) .and. iv%info(radar)%nlocal > 0) then
       do n = 1, iv%info(radar)%nlocal
         do k = 1, iv%info(radar)%levels(n)
@@ -1358,7 +1162,7 @@ contains
       end do
     end if
     
-    ! 29. LIGHTNING family - multi-level
+    ! 29. LIGHTNING family - multi-level (residual_lightning_type has real pointer arrays, not field_type)
     if (associated(dy_y%lightning) .and. associated(iv%lightning) .and. iv%info(lightning)%nlocal > 0) then
       do n = 1, iv%info(lightning)%nlocal
         do k = 1, iv%info(lightning)%levels(n)
@@ -1383,6 +1187,9 @@ contains
     
     ! Apply pure adjoint: H'^T · dy → grid%xa
     call da_transform_xtoy_adj(0, dummy_cv, grid, iv, dy_y, grid%xa)
+    
+    ! Deallocate dy_y structure
+    call da_deallocate_y(dy_y)
     
     wrfda_xtoy_adjoint_pure = 0_c_int
     

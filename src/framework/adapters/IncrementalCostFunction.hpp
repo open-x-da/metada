@@ -357,8 +357,10 @@ class IncrementalCostFunction : public NonCopyable {
     const auto& obs_op = obs_operators_[0];
 
     // Apply tangent linear in control space: H' U v
+    // Use direct da_transform_vtoy when available (matches WRFDA's
+    // da_calculate_gradj workflow during CG iterations)
     auto simulated_increment =
-        obs_op.applyTangentLinear(control, background_, obs);
+        obs_op.applyTangentLinearDirect(control, background_, obs);
 
     if (obs_op.hasNativeIncrementalCost(background_, obs)) {
       (void)simulated_increment;
@@ -393,8 +395,10 @@ class IncrementalCostFunction : public NonCopyable {
       const auto& obs_op = obs_operators_[i];
 
       // Apply tangent linear in control space: H' U v
+      // Use direct da_transform_vtoy when available (matches WRFDA's
+      // da_calculate_gradj workflow during CG iterations)
       auto simulated_increment =
-          obs_op.applyTangentLinear(control, background_, obs);
+          obs_op.applyTangentLinearDirect(control, background_, obs);
 
       if (obs_op.hasNativeIncrementalCost(background_, obs)) {
         (void)simulated_increment;

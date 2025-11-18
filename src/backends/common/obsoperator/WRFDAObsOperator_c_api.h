@@ -63,6 +63,19 @@ int wrfda_xtoy_adjoint_pure(const void* grid_ptr, const void* iv_ptr,
 int wrfda_vtoy_adjoint_control(const void* grid_ptr, const void* iv_ptr,
                                double* control_gradient_out, int control_size);
 
+// Control-to-observation-space transform: y = H'(U·v)
+// This is the forward transform used during CG iterations when computing
+// gradients along search directions. Matches WRFDA's da_transform_vtoy.
+// @param grid_ptr Pointer to WRFDA grid structure
+// @param iv_ptr Pointer to innovation vector structure
+// @param control_input Control variable vector v
+// @param control_size Size of control vector
+// @param y_ptr Pointer to y_type structure (output: y = H'(U·v))
+// @return 0 on success, non-zero on error
+int wrfda_transform_vtoy(const void* grid_ptr, const void* iv_ptr,
+                         const double* control_input, int control_size,
+                         void* y_ptr);
+
 // (deprecated note) When wrfda_vtoy_adjoint_control is unavailable, use
 // state-adjoint + U^T path instead.
 

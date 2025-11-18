@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "BackendTraits.hpp"
@@ -299,6 +300,44 @@ class ObsOperator : public NonCopyable {
     // Apply tangent linear: H'(δx)
     return backend_.applyTangentLinear(
         increment.backend(), reference_state.backend(), obs.backend());
+  }
+
+  /**
+   * @brief Apply tangent linear operator directly in control space using
+   * da_transform_vtoy: H'(U·v)
+   *
+   * @details This method uses the backend's direct control→observation
+   * transform (da_transform_vtoy) when available, matching WRFDA's workflow
+   * during CG iterations. This is more efficient than the two-step process and
+   * matches WRFDA's exact workflow in da_calculate_gradj.
+   *
+   * @tparam StateBackend The state backend type
+   * @tparam ObsBackend The observation backend type
+   * @param control Control variable v
+   * @param reference_state Reference state around which to linearize
+   * @param obs Reference observations for context
+   * @return Vector containing H'(U·v) in observation space
+   * @throws std::runtime_error If the observation operator is not initialized
+   */
+  template <typename StateBackend, typename ObsBackend>
+  std::vector<double> applyTangentLinearDirect(
+      const ControlVariable<StateBackend>& control,
+      const State<StateBackend>& reference_state,
+      const Observation<ObsBackend>& obs) const {
+    // Check if backend supports direct control→obs transform
+    // Template parameters are deduced automatically from function arguments
+    if constexpr (requires {
+                    backend_.applyTangentLinearControlDirect(
+                        control.backend(), reference_state.backend(),
+                        obs.backend());
+                  }) {
+      // Use direct transform: y = H'(U·v) via da_transform_vtoy
+      return backend_.applyTangentLinearControlDirect(
+          control.backend(), reference_state.backend(), obs.backend());
+    } else {
+      // Fallback to two-step process
+      return applyTangentLinear(control, reference_state, obs);
+    }
   }
 
   /**
