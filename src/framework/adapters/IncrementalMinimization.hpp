@@ -179,12 +179,6 @@ class IncrementalMinimization : public NonCopyable {
       return temp_gradient.template getData<std::vector<double>>();
     };
 
-    const double initial_cost = cost_wrapper(initial_vector);
-    const auto initial_gradient = gradient_wrapper(initial_vector);
-    const double initial_gradient_norm = std::sqrt(
-        std::inner_product(initial_gradient.begin(), initial_gradient.end(),
-                           initial_gradient.begin(), 0.0));
-
     const std::string method_prefix =
         "minimize_" + toLowerCopy(optimizer_->getName());
     constexpr int prefix_width = 24;
@@ -195,8 +189,6 @@ class IncrementalMinimization : public NonCopyable {
     logSeparator(prefix_width, loop_width, iter_width, value_width);
     logHeader(prefix_width, loop_width, iter_width, value_width);
     logSeparator(prefix_width, loop_width, iter_width, value_width);
-    logIteration(method_prefix, prefix_width, loop_width, iter_width,
-                 value_width, 1, 0, initial_cost, initial_gradient_norm, 0.0);
 
     optimizer_->setIterationLogger(
         [method_prefix](int iter, double /*previous_cost*/, double current_cost,
