@@ -3935,7 +3935,7 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   use module_domain, only: domain, head_grid
   use module_tiles, only: set_tiles
   use da_wrfvar_io, only: da_med_initialdata_input
-  use da_transfer_model, only: da_setup_firstguess_wrf
+  use da_transfer_model, only: da_setup_firstguess
   use da_setup_structures, only: da_setup_runconstants
   use da_wrf_interfaces, only: wrf_message
   implicit none
@@ -4014,8 +4014,9 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   ! Set surface assimilation options
   sfc_assi_options = sfc_assi_options_1
   
-  ! Call da_setup_firstguess_wrf to setup grid and call da_transfer_wrftoxb
-  call da_setup_firstguess_wrf(persistent_xbx, head_grid, config_flags, .false.)
+  ! Call da_setup_firstguess to setup grid, call da_transfer_wrftoxb, and compute coefx/coefy
+  ! This follows WRFDA's standard initialization sequence and ensures coefx/coefy are properly initialized
+  call da_setup_firstguess(persistent_xbx, head_grid, config_flags, .false.)
 
   if (.not. persistent_xbx_initialized) then
     call da_setup_runconstants(head_grid, persistent_xbx)
