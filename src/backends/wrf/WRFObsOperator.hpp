@@ -411,23 +411,26 @@ class WRFObsOperator {
           "TL operator has been called.");
     }
 
-    // Use WRFDA's proven modular workflow:
+    // Use WRFDA's proven modular workflow for gradient-only computation:
     // 1. da_calculate_residual: re = (O-B) - H'(δx)
     //    where H'(δx) is in wrfda_y_tl from applyTangentLinear
     // 2. da_calculate_grady: jo_grad_y = -R^{-1} · re
     //    This uses observation-specific da_calculate_grady_* functions
-    // 3. Jo = 0.5 * re^T · R^{-1} · re (computed via da_jo_and_grady)
-    // This modular approach matches WRFDA's internal structure
-    double jo_cost = 0.0;
-    int rc = wrfda_compute_weighted_residual(iv_ptr, y_tl_ptr, &jo_cost);
+    //
+    // NOTE: We use wrfda_compute_grady_only (not
+    // wrfda_compute_weighted_residual) because during gradient computation (CG
+    // iterations), we don't need the cost. This matches WRFDA's behavior where
+    // da_calculate_gradj doesn't compute cost. Cost is only computed when
+    // explicitly needed (initial and final iterations).
+    int rc = wrfda_compute_grady_only(iv_ptr, y_tl_ptr);
     if (rc != 0) {
-      throw std::runtime_error(
-          "WRFDA compute weighted residual failed with code " +
-          std::to_string(rc));
+      throw std::runtime_error("WRFDA compute gradient only failed with code " +
+                               std::to_string(rc));
     }
 
-    // Store the observation cost for retrieval by cost function
-    last_observation_cost_ = jo_cost;
+    // Note: We don't store observation cost here because this is a
+    // gradient-only operation. Cost is computed separately when needed via
+    // computeObservationCost.
 
     // Zero the increment first (using WRFDA's da_zero_x for ALL fields)
     x_adjoint.zero();
@@ -641,7 +644,9 @@ class WRFObsOperator {
     (void)obs_adjoint;  // WRFDA computes jo_grad_y internally
     (void)obs;
 
-    // Compute weighted residuals and jo_grad_y using WRFDA workflow
+    // Compute jo_grad_y using WRFDA workflow (gradient-only, no cost)
+    // This matches WRFDA's behavior during CG iterations where only gradient
+    // is needed, not cost. Cost is computed separately when needed.
     void* iv_ptr = wrfda_get_iv_ptr();
     void* y_tl_ptr = wrfda_get_y_tl_ptr();
     if (!iv_ptr || !y_tl_ptr) {
@@ -649,15 +654,16 @@ class WRFObsOperator {
           "WRFObsOperator::applyAdjointControl: WRFDA structures not "
           "available");
     }
-    double jo_cost = 0.0;
-    int rc = wrfda_compute_weighted_residual(iv_ptr, y_tl_ptr, &jo_cost);
+    int rc = wrfda_compute_grady_only(iv_ptr, y_tl_ptr);
     if (rc != 0) {
       throw std::runtime_error(
-          "WRFObsOperator::applyAdjointControl: weighted residual failed with "
-          "code " +
+          "WRFObsOperator::applyAdjointControl: gradient computation failed "
+          "with code " +
           std::to_string(rc));
     }
-    last_observation_cost_ = jo_cost;
+    // Note: We don't store observation cost here because this is a
+    // gradient-only operation. Cost is computed separately when needed via
+    // computeObservationCost.
 
     void* grid_ptr = wrfda_get_head_grid_ptr_();
     if (!grid_ptr) {
@@ -802,7 +808,8 @@ class WRFObsOperator {
   /// Initialization status flag
   bool initialized_;
 
-  /// Last computed observation cost (from wrfda_compute_weighted_residual)
+  /// Last computed observation cost (from computeObservationCost)
+  /// Note: applyAdjoint no longer computes cost (uses gradient-only path)
   mutable double last_observation_cost_ = 0.0;
 
   /// Control variable backend for transformations
@@ -811,11 +818,12 @@ class WRFObsOperator {
  public:
   /**
    * @brief Get the last computed observation cost
-   * @return Observation cost from last applyAdjoint call
+   * @return Observation cost from last computeObservationCost call
    *
    * @details Returns the observation cost Jo = 0.5 * re^T * R^{-1} * re
-   * computed by wrfda_compute_weighted_residual during the last applyAdjoint
-   * call. This follows WRFDA's proven formula: Jo = -0.5 * Σ(re · jo_grad_y)
+   * computed by computeObservationCost (which calls wrfda_compute_jo_only).
+   * Note: applyAdjoint no longer computes cost (uses gradient-only path to
+   * match WRFDA's behavior during CG iterations).
    */
   double getLastObservationCost() const { return last_observation_cost_; }
 };

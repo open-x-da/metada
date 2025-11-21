@@ -354,6 +354,57 @@ contains
     wrfda_compute_jo_only = 0_c_int
   end function wrfda_compute_jo_only
 
+  !> @brief Compute ONLY jo_grad_y without computing cost (for gradient-only operations)
+  !> @details Computes jo_grad_y = -R^{-1} · re where re = (O-B) - H'(δx)
+  !>          This is used during CG iterations when only gradient is needed, not cost.
+  !>          The computed jo_grad_y is stored in persistent_jo_grad_y for use by adjoint.
+  !>
+  !>          This avoids the expensive cost computation during minimization iterations
+  !>          where only gradient information is needed.
+  !>
+  !> @param[in] iv_ptr Innovation vector (O-B with error statistics)
+  !> @param[in] y_ptr Simulated observations H'(δx) from tangent linear operator
+  !> @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_compute_grady_only(iv_ptr, y_ptr) &
+      bind(C, name="wrfda_compute_grady_only")
+    use da_minimisation, only: da_calculate_residual, da_calculate_grady
+    use da_define_structures, only: da_allocate_y, da_deallocate_y
+    implicit none
+    type(c_ptr), value :: iv_ptr, y_ptr
+    
+    type(iv_type), pointer :: iv
+    type(y_type), pointer :: y  
+    type(y_type), target :: re
+    
+    call c_f_pointer(iv_ptr, iv)
+    call c_f_pointer(y_ptr, y)
+    
+    ! Deallocate previous gradient if exists
+    if (persistent_jo_grad_allocated) then
+      call da_deallocate_y(persistent_jo_grad_y)
+      persistent_jo_grad_y%nlocal = 0
+      persistent_jo_grad_y%ntotal = 0
+      persistent_jo_grad_y%num_inst = 0
+      persistent_jo_grad_allocated = .false.
+    end if
+    
+    ! Allocate residual and gradient structures
+    call da_allocate_y(iv, re)
+    call da_allocate_y(iv, persistent_jo_grad_y)
+    persistent_jo_grad_allocated = .true.
+    
+    ! Step 1: Compute residual re = (O-B) - H'(δx)
+    call da_calculate_residual(iv, y, re)
+    
+    ! Step 2: Compute jo_grad_y = -R^{-1} · re (without computing cost)
+    call da_calculate_grady(iv, re, persistent_jo_grad_y)
+    
+    ! Cleanup residual only (keep persistent_jo_grad_y for adjoint)
+    call da_deallocate_y(re)
+    
+    wrfda_compute_grady_only = 0_c_int
+  end function wrfda_compute_grady_only
+
 
   !> @brief Adjoint operator: H^T·jo_grad_y using WRFDA's proven da_transform_xtoy_adj
   !> @details Uses WRFDA's top-level da_transform_xtoy_adj which automatically dispatches

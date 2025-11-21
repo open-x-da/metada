@@ -49,6 +49,13 @@ int wrfda_compute_weighted_residual(const void* iv_ptr, const void* y_ptr,
 int wrfda_compute_jo_only(const void* iv_ptr, const void* y_ptr,
                           double* jo_cost);
 
+// Compute ONLY jo_grad_y without computing cost (for gradient-only operations)
+// Used during CG iterations when only gradient is needed, not cost.
+// Computes jo_grad_y = -R^{-1} · re where re = (O-B) - H'(δx)
+// Stores result in persistent_jo_grad_y for use by adjoint operator
+// This avoids expensive cost computation during minimization iterations
+int wrfda_compute_grady_only(const void* iv_ptr, const void* y_ptr);
+
 int wrfda_xtoy_adjoint_grid(const void* grid_ptr, const void* iv_ptr);
 
 // Pure adjoint operator for TL/AD testing (without R^{-1} weighting)
