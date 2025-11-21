@@ -109,28 +109,19 @@ class IncrementalCostFunction : public NonCopyable {
    * @return Cost function value J(v)
    */
   double evaluate(const ControlVariable<BackendTag>& control) const {
-    double total_cost = 0.0;
-
     // Background term in control space: 1/2 ||v||²
     // (The B^(-1) is absorbed into the transformation U)
-    double bg_cost = 0.5 * control.dot(control);
-    total_cost += bg_cost;
+    double total_cost = 0.5 * control.dot(control);
 
     // Observation term: 1/2 Σᵢ ||dᵢ - Hᵢ(U v)||²_Rᵢ
     // The observation cost methods work in control space
-    double obs_cost = 0.0;
     if (var_type_ == VariationalType::ThreeDVAR) {
-      obs_cost = evaluateObservationCost3DVAR(control);
+      total_cost += evaluateObservationCost3DVAR(control);
     } else if (var_type_ == VariationalType::FGAT) {
-      obs_cost = evaluateObservationCostFGAT(control);
+      total_cost += evaluateObservationCostFGAT(control);
     } else {
-      obs_cost = evaluateObservationCost4DVAR(control);
+      total_cost += evaluateObservationCost4DVAR(control);
     }
-
-    total_cost += obs_cost;
-
-    logger_.Info() << "Cost diagnostics: background=" << bg_cost
-                   << ", observation=" << obs_cost << ", total=" << total_cost;
 
     return total_cost;
   }
@@ -175,8 +166,6 @@ class IncrementalCostFunction : public NonCopyable {
 
     // Add observation term gradient to total gradient
     gradient.axpy(1.0, control_gradient_obs);
-
-    logGradientDiagnostics(control, control_gradient_obs, gradient);
   }
 
   /**
@@ -432,19 +421,6 @@ class IncrementalCostFunction : public NonCopyable {
       const ControlVariable<BackendTag>& control,
       ControlVariable<BackendTag>& gradient) const {
     computeObservationGradientFGAT(control, gradient);
-  }
-
-  void logGradientDiagnostics(
-      const ControlVariable<BackendTag>& control,
-      const ControlVariable<BackendTag>& control_obs_gradient,
-      const ControlVariable<BackendTag>& total_gradient) const {
-    const double control_norm = control.norm();
-    const double control_obs_norm = control_obs_gradient.norm();
-    const double total_norm = total_gradient.norm();
-
-    logger_.Info() << "Gradient diagnostics: |v|=" << control_norm
-                   << ", |grad_obs_control|=" << control_obs_norm
-                   << ", |grad_total|=" << total_norm;
   }
 
   /**
