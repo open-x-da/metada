@@ -57,7 +57,6 @@ int main(int argc, char** argv) {
     // Initialize background state
     fwk::State<BackendTag> background(config.GetSubsection("background"),
                                       geometry);
-    logger.Info() << "Background state: " << background;
 
     // Initialize observations first (data-driven workflow)
     // For 3DVAR, we have a single observation time with multiple types
