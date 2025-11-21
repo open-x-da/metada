@@ -263,14 +263,12 @@ class IncrementalMinimization : public NonCopyable {
           max_iterations, tolerance, gradient_tolerance);
     } else if (algorithm == "WRFDA-CG" || algorithm == "WRFDA_CG") {
       // WRFDA-aligned CG optimizer matching da_minimise_cg workflow
-      bool use_cost_approximation =
-          config.Get("use_cost_approximation", ConfigValue(true)).asBool();
+      // Cost approximation is always enabled during minimization iterations
       bool orthonorm_gradient =
           config.Get("orthonorm_gradient", ConfigValue(true)).asBool();
       return std::make_unique<
           base::optimization::WRFDAConjugateGradientOptimizer>(
-          max_iterations, tolerance, gradient_tolerance, use_cost_approximation,
-          orthonorm_gradient);
+          max_iterations, tolerance, gradient_tolerance, orthonorm_gradient);
     } else if (algorithm == "SteepestDescent") {
       return std::make_unique<base::optimization::SteepestDescentOptimizer>(
           max_iterations, tolerance, gradient_tolerance);

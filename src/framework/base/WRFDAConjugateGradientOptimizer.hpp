@@ -17,9 +17,16 @@ namespace metada::base::optimization {
  * minimization algorithm. Key features:
  *
  * - Computes gradient along search direction (not at new solution)
- * - Uses cost approximation during iterations (if enabled)
+ * - Always uses cost approximation during iterations: J ≈ J0 + 0.5 * <ghat0,
+ * xhat>
  * - Supports gradient reorthonormalization (modified Gram-Schmidt)
  * - Uses WRFDA's step size formula: step = rrmold / apdotp
+ *
+ * Cost function evaluation strategy:
+ * - Initial iteration: Compute exact J0 for baseline
+ * - During minimization: Use approximation (never compute exact J during
+ * iterations)
+ * - Final iteration: Compute exact J for final result
  *
  * This matches WRFDA's workflow:
  * 1. Initialize: Compute cost and gradient at xhat=0
@@ -35,20 +42,19 @@ class WRFDAConjugateGradientOptimizer : public OptimizerBase {
    * @param max_iterations Maximum number of iterations
    * @param tolerance Cost function tolerance
    * @param gradient_tolerance Gradient norm tolerance
-   * @param use_cost_approximation If true, use cost approximation during
-   * iterations (matches WRFDA's calculate_cg_cost_fn=false)
    * @param orthonorm_gradient If true, enable gradient reorthonormalization
    * (matches WRFDA's orthonorm_gradient=true)
+   *
+   * @note Cost approximation is always enabled during minimization iterations.
+   * Exact cost is only computed at initialization and finalization.
    */
   explicit WRFDAConjugateGradientOptimizer(int max_iterations = 100,
                                            double tolerance = 1e-8,
                                            double gradient_tolerance = 1e-6,
-                                           bool use_cost_approximation = true,
                                            bool orthonorm_gradient = true)
       : max_iterations_(max_iterations),
         tolerance_(tolerance),
         gradient_tolerance_(gradient_tolerance),
-        use_cost_approximation_(use_cost_approximation),
         orthonorm_gradient_(orthonorm_gradient) {}
 
   /**
@@ -68,7 +74,7 @@ class WRFDAConjugateGradientOptimizer : public OptimizerBase {
    *   3. Update: ghat = ghat + step * fhat, xhat = xhat + step * phat
    *   4. Reorthonormalize gradient (if enabled)
    *   5. Update search direction: phat = -ghat + β*phat
-   *   6. Approximate cost (if enabled): J ≈ J0 + 0.5 * <ghat0, xhat>
+   *   6. Approximate cost: J ≈ J0 + 0.5 * <ghat0, xhat> (never compute exact J)
    *
    * [3.0] Finalization:
    *   - Compute exact final cost
@@ -197,15 +203,12 @@ class WRFDAConjugateGradientOptimizer : public OptimizerBase {
       scaleVector(neg_ghat, -1.0);
       addScaledVector(phat, neg_ghat, 1.0);
 
-      // Step 8: Compute cost (approximation or exact)
-      if (use_cost_approximation_) {
-        // Cost approximation: J ≈ J0 + 0.5 * <ghat0, xhat>
-        current_cost = j0_total + 0.5 * dotProduct(ghat0, solution);
-      } else {
-        // Exact cost evaluation
-        current_cost = cost_func(solution);
-        result.cost_evaluations++;
-      }
+      // Step 8: Compute cost using approximation
+      // Cost approximation: J ≈ J0 + 0.5 * <ghat0, xhat>
+      // We never compute exact J during minimization iterations to avoid
+      // expensive forward operator evaluations. Exact J is only computed at
+      // initialization (for J0) and finalization (for final result).
+      current_cost = j0_total + 0.5 * dotProduct(ghat0, solution);
 
       // Update for next iteration
       rrmold = rrmnew;
@@ -272,18 +275,6 @@ class WRFDAConjugateGradientOptimizer : public OptimizerBase {
   }
 
   /**
-   * @brief Check if cost approximation is enabled
-   */
-  bool isCostApproximationEnabled() const { return use_cost_approximation_; }
-
-  /**
-   * @brief Enable/disable cost approximation
-   */
-  void setCostApproximationEnabled(bool enabled) {
-    use_cost_approximation_ = enabled;
-  }
-
-  /**
    * @brief Check if gradient reorthonormalization is enabled
    */
   bool isOrthonormGradientEnabled() const { return orthonorm_gradient_; }
@@ -305,7 +296,6 @@ class WRFDAConjugateGradientOptimizer : public OptimizerBase {
   int max_iterations_;
   double tolerance_;
   double gradient_tolerance_;
-  bool use_cost_approximation_;
   bool orthonorm_gradient_;
   std::function<void(int, double, double, double, double)> iteration_logger_;
 };
