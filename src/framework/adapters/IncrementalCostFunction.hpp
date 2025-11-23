@@ -147,8 +147,16 @@ class IncrementalCostFunction : public NonCopyable {
                 ControlVariable<BackendTag>& gradient) const {
     gradient.zero();
 
+    // Track if residual was already computed (corresponds to residual_computed
+    // in WRFDA bridge)
+    // false = first call (residual not computed yet)
+    // true = subsequent calls (residual already computed)
+    bool residual_computed = gradient_computed_;
+    gradient_computed_ = true;
+
     // Background term gradient in control space: ∇_v J_b = v
     // (The B^(-1) is absorbed into the control variable transformation U)
+    // No sign compensation needed - background term is always +v
     gradient.axpy(1.0, control);
 
     // Compute observation term gradient directly in control space
@@ -157,11 +165,14 @@ class IncrementalCostFunction : public NonCopyable {
     control_gradient_obs.zero();
 
     if (var_type_ == VariationalType::ThreeDVAR) {
-      computeObservationGradient3DVAR(control, control_gradient_obs);
+      computeObservationGradient3DVAR(control, control_gradient_obs,
+                                      residual_computed);
     } else if (var_type_ == VariationalType::FGAT) {
-      computeObservationGradientFGAT(control, control_gradient_obs);
+      computeObservationGradientFGAT(control, control_gradient_obs,
+                                     residual_computed);
     } else {
-      computeObservationGradient4DVAR(control, control_gradient_obs);
+      computeObservationGradient4DVAR(control, control_gradient_obs,
+                                      residual_computed);
     }
 
     // Add observation term gradient to total gradient
@@ -338,10 +349,12 @@ class IncrementalCostFunction : public NonCopyable {
    *
    * @param control Control variable v
    * @param gradient Output gradient in control space
+   * @param residual_computed Whether residual was already computed (true =
+   * subsequent calls)
    */
   void computeObservationGradient3DVAR(
       const ControlVariable<BackendTag>& control,
-      ControlVariable<BackendTag>& gradient) const {
+      ControlVariable<BackendTag>& gradient, bool residual_computed) const {
     const auto& obs = observations_[0];
     const auto& obs_op = obs_operators_[0];
 
@@ -356,6 +369,12 @@ class IncrementalCostFunction : public NonCopyable {
       std::vector<double> empty;
       // Apply adjoint in control space: U^T H^T
       auto control_gradient = obs_op.applyAdjoint(empty, background_, obs);
+      // Compensate for sign when residual_computed is true (WRFDA bridge passes
+      // y instead of re) This matches WRFDA's behavior: grad_jo = -grad_jo when
+      // computing from forward model
+      if (residual_computed) {
+        control_gradient.scale(-1.0);
+      }
       gradient = control_gradient;
     } else {
       auto residual = computeInnovation(innovations_[0], simulated_increment);
@@ -375,10 +394,12 @@ class IncrementalCostFunction : public NonCopyable {
    *
    * @param control Control variable v
    * @param gradient Output gradient in control space
+   * @param residual_computed Whether residual was already computed (true =
+   * subsequent calls)
    */
   void computeObservationGradientFGAT(
       const ControlVariable<BackendTag>& control,
-      ControlVariable<BackendTag>& gradient) const {
+      ControlVariable<BackendTag>& gradient, bool residual_computed) const {
     for (size_t i = 0; i < observations_.size(); ++i) {
       const auto& obs = observations_[i];
       const auto& obs_op = obs_operators_[i];
@@ -394,6 +415,12 @@ class IncrementalCostFunction : public NonCopyable {
         std::vector<double> empty;
         // Apply adjoint in control space: U^T H^T
         auto control_gradient = obs_op.applyAdjoint(empty, background_, obs);
+        // Compensate for sign when residual_computed is true (WRFDA bridge
+        // passes y instead of re) This matches WRFDA's behavior: grad_jo =
+        // -grad_jo when computing from forward model
+        if (residual_computed) {
+          control_gradient.scale(-1.0);
+        }
         gradient += control_gradient;
         continue;
       }
@@ -416,11 +443,13 @@ class IncrementalCostFunction : public NonCopyable {
    *
    * @param control Control variable v
    * @param gradient Output gradient in control space
+   * @param residual_computed Whether residual was already computed (true =
+   * subsequent calls)
    */
   void computeObservationGradient4DVAR(
       const ControlVariable<BackendTag>& control,
-      ControlVariable<BackendTag>& gradient) const {
-    computeObservationGradientFGAT(control, gradient);
+      ControlVariable<BackendTag>& gradient, bool residual_computed) const {
+    computeObservationGradientFGAT(control, gradient, residual_computed);
   }
 
   /**
@@ -466,6 +495,9 @@ class IncrementalCostFunction : public NonCopyable {
   VariationalType var_type_;
   std::vector<std::vector<double>>
       innovations_;  ///< Pre-computed innovation vectors dᵢ
+  mutable bool gradient_computed_ =
+      false;  ///< Tracks if gradient has been computed (corresponds to
+              ///< residual_computed in WRFDA bridge)
   Logger<BackendTag>& logger_ = Logger<BackendTag>::Instance();
 };
 

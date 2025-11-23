@@ -83,6 +83,11 @@ module metada_wrfda_dispatch
   type(y_type), save :: persistent_jo_grad_y
   logical, save :: persistent_jo_grad_allocated = .false.
   
+  ! Residual computation indicator: tracks if residual has been computed for current iteration
+  ! When false: compute residual and pass to da_calculate_grady
+  ! When true: skip residual computation, pass y directly to da_calculate_grady
+  logical, save :: residual_computed = .false.
+  
 contains
 
   !> @brief Query WRFDA's control variable configuration
@@ -277,6 +282,8 @@ contains
       persistent_jo_grad_y%ntotal = 0
       persistent_jo_grad_y%num_inst = 0
       persistent_jo_grad_allocated = .false.
+      ! Reset indicator when gradient is deallocated (new iteration)
+      residual_computed = .false.
     end if
     
     ! Allocate residual and gradient structures
@@ -359,8 +366,9 @@ contains
   !>          This is used during CG iterations when only gradient is needed, not cost.
   !>          The computed jo_grad_y is stored in persistent_jo_grad_y for use by adjoint.
   !>
-  !>          This avoids the expensive cost computation during minimization iterations
-  !>          where only gradient information is needed.
+  !>          Optimization: Uses residual_computed indicator to avoid redundant residual
+  !>          computation. First call computes residual and passes to da_calculate_grady.
+  !>          Subsequent calls skip residual computation and pass y directly to da_calculate_grady.
   !>
   !> @param[in] iv_ptr Innovation vector (O-B with error statistics)
   !> @param[in] y_ptr Simulated observations H'(δx) from tangent linear operator
@@ -379,28 +387,28 @@ contains
     call c_f_pointer(iv_ptr, iv)
     call c_f_pointer(y_ptr, y)
     
-    ! Deallocate previous gradient if exists
-    if (persistent_jo_grad_allocated) then
-      call da_deallocate_y(persistent_jo_grad_y)
-      persistent_jo_grad_y%nlocal = 0
-      persistent_jo_grad_y%ntotal = 0
-      persistent_jo_grad_y%num_inst = 0
-      persistent_jo_grad_allocated = .false.
+    ! Allocate gradient structure if not already allocated
+    ! Keep it alive across calls within the same iteration
+    if (.not. persistent_jo_grad_allocated) then
+      call da_allocate_y(iv, persistent_jo_grad_y)
+      persistent_jo_grad_allocated = .true.
+      ! Reset indicator when first allocating (new iteration starting)
+      residual_computed = .false.
     end if
     
-    ! Allocate residual and gradient structures
-    call da_allocate_y(iv, re)
-    call da_allocate_y(iv, persistent_jo_grad_y)
-    persistent_jo_grad_allocated = .true.
-    
-    ! Step 1: Compute residual re = (O-B) - H'(δx)
-    call da_calculate_residual(iv, y, re)
-    
-    ! Step 2: Compute jo_grad_y = -R^{-1} · re (without computing cost)
-    call da_calculate_grady(iv, re, persistent_jo_grad_y)
-    
-    ! Cleanup residual only (keep persistent_jo_grad_y for adjoint)
-    call da_deallocate_y(re)
+    ! Check residual computation indicator
+    if (.not. residual_computed) then
+      ! First call: compute residual and pass to da_calculate_grady
+      call da_allocate_y(iv, re)
+      call da_calculate_residual(iv, y, re)
+      call da_calculate_grady(iv, re, persistent_jo_grad_y)
+      call da_deallocate_y(re)
+      ! Set indicator to true for subsequent calls
+      residual_computed = .true.
+    else
+      ! Subsequent calls: skip residual computation, pass y directly to da_calculate_grady
+      call da_calculate_grady(iv, y, persistent_jo_grad_y)
+    end if
     
     wrfda_compute_grady_only = 0_c_int
   end function wrfda_compute_grady_only
@@ -1897,14 +1905,17 @@ contains
     grid%xp%jds = 1; grid%xp%jde = ny
     grid%xp%kds = 1; grid%xp%kde = nz
     
-    ! Call da_transfer_wrftoxb to do all the proper initialization
-    ! This computes all derived fields, diagnostics, etc.
-    call da_transfer_wrftoxb(xbx, grid, config_flags)
-
+    ! CRITICAL: Initialize xbx pointer components BEFORE calling da_transfer_wrftoxb
+    ! da_transfer_wrftoxb requires xbx pointer components (fft_factors_x, trig_functs_x, etc.)
+    ! to be allocated by da_setup_runconstants.
     if (.not. persistent_xbx_initialized) then
       call da_setup_runconstants(grid, xbx)
       persistent_xbx_initialized = .true.
     end if
+    
+    ! Call da_transfer_wrftoxb to do all the proper initialization
+    ! This computes all derived fields, diagnostics, etc.
+    call da_transfer_wrftoxb(xbx, grid, config_flags)
     
     wrfda_init_domain_from_wrf_fields = 0  ! Success
     
@@ -4065,14 +4076,18 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
   ! Set surface assimilation options
   sfc_assi_options = sfc_assi_options_1
   
-  ! Call da_setup_firstguess to setup grid, call da_transfer_wrftoxb, and compute coefx/coefy
-  ! This follows WRFDA's standard initialization sequence and ensures coefx/coefy are properly initialized
-  call da_setup_firstguess(persistent_xbx, head_grid, config_flags, .false.)
-
+  ! CRITICAL: Initialize xbx pointer components BEFORE calling da_setup_firstguess
+  ! da_setup_firstguess calls da_setup_firstguess_wrf, which internally calls
+  ! da_transfer_wrftoxb. da_transfer_wrftoxb requires xbx pointer components
+  ! (fft_factors_x, trig_functs_x, etc.) to be allocated by da_setup_runconstants.
   if (.not. persistent_xbx_initialized) then
     call da_setup_runconstants(head_grid, persistent_xbx)
     persistent_xbx_initialized = .true.
   end if
+  
+  ! Call da_setup_firstguess to setup grid, call da_transfer_wrftoxb, and compute coefx/coefy
+  ! This follows WRFDA's standard initialization sequence and ensures coefx/coefy are properly initialized
+  call da_setup_firstguess(persistent_xbx, head_grid, config_flags, .false.)
   
   write(msg, '(A)') "WRFDA: First guess loaded successfully"
   call wrf_message(msg)
@@ -4397,6 +4412,8 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
       persistent_jo_grad_y%ntotal = 0
       persistent_jo_grad_y%num_inst = 0
       persistent_jo_grad_allocated = .false.
+      ! Reset indicator when gradient is deallocated
+      residual_computed = .false.
     end if
 
     ! Release main observation structures
@@ -4577,15 +4594,18 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     ! but is required by the function signature. We initialize it to default values.
     ! (Verified by checking da_transfer_wrftoxb.inc - no config_flags% references)
     
-    ! Call WRFDA's da_transfer_wrftoxb to populate grid%xb from WRF fields
-    ! This is the standard WRFDA workflow step that must happen before
-    ! using observation operators
-    call da_transfer_wrftoxb(persistent_xbx, grid, config_flags)
-
+    ! CRITICAL: Initialize xbx pointer components BEFORE calling da_transfer_wrftoxb
+    ! da_setup_runconstants allocates pointer components (fft_factors_x, trig_functs_x, etc.)
+    ! that are required by da_transfer_wrftoxb
     if (.not. persistent_xbx_initialized) then
       call da_setup_runconstants(grid, persistent_xbx)
       persistent_xbx_initialized = .true.
     end if
+    
+    ! Call WRFDA's da_transfer_wrftoxb to populate grid%xb from WRF fields
+    ! This is the standard WRFDA workflow step that must happen before
+    ! using observation operators
+    call da_transfer_wrftoxb(persistent_xbx, grid, config_flags)
     
   end function wrfda_transfer_wrftoxb
 

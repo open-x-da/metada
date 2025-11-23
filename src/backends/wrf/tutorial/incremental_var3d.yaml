@@ -5,7 +5,7 @@
 # Variational method configuration
 variational_type: "3DVAR"  # 3DVAR, FGAT, or 4DVAR
 minimization_algorithm: "WRFDA-CG"  # L-BFGS, WRFDA-CG, CG, or SteepestDescent
-max_iterations: 2
+max_iterations: 50
 cost_tolerance: 1.0e-6
 gradient_tolerance: 1.0e-6
 control_variable_backend: "wrfda-cv5" # identity (grid%xa), wrfda-cv5 (future)
