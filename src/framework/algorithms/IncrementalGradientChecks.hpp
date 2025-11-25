@@ -257,16 +257,41 @@ bool checkIncrementalObsOperatorTLAD(
   logger.Info() << "Starting incremental observation operator TL/AD check with "
                 << obs_operators.size() << " operators";
 
-  // 1. Create random control variable (for TL/AD checks, use identity backend)
-  IdentityControlVariableBackend<BackendTag> identity_backend;
-  auto control_var = identity_backend.createControlVariable(
+  // 1. Get control variable backend from observation operator
+  // Use the first operator's backend (all operators should use the same
+  // backend)
+  const ControlVariableBackend<BackendTag>* control_backend =
+      obs_operators[0].getControlBackend();
+  if (!control_backend) {
+    logger.Error() << "Observation operator does not have a control variable "
+                      "backend set. Cannot perform TL/AD check.";
+    return false;
+  }
+
+  // Verify all operators use the same backend (for consistency)
+  for (size_t i = 1; i < obs_operators.size(); ++i) {
+    if (obs_operators[i].getControlBackend() != control_backend) {
+      logger.Warning() << "Observation operators use different control "
+                          "variable backends. Using first operator's backend.";
+    }
+  }
+
+  // Create random control variable using the operator's control backend
+  auto control_var = control_backend->createControlVariable(
       background_state.geometry()->backend());
   control_var.randomize();
 
   // Normalize the control variable for numerical stability
-  double control_norm = control_var.norm();
-  if (control_norm > 0.0) {
-    control_var *= (1.0 / control_norm);
+  // Use Euclidean norm for TL/AD test (not metric-based norm)
+  auto control_data_temp = control_var.template getData<std::vector<double>>();
+  double control_norm_euclidean = 0.0;
+  for (const auto& val : control_data_temp) {
+    control_norm_euclidean += val * val;
+  }
+  control_norm_euclidean = std::sqrt(control_norm_euclidean);
+
+  if (control_norm_euclidean > 0.0) {
+    control_var *= (1.0 / control_norm_euclidean);
   } else {
     logger.Warning()
         << "Random control variable has zero norm, using unit control";
@@ -274,20 +299,29 @@ bool checkIncrementalObsOperatorTLAD(
     auto control_data = control_var.template getData<std::vector<double>>();
     if (!control_data.empty()) {
       control_data[0] = 1.0;
+      control_var.setFromVector(control_data);
     }
   }
 
-  // 2. Apply tangent linear: H' control_var for all operators
+  // 2. Transform control variable to state space: dx_state = U · control_var
+  // TL/AD check should only test in state space, not include control↔state
+  // transformation
+  auto dx_state =
+      control_backend->createIncrement(background_state.geometry()->backend());
+  control_backend->controlToIncrement(control_var, dx_state);
+
+  // 3. Apply tangent linear in state space: H'dx_state for all operators
   // This must be done BEFORE creating dy to get the correct observation space
   // size
+  // Use the Increment overload of applyTangentLinear
   std::vector<std::vector<double>> Hdx_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto Hdx = obs_operators[i].applyTangentLinear(
-        control_var, background_state, observations[i]);
+    auto Hdx = obs_operators[i].applyTangentLinear(dx_state, background_state,
+                                                   observations[i]);
     Hdx_vectors.push_back(std::move(Hdx));
   }
 
-  // 3. Create random observation increments dy with correct size
+  // 4. Create random observation increments dy with correct size
   // Size must match Hdx (total observation values, not observation count)
   std::vector<std::vector<double>> dy_vectors;
   for (size_t i = 0; i < Hdx_vectors.size(); ++i) {
@@ -298,22 +332,48 @@ bool checkIncrementalObsOperatorTLAD(
     dy_vectors.push_back(std::move(dy));
   }
 
-  // 4. Apply adjoint: H'^T dy for all operators
+  // 5. Apply adjoint in state space: H'^T dy → state gradient
   // For TL/AD testing, we need the PURE adjoint (without R^{-1} weighting)
-  std::vector<ControlVariable<BackendTag>> HTdy_controls;
+  // Get state increment directly from backend, not control variable
+  std::vector<Increment<BackendTag>> HTdy_state;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    // Use applyAdjointPure which returns a ControlVariable
-    auto HTdy_control = obs_operators[i].applyAdjointPure(
-        dy_vectors[i], background_state, observations[i]);
-    HTdy_controls.push_back(std::move(HTdy_control));
+    auto state_gradient = control_backend->createIncrement(
+        background_state.geometry()->backend());
+    state_gradient.zero();
+
+    // Call backend's applyAdjointPure if available, otherwise use applyAdjoint
+    // This gets the state increment directly, avoiding control↔state
+    // transformation
+    if constexpr (requires {
+                    obs_operators[i].backend().applyAdjointPure(
+                        dy_vectors[i], background_state.backend(),
+                        observations[i].backend());
+                  }) {
+      // Backend has applyAdjointPure - use it directly to get state increment
+      auto backend_increment = obs_operators[i].backend().applyAdjointPure(
+          dy_vectors[i], background_state.backend(), observations[i].backend());
+      state_gradient.backend() = std::move(backend_increment);
+    } else {
+      // Fallback: use applyAdjoint which modifies state_gradient in place
+      obs_operators[i].backend().applyAdjoint(
+          dy_vectors[i], background_state.backend(), state_gradient.backend(),
+          observations[i].backend());
+    }
+
+    HTdy_state.push_back(std::move(state_gradient));
   }
 
-  // 5. Compute inner products for all operators
+  // 6. Compute inner products in state space
+  // TL/AD property: <H'dx_state, dy>_obs = <dx_state, H'^T dy>_state
   double total_a = 0.0, total_b = 0.0;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
+    // Observation space inner product: <H'dx_state, dy>
     double a = std::inner_product(Hdx_vectors[i].begin(), Hdx_vectors[i].end(),
                                   dy_vectors[i].begin(), 0.0);
-    double b = control_var.dot(HTdy_controls[i]);
+
+    // State space inner product: <dx_state, H'^T dy>
+    double b = dx_state.dot(HTdy_state[i]);
+
     total_a += a;
     total_b += b;
   }

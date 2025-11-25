@@ -4555,6 +4555,33 @@ integer(c_int) function wrfda_load_first_guess(grid_ptr, filename, filename_len)
     end if
   end function wrfda_get_y_tl_ptr
 
+  !> @brief Ensure wrfda_y_tl is allocated (helper for applyTangentLinearControlDirect)
+  !! @details Allocates wrfda_y_tl if not already allocated. This is needed when
+  !!          applyTangentLinearControlDirect is called directly without first calling
+  !!          applyTangentLinear (which would allocate it via wrfda_xtoy_apply_grid).
+  !! @return 0 on success, non-zero on error
+  integer(c_int) function wrfda_ensure_y_tl_allocated() bind(C, name="wrfda_ensure_y_tl_allocated")
+    use, intrinsic :: iso_c_binding, only: c_int
+    use da_define_structures, only: da_allocate_y
+    implicit none
+    
+    wrfda_ensure_y_tl_allocated = 1_c_int
+    
+    ! Validate module-level structures
+    if (.not. wrfda_obs_allocated) then
+      return
+    end if
+    
+    ! Allocate temporary y_type for TL output if not already allocated
+    if (.not. wrfda_y_tl_allocated) then
+      allocate(wrfda_y_tl)
+      call da_allocate_y(wrfda_iv, wrfda_y_tl)
+      wrfda_y_tl_allocated = .true.
+    end if
+    
+    wrfda_ensure_y_tl_allocated = 0_c_int
+  end function wrfda_ensure_y_tl_allocated
+
   !> @brief Transfer WRF fields to background state structure (grid%xb)
   !!
   !! @details This function wraps WRFDA's da_transfer_wrftoxb routine which:

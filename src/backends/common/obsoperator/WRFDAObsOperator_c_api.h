@@ -238,6 +238,26 @@ void* wrfda_get_iv_ptr(void);
  */
 void* wrfda_get_y_ptr(void);
 
+/**
+ * @brief Get pointer to WRFDA y_type structure for tangent linear output
+ * @details Returns the C pointer to the module-level wrfda_y_tl structure
+ *          that is allocated for storing tangent linear operator output.
+ *          This preserves wrfda_ob (observation values) from corruption.
+ * @return C pointer to y_type structure, or NULL if not allocated
+ */
+void* wrfda_get_y_tl_ptr(void);
+
+/**
+ * @brief Ensure wrfda_y_tl is allocated (helper for
+ * applyTangentLinearControlDirect)
+ * @details Allocates wrfda_y_tl if not already allocated. This is needed when
+ *          applyTangentLinearControlDirect is called directly without first
+ * calling applyTangentLinear (which would allocate it via
+ * wrfda_xtoy_apply_grid).
+ * @return 0 on success, non-zero on error
+ */
+int wrfda_ensure_y_tl_allocated(void);
+
 #ifdef __cplusplus
 }
 #endif

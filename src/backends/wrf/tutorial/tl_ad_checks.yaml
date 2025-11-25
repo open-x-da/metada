@@ -34,7 +34,7 @@ time_window: &time_window "±5m" # Time window around analysis time
 variational_type: "3DVAR"
 
 # Minimization configuration
-minimization_algorithm: "CG"  # L-BFGS, CG, or SteepestDescent
+minimization_algorithm: "WRFDA-CG"  # L-BFGS, CG, or SteepestDescent
 max_iterations: 50
 tolerance: 1e-6
 gradient_tolerance: 1e-6

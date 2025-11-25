@@ -13,6 +13,7 @@ void* wrfda_get_head_grid_ptr_();
 void* wrfda_get_iv_ptr(void);
 void* wrfda_get_y_ptr(void);
 void* wrfda_get_y_tl_ptr(void);
+int wrfda_ensure_y_tl_allocated(void);
 }
 
 namespace metada::backends::wrf {
@@ -561,12 +562,27 @@ class WRFObsOperator {
 
     void* grid_ptr = wrfda_get_head_grid_ptr_();
     void* iv_ptr = wrfda_get_iv_ptr();
-    void* y_ptr = wrfda_get_y_tl_ptr();
 
-    if (!grid_ptr || !iv_ptr || !y_ptr) {
+    if (!grid_ptr || !iv_ptr) {
       throw std::runtime_error(
           "WRFObsOperator::applyTangentLinearControlDirect: WRFDA structures "
-          "not available");
+          "not available (grid or iv)");
+    }
+
+    // Ensure wrfda_y_tl is allocated (needed when called directly without
+    // first calling applyTangentLinear)
+    int rc = wrfda_ensure_y_tl_allocated();
+    if (rc != 0) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinearControlDirect: failed to allocate "
+          "wrfda_y_tl");
+    }
+
+    void* y_ptr = wrfda_get_y_tl_ptr();
+    if (!y_ptr) {
+      throw std::runtime_error(
+          "WRFObsOperator::applyTangentLinearControlDirect: wrfda_y_tl pointer "
+          "is null after allocation");
     }
 
     // Get control vector data
@@ -580,8 +596,8 @@ class WRFObsOperator {
     }
 
     // Call da_transform_vtoy directly: y = H'(U·v)
-    int rc = wrfda_transform_vtoy(grid_ptr, iv_ptr, control_data.data(),
-                                  cv_size, y_ptr);
+    rc = wrfda_transform_vtoy(grid_ptr, iv_ptr, control_data.data(), cv_size,
+                              y_ptr);
     if (rc != 0) {
       throw std::runtime_error(
           "WRFObsOperator::applyTangentLinearControlDirect: "

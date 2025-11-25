@@ -9,6 +9,7 @@
 #include "ConfigConcepts.hpp"
 #include "ControlVariable.hpp"
 #include "ControlVariableBackend.hpp"
+#include "Increment.hpp"
 #include "Logger.hpp"
 #include "NonCopyable.hpp"
 #include "ObsOperatorConcepts.hpp"
@@ -27,6 +28,9 @@ class Observation;
 
 template <typename BackendTag>
 class State;
+
+template <typename BackendTag>
+class Increment;
 
 template <typename BackendTag>
 class ControlVariableBackend;
@@ -303,6 +307,27 @@ class ObsOperator : public NonCopyable {
   }
 
   /**
+   * @brief Apply tangent linear operator to a state increment: H'(δx)
+   *
+   * @details This overload accepts a state increment directly, avoiding the
+   * control↔state transformation. This is useful for TL/AD checks that test
+   * only in state space.
+   *
+   * @param increment State increment δx
+   * @param reference_state Reference state around which to linearize
+   * @param obs Reference observations for context
+   * @return Vector containing H'(δx) in observation space
+   */
+  std::vector<double> applyTangentLinear(
+      const Increment<BackendTag>& increment,
+      const State<BackendTag>& reference_state,
+      const Observation<BackendTag>& obs) const {
+    // Apply tangent linear directly: H'(δx)
+    return backend_.applyTangentLinear(
+        increment.backend(), reference_state.backend(), obs.backend());
+  }
+
+  /**
    * @brief Apply tangent linear operator directly in control space using
    * da_transform_vtoy: H'(U·v)
    *
@@ -458,6 +483,20 @@ class ObsOperator : public NonCopyable {
    * @return True if the observation operator is linear
    */
   bool isLinear() const { return backend_.isLinear(); }
+
+  /**
+   * @brief Get the control variable backend used by this observation operator
+   *
+   * @details Returns a pointer to the control variable backend that this
+   * observation operator uses for control↔state transformations. This is
+   * needed for TL/AD checks and other operations that require creating control
+   * variables compatible with the operator's backend.
+   *
+   * @return Pointer to the control variable backend, or nullptr if not set
+   */
+  const ControlVariableBackend<BackendTag>* getControlBackend() const {
+    return control_backend_;
+  }
 
  private:
   ObsOperatorBackend backend_; /**< Backend implementation */
