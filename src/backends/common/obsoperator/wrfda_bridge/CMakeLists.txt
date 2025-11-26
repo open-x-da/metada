@@ -201,12 +201,20 @@ if(WITH_WRFDA)
         message(STATUS "WRFDA bridge: To enable WRFDA integration, set WRFDA_MOD_DIR to the WRFDA build directory")
         message(STATUS "WRFDA bridge: Example: -DWRFDA_MOD_DIR=/path/to/WRF/var/da/build")
         message(STATUS "WRFDA bridge: Building without WRFDA-specific features")
+        # Add stub source file to ensure library can be created
+        target_sources(wrfda_bridge PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge_stub.F90
+        )
     endif()
 else()
     # WRFDA is disabled - continue without WRFDA integration
     message(STATUS "WRFDA bridge: WITH_WRFDA is disabled - skipping WRFDA integration")
     message(STATUS "WRFDA bridge: To enable WRFDA integration, set -DWITH_WRFDA=ON")
     message(STATUS "WRFDA bridge: Building without WRFDA-specific features")
+    # Add stub source file to ensure library can be created
+    target_sources(wrfda_bridge PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/wrfda_bridge_stub.F90
+    )
 endif()
 
 add_library(metada::bridges::wrfda ALIAS wrfda_bridge)
