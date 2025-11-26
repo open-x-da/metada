@@ -12,7 +12,9 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef METADA_WITH_BUFR
 #include "BufrObsIO.hpp"
+#endif
 #include "ConfigValue.hpp"
 #include "DateTime.hpp"
 #include "Duration.hpp"
@@ -230,9 +232,15 @@ class PrepBUFRObservation {
           bufr_config["time_window"] = time_window->toString();
         }
 
+#ifdef METADA_WITH_BUFR
         auto bufr_io = io::BufrObsIO<ConfigBackend>(ConfigBackend(bufr_config));
         all_records = bufr_io.read();
         // BufrObsIO destructor will close the file when it goes out of scope
+#else
+        throw std::runtime_error(
+            "BUFR support is not available. Please enable WITH_BUFR when "
+            "configuring CMake.");
+#endif
       }
 
       std::cout << "Read " << all_records.size() << " total records from file"
@@ -1423,8 +1431,15 @@ class PrepBUFRObservation {
       // 2. We want to let the BUFR reader find all available variables
       // 3. The actual filtering happens later when processing each record
 
+#ifdef METADA_WITH_BUFR
       auto bufr_io = io::BufrObsIO<ConfigBackend>(ConfigBackend(bufr_config));
       std::vector<ObsRecord> records = bufr_io.read();
+#else
+      throw std::runtime_error(
+          "BUFR support is not available. Please enable WITH_BUFR when "
+          "configuring CMake.");
+      std::vector<ObsRecord> records;  // Empty to avoid compilation error
+#endif
 
       // Process each type that uses this file
       for (const auto& [type_name, config_data] : type_configs) {

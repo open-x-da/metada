@@ -18,6 +18,7 @@
 #include "../backends/common/utils/logger/nglog/NgLogger.hpp"
 #endif
 
+// BufrObsIO is always available (includes stub when BUFR is disabled)
 #include "../backends/common/io/BufrObsIO.hpp"
 
 #include "../backends/wrf/WRFGeometry.hpp"
@@ -72,6 +73,8 @@ struct BackendTraits<WRFBackendTag> {
   using LoggerBackend = backends::logger::NgLogger<ConfigBackend>; // Default
   #endif
 
+  // BufrObsIO is always available (stub implementation when BUFR is disabled)
+  // Use fully qualified name to ensure namespace is found
   using ObsIOBackend = backends::io::BufrObsIO<ConfigBackend>;
 
   /** @brief WRF-specific geometry backend implementation */

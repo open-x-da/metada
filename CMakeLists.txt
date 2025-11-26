@@ -42,6 +42,12 @@ if(WITH_ARROW)
     add_compile_definitions(METADA_WITH_ARROW)
 endif()
 
+# Find BUFR library for observation data I/O (optional)
+option(WITH_BUFR "Enable BUFR support for observation data I/O" OFF)
+if(WITH_BUFR)
+    add_compile_definitions(METADA_WITH_BUFR)
+endif()
+
 # Configure CUDA support
 include(CUDA)
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef METADA_WITH_BUFR
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -69,3 +71,5 @@ void virtmp_(int* lev, int* k, int* idx, int* flag);
 #ifdef __cplusplus
 }
 #endif
+
+#endif  // METADA_WITH_BUFR

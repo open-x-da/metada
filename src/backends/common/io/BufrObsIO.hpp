@@ -18,7 +18,6 @@
 #include <string>
 #include <vector>
 
-#include "BufrFortranAPI.h"
 #include "DateTime.hpp"
 #include "Duration.hpp"
 #include "ObsIOConcepts.hpp"
@@ -26,11 +25,17 @@
 #include "UnitNumberManager.hpp"
 #include "isValidValue.hpp"
 
+#ifdef METADA_WITH_BUFR
+#include "BufrFortranAPI.h"
+#endif
+
 namespace metada::backends::io {
 
 using ObsRecord = framework::ObsRecord;
 using ObsRecordShared = framework::ObsRecordShared;
 using ObsLevelRecord = framework::ObsLevelRecord;
+
+#ifdef METADA_WITH_BUFR
 
 /**
  * @brief Backend implementation for handling BUFR format observation I/O
@@ -258,9 +263,11 @@ class BufrObsIO {
    * @brief Destructor
    */
   ~BufrObsIO() {
+#ifdef METADA_WITH_BUFR
     if (isOpen_) {
       close_bufr_file_(unitNumber_);
     }
+#endif
     delete[] tempEvns_;
   }
 
@@ -460,6 +467,7 @@ class BufrObsIO {
       for (int kk = 1; kk <= 6;
            ++kk) {  // Iterate through variable types (P, Q, T, Z, U, V)
         int ievn = 0;
+#ifdef METADA_WITH_BUFR
         if (!include_virtual_temp_ && kk == 3) {  // TEMP
           int flag = 1;
           virtmp_(&lv, &kk, &ievn, &flag);
@@ -467,6 +475,7 @@ class BufrObsIO {
             continue;  // Skip virtual temperature
           }
         }
+#endif
         double value = getEvnsValue(tempEvns_, 1, lv, ievn + 1, kk);
         if (isValidValue(value)) {
           ObsLevelRecord level_record;
@@ -533,6 +542,7 @@ class BufrObsIO {
   std::optional<Duration> time_window_;
 
   void open(const std::string& filename) {
+#ifdef METADA_WITH_BUFR
     if (isOpen_) {
       close_bufr_file_(unitNumber_);
     }
@@ -546,10 +556,16 @@ class BufrObsIO {
     }
     isOpen_ = true;
     filename_ = filename;
+#else
+    throw std::runtime_error(
+        "BUFR support is not available. Please enable WITH_BUFR when "
+        "configuring CMake.");
+#endif
   }
 
   int readPrepbufr(std::string& subset, int& date, double* header = nullptr,
                    double* events = nullptr, int* nlev = nullptr) {
+#ifdef METADA_WITH_BUFR
     if (!isOpen_) {
       throw std::runtime_error("BUFR file not open");
     }
@@ -563,9 +579,15 @@ class BufrObsIO {
     subset = std::string(subsetBuffer_);
     date = idate;
     return iret;
+#else
+    throw std::runtime_error(
+        "BUFR support is not available. Please enable WITH_BUFR when "
+        "configuring CMake.");
+#endif
   }
 
   void close() {
+#ifdef METADA_WITH_BUFR
     if (isOpen_) {
       close_bufr_file_(unitNumber_);
       UnitNumberManager::getInstance().release(unitNumber_);
@@ -574,6 +596,7 @@ class BufrObsIO {
       isOpen_ = false;
       filename_.clear();
     }
+#endif
   }
 
   static double getEvnsValue(const double* events, int ii, int lv, int jj,
@@ -617,5 +640,55 @@ struct BufrObsIOConceptCheck {
   static_assert(framework::ObsIOBackendImpl<BufrObsIO<T>, T>,
                 "BufrObsIO must satisfy the ObsIOBackendImpl concept");
 };
+
+#else  // METADA_WITH_BUFR not defined
+
+// Stub implementation when BUFR support is not available
+// This satisfies the ObsIOBackendImpl concept but throws runtime errors
+/**
+ * @brief Stub backend implementation for BUFR format when BUFR support is
+ * disabled
+ *
+ * @details This stub class satisfies the ObsIOBackendImpl concept requirements
+ * but throws runtime errors when methods are called. It exists to allow
+ * compilation when BUFR support is not available.
+ *
+ * @tparam ConfigBackend Configuration backend type
+ */
+template <typename ConfigBackend>
+class BufrObsIO {
+ public:
+  BufrObsIO() = delete;
+
+  explicit BufrObsIO(ConfigBackend&& config) {
+    (void)config;  // Suppress unused parameter warning
+    throw std::runtime_error(
+        "BUFR support is not available. Please enable WITH_BUFR when "
+        "configuring CMake.");
+  }
+
+  BufrObsIO(const BufrObsIO&) = delete;
+  BufrObsIO& operator=(const BufrObsIO&) = delete;
+
+  BufrObsIO(BufrObsIO&&) noexcept = default;
+  BufrObsIO& operator=(BufrObsIO&&) noexcept = default;
+
+  ~BufrObsIO() = default;
+
+  std::vector<ObsRecord> read() {
+    throw std::runtime_error(
+        "BUFR support is not available. Please enable WITH_BUFR when "
+        "configuring CMake.");
+  }
+
+  void write(const std::vector<ObsRecord>& records) {
+    (void)records;  // Suppress unused parameter warning
+    throw std::runtime_error(
+        "BUFR support is not available. Please enable WITH_BUFR when "
+        "configuring CMake.");
+  }
+};
+
+#endif  // METADA_WITH_BUFR
 
 }  // namespace metada::backends::io
