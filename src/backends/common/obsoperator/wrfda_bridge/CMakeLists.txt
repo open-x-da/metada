@@ -196,16 +196,17 @@ if(WITH_WRFDA)
         endif()
         
     else()
-        # Fast-fail: WRFDA module directory not provided
-        message(FATAL_ERROR "WRFDA bridge: WRFDA_MOD_DIR not set")
-        message(FATAL_ERROR "WRFDA bridge: Please set WRFDA_MOD_DIR to the WRFDA build directory containing .mod files")
-        message(FATAL_ERROR "WRFDA bridge: Example: -DWRFDA_MOD_DIR=/path/to/WRF/var/da/build")
+        # WRFDA module directory not provided - continue without WRFDA integration
+        message(STATUS "WRFDA bridge: WRFDA_MOD_DIR not set - skipping WRFDA integration")
+        message(STATUS "WRFDA bridge: To enable WRFDA integration, set WRFDA_MOD_DIR to the WRFDA build directory")
+        message(STATUS "WRFDA bridge: Example: -DWRFDA_MOD_DIR=/path/to/WRF/var/da/build")
+        message(STATUS "WRFDA bridge: Building without WRFDA-specific features")
     endif()
 else()
-    # Fast-fail: WRFDA is disabled
-    message(FATAL_ERROR "WRFDA bridge: WITH_WRFDA is disabled")
-    message(FATAL_ERROR "WRFDA bridge: WRFDA integration is required for this build")
-    message(FATAL_ERROR "WRFDA bridge: Please enable WRFDA with -DWITH_WRFDA=ON")
+    # WRFDA is disabled - continue without WRFDA integration
+    message(STATUS "WRFDA bridge: WITH_WRFDA is disabled - skipping WRFDA integration")
+    message(STATUS "WRFDA bridge: To enable WRFDA integration, set -DWITH_WRFDA=ON")
+    message(STATUS "WRFDA bridge: Building without WRFDA-specific features")
 endif()
 
 add_library(metada::bridges::wrfda ALIAS wrfda_bridge)
