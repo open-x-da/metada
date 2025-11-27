@@ -7,7 +7,7 @@
 #include "BufrObsIO.hpp"
 #include "ObsIO.hpp"
 #include "ObsRecord.hpp"
-#include "WRFBackendTraits.hpp"
+#include "backends/wrf/WRFBackendTraits.hpp"
 
 using BackendTag = metada::traits::WRFBackendTag;
 using namespace metada::framework;

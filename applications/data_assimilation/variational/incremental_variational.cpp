@@ -18,14 +18,14 @@
 #include "ApplicationContext.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "Config.hpp"
-#include "ControlVariableBackendFactory.hpp"
 #include "Geometry.hpp"
 #include "IncrementalVariational.hpp"
 #include "Model.hpp"
 #include "ObsOperator.hpp"
 #include "Observation.hpp"
 #include "State.hpp"
-#include "WRFBackendTraits.hpp"
+#include "backends/wrf/WRFBackendTraits.hpp"
+#include "backends/wrf/WRFDAControlVariableBackendFactory.hpp"
 
 namespace fwk = metada::framework;
 using BackendTag = metada::traits::WRFBackendTag;
@@ -75,10 +75,10 @@ int main(int argc, char** argv) {
 
     // Determine and create control variable backend
     auto control_backend_kind =
-        fwk::ControlVariableBackendFactory<BackendTag>::determineBackend(
+        fwk::WRFDAControlVariableBackendFactory<BackendTag>::determineBackend(
             config);
     std::shared_ptr<fwk::ControlVariableBackend<BackendTag>> control_backend =
-        fwk::ControlVariableBackendFactory<BackendTag>::createBackend(
+        fwk::WRFDAControlVariableBackendFactory<BackendTag>::createBackend(
             control_backend_kind, config);
 
     logger.Info() << "Control variable backend: " << control_backend->name();

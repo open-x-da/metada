@@ -48,6 +48,12 @@ if(WITH_BUFR)
     add_compile_definitions(METADA_WITH_BUFR)
 endif()
 
+# Configure WRFDA support (optional)
+option(WITH_WRFDA "Enable WRFDA support for WRF backend" OFF)
+if(WITH_WRFDA)
+    add_compile_definitions(METADA_WITH_WRFDA)
+endif()
+
 # Configure CUDA support
 include(CUDA)
 

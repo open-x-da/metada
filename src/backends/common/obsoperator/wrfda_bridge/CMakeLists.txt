@@ -14,7 +14,7 @@ target_include_directories(wrfda_bridge
 )
 
 # WRFDA linking configuration
-option(WITH_WRFDA "Enable linking real WRFDA obs operator routines" ON)
+# WITH_WRFDA is now defined globally in root CMakeLists.txt
 set(WRFDA_ROOT "" CACHE PATH "Path to WRF/var/da root directory (e.g., D:/linux/WRF/var/da)")
 
 # Allow specifying the prebuilt WRFDA static library directly

@@ -9,6 +9,7 @@
 
 #include "BackendTraits.hpp"
 #include "ControlVariable.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "IncrementalCostFunction.hpp"
 #include "Logger.hpp"

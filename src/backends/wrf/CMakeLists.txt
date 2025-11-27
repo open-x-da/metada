@@ -35,7 +35,7 @@ target_include_directories(wrf_config_bridge_fortran
 )
 
 # WRF linking configuration (reuse WRFDA settings)
-option(WITH_WRFDA "Enable linking real WRFDA obs operator routines" ON)
+# WITH_WRFDA is now defined globally in root CMakeLists.txt
 set(WRFDA_MOD_DIR "" CACHE PATH "Path to WRFDA build directory with .mod files")
 
 if(WITH_WRFDA AND WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
@@ -155,6 +155,7 @@ target_include_directories(wrf_backends
 # Link dependencies
 target_link_libraries(wrf_backends 
     INTERFACE
+        metada::base
         NetCDF::CXX4
         xtensor
         wrf_config_bridge

@@ -8,7 +8,7 @@
         "-DCMAKE_VERBOSE_MAKEFILE=OFF",
         "-DLOGGER_BACKEND=NGLOG",
         "-DCONFIG_BACKEND=YAML",
-        "-DWITH_WRFDA=ON",
+        "-DWITH_WRFDA=OFF",
         "-DWRFDA_ROOT=D:/linux/WRF",
         "-DWRFDA_VAR_LIB=D:/linux/WRF/var/build/libwrfvar.a",
         "-DWRFDA_MOD_DIR=D:/linux/WRF/var/build"
