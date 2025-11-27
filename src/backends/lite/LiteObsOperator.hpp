@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "LiteIncrement.hpp"
 #include "LiteObs.hpp"
 #include "LiteState.hpp"
 
@@ -14,7 +15,10 @@ namespace metada::backends::lite {
  * Implements the same linear observation operator as LiteObs
  *
  * This class is designed to comply with the ObsOperatorBackendImpl concept.
+ *
+ * @tparam ControlVariableBackend Type of control variable backend
  */
+template <typename ControlVariableBackend>
 class LiteObsOperator {
  public:
   // Deleted default constructor (concept compliance)
@@ -28,6 +32,16 @@ class LiteObsOperator {
   LiteObsOperator& operator=(LiteObsOperator&&) noexcept = default;
 
   // Explicit templated config constructor (concept compliance)
+  template <typename ConfigBackend>
+  explicit LiteObsOperator(
+      [[maybe_unused]] const ConfigBackend& config,
+      [[maybe_unused]] const ControlVariableBackend& control_backend)
+      : control_backend_(nullptr) {
+    required_state_vars_ = {"temperature", "pressure", "humidity"};
+    required_obs_vars_ = {"temperature", "pressure"};
+  }
+
+  // Overload: accept config only (control backend not required for lite)
   template <typename ConfigBackend>
   explicit LiteObsOperator([[maybe_unused]] const ConfigBackend& config) {
     required_state_vars_ = {"temperature", "pressure", "humidity"};
@@ -52,28 +66,39 @@ class LiteObsOperator {
     return result;
   }
 
-  // Tangent linear: dy = H*dx
+  // Tangent linear: dy = H*dx (operates on increments)
   std::vector<double> applyTangentLinear(
-      const LiteState& state_increment,
+      const LiteIncrement& increment,
       [[maybe_unused]] const LiteState& reference_state,
       const LiteObs& obs) const {
     // For linear operator, tangent linear is same as forward
-    return apply(state_increment, obs);
-  }
-
-  // Adjoint: dx = H^T*dy
-  void applyAdjoint(const std::vector<double>& obs_increment,
-                    [[maybe_unused]] const LiteState& reference_state,
-                    LiteState& state_increment,
-                    [[maybe_unused]] const LiteObs& obs) const {
-    double* state_data = static_cast<double*>(state_increment.getData());
-
-    for (int i = 0; i < 3; ++i) {
-      state_data[i] = 0.0;
-      for (int j = 0; j < 2; ++j) {
-        state_data[i] += H[j][i] * obs_increment[j];
+    auto data = increment.getData();
+    std::vector<double> result(obs.size());
+    for (int i = 0; i < 2; ++i) {
+      result[i] = 0.0;
+      for (int j = 0; j < 3; ++j) {
+        result[i] += H[i][j] * data[j];
       }
     }
+    return result;
+  }
+
+  // Adjoint: dx = H^T*dy (outputs an increment)
+  void applyAdjoint(const std::vector<double>& obs_increment,
+                    [[maybe_unused]] const LiteState& reference_state,
+                    LiteIncrement& increment_result,
+                    [[maybe_unused]] const LiteObs& obs) const {
+    std::vector<double> result(3, 0.0);
+
+    for (int i = 0; i < 3; ++i) {
+      result[i] = 0.0;
+      for (int j = 0; j < 2; ++j) {
+        result[i] += H[j][i] * obs_increment[j];
+      }
+    }
+
+    // Update increment with computed result
+    increment_result.update(result.data(), nullptr, nullptr, nullptr, nullptr);
   }
 
   // Required variables
@@ -104,9 +129,12 @@ class LiteObsOperator {
     // Stub implementation
   }
 
+  // No control-space methods needed for lite backend (identity control)
+
  private:
   std::vector<std::string> required_state_vars_;
   std::vector<std::string> required_obs_vars_;
+  const ControlVariableBackend* control_backend_ = nullptr;
 };
 
 }  // namespace metada::backends::lite

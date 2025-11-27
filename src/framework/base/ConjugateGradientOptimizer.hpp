@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 #include "OptimizerBase.hpp"
 
@@ -57,6 +58,7 @@ class ConjugateGradientOptimizer : public OptimizerBase {
     result.gradient_evaluations = 1;
 
     for (int iter = 0; iter < max_iterations_; ++iter) {
+      double previous_cost = current_cost;
       // Line search along search direction
       double step_size =
           lineSearch(solution, search_direction, cost_func, gradient_func,
@@ -110,6 +112,11 @@ class ConjugateGradientOptimizer : public OptimizerBase {
 
       result.iterations++;
 
+      if (iteration_logger_) {
+        iteration_logger_(result.iterations, previous_cost, current_cost,
+                          gradient_norm, step_size);
+      }
+
       // Check convergence
       if (checkConvergence(cost_change, gradient_norm, result.iterations,
                            max_iterations_, tolerance_, gradient_tolerance_,
@@ -148,6 +155,12 @@ class ConjugateGradientOptimizer : public OptimizerBase {
    */
   void setRestartInterval(int interval) { restart_interval_ = interval; }
 
+  void setIterationLogger(
+      std::function<void(int, double, double, double, double)> logger)
+      override {
+    iteration_logger_ = std::move(logger);
+  }
+
   /**
    * @brief Check if line search is enabled
    */
@@ -164,6 +177,7 @@ class ConjugateGradientOptimizer : public OptimizerBase {
   double gradient_tolerance_;
   bool line_search_enabled_;
   int restart_interval_;
+  std::function<void(int, double, double, double, double)> iteration_logger_;
 };
 
 }  // namespace metada::base::optimization

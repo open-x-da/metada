@@ -7,14 +7,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cmath>
-#include <numbers>
-#include <random>
-
 #include "Config.hpp"
+#include "ControlVariableBackend.hpp"
 #include "ETKF.hpp"
 #include "Ensemble.hpp"
 #include "Geometry.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Logger.hpp"
 #include "Metrics.hpp"
 #include "MockBackendTraits.hpp"
@@ -86,9 +84,14 @@ class ETKFTest : public ::testing::Test {
           *config_, *geometry_);
       obs_ = std::make_unique<framework::Observation<traits::MockBackendTag>>(
           *config_);
+
+      // Create identity control backend for tests
+      control_backend_ = std::make_shared<
+          framework::IdentityControlVariableBackend<traits::MockBackendTag>>();
+
       obs_op_ =
           std::make_unique<framework::ObsOperator<traits::MockBackendTag>>(
-              *config_);
+              *config_, *control_backend_);
 
       // Only create ETKF if all dependencies are available
       etkf_ = std::make_unique<framework::ETKF<traits::MockBackendTag>>(
@@ -128,6 +131,8 @@ class ETKFTest : public ::testing::Test {
   std::unique_ptr<framework::Geometry<traits::MockBackendTag>> geometry_;
   std::unique_ptr<framework::Ensemble<traits::MockBackendTag>> ensemble_;
   std::unique_ptr<framework::Observation<traits::MockBackendTag>> obs_;
+  std::shared_ptr<framework::ControlVariableBackend<traits::MockBackendTag>>
+      control_backend_;
   std::unique_ptr<framework::ObsOperator<traits::MockBackendTag>> obs_op_;
   std::unique_ptr<framework::ETKF<traits::MockBackendTag>> etkf_;
 };

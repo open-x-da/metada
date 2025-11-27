@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cmath>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -100,6 +102,23 @@ class OptimizerBase {
    */
   virtual void setGradientTolerance(double gradient_tolerance) = 0;
 
+  /**
+   * @brief Set iteration logger callback
+   *
+   * @details This callback is invoked at each iteration with iteration
+   * information. The signature is: (iteration, previous_cost, current_cost,
+   * gradient_norm, step_size). Optimizers that support iteration logging
+   * should override this method.
+   *
+   * @param logger Function to call at each iteration. If null, iteration
+   * logging is disabled.
+   */
+  virtual void setIterationLogger(
+      std::function<void(int, double, double, double, double)> logger) {
+    // Default implementation: no-op (optimizers can override)
+    (void)logger;
+  }
+
  protected:
   /**
    * @brief Check convergence criteria
@@ -107,13 +126,14 @@ class OptimizerBase {
   bool checkConvergence(double cost_change, double gradient_norm, int iteration,
                         int max_iterations, double tolerance,
                         double gradient_tolerance, std::string& reason) const {
-    if (std::abs(cost_change) < tolerance) {
-      reason = "Cost function tolerance reached";
+    if (gradient_norm < gradient_tolerance) {
+      reason = "Gradient tolerance reached";
       return true;
     }
 
-    if (gradient_norm < gradient_tolerance) {
-      reason = "Gradient tolerance reached";
+    if (std::abs(cost_change) < tolerance &&
+        gradient_norm < 10.0 * gradient_tolerance) {
+      reason = "Cost function tolerance reached";
       return true;
     }
 
@@ -189,31 +209,36 @@ class OptimizerBase {
 
     const double c1 = 1e-4;  // Armijo condition parameter
     const double rho = 0.5;  // Backtracking factor
-    const int max_line_search_iter = 20;
+    const int max_line_search_iter = 60;
+    const double min_step = 1e-16;
 
-    // Compute directional derivative
     auto gradient = gradient_func(x);
     double directional_deriv = dotProduct(gradient, direction);
+
+    if (directional_deriv >= 0.0) {
+      return 0.0;
+    }
 
     double step_size = 1.0;
 
     for (int i = 0; i < max_line_search_iter; ++i) {
-      // Try current step size
       std::vector<double> test_x = x;
       addScaledVector(test_x, direction, step_size);
 
       double test_cost = cost_func(test_x);
 
-      // Armijo condition
       if (test_cost <= current_cost + c1 * step_size * directional_deriv) {
         return step_size;
       }
 
-      // Reduce step size
       step_size *= rho;
+
+      if (step_size < min_step) {
+        break;
+      }
     }
 
-    return step_size;  // Return last tried step size
+    return 0.0;
   }
 };
 

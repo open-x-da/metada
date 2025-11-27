@@ -5,8 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include <cmath>
-#include <iostream>
 #include <vector>
 
 #include "Metrics.hpp"

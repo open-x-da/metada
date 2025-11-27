@@ -171,17 +171,26 @@
             ]
         },
         {
-            "name": "Debug WRF 3DVAR",
+            "name": "Debug WRF Incremental 3DVAR",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/variational",
-            "args": ["${workspaceFolder}/src/backends/wrf/tutorial/var3d.yaml"],
-            "stopAtEntry": true,
+            "program": "${workspaceFolder}/build/bin/incremental_variational",
+            "args": ["${workspaceFolder}/src/backends/wrf/tutorial/incremental_var3d.yaml"],
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
+            "preLaunchTask": "Prepare WRF Runtime Environment",
             "environment": [
+                {
+                    "name": "PATH",
+                    "value": "C:/msys64/mingw64/bin;C:/msys64/usr/bin;${env:PATH}"
+                },
                 {
                     "name": "GLOG_logtostderr",
                     "value": "1"
+                },
+                {
+                    "name": "GFORTRAN_CONVERT_UNIT",
+                    "value": "big_endian"
                 },
                 {
                     "name": "GLOG_v",
@@ -227,8 +236,12 @@
                     "value": "1"
                 },
                 {
+                    "name": "GFORTRAN_CONVERT_UNIT",
+                    "value": "big_endian"
+                },
+                {
                     "name": "GLOG_v",
-                    "value": "2"
+                    "value": "1"
                 },
                 {
                     "name": "GLOG_colorlogtostderr",
@@ -261,12 +274,20 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/tl_ad_checks",
             "args": ["${workspaceFolder}/src/backends/wrf/tutorial/tl_ad_checks.yaml"],
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build",
             "environment": [
                 {
+                    "name": "PATH",
+                    "value": "C:/msys64/mingw64/bin;C:/msys64/usr/bin;${env:PATH}"
+                },
+                {
                     "name": "GLOG_logtostderr",
                     "value": "1"
+                },
+                {
+                    "name": "GFORTRAN_CONVERT_UNIT",
+                    "value": "big_endian"
                 },
                 {
                     "name": "GLOG_v",
@@ -439,6 +460,48 @@
                 {
                     "name": "GLOG_v",
                     "value": "0"
+                },
+                {
+                    "name": "GLOG_colorlogtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_minloglevel",
+                    "value": "0"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set breakpoint pending on",
+                    "text": "-gdb-set breakpoint pending on",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Debug obs_processing",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/obs_processing",
+            "args": ["${workspaceFolder}/applications/obs_processing/config.yaml"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [
+                {
+                    "name": "GLOG_logtostderr",
+                    "value": "1"
+                },
+                {
+                    "name": "GLOG_v",
+                    "value": "2"
                 },
                 {
                     "name": "GLOG_colorlogtostderr",

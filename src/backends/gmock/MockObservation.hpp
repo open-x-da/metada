@@ -168,6 +168,7 @@ class MockObservation {
   MOCK_METHOD(void, initialize, ());
   MOCK_METHOD(void, applyQC, ());
   MOCK_METHOD(bool, equals, (const MockObservation& other), (const));
+  MOCK_METHOD(bool, isInitialized, (), (const));
 
   // Arithmetic operations
   MOCK_METHOD(void, add, (const MockObservation& other));
@@ -216,6 +217,16 @@ class MockObservation {
     return T{};
   }
 
+  // Get all observation values as a flat vector
+  std::vector<double> getObservationValues() const {
+    std::vector<double> values;
+    values.reserve(observations_.size());
+    for (const auto& obs : observations_) {
+      values.push_back(obs.value);
+    }
+    return values;
+  }
+
   // Get the observation type names
   std::vector<std::string> getTypeNames() const {
     std::vector<std::string> types;
@@ -235,6 +246,19 @@ class MockObservation {
       }
     }
     return variables;
+  }
+
+  // Get the size of observation data for a specific type/variable
+  size_t getSize(const std::string& typeName,
+                 const std::string& varName) const {
+    auto type_it = type_variable_map_.find(typeName);
+    if (type_it != type_variable_map_.end()) {
+      auto var_it = type_it->second.find(varName);
+      if (var_it != type_it->second.end()) {
+        return var_it->second.size();
+      }
+    }
+    return 0;
   }
 
   // Get the observation error variances
@@ -268,6 +292,11 @@ class MockObservation {
     return {1.0, 1.0, 1.0};  // Mock return value
   }
   MOCK_METHOD(bool, isDiagonalCovariance, (), (const));
+
+  // Get filtering information
+  std::string getFilteringInfo() const {
+    return "MockObservation: No filtering applied (mock implementation)";
+  }
 
   // Test helper methods
   void setObservations(const std::vector<ObservationPoint>& obs) {

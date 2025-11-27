@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -113,6 +114,16 @@ class SimpleState {
   void multiply(double scalar) {
     for (size_t i = 0; i < data_.size(); ++i) {
       data_[i] *= scalar;
+    }
+  }
+
+  // Increment operations
+  template <typename IncrementBackend>
+  void addIncrement(const IncrementBackend& increment) {
+    std::vector<double> temp(data_.size());
+    increment.extract(temp.data(), nullptr, nullptr, nullptr, nullptr);
+    for (size_t i = 0; i < data_.size(); ++i) {
+      data_[i] += temp[i];
     }
   }
 

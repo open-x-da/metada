@@ -27,21 +27,27 @@ class LiteBEC {
   }
 
   // Quadratic form: x^T * B^(-1) * x
-  double computeQuadraticFormDiagonal(const LiteState& state) const {
+  template <typename T>
+  double computeQuadraticFormDiagonal(const T& state) const {
     double result = 0.0;
-    const double* data = static_cast<const double*>(state.getData());
-    for (size_t i = 0; i < state.size(); ++i) {
+    auto data = state.getData();
+    for (size_t i = 0; i < data.size(); ++i) {
       result += data[i] * data[i] / variances_[i];
     }
     return result;
   }
 
   // Apply inverse: B^(-1) * x
-  void applyInverseDiagonal(const LiteState& state, LiteState& result) const {
-    const double* input_data = static_cast<const double*>(state.getData());
-    double* output_data = static_cast<double*>(result.getData());
-    for (size_t i = 0; i < state.size(); ++i) {
-      output_data[i] = input_data[i] / variances_[i];
+  template <typename T>
+  void applyInverseDiagonal(const T& state, T& result) const {
+    auto input_data = state.getData();
+    auto result_data = result.getData();
+    for (size_t i = 0; i < input_data.size(); ++i) {
+      result_data[i] = input_data[i] / variances_[i];
+    }
+    // Update result with modified data
+    if constexpr (requires { result.setData(result_data); }) {
+      result.setData(result_data);
     }
   }
 
@@ -65,11 +71,13 @@ class LiteBEC {
   }
 
   // Ensemble-based methods (stub implementations)
-  double computeQuadraticFormEnsemble(const LiteState& state) const {
+  template <typename T>
+  double computeQuadraticFormEnsemble(const T& state) const {
     return computeQuadraticFormDiagonal(state);
   }
 
-  void applyInverseEnsemble(const LiteState& state, LiteState& result) const {
+  template <typename T>
+  void applyInverseEnsemble(const T& state, T& result) const {
     applyInverseDiagonal(state, result);
   }
 
@@ -83,11 +91,13 @@ class LiteBEC {
   }
 
   // Parametric methods (stub implementations)
-  double computeQuadraticFormParametric(const LiteState& state) const {
+  template <typename T>
+  double computeQuadraticFormParametric(const T& state) const {
     return computeQuadraticFormDiagonal(state);
   }
 
-  void applyInverseParametric(const LiteState& state, LiteState& result) const {
+  template <typename T>
+  void applyInverseParametric(const T& state, T& result) const {
     applyInverseDiagonal(state, result);
   }
 
@@ -101,11 +111,13 @@ class LiteBEC {
   }
 
   // Hybrid methods (stub implementations)
-  double computeQuadraticFormHybrid(const LiteState& state) const {
+  template <typename T>
+  double computeQuadraticFormHybrid(const T& state) const {
     return computeQuadraticFormDiagonal(state);
   }
 
-  void applyInverseHybrid(const LiteState& state, LiteState& result) const {
+  template <typename T>
+  void applyInverseHybrid(const T& state, T& result) const {
     applyInverseDiagonal(state, result);
   }
 
@@ -118,11 +130,13 @@ class LiteBEC {
   }
 
   // Full matrix methods (stub implementations)
-  double computeQuadraticFormFull(const LiteState& state) const {
+  template <typename T>
+  double computeQuadraticFormFull(const T& state) const {
     return computeQuadraticFormDiagonal(state);
   }
 
-  void applyInverseFull(const LiteState& state, LiteState& result) const {
+  template <typename T>
+  void applyInverseFull(const T& state, T& result) const {
     applyInverseDiagonal(state, result);
   }
 

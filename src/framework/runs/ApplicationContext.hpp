@@ -1,7 +1,6 @@
 #pragma once
 #include <iostream>
 #include <stdexcept>
-#include <string>
 
 #include "BackendTraits.hpp"
 #include "common/utils/config/Config.hpp"

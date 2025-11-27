@@ -1,11 +1,10 @@
 #pragma once
 
-#include <memory>
-#include <vector>
-
 #include "BackendTraits.hpp"
 #include "BackgroundErrorCovariance.hpp"
 #include "ConfigConcepts.hpp"
+#include "ControlVariable.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
 #include "Model.hpp"
@@ -22,7 +21,6 @@ template <typename BackendTag>
 class Config;
 
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
 class Increment;
 
 /**
@@ -109,8 +107,7 @@ class CostFunction : public NonCopyable {
     double total_cost = 0.0;
 
     // Background term: 1/2 * (x - xb)^T B^-1 (x - xb)
-    auto background_increment =
-        Increment<BackendTag>::createFromDifference(state, background_);
+    auto background_increment = computeStateDifference(state, background_);
     double bg_cost = 0.5 * bg_error_cov_.quadraticForm(background_increment);
     total_cost += bg_cost;
 
@@ -147,8 +144,7 @@ class CostFunction : public NonCopyable {
     gradient.zero();
 
     // Background term gradient: B^-1 (x - xb)
-    auto background_increment =
-        Increment<BackendTag>::createFromDifference(state, background_);
+    auto background_increment = computeStateDifference(state, background_);
     auto bg_gradient = bg_error_cov_.applyInverse(background_increment);
     gradient += bg_gradient;
 
@@ -193,6 +189,27 @@ class CostFunction : public NonCopyable {
   };
 
   /**
+   * @brief Compute state difference as an increment
+   * @param a First state
+   * @param b Second state
+   * @return Increment representing a - b
+   */
+  Increment<BackendTag> computeStateDifference(
+      const State<BackendTag>& a, const State<BackendTag>& b) const {
+    // Compute difference in state space
+    auto diff_state = a.clone();
+    diff_state -= b;
+
+    // Create increment from geometry and transfer difference using backend
+    // method
+    auto increment =
+        Increment<BackendTag>::createFromGeometry(a.geometry()->backend());
+    increment.backend().transferFromState(diff_state.backend());
+
+    return increment;
+  }
+
+  /**
    * @brief Determine variational type from configuration
    */
   VariationalType determineVariationalType(const Config<BackendTag>& config) {
@@ -215,7 +232,7 @@ class CostFunction : public NonCopyable {
     const auto& obs_op = obs_operators_[0];
 
     auto simulated_obs = obs_op.apply(state, obs);
-    auto obs_data = obs.template getData<std::vector<double>>();
+    auto obs_data = obs.getObservationValues();
     auto innovation = computeInnovation(obs, simulated_obs);
 
     // Debug print: show first 5 values of H(x), y, and innovation
@@ -278,7 +295,16 @@ class CostFunction : public NonCopyable {
     auto weighted_innovation = obs.applyInverseCovariance(innovation);
 
     // H^T R^-1 (H(x) - y)
-    auto obs_gradient = obs_op.applyAdjoint(weighted_innovation, state, obs);
+    // applyAdjoint now returns ControlVariable, convert to Increment
+    auto obs_gradient_control =
+        obs_op.applyAdjoint(weighted_innovation, state, obs);
+
+    // Convert control variable to increment using identity backend
+    IdentityControlVariableBackend<BackendTag> identity_backend;
+    auto obs_gradient =
+        identity_backend.createIncrement(state.geometry()->backend());
+    identity_backend.controlToIncrement(obs_gradient_control, obs_gradient);
+
     gradient += obs_gradient;
   }
 
@@ -305,8 +331,16 @@ class CostFunction : public NonCopyable {
       auto simulated_obs = obs_op.apply(current_state, obs);
       auto innovation = computeInnovation(obs, simulated_obs);
       auto weighted_innovation = obs.applyInverseCovariance(innovation);
-      auto obs_gradient =
+
+      // applyAdjoint now returns ControlVariable, convert to Increment
+      auto obs_gradient_control =
           obs_op.applyAdjoint(weighted_innovation, current_state, obs);
+
+      // Convert control variable to increment using identity backend
+      IdentityControlVariableBackend<BackendTag> identity_backend;
+      auto obs_gradient =
+          identity_backend.createIncrement(state.geometry()->backend());
+      identity_backend.controlToIncrement(obs_gradient_control, obs_gradient);
 
       // For FGAT, we approximate by not using model adjoint
       gradient += obs_gradient;
@@ -334,7 +368,8 @@ class CostFunction : public NonCopyable {
     }
 
     // Backward pass with adjoint
-    auto adjoint_forcing = Increment<BackendTag>::createFromEntity(state);
+    auto adjoint_forcing =
+        Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
     adjoint_forcing.zero();
 
     // Process observations in reverse order
@@ -346,15 +381,23 @@ class CostFunction : public NonCopyable {
       auto simulated_obs = obs_op.apply(state_at_time, obs);
       auto innovation = computeInnovation(obs, simulated_obs);
       auto weighted_innovation = obs.applyInverseCovariance(innovation);
-      auto obs_adjoint =
+
+      // applyAdjoint now returns ControlVariable, convert to Increment
+      auto obs_adjoint_control =
           obs_op.applyAdjoint(weighted_innovation, state_at_time, obs);
+
+      // Convert control variable to increment using identity backend
+      IdentityControlVariableBackend<BackendTag> identity_backend;
+      auto obs_adjoint =
+          identity_backend.createIncrement(state.geometry()->backend());
+      identity_backend.controlToIncrement(obs_adjoint_control, obs_adjoint);
 
       adjoint_forcing += obs_adjoint;
 
       // Adjoint model integration (if not at initial time)
       if (i > 0) {
-        auto next_adjoint_forcing =
-            Increment<BackendTag>::createFromEntity(trajectory[i - 1]);
+        auto next_adjoint_forcing = Increment<BackendTag>::createFromGeometry(
+            trajectory[i - 1].geometry()->backend());
         model_.runAdjoint(trajectory[i - 1], trajectory[i], adjoint_forcing,
                           next_adjoint_forcing);
         adjoint_forcing = std::move(next_adjoint_forcing);
@@ -370,7 +413,7 @@ class CostFunction : public NonCopyable {
   std::vector<double> computeInnovation(
       const Observation<BackendTag>& obs,
       const std::vector<double>& simulated_obs) const {
-    const auto obs_data = obs.template getData<std::vector<double>>();
+    const auto obs_data = obs.getObservationValues();
     std::vector<double> innovation(obs_data.size());
 
     for (size_t i = 0; i < innovation.size(); ++i) {

@@ -1,16 +1,8 @@
 #pragma once
 
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
-
 #include "BackendTraits.hpp"
 #include "ConfigConcepts.hpp"
-#include "Increment.hpp"
 #include "Logger.hpp"
-#include "NonCopyable.hpp"
-#include "State.hpp"
 
 // Framework-independent optimizers
 #include "ConjugateGradientOptimizer.hpp"
@@ -174,7 +166,8 @@ class Minimization : public NonCopyable {
     auto vector_gradient_func =
         [&](const std::vector<double>& vec) -> std::vector<double> {
       State<BackendTag> state = vectorToState(vec, initial_state);
-      auto increment = Increment<BackendTag>::createFromEntity(state);
+      auto increment = Increment<BackendTag>::createFromGeometry(
+          state.geometry()->backend());
       gradient_func(state, increment);
       return incrementToVector(increment);
     };
@@ -284,8 +277,8 @@ class Minimization : public NonCopyable {
    */
   std::vector<double> incrementToVector(
       const Increment<BackendTag>& increment) const {
-    // Access the underlying state entity and convert to vector
-    return stateToVector(increment.state());
+    // Access increment data directly
+    return increment.template getData<std::vector<double>>();
   }
 };
 

@@ -106,6 +106,16 @@ class LiteState {
     variable_names_ = vars;
   }
 
+  // Increment operations
+  template <typename IncrementBackend>
+  void addIncrement(const IncrementBackend& increment) {
+    // For LiteState, just add all increment data to state data
+    auto inc_data = increment.getData();
+    for (size_t i = 0; i < std::min(state_data_.size(), inc_data.size()); ++i) {
+      state_data_[i] += inc_data[i];
+    }
+  }
+
   // File I/O (stub implementations)
   void saveToFile([[maybe_unused]] const std::string& filename) const {
     // Stub implementation for testing

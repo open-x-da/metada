@@ -7,11 +7,11 @@
 
 #pragma once
 
-#include <chrono>
+#include <algorithm>
 #include <filesystem>
+#include <iomanip>
 #include <memory>
 #include <netcdf>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -23,6 +23,49 @@
 #include <xtensor/xarray.hpp>
 #endif
 #include "WRFGridInfo.hpp"
+#include "wrfda/WRFDAStateTransforms.hpp"
+
+// WRFDA C bindings for domain initialization
+extern "C" {
+// NEW: WRFDA First Guess Initialization Functions
+// These functions implement the refactored WRFState initialization strategy
+// that leverages WRFDA's proven initialization pipeline
+int wrfda_load_first_guess(void* grid_ptr, const char* filename,
+                           int filename_len);
+
+int wrfda_extract_background_state(void* grid_ptr, double* u, double* v,
+                                   double* t, double* q, double* psfc,
+                                   double* p, double* ph, double* phb,
+                                   double* hgt, double* lats, double* lons,
+                                   int* nx, int* ny, int* nz);
+
+int wrfda_extract_additional_fields(void* grid_ptr, double* w, double* mu,
+                                    double* mub, double* pb, double* t_init);
+
+// WARNING: DO NOT USE IN DESTRUCTORS!
+// da_control module variables (c1f, c2f, etc.) are module-level and shared
+// across all WRFState instances. Only call during final WRFDA shutdown.
+void wrfda_cleanup_vertical_coords();
+
+// LEGACY: Old domain construction methods (kept for backward compatibility)
+int wrfda_construct_domain_from_arrays(
+    const int* nx, const int* ny, const int* nz, const double* u,
+    const double* v, const double* t, const double* q, const double* psfc,
+    const double* ph, const double* phb, const double* hf, const double* hgt,
+    const double* p, const double* pb, const double* lats2d,
+    const double* lons2d);
+
+int wrfda_init_domain_from_wrf_fields(
+    const int* nx, const int* ny, const int* nz, const double* u,
+    const double* v, const double* w, const double* t, const double* mu,
+    const double* mub, const double* p, const double* pb, const double* ph,
+    const double* phb, const double* xlat, const double* xlong,
+    const double* ht, const double* znu, const double* znw, const double* dn,
+    const double* dnw, const double* rdnw, const double* rdn,
+    const double* p_top, const double* t_init, const double* moist,
+    const int* num_moist, const double* psfc, const int* start_year,
+    const int* start_month, const int* start_day, const int* start_hour);
+}
 
 namespace metada::backends::wrf {
 
@@ -67,13 +110,9 @@ class WRFState {
    * and provide a consistent interface following standard container
    * conventions.
    */
-  using value_type = double;               ///< Type of elements stored
-  using reference = double&;               ///< Reference to element type
-  using const_reference = const double&;   ///< Const reference to element type
-  using pointer = double*;                 ///< Pointer to element type
-  using const_pointer = const double*;     ///< Const pointer to element type
-  using size_type = std::size_t;           ///< Type for sizes and indices
-  using difference_type = std::ptrdiff_t;  ///< Type for pointer differences
+  using reference = double&;              ///< Reference to element type
+  using const_reference = const double&;  ///< Const reference to element type
+  using size_type = std::size_t;          ///< Type for sizes and indices
   ///@}
 
   ///@{ @name Construction and Destruction
@@ -144,10 +183,12 @@ class WRFState {
   WRFState& operator=(WRFState&& other) noexcept;
 
   /**
-   * @brief Destructor with automatic resource cleanup
+   * @brief Destructor
    *
-   * @details Automatically releases all allocated memory and closes
-   * any open file handles. No explicit cleanup is required.
+   * @details Uses default destructor. WRFDA module-level variables
+   * (da_control::c1f, c2f, c3f, c4f, c1h, c2h, c3h, c4h) are NOT cleaned
+   * up here as they are shared across all WRFState instances. WRFDA
+   * manages these internally during finalization.
    */
   ~WRFState() = default;
   ///@}
@@ -170,14 +211,16 @@ class WRFState {
 
   ///@{ @name Data Access
   /**
-   * @brief Get mutable access to first variable data (concept compliance)
+   * @brief Get mutable access to core state variables data (concept compliance)
    *
-   * @details Returns a void pointer to the raw data array of the first
-   * loaded variable. This method is provided for StateBackendImpl concept
-   * compliance. For explicit variable access, use getData(variableName).
+   * @details Returns a void pointer to the raw data array of core state
+   * variables (U, V, T, QVAPOR, PSFC) stored contiguously at the beginning.
+   * This method is provided for StateBackendImpl concept compliance.
+   * For explicit variable access, use getData(variableName).
    *
-   * @return void* Pointer to first variable data, or nullptr if no variables
-   * @throws std::runtime_error If no variables are loaded
+   * @return void* Pointer to core state variables data, or nullptr if no core
+   * variables
+   * @throws std::runtime_error If no core variables are loaded
    *
    * @warning Use with caution - no bounds checking is performed
    * @see getData(const std::string&) for explicit variable access
@@ -185,15 +228,16 @@ class WRFState {
   void* getData();
 
   /**
-   * @brief Get const access to first variable data (concept compliance)
+   * @brief Get const access to core state variables data (concept compliance)
    *
-   * @details Returns a const void pointer to the raw data array of the first
-   * loaded variable. This method is provided for StateBackendImpl concept
-   * compliance. For explicit variable access, use getData(variableName).
+   * @details Returns a const void pointer to the raw data array of core state
+   * variables (U, V, T, QVAPOR, PSFC) stored contiguously at the beginning.
+   * This method is provided for StateBackendImpl concept compliance.
+   * For explicit variable access, use getData(variableName).
    *
-   * @return const void* Const pointer to first variable data, or nullptr if no
-   * variables
-   * @throws std::runtime_error If no variables are loaded
+   * @return const void* Const pointer to core state variables data, or nullptr
+   * if no core variables
+   * @throws std::runtime_error If no core variables are loaded
    *
    * @see getData(const std::string&) for explicit variable access
    */
@@ -238,9 +282,6 @@ class WRFState {
   xt::xarray<double> getVariable(const std::string& variableName) {
     const auto& dims = dimensions_.at(variableName);
     size_t offset = variable_offsets_.at(variableName);
-    size_t size = 1;
-    for (size_t dim : dims) size *= dim;
-
     // Create a view into the flattened data
     return xt::adapt(flattened_data_.data() + offset, dims);
   }
@@ -259,9 +300,6 @@ class WRFState {
   xt::xarray<double> getVariable(const std::string& variableName) const {
     const auto& dims = dimensions_.at(variableName);
     size_t offset = variable_offsets_.at(variableName);
-    size_t size = 1;
-    for (size_t dim : dims) size *= dim;
-
     // Create a view into the flattened data
     return xt::adapt(flattened_data_.data() + offset, dims);
   }
@@ -335,6 +373,87 @@ class WRFState {
    * @return size_t Total number of elements across all variables
    */
   size_t size() const;
+  ///@}
+
+  ///@{ @name State Data Access
+  /**
+   * @brief Extract core state data for direct access
+   *
+   * @details This method extracts only the core state variables from the WRF
+   * state, providing raw pointers for efficient access. This is a lightweight
+   * alternative to ObsOperatorData when only state variables are needed.
+   *
+   * @return Structure containing core state data
+   */
+  struct StateData {
+    // State variables (as raw pointers for efficiency)
+    const double* u = nullptr;     // U-wind component
+    const double* v = nullptr;     // V-wind component
+    const double* t = nullptr;     // Temperature
+    const double* q = nullptr;     // Specific humidity
+    const double* psfc = nullptr;  // Surface pressure
+
+    // Core state data locations in flattened_data_
+    size_t u_begin = 0, u_end = 0;        // U-wind location range
+    size_t v_begin = 0, v_end = 0;        // V-wind location range
+    size_t t_begin = 0, t_end = 0;        // Temperature location range
+    size_t q_begin = 0, q_end = 0;        // Specific humidity location range
+    size_t psfc_begin = 0, psfc_end = 0;  // Surface pressure location range
+
+    // Total core state size (u + v + t + q + psfc)
+    size_t core_state_size = 0;
+  };
+
+  StateData getStateData() const;
+
+  ///@{ @name Observation Operator Support
+  /**
+   * @brief Extract data for observation operators
+   *
+   * @details This method extracts the essential data that observation operators
+   * need from the state, optimized for efficient access. It returns a structure
+   * containing raw pointers to the data arrays and metadata.
+   *
+   * @return Structure containing observation operator data
+   */
+  struct ObsOperatorData {
+    // Grid dimensions
+    int nx, ny, nz;
+
+    // State variables (as raw pointers for efficiency)
+    const double* u = nullptr;
+    const double* v = nullptr;
+    const double* w = nullptr;  // Vertical velocity (W-staggered)
+    const double* t = nullptr;
+    const double* q = nullptr;
+    const double* psfc = nullptr;
+    const double* ph = nullptr;   // Geopotential perturbation
+    const double* phb = nullptr;  // Base state geopotential
+    const double* hf = nullptr;   // Height field (calculated from PH and PHB)
+    const double* hgt = nullptr;  // Terrain height (from HGT variable)
+    const double* p = nullptr;    // Pressure perturbation
+    const double* pb = nullptr;   // Base state pressure
+    const double* mu = nullptr;   // Column dry air mass perturbation
+    const double* mub = nullptr;  // Base state column dry air mass
+    const double* t_init = nullptr;  // Initial temperature field
+
+    // Grid metadata
+    const double* lats_2d = nullptr;
+    const double* lons_2d = nullptr;
+    const double* levels = nullptr;
+
+    // Variable dimensions (for staggered grids)
+    struct VariableDims {
+      int nx, ny, nz;
+      bool is_staggered = false;
+    };
+
+    VariableDims u_dims, v_dims, w_dims, t_dims, q_dims, psfc_dims, ph_dims,
+        phb_dims, hf_dims, hgt_dims, p_dims, pb_dims, mu_dims, mub_dims,
+        t_init_dims;
+  };
+
+  ObsOperatorData getObsOperatorData() const;
   ///@}
 
   ///@{ @name Total State Vector Access
@@ -616,6 +735,32 @@ class WRFState {
    * @param[in] scalar Value to multiply all elements by
    */
   void multiply(double scalar);
+
+  /**
+   * @brief Add increment to this state using WRFDA's proven routines
+   *
+   * @details Adds analysis increments to background state by delegating to
+   * WRFDA's da_transfer_xatowrf, which handles all WRF-specific
+   * transformations:
+   * - Conversion of specific humidity to mixing ratio
+   * - Computation of dry air mass increments
+   * - Conversion of temperature to potential temperature
+   * - Computation of geopotential height
+   * - Arakawa-C grid staggering (A-grid to C-grid conversion)
+   * - Positivity constraints (e.g., moisture >= 0)
+   * - Recomputation of 2m/10m diagnostic fields
+   *
+   * This is the fundamental operation for combining analysis increments
+   * with background states: x_analysis = x_background + increment
+   *
+   * @tparam IncrementBackend The increment backend type
+   * @param[in] increment Increment to add to this state
+   *
+   * @note This leverages WRFDA's battle-tested code instead of reimplementing
+   * complex WRF-specific physics and grid transformations
+   */
+  template <typename IncrementBackend>
+  void addIncrement(const IncrementBackend& increment);
   ///@}
 
   ///@{ @name State Comparison
@@ -822,85 +967,79 @@ class WRFState {
 
   ///@{ @name File I/O Operations
   /**
-   * @brief Save state data to NetCDF file by copying original and updating
-   * variables
+   * @brief Save state data using WRFDA's da_update_firstguess routine
    *
-   * @details Copies the original WRF NetCDF file and updates only the variables
-   * that have been loaded and potentially modified. This preserves all original
-   * file structure, dimensions, attributes, and variables not explicitly
-   * loaded. The method is more efficient and maintains WRF file compatibility.
+   * @details Delegates to WRFDA's battle-tested NetCDF writer that copies the
+   * background (fg) file and updates only the analysis variables touched by
+   * assimilation. This ensures complete compatibility with WRF's expected file
+   * structure and metadata handling.
    *
-   * @param[in] filename Path where the NetCDF file should be created
-   * @throws std::runtime_error If file creation or copying fails
-   * @throws netCDF::exceptions::NcException If NetCDF operations fail
-   *
-   * @note The output file will contain:
-   *       - All original variables and attributes from source file
-   *       - Updated data for loaded variables
-   *       - Preserved file structure and metadata
+   * @param[in] filename Path where the updated analysis file should be written
+   * @throws std::runtime_error If filesystem operations or WRFDA call fails
    */
   void saveToFile(const std::string& filename) const {
     try {
-      // First, copy the original file to preserve all structure
-      std::filesystem::copy_file(
-          wrfFilename_, filename,
-          std::filesystem::copy_options::overwrite_existing);
-
-      // Open the copied file for modification
-      netCDF::NcFile nc_file(filename, netCDF::NcFile::write);
-
-      if (nc_file.isNull()) {
-        throw std::runtime_error("Failed to open copied NetCDF file: " +
-                                 filename);
+      if (filename.empty()) {
+        throw std::runtime_error(
+            "Output filename for WRF state cannot be empty");
       }
+      void* grid_ptr = geometry_.getGridPtr();
+      if (!grid_ptr) {
+        throw std::runtime_error(
+            "WRFDA grid pointer is null; cannot write analysis file");
+      }
+      std::filesystem::path working_dir = std::filesystem::current_path();
+      std::filesystem::path fg_target = working_dir / "fg";
+      std::filesystem::path fg_backup = working_dir / "fg.metada.bak";
+      bool fg_preexisted = std::filesystem::exists(fg_target);
 
-      // Update only the variables that were loaded (and potentially modified)
-      for (const auto& varName : variableNames_) {
-        auto nc_var = nc_file.getVar(varName);
-
-        if (!nc_var.isNull()) {
-          size_t offset = variable_offsets_.at(varName);
-
-          // Write updated data from flattened storage
-          nc_var.putVar(flattened_data_.data() + offset);
-        } else {
-          // Variable doesn't exist in original file, skip it
-          // This could happen if we loaded variables not in the original file
-          std::cerr << "Warning: Variable " << varName
-                    << " not found in original file, skipping update"
-                    << std::endl;
+      auto restoreOriginalFg = [&]() noexcept {
+        try {
+          if (fg_preexisted) {
+            if (std::filesystem::exists(fg_target)) {
+              std::filesystem::remove(fg_target);
+            }
+            if (std::filesystem::exists(fg_backup)) {
+              std::filesystem::rename(fg_backup, fg_target);
+            }
+          } else if (std::filesystem::exists(fg_target)) {
+            std::filesystem::remove(fg_target);
+          }
+        } catch (...) {
         }
+      };
+
+      try {
+        if (fg_preexisted) {
+          std::filesystem::rename(fg_target, fg_backup);
+        }
+      } catch (const std::filesystem::filesystem_error& e) {
+        throw std::runtime_error("Failed to backup existing fg file: " +
+                                 std::string(e.what()));
       }
 
-      // Add metadata about the update
-      nc_file.putAtt("metada_updated", "true");
-
-      // Convert timestamp to string for NetCDF compatibility
-      auto now = std::chrono::system_clock::now();
-      auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(
-                           now.time_since_epoch())
-                           .count();
-      nc_file.putAtt("metada_update_time", std::to_string(timestamp));
-
-      // Add list of updated variables as a single string
-      std::string updated_vars;
-      for (size_t i = 0; i < variableNames_.size(); ++i) {
-        if (i > 0) updated_vars += ", ";
-        updated_vars += variableNames_[i];
+      try {
+        std::filesystem::copy_file(
+            wrfFilename_, fg_target,
+            std::filesystem::copy_options::overwrite_existing);
+      } catch (const std::filesystem::filesystem_error& e) {
+        restoreOriginalFg();
+        throw std::runtime_error("Failed to stage fg file for WRFDA: " +
+                                 std::string(e.what()));
       }
-      nc_file.putAtt("metada_updated_variables", updated_vars);
 
-      nc_file.close();
+      try {
+        wrfda::WRFDAStateTransforms::updateFirstGuess(grid_ptr, filename);
+      } catch (...) {
+        restoreOriginalFg();
+        throw;
+      }
 
-    } catch (const std::filesystem::filesystem_error& e) {
-      throw std::runtime_error("File system error while copying WRF file: " +
-                               std::string(e.what()));
-    } catch (const netCDF::exceptions::NcException& e) {
-      throw std::runtime_error("NetCDF error while saving WRF state: " +
-                               std::string(e.what()));
+      restoreOriginalFg();
     } catch (const std::exception& e) {
-      throw std::runtime_error("Error saving WRF state: " +
-                               std::string(e.what()));
+      throw std::runtime_error(
+          "Error saving WRF state via WRFDA da_update_firstguess: " +
+          std::string(e.what()));
     }
   }
   ///@}
@@ -1074,35 +1213,63 @@ class WRFState {
    *                      variables: [...], total_size: <num>}
    */
   friend std::ostream& operator<<(std::ostream& os, const WRFState& state) {
-    os << "WRFState{";
-    os << "initialized: " << (state.initialized_ ? "true" : "false");
-    os << ", filename: \"" << state.wrfFilename_ << "\"";
-    os << ", variables: [";
+    os << "WRFState{\n";
+    os << "  initialized: " << (state.initialized_ ? "true" : "false") << ",\n";
+    os << "  filename: \"" << state.wrfFilename_ << "\",\n";
+    os << "  variables: [";
 
     for (size_t i = 0; i < state.variableNames_.size(); ++i) {
       if (i > 0) os << ", ";
       os << "\"" << state.variableNames_[i] << "\"";
     }
-    os << "]";
+    os << "],\n";
 
-    os << ", total_size: " << state.size();
+    os << "  total_size: " << state.size();
 
     // Add statistics if data is available
     if (!state.flattened_data_.empty()) {
-      auto min_it = std::min_element(state.flattened_data_.begin(),
-                                     state.flattened_data_.end());
-      auto max_it = std::max_element(state.flattened_data_.begin(),
-                                     state.flattened_data_.end());
-      double sum = std::accumulate(state.flattened_data_.begin(),
-                                   state.flattened_data_.end(), 0.0);
-      double mean = sum / state.flattened_data_.size();
+      os << ",\n  variable_stats: {\n";
 
-      os << ", min: " << *min_it;
-      os << ", max: " << *max_it;
-      os << ", mean: " << mean;
+      for (size_t i = 0; i < state.variableNames_.size(); ++i) {
+        const std::string& varName = state.variableNames_[i];
+        os << "    \"" << varName << "\": {";
+
+        // Get variable offset and dimensions
+        auto offset_it = state.variable_offsets_.find(varName);
+        auto dims_it = state.dimensions_.find(varName);
+
+        if (offset_it != state.variable_offsets_.end() &&
+            dims_it != state.dimensions_.end()) {
+          size_t offset = offset_it->second;
+          size_t var_size = 1;
+          for (size_t dim : dims_it->second) var_size *= dim;
+
+          // Calculate statistics for this variable
+          auto var_begin = state.flattened_data_.begin() + offset;
+          auto var_end = var_begin + var_size;
+
+          auto var_min_it = std::min_element(var_begin, var_end);
+          auto var_max_it = std::max_element(var_begin, var_end);
+          double var_sum = std::accumulate(var_begin, var_end, 0.0);
+          double var_mean = var_sum / var_size;
+
+          os << "min=" << std::fixed << std::setprecision(6) << *var_min_it;
+          os << ", max=" << *var_max_it;
+          os << ", mean=" << var_mean;
+          os << ", size=" << var_size;
+        } else {
+          os << "invalid";
+        }
+
+        os << "}";
+        if (i < state.variableNames_.size() - 1) os << ",";
+        os << "\n";
+      }
+
+      os << "  }";
     }
 
-    os << "}";
+    os << "\n}\n";
     return os;
   }
   ///@}
@@ -1158,6 +1325,18 @@ class WRFState {
                      const std::vector<std::string>& variables);
 
   /**
+   * @brief Load 1D vertical coordinate variables from WRF NetCDF file
+   *
+   * @details Loads ZNU, ZNW, DN, DNW, RDNW, RDN arrays that define the
+   * vertical coordinate system. These are typically 1D arrays stored
+   * as coordinate variables in the NetCDF file.
+   *
+   * @param[in] filename Path to the WRF NetCDF file
+   * @throws std::runtime_error If required coordinate variables are missing
+   */
+  void loadVerticalCoordinates(const std::string& filename);
+
+  /**
    * @brief Check compatibility between two WRF states
    *
    * @details Verifies that two states have the same variable names and
@@ -1169,6 +1348,20 @@ class WRFState {
    * @return bool True if states are compatible, false otherwise
    */
   bool isCompatible(const WRFState& other) const;
+
+  /**
+   * @brief Initialize WRFDA domain structure from state data
+   *
+   * @details Constructs the WRFDA domain structure (persistent_grid) from the
+   * loaded state data. This includes setting up grid dimensions, allocating
+   * state arrays, copying data from C++ arrays to Fortran structures, and
+   * initializing WRFDA module variables. This method should be called after
+   * the state data is loaded and before any observation operator operations.
+   *
+   * @throws std::runtime_error If WRFDA domain construction fails
+   * @throws std::runtime_error If required variables are missing
+   */
+  void initializeWRFDADomain();
 
   ///@}
 
@@ -1193,6 +1386,28 @@ class WRFState {
   std::unordered_map<std::string, size_t>
       variable_offsets_;  ///< Starting offsets for each variable in flattened
                           ///< data
+
+  /// @name Core State Variables (stored contiguously at beginning)
+  ///@{
+  size_t u_begin_ = 0, u_end_ = 0;        ///< U-wind location range
+  size_t v_begin_ = 0, v_end_ = 0;        ///< V-wind location range
+  size_t t_begin_ = 0, t_end_ = 0;        ///< Temperature location range
+  size_t q_begin_ = 0, q_end_ = 0;        ///< Specific humidity location range
+  size_t psfc_begin_ = 0, psfc_end_ = 0;  ///< Surface pressure location range
+  size_t core_state_size_ = 0;            ///< Total core state size
+  ///@}
+
+  /// @name Vertical Coordinate Arrays (1D)
+  ///@{
+  std::vector<double> znu_;  ///< Eta values on mass levels (size: nz)
+  std::vector<double> znw_;  ///< Eta values on staggered levels (size: nz+1)
+  std::vector<double> dn_;   ///< Delta eta on mass levels (size: nz)
+  std::vector<double> dnw_;  ///< Delta eta on staggered levels (size: nz+1)
+  std::vector<double>
+      rdnw_;  ///< Inverse delta eta on staggered levels (size: nz+1)
+  std::vector<double> rdn_;  ///< Inverse delta eta on mass levels (size: nz)
+  double p_top_ = 0.0;       ///< Pressure at model top (Pa)
+  ///@}
   ///@}
   ///@}
 };
@@ -1221,10 +1436,286 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
               << std::endl;
   }
 
-  // Load state data from WRF NetCDF file
-  loadStateData(wrfFilename_, variables);
+  // Check if we should use WRFDA-based initialization (recommended)
+  bool use_wrfda_init = true;
+  try {
+    if (config.HasKey("use_wrfda_initialization")) {
+      use_wrfda_init = config.Get("use_wrfda_initialization").asBool();
+    }
+  } catch (const std::exception&) {
+    // Default to WRFDA initialization
+  }
 
-  initialized_ = true;
+  if (use_wrfda_init) {
+    // NEW APPROACH: Use WRFDA's proven initialization pipeline
+    std::cout << "Using WRFDA first guess initialization for: " << wrfFilename_
+              << std::endl;
+
+    // Get grid pointer from geometry (allocated via WRFConfigManager)
+    void* grid_ptr = geometry.getGridPtr();
+    if (!grid_ptr) {
+      throw std::runtime_error(
+          "Failed to get WRFDA grid pointer. Ensure WRFConfigManager allocated "
+          "domain.");
+    }
+
+    // Load first guess using WRFDA with pre-allocated head_grid
+    int rc = wrfda_load_first_guess(grid_ptr, wrfFilename_.c_str(),
+                                    static_cast<int>(wrfFilename_.length()));
+    if (rc != 0) {
+      throw std::runtime_error("Failed to load first guess with WRFDA, code " +
+                               std::to_string(rc));
+    }
+
+    // Step 2: Get grid dimensions from geometry (already known from NetCDF)
+    const int nx = static_cast<int>(geometry.x_dim());
+    const int ny = static_cast<int>(geometry.y_dim());
+    const int nz = static_cast<int>(geometry.z_dim());
+
+    std::cout << "Grid dimensions: nx=" << nx << ", ny=" << ny << ", nz=" << nz
+              << std::endl;
+
+    // Step 3: Allocate temporary storage for background state extraction
+    std::vector<double> u_temp(nx * ny * nz);
+    std::vector<double> v_temp(nx * ny * nz);
+    std::vector<double> t_temp(nx * ny * nz);
+    std::vector<double> q_temp(nx * ny * nz);
+    std::vector<double> psfc_temp(nx * ny);
+    std::vector<double> p_temp(nx * ny * nz);
+    std::vector<double> ph_temp(nx * ny * (nz + 1));
+    std::vector<double> phb_temp(nx * ny * (nz + 1));
+    std::vector<double> hgt_temp(nx * ny);
+    std::vector<double> lats_temp(nx * ny);
+    std::vector<double> lons_temp(nx * ny);
+
+    // Extract full background state in a SINGLE call (dimensions already known)
+    int nx_out = nx, ny_out = ny, nz_out = nz;  // For verification
+    rc = wrfda_extract_background_state(
+        grid_ptr, u_temp.data(), v_temp.data(), t_temp.data(), q_temp.data(),
+        psfc_temp.data(), p_temp.data(), ph_temp.data(), phb_temp.data(),
+        hgt_temp.data(), lats_temp.data(), lons_temp.data(), &nx_out, &ny_out,
+        &nz_out);
+    if (rc != 0) {
+      throw std::runtime_error(
+          "Failed to extract background state from WRFDA, code " +
+          std::to_string(rc));
+    }
+
+    // Verify dimensions match (sanity check)
+    if (nx_out != nx || ny_out != ny || nz_out != nz) {
+      throw std::runtime_error(
+          "Dimension mismatch: Expected (" + std::to_string(nx) + "," +
+          std::to_string(ny) + "," + std::to_string(nz) + "), got (" +
+          std::to_string(nx_out) + "," + std::to_string(ny_out) + "," +
+          std::to_string(nz_out) + ")");
+    }
+
+    // Step 4: Extract additional fields
+    std::vector<double> w_temp(nx * ny * (nz + 1));
+    std::vector<double> mu_temp(nx * ny);
+    std::vector<double> mub_temp(nx * ny);
+    std::vector<double> pb_temp(nx * ny * nz);
+    std::vector<double> t_init_temp(nx * ny * nz);
+
+    rc = wrfda_extract_additional_fields(grid_ptr, w_temp.data(),
+                                         mu_temp.data(), mub_temp.data(),
+                                         pb_temp.data(), t_init_temp.data());
+    if (rc != 0) {
+      throw std::runtime_error(
+          "Failed to extract additional fields from WRFDA, code " +
+          std::to_string(rc));
+    }
+
+    // Step 5: Populate internal data structures
+    // Core variables (stored contiguously at beginning)
+    std::vector<std::string> core_variables = {"U", "V", "T", "QVAPOR", "PSFC"};
+
+    for (const auto& varName : core_variables) {
+      if (varName == "U") {
+        variable_offsets_["U"] = flattened_data_.size();
+        u_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), u_temp.begin(),
+                               u_temp.end());
+        u_end_ = flattened_data_.size();
+        dimensions_["U"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                            static_cast<size_t>(nx)};
+        variableNames_.push_back("U");
+      } else if (varName == "V") {
+        variable_offsets_["V"] = flattened_data_.size();
+        v_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), v_temp.begin(),
+                               v_temp.end());
+        v_end_ = flattened_data_.size();
+        dimensions_["V"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                            static_cast<size_t>(nx)};
+        variableNames_.push_back("V");
+      } else if (varName == "T") {
+        variable_offsets_["T"] = flattened_data_.size();
+        t_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), t_temp.begin(),
+                               t_temp.end());
+        t_end_ = flattened_data_.size();
+        dimensions_["T"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                            static_cast<size_t>(nx)};
+        variableNames_.push_back("T");
+      } else if (varName == "QVAPOR") {
+        variable_offsets_["QVAPOR"] = flattened_data_.size();
+        q_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), q_temp.begin(),
+                               q_temp.end());
+        q_end_ = flattened_data_.size();
+        dimensions_["QVAPOR"] = {static_cast<size_t>(nz),
+                                 static_cast<size_t>(ny),
+                                 static_cast<size_t>(nx)};
+        variableNames_.push_back("QVAPOR");
+      } else if (varName == "PSFC") {
+        variable_offsets_["PSFC"] = flattened_data_.size();
+        psfc_begin_ = flattened_data_.size();
+        flattened_data_.insert(flattened_data_.end(), psfc_temp.begin(),
+                               psfc_temp.end());
+        psfc_end_ = flattened_data_.size();
+        dimensions_["PSFC"] = {static_cast<size_t>(ny),
+                               static_cast<size_t>(nx)};
+        variableNames_.push_back("PSFC");
+      }
+    }
+
+    core_state_size_ = flattened_data_.size();
+
+    // Add additional fields (after core state variables)
+    variable_offsets_["P"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), p_temp.begin(), p_temp.end());
+    dimensions_["P"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                        static_cast<size_t>(nx)};
+    variableNames_.push_back("P");
+
+    variable_offsets_["PH"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), ph_temp.begin(),
+                           ph_temp.end());
+    dimensions_["PH"] = {static_cast<size_t>(nz + 1), static_cast<size_t>(ny),
+                         static_cast<size_t>(nx)};
+    variableNames_.push_back("PH");
+
+    variable_offsets_["PHB"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), phb_temp.begin(),
+                           phb_temp.end());
+    dimensions_["PHB"] = {static_cast<size_t>(nz + 1), static_cast<size_t>(ny),
+                          static_cast<size_t>(nx)};
+    variableNames_.push_back("PHB");
+
+    variable_offsets_["HGT"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), hgt_temp.begin(),
+                           hgt_temp.end());
+    dimensions_["HGT"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("HGT");
+
+    variable_offsets_["XLAT"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), lats_temp.begin(),
+                           lats_temp.end());
+    dimensions_["XLAT"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("XLAT");
+
+    variable_offsets_["XLONG"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), lons_temp.begin(),
+                           lons_temp.end());
+    dimensions_["XLONG"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("XLONG");
+
+    variable_offsets_["W"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), w_temp.begin(), w_temp.end());
+    dimensions_["W"] = {static_cast<size_t>(nz + 1), static_cast<size_t>(ny),
+                        static_cast<size_t>(nx)};
+    variableNames_.push_back("W");
+
+    variable_offsets_["MU"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), mu_temp.begin(),
+                           mu_temp.end());
+    dimensions_["MU"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("MU");
+
+    variable_offsets_["MUB"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), mub_temp.begin(),
+                           mub_temp.end());
+    dimensions_["MUB"] = {static_cast<size_t>(ny), static_cast<size_t>(nx)};
+    variableNames_.push_back("MUB");
+
+    variable_offsets_["PB"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), pb_temp.begin(),
+                           pb_temp.end());
+    dimensions_["PB"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                         static_cast<size_t>(nx)};
+    variableNames_.push_back("PB");
+
+    variable_offsets_["T_INIT"] = flattened_data_.size();
+    flattened_data_.insert(flattened_data_.end(), t_init_temp.begin(),
+                           t_init_temp.end());
+    dimensions_["T_INIT"] = {static_cast<size_t>(nz), static_cast<size_t>(ny),
+                             static_cast<size_t>(nx)};
+    variableNames_.push_back("T_INIT");
+
+    // Load vertical coordinate arrays (1D) from NetCDF
+    // WRFDA doesn't provide these through extraction, so load directly
+    loadVerticalCoordinates(wrfFilename_);
+
+    initialized_ = true;
+
+    std::cout << "WRFDA-based initialization completed successfully"
+              << std::endl;
+    std::cout << "Loaded " << variableNames_.size()
+              << " variables, core state size: " << core_state_size_
+              << std::endl;
+  } else {
+    // LEGACY APPROACH: Manual NetCDF loading + WRFDA initialization
+    std::cout << "Using legacy initialization for: " << wrfFilename_
+              << std::endl;
+
+    // Load state data from WRF NetCDF file
+    // Core variables (u, v, t, q, psfc) will be stored contiguously at
+    // beginning Only insert if not already present
+
+    // Required fields for da_transfer_wrftoxb
+    std::vector<std::string> required_fields = {
+        // Geopotential (staggered vertical)
+        "PH", "PHB",
+        // Terrain height
+        "HGT",
+        // Pressure perturbation and base state
+        "P", "PB",
+        // Vertical velocity (staggered vertical)
+        "W",
+        // Column dry air mass (perturbation and base state)
+        "MU", "MUB",
+        // Initial temperature field
+        "T_INIT",
+        // Additional moisture species (beyond QVAPOR)
+        "QCLOUD", "QRAIN", "QICE", "QSNOW", "QGRAUPEL"};
+
+    for (const auto& var : required_fields) {
+      if (std::find(variables.begin(), variables.end(), var) ==
+          variables.end()) {
+        variables.push_back(var);
+      }
+    }
+
+    loadStateData(wrfFilename_, variables);
+
+    // Load vertical coordinate arrays (1D)
+    loadVerticalCoordinates(wrfFilename_);
+
+    initialized_ = true;
+
+    // Initialize WRFDA domain structure after state is fully initialized
+    try {
+      initializeWRFDADomain();
+    } catch (const std::exception& e) {
+      std::cerr << "Warning: WRFDA domain initialization failed: " << e.what()
+                << std::endl;
+      std::cerr << "WRFDA observation operators may not work correctly."
+                << std::endl;
+      // Continue with initialization - WRFDA is optional for basic state
+      // operations
+    }
+  }
 }
 
 // Private constructor for cloning (skips file loading)
@@ -1251,10 +1742,22 @@ WRFState<ConfigBackend, GeometryBackend>::WRFState(
       dimensions_(std::move(other.dimensions_)),
       variableNames_(std::move(other.variableNames_)),
       variable_grid_info_(std::move(other.variable_grid_info_)),
-      variable_offsets_(std::move(other.variable_offsets_)) {
+      variable_offsets_(std::move(other.variable_offsets_)),
+      u_begin_(other.u_begin_),
+      u_end_(other.u_end_),
+      v_begin_(other.v_begin_),
+      v_end_(other.v_end_),
+      t_begin_(other.t_begin_),
+      t_end_(other.t_end_),
+      q_begin_(other.q_begin_),
+      q_end_(other.q_end_),
+      psfc_begin_(other.psfc_begin_),
+      psfc_end_(other.psfc_end_),
+      core_state_size_(other.core_state_size_) {
   // Reset the moved-from object
   other.initialized_ = false;
   other.variableNames_.clear();
+  other.core_state_size_ = 0;
 }
 
 // Move assignment operator implementation
@@ -1272,9 +1775,23 @@ WRFState<ConfigBackend, GeometryBackend>::operator=(
     variable_grid_info_ = std::move(other.variable_grid_info_);
     variable_offsets_ = std::move(other.variable_offsets_);
 
+    // Copy core state tracking variables
+    u_begin_ = other.u_begin_;
+    u_end_ = other.u_end_;
+    v_begin_ = other.v_begin_;
+    v_end_ = other.v_end_;
+    t_begin_ = other.t_begin_;
+    t_end_ = other.t_end_;
+    q_begin_ = other.q_begin_;
+    q_end_ = other.q_end_;
+    psfc_begin_ = other.psfc_begin_;
+    psfc_end_ = other.psfc_end_;
+    core_state_size_ = other.core_state_size_;
+
     // Reset the moved-from object
     other.initialized_ = false;
     other.variableNames_.clear();
+    other.core_state_size_ = 0;
   }
   return *this;
 }
@@ -1298,24 +1815,43 @@ WRFState<ConfigBackend, GeometryBackend>::clone() const {
   cloned->variable_grid_info_ = this->variable_grid_info_;
   cloned->variable_offsets_ = this->variable_offsets_;
 
+  // Copy core state tracking variables
+  cloned->u_begin_ = this->u_begin_;
+  cloned->u_end_ = this->u_end_;
+  cloned->v_begin_ = this->v_begin_;
+  cloned->v_end_ = this->v_end_;
+  cloned->t_begin_ = this->t_begin_;
+  cloned->t_end_ = this->t_end_;
+  cloned->q_begin_ = this->q_begin_;
+  cloned->q_end_ = this->q_end_;
+  cloned->psfc_begin_ = this->psfc_begin_;
+  cloned->psfc_end_ = this->psfc_end_;
+  cloned->core_state_size_ = this->core_state_size_;
+
   return cloned;
 }
 
-// Data access implementation (concept compliance)
+// Data access implementation (concept compliance) - returns only core state
+// variables
 template <typename ConfigBackend, typename GeometryBackend>
 void* WRFState<ConfigBackend, GeometryBackend>::getData() {
-  if (!initialized_ || variableNames_.empty()) {
+  if (!initialized_ || core_state_size_ == 0) {
     return nullptr;
   }
+  // Return pointer to core state variables (stored at beginning of
+  // flattened_data_)
   return flattened_data_.data();
 }
 
-// Const data access implementation (concept compliance)
+// Const data access implementation (concept compliance) - returns only core
+// state variables
 template <typename ConfigBackend, typename GeometryBackend>
 const void* WRFState<ConfigBackend, GeometryBackend>::getData() const {
-  if (!initialized_ || variableNames_.empty()) {
+  if (!initialized_ || core_state_size_ == 0) {
     return nullptr;
   }
+  // Return pointer to core state variables (stored at beginning of
+  // flattened_data_)
   return flattened_data_.data();
 }
 
@@ -1358,19 +1894,24 @@ WRFState<ConfigBackend, GeometryBackend>::getVariableNames() const {
   return variableNames_;
 }
 
-// Size implementation
+// Size implementation - returns size of core state variables only
 template <typename ConfigBackend, typename GeometryBackend>
 size_t WRFState<ConfigBackend, GeometryBackend>::size() const {
-  return flattened_data_.size();
+  return core_state_size_;
 }
 
-// Zero implementation
+// Zero implementation - only zeros core state variables (U, V, T, QVAPOR, PSFC)
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::zero() {
-  std::fill(flattened_data_.begin(), flattened_data_.end(), 0.0);
+  // Only zero the core state variables which are stored contiguously at the
+  // beginning
+  if (core_state_size_ > 0) {
+    std::fill(flattened_data_.begin(),
+              flattened_data_.begin() + core_state_size_, 0.0);
+  }
 }
 
-// Dot product implementation
+// Dot product implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 double WRFState<ConfigBackend, GeometryBackend>::dot(
     const WRFState<ConfigBackend, GeometryBackend>& other) const {
@@ -1380,28 +1921,28 @@ double WRFState<ConfigBackend, GeometryBackend>::dot(
 
   double result = 0.0;
 
-  // Compute dot product directly on flattened data
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Compute dot product only on core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
     result += flattened_data_[i] * other.flattened_data_[i];
   }
 
   return result;
 }
 
-// Norm implementation
+// Norm implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 double WRFState<ConfigBackend, GeometryBackend>::norm() const {
   double sumSquares = 0.0;
 
-  // Compute norm directly on flattened data
-  for (double value : flattened_data_) {
-    sumSquares += value * value;
+  // Compute norm only on core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
+    sumSquares += flattened_data_[i] * flattened_data_[i];
   }
 
   return std::sqrt(sumSquares);
 }
 
-// Equals implementation
+// Equals implementation - only compares core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 bool WRFState<ConfigBackend, GeometryBackend>::equals(
     const WRFState<ConfigBackend, GeometryBackend>& other) const {
@@ -1409,8 +1950,8 @@ bool WRFState<ConfigBackend, GeometryBackend>::equals(
     return false;
   }
 
-  // Check if flattened data is equal within tolerance
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Check if core state variables are equal within tolerance
+  for (size_t i = 0; i < core_state_size_; ++i) {
     if (std::abs(flattened_data_[i] - other.flattened_data_[i]) > 1e-10) {
       return false;
     }
@@ -1419,7 +1960,7 @@ bool WRFState<ConfigBackend, GeometryBackend>::equals(
   return true;
 }
 
-// Add implementation
+// Add implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::add(
     const WRFState<ConfigBackend, GeometryBackend>& other) {
@@ -1427,13 +1968,13 @@ void WRFState<ConfigBackend, GeometryBackend>::add(
     throw std::runtime_error("States are incompatible for addition");
   }
 
-  // Add directly on flattened data
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Add only core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
     flattened_data_[i] += other.flattened_data_[i];
   }
 }
 
-// Subtract implementation
+// Subtract implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::subtract(
     const WRFState<ConfigBackend, GeometryBackend>& other) {
@@ -1441,19 +1982,61 @@ void WRFState<ConfigBackend, GeometryBackend>::subtract(
     throw std::runtime_error("States are incompatible for subtraction");
   }
 
-  // Subtract directly on flattened data
-  for (size_t i = 0; i < flattened_data_.size(); ++i) {
+  // Subtract only core state variables
+  for (size_t i = 0; i < core_state_size_; ++i) {
     flattened_data_[i] -= other.flattened_data_[i];
   }
 }
 
-// Multiply implementation
+// Multiply implementation - only operates on core state variables
 template <typename ConfigBackend, typename GeometryBackend>
 void WRFState<ConfigBackend, GeometryBackend>::multiply(double scalar) {
-  // Multiply flattened data by the scalar
-  for (double& value : flattened_data_) {
-    value *= scalar;
+  // Multiply only core state variables by the scalar
+  for (size_t i = 0; i < core_state_size_; ++i) {
+    flattened_data_[i] *= scalar;
   }
+}
+
+// Add increment implementation
+template <typename ConfigBackend, typename GeometryBackend>
+template <typename IncrementBackend>
+void WRFState<ConfigBackend, GeometryBackend>::addIncrement(
+    const IncrementBackend& increment) {
+  // Use WRFDA's proven da_transfer_xatowrf routine to add increments
+  // This handles all WRF-specific physics and grid transformations:
+  // - Conversion of specific humidity to mixing ratio
+  // - Computation of dry air mass increments
+  // - Conversion of temperature to potential temperature (theta)
+  // - Computation of geopotential height for WRF's vertical coordinate
+  // - Arakawa-C grid staggering (A-grid to C-grid conversion)
+  // - Positivity constraints (ensures moisture >= 0, etc.)
+  // - Recomputation of 2m/10m diagnostic fields (T2, Q2, U10, V10, TH2)
+
+  // Step 1: Sync increment to grid%xa (WRFDA's analysis increment workspace)
+  // This writes the increment data into the WRFDA grid structure
+  increment.syncToGrid();
+
+  // Step 2: Call WRFDA's da_transfer_xatowrf to add increment to background
+  // This performs the complete transformation: x_analysis = x_background +
+  // increment After this call, the WRF grid structure (grid%u_2, grid%v_2,
+  // grid%t_2, etc.) contains the full analysis state ready for WRF model
+  // integration
+  try {
+    wrfda::WRFDAStateTransforms::transferXaToWRF(
+        geometry_.getGridPtr(),  // WRF grid structure (contains xb and xa)
+        geometry_.getConfigFlagsPtr()  // WRF configuration flags
+    );
+  } catch (const std::exception& e) {
+    throw std::runtime_error(
+        std::string(
+            "Failed to add increment using WRFDA da_transfer_xatowrf: ") +
+        e.what());
+  }
+
+  // Note: After da_transfer_xatowrf, the WRF grid structure already contains
+  // the full analysis state in grid%u_2, grid%v_2, grid%t_2, grid%moist, etc.
+  // These are the authoritative state variables that WRFState's getData()
+  // methods reference, so no additional extraction is needed.
 }
 
 // Is initialized implementation
@@ -1478,8 +2061,224 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
       variable_grid_info_.clear();
       variable_offsets_.clear();
 
-      // Load each requested variable
+      // Reset core state tracking
+      u_begin_ = u_end_ = v_begin_ = v_end_ = t_begin_ = t_end_ = q_begin_ =
+          q_end_ = psfc_begin_ = psfc_end_ = 0;
+      core_state_size_ = 0;
+
+      // Define core state variables that will be stored contiguously at
+      // beginning
+      const std::vector<std::string> core_variables = {"U", "V", "T", "QVAPOR",
+                                                       "PSFC"};
+
+      // First pass: Load core variables and store them contiguously
+      for (const auto& varName : core_variables) {
+        if (std::find(variables.begin(), variables.end(), varName) !=
+            variables.end()) {
+          auto var = wrf_file.getVar(varName);
+
+          if (!var.isNull()) {
+            // Get variable dimensions
+            const auto& varDims = var.getDims();
+            std::vector<size_t> dims;
+
+            // --- Begin: Fill VariableGridInfo ---
+            VariableGridInfo grid_info;
+            size_t dim_offset = 0;
+            if (!varDims.empty() && varDims[0].getName() == "Time") {
+              dim_offset = 1;
+            }
+
+            // Assume WRF variable dimensions are ordered as [Z, Y, X] after
+            // Time
+            if (varDims.size() >= dim_offset + 2) {  // At least 2D (Y, X)
+              if (varDims.size() >= dim_offset + 3) {
+                // 3D variable: [Z, Y, X]
+                grid_info.z_dim_name = varDims[dim_offset + 0].getName();
+                grid_info.y_dim_name = varDims[dim_offset + 1].getName();
+                grid_info.x_dim_name = varDims[dim_offset + 2].getName();
+              } else {
+                // 2D variable: [Y, X]
+                grid_info.y_dim_name = varDims[dim_offset + 0].getName();
+                grid_info.x_dim_name = varDims[dim_offset + 1].getName();
+                grid_info.z_dim_name = "";  // No Z dimension
+              }
+
+              // Determine staggering based on dimension names
+              grid_info.z_staggered =
+                  !grid_info.z_dim_name.empty() &&
+                  (grid_info.z_dim_name.find("_stag") != std::string::npos);
+              grid_info.y_staggered =
+                  (grid_info.y_dim_name.find("_stag") != std::string::npos);
+              grid_info.x_staggered =
+                  (grid_info.x_dim_name.find("_stag") != std::string::npos);
+
+              // Determine grid type based on staggering pattern
+              grid_info.grid_type = grid_info.determineGridType();
+
+              // Validate grid type against WRF geometry
+              try {
+                switch (grid_info.grid_type) {
+                  case VariableGridInfo::GridType::UNSTAGGERED:
+                    // Check if dimensions match unstaggered grid
+                    if (grid_info.x_dim_name != "west_east" ||
+                        grid_info.y_dim_name != "south_north") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as unstaggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << std::endl;
+                    }
+                    break;
+                  case VariableGridInfo::GridType::U_STAGGERED:
+                    // Check if dimensions match U-staggered grid
+                    if (grid_info.x_dim_name != "west_east_stag" ||
+                        grid_info.y_dim_name != "south_north") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as U-staggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << std::endl;
+                    }
+                    break;
+                  case VariableGridInfo::GridType::V_STAGGERED:
+                    // Check if dimensions match V-staggered grid
+                    if (grid_info.x_dim_name != "west_east" ||
+                        grid_info.y_dim_name != "south_north_stag") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as V-staggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << std::endl;
+                    }
+                    break;
+                  case VariableGridInfo::GridType::W_STAGGERED:
+                    // Check if dimensions match W-staggered grid
+                    if (grid_info.x_dim_name != "west_east" ||
+                        grid_info.y_dim_name != "south_north" ||
+                        grid_info.z_dim_name != "bottom_top_stag") {
+                      std::cerr << "Warning: Variable " << varName
+                                << " classified as W-staggered but has "
+                                   "unexpected dimensions: "
+                                << grid_info.x_dim_name << ", "
+                                << grid_info.y_dim_name << ", "
+                                << grid_info.z_dim_name << std::endl;
+                    }
+                    break;
+                }
+              } catch (const std::exception& e) {
+                std::cerr
+                    << "Warning: Could not validate grid type for variable "
+                    << varName << ": " << e.what() << std::endl;
+              }
+
+              // Debug output
+              std::cout << "Variable " << varName
+                        << " -> Grid type: " << grid_info.getGridTypeString()
+                        << " (dims: " << grid_info.x_dim_name << ", "
+                        << grid_info.y_dim_name;
+              if (!grid_info.z_dim_name.empty()) {
+                std::cout << ", " << grid_info.z_dim_name;
+              }
+              std::cout << ")" << std::endl;
+            } else {
+              // Variable has fewer than 2 dimensions, treat as unstaggered
+              grid_info.grid_type = VariableGridInfo::GridType::UNSTAGGERED;
+              std::cerr
+                  << "Warning: Variable " << varName
+                  << " has fewer than 2 dimensions, treating as unstaggered"
+                  << std::endl;
+            }
+
+            variable_grid_info_[varName] = grid_info;
+            // --- End: Fill VariableGridInfo ---
+
+            // Skip time dimension if present
+            bool hasTimeDim =
+                (varDims.size() > 0 && varDims[0].getName() == "Time");
+            size_t startDim = hasTimeDim ? 1 : 0;
+
+            for (size_t i = startDim; i < varDims.size(); ++i) {
+              dims.push_back(varDims[i].getSize());
+            }
+
+            // Store dimensions
+            dimensions_[varName] = dims;
+
+            // Calculate total size
+            size_t totalSize = 1;
+            for (size_t dim : dims) {
+              totalSize *= dim;
+            }
+
+            // Prepare start and count vectors for reading
+            std::vector<size_t> start(varDims.size(), 0);
+            std::vector<size_t> count(varDims.size(), 1);
+
+            if (hasTimeDim) {
+              start[0] =
+                  0;  // or time_idx if you want to support multiple times
+            }
+
+            for (size_t i = startDim; i < varDims.size(); ++i) {
+              count[i] = varDims[i].getSize();
+            }
+
+            // Allocate memory for the data
+            std::vector<double> data(totalSize);
+
+            // Read data
+            var.getVar(start, count, data.data());
+
+            // Calculate offset for this variable in flattened data
+            size_t offset = flattened_data_.size();
+            variable_offsets_[varName] = offset;
+
+            // Append to flattened data
+            flattened_data_.insert(flattened_data_.end(), data.begin(),
+                                   data.end());
+
+            // Track core state variable locations
+            size_t var_end = flattened_data_.size();
+            if (varName == "U") {
+              u_begin_ = offset;
+              u_end_ = var_end;
+            } else if (varName == "V") {
+              v_begin_ = offset;
+              v_end_ = var_end;
+            } else if (varName == "T") {
+              t_begin_ = offset;
+              t_end_ = var_end;
+            } else if (varName == "QVAPOR") {
+              q_begin_ = offset;
+              q_end_ = var_end;
+            } else if (varName == "PSFC") {
+              psfc_begin_ = offset;
+              psfc_end_ = var_end;
+            }
+
+            // Store dimensions
+            dimensions_[varName] = dims;
+            variableNames_.push_back(varName);
+          } else {
+            std::cerr << "Warning: Variable not found in WRF file: " << varName
+                      << std::endl;
+          }
+        }
+      }
+
+      // Calculate total core state size after loading all core variables
+      // Core variables are stored contiguously at the beginning
+      core_state_size_ = flattened_data_.size();
+
+      // Second pass: Load non-core variables (diagnostic/background fields)
       for (const auto& varName : variables) {
+        // Skip if already loaded as core variable
+        if (std::find(core_variables.begin(), core_variables.end(), varName) !=
+            core_variables.end()) {
+          continue;
+        }
+
         auto var = wrf_file.getVar(varName);
 
         if (!var.isNull()) {
@@ -1520,61 +2319,6 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
             // Determine grid type based on staggering pattern
             grid_info.grid_type = grid_info.determineGridType();
 
-            // Validate grid type against WRF geometry
-            try {
-              switch (grid_info.grid_type) {
-                case VariableGridInfo::GridType::UNSTAGGERED:
-                  // Check if dimensions match unstaggered grid
-                  if (grid_info.x_dim_name != "west_east" ||
-                      grid_info.y_dim_name != "south_north") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as unstaggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << std::endl;
-                  }
-                  break;
-                case VariableGridInfo::GridType::U_STAGGERED:
-                  // Check if dimensions match U-staggered grid
-                  if (grid_info.x_dim_name != "west_east_stag" ||
-                      grid_info.y_dim_name != "south_north") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as U-staggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << std::endl;
-                  }
-                  break;
-                case VariableGridInfo::GridType::V_STAGGERED:
-                  // Check if dimensions match V-staggered grid
-                  if (grid_info.x_dim_name != "west_east" ||
-                      grid_info.y_dim_name != "south_north_stag") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as V-staggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << std::endl;
-                  }
-                  break;
-                case VariableGridInfo::GridType::W_STAGGERED:
-                  // Check if dimensions match W-staggered grid
-                  if (grid_info.x_dim_name != "west_east" ||
-                      grid_info.y_dim_name != "south_north" ||
-                      grid_info.z_dim_name != "bottom_top_stag") {
-                    std::cerr << "Warning: Variable " << varName
-                              << " classified as W-staggered but has "
-                                 "unexpected dimensions: "
-                              << grid_info.x_dim_name << ", "
-                              << grid_info.y_dim_name << ", "
-                              << grid_info.z_dim_name << std::endl;
-                  }
-                  break;
-              }
-            } catch (const std::exception& e) {
-              std::cerr << "Warning: Could not validate grid type for variable "
-                        << varName << ": " << e.what() << std::endl;
-            }
-
             // Debug output
             std::cout << "Variable " << varName
                       << " -> Grid type: " << grid_info.getGridTypeString()
@@ -1587,9 +2331,6 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
           } else {
             // Variable has fewer than 2 dimensions, treat as unstaggered
             grid_info.grid_type = VariableGridInfo::GridType::UNSTAGGERED;
-            std::cerr << "Warning: Variable " << varName
-                      << " has fewer than 2 dimensions, treating as unstaggered"
-                      << std::endl;
           }
 
           variable_grid_info_[varName] = grid_info;
@@ -1635,7 +2376,7 @@ void WRFState<ConfigBackend, GeometryBackend>::loadStateData(
           size_t offset = flattened_data_.size();
           variable_offsets_[varName] = offset;
 
-          // Append to flattened data
+          // Append to flattened data (after core variables)
           flattened_data_.insert(flattened_data_.end(), data.begin(),
                                  data.end());
 
@@ -1691,6 +2432,332 @@ bool WRFState<ConfigBackend, GeometryBackend>::isCompatible(
   }
 
   return true;
+}
+
+// Implementation of getObsOperatorData
+template <typename ConfigBackend, typename GeometryBackend>
+typename WRFState<ConfigBackend, GeometryBackend>::ObsOperatorData
+WRFState<ConfigBackend, GeometryBackend>::getObsOperatorData() const {
+  ObsOperatorData data;
+
+  // Set grid dimensions
+  data.nx = static_cast<int>(geometry_.x_dim());
+  data.ny = static_cast<int>(geometry_.y_dim());
+  data.nz = static_cast<int>(geometry_.z_dim());
+
+  // Get state variables
+  data.u = static_cast<const double*>(getData("U"));
+  data.v = static_cast<const double*>(getData("V"));
+  data.w = static_cast<const double*>(getData("W"));
+  data.t = static_cast<const double*>(getData("T"));
+  data.q = static_cast<const double*>(getData("QVAPOR"));
+  data.psfc = static_cast<const double*>(getData("PSFC"));
+  data.ph = static_cast<const double*>(getData("PH"));
+  data.phb = static_cast<const double*>(getData("PHB"));
+  data.hgt = static_cast<const double*>(getData("HGT"));
+  data.p = static_cast<const double*>(getData("P"));
+  data.pb = static_cast<const double*>(getData("PB"));
+  data.mu = static_cast<const double*>(getData("MU"));
+  data.mub = static_cast<const double*>(getData("MUB"));
+  data.t_init = static_cast<const double*>(getData("T_INIT"));
+
+  // Get grid metadata
+  const auto& gi = geometry_.unstaggered_info();
+  data.lats_2d = gi.latitude_2d.empty() ? nullptr : gi.latitude_2d.data();
+  data.lons_2d = gi.longitude_2d.empty() ? nullptr : gi.longitude_2d.data();
+  data.levels =
+      gi.vertical_coords.empty() ? nullptr : gi.vertical_coords.data();
+
+  // Set variable dimensions and staggered flags
+  auto set_dims = [&](const std::string& var_name,
+                      ObsOperatorData::VariableDims& dims) {
+    try {
+      const auto& var_dims = getVariableDimensions(var_name);
+      if (var_dims.size() >= 3) {
+        dims.nz = static_cast<int>(var_dims[0]);
+        dims.ny = static_cast<int>(var_dims[1]);
+        dims.nx = static_cast<int>(var_dims[2]);
+      } else if (var_dims.size() == 2) {
+        dims.ny = static_cast<int>(var_dims[0]);
+        dims.nx = static_cast<int>(var_dims[1]);
+        dims.nz = 1;
+      } else {
+        dims.nx = dims.ny = dims.nz = 1;
+      }
+
+      // Check if staggered
+      const auto& grid_info = getVariableGridInfo(var_name);
+      dims.is_staggered =
+          (grid_info.grid_type != VariableGridInfo::GridType::UNSTAGGERED);
+    } catch (...) {
+      dims.nx = dims.ny = dims.nz = 1;
+      dims.is_staggered = false;
+    }
+  };
+
+  set_dims("U", data.u_dims);
+  set_dims("V", data.v_dims);
+  set_dims("W", data.w_dims);
+  set_dims("T", data.t_dims);
+  set_dims("QVAPOR", data.q_dims);
+  set_dims("PSFC", data.psfc_dims);
+  set_dims("PH", data.ph_dims);
+  set_dims("PHB", data.phb_dims);
+  set_dims("HGT", data.hgt_dims);
+  set_dims("P", data.p_dims);
+  set_dims("PB", data.pb_dims);
+  set_dims("MU", data.mu_dims);
+  set_dims("MUB", data.mub_dims);
+  set_dims("T_INIT", data.t_init_dims);
+
+  // Validate required variables are present - fail fast if missing
+  if (!data.u) {
+    throw std::runtime_error(
+        "Required variable 'U' (U-wind) not found in WRF state");
+  }
+  if (!data.v) {
+    throw std::runtime_error(
+        "Required variable 'V' (V-wind) not found in WRF state");
+  }
+  if (!data.t) {
+    throw std::runtime_error(
+        "Required variable 'T' (Temperature) not found in WRF state");
+  }
+  if (!data.q) {
+    throw std::runtime_error(
+        "Required variable 'QVAPOR' (Water vapor) not found in WRF state");
+  }
+  if (!data.psfc) {
+    throw std::runtime_error(
+        "Required variable 'PSFC' (Surface pressure) not found in WRF state");
+  }
+  if (!data.ph) {
+    throw std::runtime_error(
+        "Required variable 'PH' (Geopotential perturbation) not found in WRF "
+        "state");
+  }
+  if (!data.phb) {
+    throw std::runtime_error(
+        "Required variable 'PHB' (Base state geopotential) not found in WRF "
+        "state");
+  }
+  if (!data.hgt) {
+    throw std::runtime_error(
+        "Required variable 'HGT' (Terrain height) not found in WRF state");
+  }
+  if (!data.p) {
+    throw std::runtime_error(
+        "Required variable 'P' (Pressure perturbation) not found in WRF "
+        "state");
+  }
+  if (!data.pb) {
+    throw std::runtime_error(
+        "Required variable 'PB' (Base state pressure) not found in WRF "
+        "state");
+  }
+
+  // Calculate height field: hf = (ph + phb) / gravity
+  // WRF gravity constant is typically 9.81 m/s²
+  constexpr double gravity = 9.81;  // m/s²
+
+  // PH, PB, and HF are vertically staggered variables with nz+1 levels
+  const int staggered_nz = data.nz + 1;
+
+  // Allocate memory for height field calculation
+  static thread_local std::vector<double> height_field_storage;
+  const size_t total_size =
+      static_cast<size_t>(data.nx) * data.ny * staggered_nz;
+  height_field_storage.resize(total_size);
+
+  // Calculate height field for each grid point (including staggered levels)
+  for (size_t k = 0; k < static_cast<size_t>(staggered_nz); ++k) {
+    for (size_t j = 0; j < static_cast<size_t>(data.ny); ++j) {
+      for (size_t i = 0; i < static_cast<size_t>(data.nx); ++i) {
+        const size_t idx = k * data.ny * data.nx + j * data.nx + i;
+        height_field_storage[idx] = (data.ph[idx] + data.phb[idx]) / gravity;
+      }
+    }
+  }
+
+  // Set height field pointer and dimensions
+  data.hf = height_field_storage.data();
+  data.hf_dims = data.ph_dims;  // Height field has same dimensions as PH/PHB
+  data.hf_dims.nz =
+      staggered_nz;  // Override with correct staggered vertical dimension
+
+  return data;
+}
+
+// Implementation of getStateData
+template <typename ConfigBackend, typename GeometryBackend>
+typename WRFState<ConfigBackend, GeometryBackend>::StateData
+WRFState<ConfigBackend, GeometryBackend>::getStateData() const {
+  StateData data;
+
+  // Get state variables from contiguous storage at beginning of
+  // flattened_data_
+  data.u = flattened_data_.data() + u_begin_;
+  data.v = flattened_data_.data() + v_begin_;
+  data.t = flattened_data_.data() + t_begin_;
+  data.q = flattened_data_.data() + q_begin_;
+  data.psfc = flattened_data_.data() + psfc_begin_;
+
+  // Set location ranges
+  data.u_begin = u_begin_;
+  data.u_end = u_end_;
+  data.v_begin = v_begin_;
+  data.v_end = v_end_;
+  data.t_begin = t_begin_;
+  data.t_end = t_end_;
+  data.q_begin = q_begin_;
+  data.q_end = q_end_;
+  data.psfc_begin = psfc_begin_;
+  data.psfc_end = psfc_end_;
+
+  // Set total core state size
+  data.core_state_size = core_state_size_;
+
+  return data;
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::initializeWRFDADomain() {
+  // Use wrfda_init_domain_from_wrf_fields which properly leverages
+  // WRFDA's da_transfer_wrftoxb subroutine for complete initialization
+
+  // Get observation operator data which contains all required state variables
+  const auto state_data = getObsOperatorData();
+
+  // Get grid dimensions
+  const int nx = static_cast<int>(geometry_.x_dim());
+  const int ny = static_cast<int>(geometry_.y_dim());
+  const int nz = static_cast<int>(geometry_.z_dim());
+
+  // Get pointers to all required WRF fields from state_data
+  // Note: getObsOperatorData provides u, v, t, q, psfc, ph, phb, hf, hgt, p,
+  // pb, lats_2d, lons_2d For additional fields not in state_data, use data()
+  // method
+  const double* w_data = state_data.w;
+  const double* mu_data = state_data.mu;
+  const double* mub_data = state_data.mub;
+  const double* t_init_data = state_data.t_init;
+
+  // Get moisture species - for now just use QVAPOR from state_data
+  // TODO: Combine all moisture species (QCLOUD, QRAIN, etc.) into moist array
+  int num_moist = 1;  // Only QVAPOR for now
+
+  // Get time information from config or WRF file
+  // For now, use placeholder values - should come from WRF file metadata
+  int start_year = 2000;
+  int start_month = 1;
+  int start_day = 24;
+  int start_hour = 12;
+
+  // Call wrfda_init_domain_from_wrf_fields with all required parameters
+  int rc = wrfda_init_domain_from_wrf_fields(
+      &nx, &ny, &nz, state_data.u, state_data.v, w_data, state_data.t, mu_data,
+      mub_data, state_data.p, state_data.pb, state_data.ph, state_data.phb,
+      state_data.lats_2d, state_data.lons_2d, state_data.hgt, znu_.data(),
+      znw_.data(), dn_.data(), dnw_.data(), rdnw_.data(), rdn_.data(), &p_top_,
+      t_init_data, state_data.q, &num_moist, state_data.psfc, &start_year,
+      &start_month, &start_day, &start_hour);
+
+  if (rc != 0) {
+    throw std::runtime_error(
+        "Failed to initialize WRFDA domain with da_transfer_wrftoxb, code " +
+        std::to_string(rc));
+  }
+}
+
+template <typename ConfigBackend, typename GeometryBackend>
+void WRFState<ConfigBackend, GeometryBackend>::loadVerticalCoordinates(
+    const std::string& filename) {
+  try {
+    // Open NetCDF file
+    netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
+
+    if (wrf_file.isNull()) {
+      throw std::runtime_error("Failed to open WRF file: " + filename);
+    }
+
+    // Get vertical dimension size
+    auto nz_dim = wrf_file.getDim("bottom_top");
+    if (nz_dim.isNull()) {
+      throw std::runtime_error(
+          "Cannot find 'bottom_top' dimension in WRF file");
+    }
+    size_t nz = nz_dim.getSize();
+    size_t nz_stag = nz + 1;
+
+    // Load ZNU (eta values on mass levels)
+    auto znu_var = wrf_file.getVar("ZNU");
+    if (!znu_var.isNull()) {
+      znu_.resize(nz);
+      znu_var.getVar(znu_.data());
+    } else {
+      throw std::runtime_error("Required variable ZNU not found in WRF file");
+    }
+
+    // Load ZNW (eta values on staggered levels)
+    auto znw_var = wrf_file.getVar("ZNW");
+    if (!znw_var.isNull()) {
+      znw_.resize(nz_stag);
+      znw_var.getVar(znw_.data());
+    } else {
+      throw std::runtime_error("Required variable ZNW not found in WRF file");
+    }
+
+    // Load DN (delta eta on mass levels)
+    auto dn_var = wrf_file.getVar("DN");
+    if (!dn_var.isNull()) {
+      dn_.resize(nz);
+      dn_var.getVar(dn_.data());
+    } else {
+      throw std::runtime_error("Required variable DN not found in WRF file");
+    }
+
+    // Load DNW (delta eta on staggered levels)
+    auto dnw_var = wrf_file.getVar("DNW");
+    if (!dnw_var.isNull()) {
+      dnw_.resize(nz_stag);
+      dnw_var.getVar(dnw_.data());
+    } else {
+      throw std::runtime_error("Required variable DNW not found in WRF file");
+    }
+
+    // Load RDNW (inverse delta eta on staggered levels)
+    auto rdnw_var = wrf_file.getVar("RDNW");
+    if (!rdnw_var.isNull()) {
+      rdnw_.resize(nz_stag);
+      rdnw_var.getVar(rdnw_.data());
+    } else {
+      throw std::runtime_error("Required variable RDNW not found in WRF file");
+    }
+
+    // Load RDN (inverse delta eta on mass levels)
+    auto rdn_var = wrf_file.getVar("RDN");
+    if (!rdn_var.isNull()) {
+      rdn_.resize(nz);
+      rdn_var.getVar(rdn_.data());
+    } else {
+      throw std::runtime_error("Required variable RDN not found in WRF file");
+    }
+
+    // Load P_TOP (pressure at model top)
+    auto p_top_var = wrf_file.getVar("P_TOP");
+    if (!p_top_var.isNull()) {
+      p_top_var.getVar(&p_top_);
+    } else {
+      throw std::runtime_error("Required variable P_TOP not found in WRF file");
+    }
+
+    std::cout << "Loaded vertical coordinates: nz=" << nz
+              << ", p_top=" << p_top_ << " Pa" << std::endl;
+
+  } catch (const netCDF::exceptions::NcException& e) {
+    throw std::runtime_error("NetCDF error loading vertical coordinates: " +
+                             std::string(e.what()));
+  }
 }
 
 }  // namespace metada::backends::wrf

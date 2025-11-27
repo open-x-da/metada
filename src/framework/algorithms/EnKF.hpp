@@ -1,9 +1,7 @@
 #pragma once
 #include <Eigen/Dense>
-#include <algorithm>
 #include <cmath>
-#include <iostream>
-#include <vector>
+#include <random>
 
 #include "Config.hpp"
 #include "Ensemble.hpp"
@@ -178,7 +176,7 @@ class EnKF {
     MatrixXd Yb_pert = Yb.colwise() - yb_mean;
 
     // 3. Compute innovation
-    const auto obs_data = obs_.template getData<std::vector<double>>();
+    const auto obs_data = obs_.getObservationValues();
     VectorXd yo = Eigen::Map<const VectorXd>(obs_data.data(), obs_dim);
     VectorXd d = yo - yb_mean;
 

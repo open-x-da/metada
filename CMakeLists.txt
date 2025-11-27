@@ -35,6 +35,25 @@ metada_find_package(nlohmann_json OPTIONAL CONFIG QUIET)
 
 metada_find_package(ng-log OPTIONAL CONFIG QUIET)
 
+# Find Arrow/Parquet libraries for observation data I/O (optional)
+option(WITH_ARROW "Enable Arrow/Parquet support for observation data I/O" OFF)
+if(WITH_ARROW)
+    metada_find_package(Arrow REQUIRED CONFIG)
+    add_compile_definitions(METADA_WITH_ARROW)
+endif()
+
+# Find BUFR library for observation data I/O (optional)
+option(WITH_BUFR "Enable BUFR support for observation data I/O" OFF)
+if(WITH_BUFR)
+    add_compile_definitions(METADA_WITH_BUFR)
+endif()
+
+# Configure WRFDA support (optional)
+option(WITH_WRFDA "Enable WRFDA support for WRF backend" OFF)
+if(WITH_WRFDA)
+    add_compile_definitions(METADA_WITH_WRFDA)
+endif()
+
 # Configure CUDA support
 include(CUDA)
 
@@ -49,11 +68,6 @@ add_subdirectory(tests)
 # Add documentation
 add_subdirectory(docs)
 
-# Enable precompiled headers for all targets
-#include(EnablePrecompiledHeaders)
-
-# Enable unity builds for all targets
-#include(EnableUnityBuild)
 
 # Show final configuration
 metada_project_summary()

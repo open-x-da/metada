@@ -92,6 +92,38 @@ concept HasStateBackend =
     requires { typename traits::BackendTraits<T>::StateBackend; };
 
 /**
+ * @brief Checks if a type provides an IncrementBackend type through
+ * BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines an IncrementBackend type through the BackendTraits specialization.
+ * The IncrementBackend is responsible for handling analysis increments
+ * in variational data assimilation, independent of state representations.
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasIncrementBackend =
+    requires { typename traits::BackendTraits<T>::IncrementBackend; };
+
+/**
+ * @brief Checks if a type provides a ControlVariableBackend type through
+ * BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines a ControlVariableBackend type through the BackendTraits
+ * specialization. The ControlVariableBackend is responsible for handling
+ * control variables in incremental variational data assimilation. Control
+ * variables are the actual optimization variables that are transformed to
+ * state-space increments through operators like B^(1/2).
+ *
+ * @tparam T The backend tag type to check
+ */
+template <typename T>
+concept HasControlVariableBackend =
+    requires { typename traits::BackendTraits<T>::ControlVariableBackend; };
+
+/**
  * @brief Checks if a type provides a ModelBackend type through BackendTraits
  *
  * @details This concept is used to verify that a backend tag type correctly
@@ -149,6 +181,17 @@ concept HasObsOperatorBackend =
 template <typename T>
 concept HasObservationIteratorBackend =
     requires { typename traits::BackendTraits<T>::ObservationIteratorBackend; };
+
+/**
+ * @brief Checks if a type provides an ObsIOBackend type through BackendTraits
+ *
+ * @details This concept is used to verify that a backend tag type correctly
+ * defines an ObsIOBackend type through the BackendTraits specialization.
+ * The ObsIOBackend is responsible for handling the observation I/O operations.
+ */
+template <typename T>
+concept HasObsIOBackend =
+    requires { typename traits::BackendTraits<T>::ObsIOBackend; };
 
 /**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend

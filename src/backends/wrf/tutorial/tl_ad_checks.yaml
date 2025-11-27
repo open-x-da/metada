@@ -11,82 +11,107 @@ logger:
 # Global parameters
 # Tolerance for TL/AD consistency check
 # (relative error threshold)
-tl_ad_tolerance: 1.0e-6
+# Note: For nonlinear observation operators, gradient checks typically achieve
+#       1-5% relative error due to truncation errors in finite differences
+tl_ad_tolerance: 1.0e-2  # 1% tolerance for gradient checks with nonlinear operators
 gradient_tolerance: 1.0e-6
 # Number of random directions for gradient checks
 gradient_check_directions: 10
 finite_difference_epsilons:
+   - 1.0e-1   # Start larger to see truncation error regime
+   - 1.0e-2
    - 1.0e-3
    - 1.0e-4
    - 1.0e-5
    - 1.0e-6
    - 1.0e-7
-   - 1.0e-8
+
+# Analysis time configuration
+analysis_time: &analysis_time "2008-02-05T12:00:00Z"
+time_window: &time_window "±5m" # Time window around analysis time
 
 # Variational method: 3DVAR (single time analysis)
 variational_type: "3DVAR"
 
 # Minimization configuration
-minimization_algorithm: lbfgs
+minimization_algorithm: "WRFDA-CG"  # L-BFGS, CG, or SteepestDescent
 max_iterations: 50
 tolerance: 1e-6
 gradient_tolerance: 1e-6
 line_search_enabled: true
 preconditioning_enabled: false
 
+# Control-variable backend configuration
+control_variable_backend: "wrfda-cv5" # identity (grid%xa), wrfda-cv5 (WRFDA control space)
+
+wrfda_control:
+  be_statistics: "D:/linux/metada/build/be.dat"
+  cv_options: 5  # Standard WRFDA CV5 control variables
+
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file
 geometry:
-  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+  file: "D:/linux/metada/build/wrfinput_d01"
+  namelist_path: "D:/linux/metada/build/namelist.input"
+  domain_id: 1
 
-# State configuration
-state:
-  file: "D:/linux/metada/src/backends/wrf/tutorial/wrfinput_d01"
+# Background state configuration
+background:
+  file: "D:/linux/metada/build/wrfinput_d01"
   # Analysis variables for 3DVAR
   variables:
-    - U      # U-component of wind
-  #  - V      # V-component of wind
-  #  - T      # Temperature
-  #  - QVAPOR # Water vapor mixing ratio
-  #  - P      # Pressure
-  #  - PH     # Geopotential
+    - U
+    - V
+    - T
+    - QVAPOR
+    - PSFC
 
-# Observations configuration (simplified for debugging)
-observations:
+# Observation configuration
+observation:
+  # WRFDA observation file (ASCII format)
+  obs_file: "D:/linux/WRF/var/test/tutorial/ob.ascii"
+  
   types:
-    - test_obs:
+    - adpsfc:
         if_use: true
-        file: "D:/linux/metada/src/backends/wrf/tutorial/wrf_obs.txt"
+        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2000012412.wo40.nr"
         coordinate: "geographic"
+        data_types: ["ADPSFC"]
+        station_ids: [72405]
+        analysis_time: *analysis_time
+        time_window: *time_window
         variables:
           - U:
               if_use: true
-              error: 2.0
-              missing_value: -999.0
+              error: 1.5
+          - V:
+              if_use: true
+              error: 1.5
+          - T:
+              if_use: true
+              error: 1.0
+          - Q:
+              if_use: true
+              error: 0.5e-3
+          - PSFC:
+              if_use: true
+              error: 100.0
 
 # Observation operator configuration
 obs_operator:
-  type: "identity"
-  # Required state variables for this observation operator
-  required_state_vars:
-    - "U"      # U-wind component
-  # Required observation variables (if any)
-  required_obs_vars: []
-  # Interpolation settings
-  interpolation:
-    method: "nearest_neighbor"  # Only nearest-neighbor supported by IdentityObsOperator
-    coordinate_system: "geographic"  # or "grid"
-  # Quality control settings (not implemented in IdentityObsOperator, but documented for future use)
-  quality_control:
-    enabled: false  # Currently not implemented
-    gross_error_threshold: 10.0
-    buddy_check: false
+  type: "WRFDA"
+  required_state_vars: [U, V, T, QVAPOR, PSFC, P, PB, PH, PHB, HGT]
+  operator_families: ["synop"]  # SYNOP surface observations
+  interpolation_method: "bilinear"
+  vertical_interpolation: "pressure"
+  surface_correction: true
+  quality_control: true
 
 # Model configuration (WRF model settings)
 model:
   # Time control settings
   time_control:
-    start_datetime: "2020-01-01T12:00:00Z"
+    start_datetime: "2008-02-05T12:00:00Z"
     forecast_length: "1s"  # Minimal forecast for TL/AD checks
     time_step: "30s"
     output_history: false
@@ -103,10 +128,9 @@ model:
     advection_scheme: "WENO"
     diffusion: 0.01
 
-# Background error covariance configuration (simplified)
+# Background error covariance configuration
 background_covariance:
-  size: 717531  # Match actual WRF state size
-  variance: 0.5  # Reasonable variance for meteorological variables
-  background_covariance_type: "diagonal"
+  # Framework-expected keys
+  background_covariance_type: "diagonal"  # Framework expects this key
   localization_enabled: false
   localization_radius: 0.0

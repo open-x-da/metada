@@ -1,0 +1,32 @@
+logger:
+  app_name: "obs_processing"
+  level: "debug"
+  color: true
+  console: true
+
+observation:
+  filename: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2025050700.nr"
+  lats: [90, -90]      # Latitudes from North to South
+  lons: [0, 360]       # Longitudes from 0 to 360
+  station_ids:         # Station IDs (overrides lat/lon selections)
+    #- "KMSP "          # 4 letter METAR code with trailing space
+    #- 57494
+    #- 58203
+  variables: ["PRES", "HUMID", "TEMP", "HEIGHT", "UWIND", "VWIND"]   # Selected parameters
+  data_types:          # Data types to be selected
+    #- "ADPUPA"
+    #- "AIRCAR"
+    - "AIRCFT"
+    #- "SATWND"
+    #- "PROFLR"
+    #- "VADWND"
+    #- "SATEMP"
+    #- "ADPSFC"
+    #- "SFCSHP"
+    #- "SFCBOG"
+    #- "SPSSMI"
+    #- "SYNDAT"
+    #- "ERS1DA"
+    #- "GOESND"
+    #- "QKSWND"
+  include_virtual_temp: false    # Flag to include virtual temperature

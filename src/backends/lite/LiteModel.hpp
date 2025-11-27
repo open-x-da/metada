@@ -1,8 +1,6 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
+#include "LiteIncrement.hpp"
 #include "LiteState.hpp"
 
 namespace metada::backends::lite {
@@ -53,13 +51,14 @@ class LiteModel {
     run(initial_perturbation, final_perturbation);
   }
 
-  // Adjoint model: dx(t) = M^T*dx(t+1)
+  // Adjoint model: dx(t) = M^T*dx(t+1) (operates on increments)
   void runAdjoint([[maybe_unused]] const LiteState& initial_state,
                   [[maybe_unused]] const LiteState& final_state,
-                  const LiteState& adjoint_forcing,
-                  LiteState& adjoint_result) const {
-    // For identity model, adjoint is same as forward
-    run(adjoint_forcing, adjoint_result);
+                  const LiteIncrement& adjoint_forcing,
+                  LiteIncrement& adjoint_result) const {
+    // For identity model, adjoint is identity: just copy data
+    auto data = adjoint_forcing.getData();
+    adjoint_result.update(data.data(), nullptr, nullptr, nullptr, nullptr);
   }
 
   // Capability checks

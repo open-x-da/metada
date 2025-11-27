@@ -35,7 +35,6 @@ class Config;
  * @brief Forward declaration of State class
  */
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
 class State;
 
 /**
@@ -230,8 +229,7 @@ class Model : private NonCopyable {
 
     try {
       backend_.runAdjoint(initial_state.backend(), final_state.backend(),
-                          adjoint_forcing.state().backend(),
-                          adjoint_result.state().backend());
+                          adjoint_forcing.backend(), adjoint_result.backend());
     } catch (const std::exception& e) {
       throw std::runtime_error(std::string("Model adjoint run failed: ") +
                                e.what());

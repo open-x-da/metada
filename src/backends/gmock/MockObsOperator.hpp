@@ -13,6 +13,8 @@ namespace metada::backends::gmock {
  * @tparam ConfigBackend Type of the configuration backend
  * @tparam StateBackend Type of the state backend
  * @tparam ObsBackend Type of the observation backend
+ * @tparam IncrementBackend Type of the increment backend
+ * @tparam ControlVariableBackend Type of the control variable backend
  *
  * This class provides mock methods for all observation operator operations:
  * - Initialization and configuration
@@ -22,7 +24,8 @@ namespace metada::backends::gmock {
  * It is primarily intended for unit testing components that depend on
  * observation operators.
  */
-template <typename ConfigBackend, typename StateBackend, typename ObsBackend>
+template <typename ConfigBackend, typename StateBackend, typename ObsBackend,
+          typename IncrementBackend, typename ControlVariableBackend>
 class MockObsOperator {
  public:
   /**
@@ -69,6 +72,14 @@ class MockObsOperator {
    * @param config Configuration backend reference
    */
   MockObsOperator(const ConfigBackend& config) : config_(config) {
+    initialize(config);
+  }
+  /**
+   * @brief Overload with control backend (ignored for mock)
+   */
+  MockObsOperator(const ConfigBackend& config,
+                  const ControlVariableBackend& control_backend)
+      : config_(config), control_backend_(&control_backend) {
     initialize(config);
   }
 
@@ -130,6 +141,28 @@ class MockObsOperator {
                StateBackend& state_increment, const ObsBackend& obs),
               (const));
 
+  // Tangent linear for increments (converts to state for mock)
+  std::vector<double> applyTangentLinear(const IncrementBackend& increment,
+                                         const StateBackend& reference_state,
+                                         const ObsBackend& obs) const {
+    // Convert increment to state for mock method
+    StateBackend temp_state(config_, reference_state.geometry());
+    temp_state.zero();
+    temp_state.addIncrement(increment);
+    return applyTangentLinear(temp_state, reference_state, obs);
+  }
+
+  // Adjoint for increments (converts via state for mock)
+  void applyAdjoint(const std::vector<double>& obs_increment,
+                    const StateBackend& reference_state,
+                    IncrementBackend& increment_result,
+                    const ObsBackend& obs) const {
+    StateBackend temp_state(config_, reference_state.geometry());
+    temp_state.zero();
+    applyAdjoint(obs_increment, reference_state, temp_state, obs);
+    increment_result.transferFromState(temp_state);
+  }
+
   /**
    * @brief Check if tangent linear and adjoint operators are available
    * @return True if linearization is supported
@@ -142,9 +175,13 @@ class MockObsOperator {
    */
   MOCK_METHOD(bool, isLinear, (), (const));
 
+  // No control-space methods needed for mock backend
+
  private:
   /** @brief Reference to the configuration backend */
   const ConfigBackend& config_;
+  /** @brief Pointer to control variable backend */
+  const ControlVariableBackend* control_backend_ = nullptr;
 };
 
 }  // namespace metada::backends::gmock

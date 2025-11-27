@@ -25,7 +25,9 @@
 #include "../backends/gmock/MockModel.hpp"
 #include "../backends/gmock/MockObservation.hpp"
 #include "../backends/gmock/MockObsOperator.hpp"
+#include "../backends/gmock/MockObsIO.hpp"
 #include "../backends/gmock/MockBackgroundErrorCovariance.hpp"
+#include "../backends/gmock/MockIncrement.hpp"
 
 namespace metada::traits {
 
@@ -67,8 +69,14 @@ struct BackendTraits<MockBackendTag> {
   /** @brief Mock state vector backend implementation for testing */
   using StateBackend = backends::gmock::MockState<ConfigBackend, GeometryBackend>;
   
+  /** @brief Mock increment backend implementation for testing */
+  using IncrementBackend = backends::gmock::MockIncrement;
+  
+  /** @brief Mock control variable backend implementation for testing (same as increment) */
+  using ControlVariableBackend = backends::gmock::MockIncrement;
+  
   /** @brief Mock model backend implementation for testing */
-  using ModelBackend = backends::gmock::MockModel<ConfigBackend, StateBackend>;
+  using ModelBackend = backends::gmock::MockModel<ConfigBackend, StateBackend, IncrementBackend>;
   
   /** @brief Mock observation backend implementation for testing */
   using ObservationBackend = backends::gmock::MockObservation<ConfigBackend>;
@@ -77,7 +85,10 @@ struct BackendTraits<MockBackendTag> {
   using ObservationIteratorBackend = metada::backends::gmock::MockObservationIterator;
 
   /** @brief Mock observation operator backend implementation for testing */
-  using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend>;
+  using ObsOperatorBackend = backends::gmock::MockObsOperator<ConfigBackend, StateBackend, ObservationBackend, IncrementBackend, ControlVariableBackend>;
+  
+  /** @brief Mock implementation of observation I/O backend */
+  using ObsIOBackend = backends::gmock::MockObsIO<ConfigBackend>;
 
   /** @brief Mock ensemble backend implementation for testing */
   using EnsembleBackend = backends::gmock::MockEnsemble<ConfigBackend, GeometryBackend>;

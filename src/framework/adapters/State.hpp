@@ -27,15 +27,15 @@
 
 #pragma once
 
-#include <concepts>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 
 #include "BackendTraits.hpp"
+#include "CommonConcepts.hpp"
 #include "ConfigConcepts.hpp"
 #include "Geometry.hpp"
+#include "IncrementConcepts.hpp"
 #include "Location.hpp"
 #include "Logger.hpp"
 #include "NonCopyable.hpp"
@@ -54,7 +54,6 @@ class Config;
  * @brief Forward declaration of Increment class
  */
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
 class Increment;
 
 /**
@@ -91,11 +90,10 @@ class Increment;
  * @see Increment
  */
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
 class State : private NonCopyable {
  public:
   using StateBackend = typename traits::BackendTraits<BackendTag>::StateBackend;
-  using Geometry = Geometry<BackendTag>;
+  using Geometry = metada::framework::Geometry<BackendTag>;
 
   // Constructors
   State() = delete;  // Disable default constructor since we need a backend
@@ -301,11 +299,15 @@ class State : private NonCopyable {
 
   /**
    * @brief Addition assignment operator for increment
-   * @param increment Increment to add
+   * @param increment Increment to add (computes x = x + δx)
    * @return Reference to this state
+   *
+   * @details Fundamental operation in variational DA: combines background
+   * with analysis increment to produce final analysis state.
+   * Delegates to backend-specific addIncrement implementation.
    */
   State& operator+=(const Increment<BackendTag>& increment) {
-    backend_.add(increment.state().backend());
+    backend_.addIncrement(increment.backend());
     return *this;
   }
 

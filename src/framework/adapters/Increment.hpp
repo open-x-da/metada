@@ -1,103 +1,99 @@
 #pragma once
 
-#include <memory>
-#include <random>
-#include <string>
-#include <vector>
-
 #include "BackendTraits.hpp"
-#include "State.hpp"
-#include "StateConcepts.hpp"
+#include "GeometryConcepts.hpp"
+#include "IncrementConcepts.hpp"
 
 namespace metada::framework {
 
+// Forward declare Geometry to avoid circular dependency
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
+  requires GeometryBackendType<BackendTag>
+class Geometry;
+
+template <typename BackendTag>
 class Increment {
  public:
-  using StateType = State<BackendTag>;
+  using IncrementBackendType =
+      typename traits::BackendTraits<BackendTag>::IncrementBackend;
+  using GeometryType = Geometry<BackendTag>;
+  using GeometryBackendType =
+      typename traits::BackendTraits<BackendTag>::GeometryBackend;
 
   // Constructors
-  Increment() = default;
-  explicit Increment(const StateType& state) : state_(state.clone()) {}
-  Increment(const StateType& a, const StateType& b) : state_(a.clone()) {
-    state_ -= b;
-  }
+  Increment() = delete;  // Must construct from geometry
 
-  // Factory methods
-  static Increment createFromEntity(const StateType& state) {
-    return Increment(state);
-  }
-  static Increment createFromDifference(const StateType& a,
-                                        const StateType& b) {
-    return Increment(a, b);
+  explicit Increment(const GeometryBackendType& geometry)
+      : increment_(geometry) {}
+
+  // Factory method
+  static Increment createFromGeometry(const GeometryBackendType& geometry) {
+    return Increment(geometry);
   }
 
   // Core operations
-  void zero() { state_.zero(); }
-  void scale(double alpha) { state_ *= alpha; }
+  void zero() { increment_.zero(); }
+  void scale(double alpha) { increment_.scale(alpha); }
   void axpy(double alpha, const Increment& other) {
-    state_ += other.state_ * alpha;
+    increment_.axpy(alpha, other.increment_);
   }
-  double dot(const Increment& other) const { return state_.dot(other.state_); }
-  double norm() const { return state_.norm(); }
+  double dot(const Increment& other) const {
+    return increment_.dot(other.increment_);
+  }
+  double norm() const { return increment_.norm(); }
 
   // Randomize (for testing)
-  void randomize() {
-    auto* data = state_.template getDataPtr<double>();
-    size_t n = state_.size();
-    std::mt19937 gen(std::random_device{}());
-    std::uniform_real_distribution<double> dist(-0.5, 0.5);
-    for (size_t i = 0; i < n; ++i) data[i] = dist(gen);
-  }
+  void randomize() { increment_.randomize(); }
 
-  // Data access (for tests)
-  template <typename T>
-  T& getData() {
-    return state_.template getData<T>();
-  }
-  template <typename T>
-  const T& getData() const {
-    return state_.template getData<T>();
-  }
+  // Increment backend access
+  IncrementBackendType& backend() { return increment_; }
+  const IncrementBackendType& backend() const { return increment_; }
 
-  // Underlying state access (if needed)
-  StateType& state() { return state_; }
-  const StateType& state() const { return state_; }
+  // Geometry access
+  const GeometryBackendType& geometry() const { return increment_.geometry(); }
+
+  // Data access (for tests and gradient checks)
+  template <typename T>
+  T getData() const {
+    // Delegate to backend implementation
+    static_assert(std::is_same_v<T, std::vector<double>>,
+                  "Increment::getData only supports std::vector<double>");
+    return increment_.getData();
+  }
 
   // Addition assignment operator
   Increment& operator+=(const Increment& other) {
-    state_ += other.state_;
+    increment_ += other.increment_;
     return *this;
   }
 
   // Subtraction assignment operator
   Increment& operator-=(const Increment& other) {
-    state_ -= other.state_;
+    increment_ -= other.increment_;
     return *this;
   }
 
   // Scalar multiplication operator
   Increment& operator*=(double scalar) {
-    state_ *= scalar;
+    increment_ *= scalar;
     return *this;
   }
 
   // Scalar division operator
   Increment& operator/=(double scalar) {
-    state_ *= (1.0 / scalar);
+    increment_ /= scalar;
     return *this;
   }
 
  private:
-  StateType state_;
+  IncrementBackendType increment_;  ///< Increment backend (operates on grid%xa)
 };
 
 // Non-member scalar multiplication operators
 template <typename BackendTag>
 Increment<BackendTag> operator*(const Increment<BackendTag>& inc,
                                 double scalar) {
-  Increment<BackendTag> result(inc.state());
+  auto result = inc;
   result *= scalar;
   return result;
 }
@@ -110,10 +106,11 @@ Increment<BackendTag> operator*(double scalar,
 
 // Output operator
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
+  requires IncrementBackendType<BackendTag>
 inline std::ostream& operator<<(std::ostream& os,
                                 const Increment<BackendTag>& increment) {
-  return os << increment.state();
+  os << "Increment(norm=" << increment.norm() << ")";
+  return os;
 }
 
 }  // namespace metada::framework

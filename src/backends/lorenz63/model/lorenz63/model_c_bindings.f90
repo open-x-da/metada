@@ -26,9 +26,15 @@ contains
     real(c_float), value, intent(in) :: sigma, rho, beta, dt
     type(c_ptr) :: ptr_result
     type(lorenz63_model_type), pointer :: f_ptr
+    real :: sigma_f, rho_f, beta_f, dt_f
     
     allocate(f_ptr)
-    call f_ptr%init(sigma, rho, beta, dt)
+    ! Convert from C float to Fortran real (single precision)
+    sigma_f = real(sigma)
+    rho_f = real(rho)
+    beta_f = real(beta)
+    dt_f = real(dt)
+    call f_ptr%init(sigma_f, rho_f, beta_f, dt_f)
     ptr_result = c_loc(f_ptr)
   end function c_lorenz63_model_create
   
@@ -46,12 +52,18 @@ contains
     type(c_ptr), value, intent(in) :: model_ptr
     real(c_float), intent(out) :: sigma, rho, beta, dt
     type(lorenz63_model_type), pointer :: f_ptr
+    real :: sigma_f, rho_f, beta_f, dt_f
     
     call c_f_pointer(model_ptr, f_ptr)
-    sigma = f_ptr%get_sigma()
-    rho = f_ptr%get_rho()
-    beta = f_ptr%get_beta()
-    dt = f_ptr%get_time_step()
+    sigma_f = f_ptr%get_sigma()
+    rho_f = f_ptr%get_rho()
+    beta_f = f_ptr%get_beta()
+    dt_f = f_ptr%get_time_step()
+    ! Convert from Fortran real to C float (both single precision)
+    sigma = real(sigma_f, c_float)
+    rho = real(rho_f, c_float)
+    beta = real(beta_f, c_float)
+    dt = real(dt_f, c_float)
   end subroutine c_lorenz63_model_get_params
   
   ! Set the parameters of a lorenz63 model
@@ -59,9 +71,15 @@ contains
     type(c_ptr), value, intent(in) :: model_ptr
     real(c_float), value, intent(in) :: sigma, rho, beta, dt
     type(lorenz63_model_type), pointer :: f_ptr
+    real :: sigma_f, rho_f, beta_f, dt_f
     
     call c_f_pointer(model_ptr, f_ptr)
-    call f_ptr%init(sigma, rho, beta, dt)
+    ! Convert from C float to Fortran real (single precision)
+    sigma_f = real(sigma)
+    rho_f = real(rho)
+    beta_f = real(beta)
+    dt_f = real(dt)
+    call f_ptr%init(sigma_f, rho_f, beta_f, dt_f)
   end subroutine c_lorenz63_model_set_params
   
   ! Create and return a C pointer to a new rk4 integrator

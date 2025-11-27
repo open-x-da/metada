@@ -5,8 +5,13 @@
         "CMAKE_BUILD_TYPE": "Debug"
     },
     "cmake.configureArgs": [
+        "-DCMAKE_VERBOSE_MAKEFILE=OFF",
         "-DLOGGER_BACKEND=NGLOG",
-        "-DCONFIG_BACKEND=YAML"
+        "-DCONFIG_BACKEND=YAML",
+        "-DWITH_WRFDA=OFF",
+        "-DWRFDA_ROOT=D:/linux/WRF",
+        "-DWRFDA_VAR_LIB=D:/linux/WRF/var/build/libwrfvar.a",
+        "-DWRFDA_MOD_DIR=D:/linux/WRF/var/build"
     ],
     "terminal.integrated.defaultProfile.windows": "MSYS2 Bash",
     "terminal.integrated.profiles.windows": {
@@ -23,6 +28,11 @@
         "MSYSTEM": "MINGW64",
         "CHERE_INVOKING": "1"
     },
+    "fortran.fortls.path": "C:/msys64/usr/bin/fortls.exe",
+    "fortran.fortls.includePaths": [
+        "D:/linux/WRF/frame",
+        "D:/linux/WRF/var/da"
+    ],
     "cmake.buildDirectory": "${workspaceFolder}/build",
     "files.associations": {
         "any": "cpp",
@@ -121,6 +131,13 @@
         "spanstream": "cpp",
         "stdfloat": "cpp",
         "syncstream": "cpp",
-        "typeindex": "cpp"
+        "typeindex": "cpp",
+        "*.inc": "fortran"
+    },
+    "files.exclude": {
+        "**/WRF/**/CMakeLists.txt": true,
+        "**/WRF/**/*.cmake": true,
+        "**/WRF/**/CMakeFiles": true,
+        "**/WRF/**/CMakeCache.txt": true
     }
 } 

@@ -7,6 +7,8 @@
 #include <vector>
 
 #include "Config.hpp"
+#include "ControlVariableBackend.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Logger.hpp"
 #include "MockBackendTraits.hpp"
 #include "ObsOperator.hpp"
@@ -41,6 +43,8 @@ class ObsOperatorTest : public ::testing::Test {
 
   std::unique_ptr<Config<traits::MockBackendTag>> config_;
   std::unique_ptr<Geometry<traits::MockBackendTag>> geometry_;
+  std::shared_ptr<ControlVariableBackend<traits::MockBackendTag>>
+      control_backend_;
 
   void SetUp() override {
     // Setup return values for metadata methods
@@ -55,6 +59,10 @@ class ObsOperatorTest : public ::testing::Test {
     Logger<traits::MockBackendTag>::Init(*config_);
 
     geometry_ = std::make_unique<Geometry<traits::MockBackendTag>>(*config_);
+
+    // Create identity control backend for tests
+    control_backend_ = std::make_shared<
+        IdentityControlVariableBackend<traits::MockBackendTag>>();
   }
 
   void TearDown() override {
@@ -96,7 +104,7 @@ TEST_F(ObsOperatorTest, NonCopyableButMovable) {
  */
 TEST_F(ObsOperatorTest, ConstructorWithConfig) {
   // Create ObsOperator using config
-  ObsOperator<traits::MockBackendTag> obsOp(*config_);
+  ObsOperator<traits::MockBackendTag> obsOp(*config_, *control_backend_);
 
   // Verify backend was initialized
   auto& backend = obsOp.backend();
@@ -113,7 +121,7 @@ TEST_F(ObsOperatorTest, ConstructorWithConfig) {
  */
 TEST_F(ObsOperatorTest, MoveOperations) {
   // Create source operator
-  ObsOperator<traits::MockBackendTag> obsOp1(*config_);
+  ObsOperator<traits::MockBackendTag> obsOp1(*config_, *control_backend_);
   auto& backend1 = obsOp1.backend();
 
   // Test move constructor
@@ -127,7 +135,7 @@ TEST_F(ObsOperatorTest, MoveOperations) {
   EXPECT_FALSE(obsOp1.isInitialized());
 
   // Test move assignment
-  ObsOperator<traits::MockBackendTag> obsOp3(*config_);
+  ObsOperator<traits::MockBackendTag> obsOp3(*config_, *control_backend_);
   obsOp3 = std::move(obsOp2);
 
   auto& backend3 = obsOp3.backend();
@@ -147,7 +155,7 @@ TEST_F(ObsOperatorTest, MoveOperations) {
  */
 TEST_F(ObsOperatorTest, RequiredVariables) {
   // Create ObsOperator using config
-  ObsOperator<traits::MockBackendTag> obsOp(*config_);
+  ObsOperator<traits::MockBackendTag> obsOp(*config_, *control_backend_);
   auto& backend = obsOp.backend();
 
   // Verify required variables access
@@ -173,7 +181,7 @@ TEST_F(ObsOperatorTest, RequiredVariables) {
  */
 TEST_F(ObsOperatorTest, Apply) {
   // Create ObsOperator using config
-  ObsOperator<traits::MockBackendTag> obsOp(*config_);
+  ObsOperator<traits::MockBackendTag> obsOp(*config_, *control_backend_);
   auto& backend = obsOp.backend();
 
   State<traits::MockBackendTag> state(*config_, *geometry_);
@@ -194,7 +202,7 @@ TEST_F(ObsOperatorTest, Apply) {
  */
 TEST_F(ObsOperatorTest, MultiVariableStateHandling) {
   // Create ObsOperator using config
-  ObsOperator<traits::MockBackendTag> obsOp(*config_);
+  ObsOperator<traits::MockBackendTag> obsOp(*config_, *control_backend_);
   auto& backend = obsOp.backend();
 
   State<traits::MockBackendTag> state(*config_, *geometry_);

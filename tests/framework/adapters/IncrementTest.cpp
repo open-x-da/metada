@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "ApplicationContext.hpp"
@@ -66,13 +65,16 @@ class IncrementTest : public ::testing::Test {
 };
 
 TEST_F(IncrementTest, RandomizeOperation) {
-  entity1_->backend().setData(std::vector<double>(5, 0.0));  // Set 5 elements
-  Increment increment = Increment::createFromEntity(*entity1_);
+  // Create increment from geometry
+  Increment increment =
+      Increment::createFromGeometry(entity1_->geometry()->backend());
   increment.randomize();
-  const auto* randomized = increment.state().template getDataPtr<double>();
-  for (size_t i = 0; i < increment.state().size(); ++i) {
-    EXPECT_GE(randomized[i], -0.5);
-    EXPECT_LE(randomized[i], 0.5);
+
+  // Get data as vector
+  auto data = increment.getData<std::vector<double>>();
+  for (size_t i = 0; i < data.size(); ++i) {
+    EXPECT_GE(data[i], -0.5);
+    EXPECT_LE(data[i], 0.5);
   }
 }
 
@@ -81,8 +83,13 @@ TEST_F(IncrementTest, DotProductImplementation) {
   auto& state2 = *entity2_;
   state1.backend().setData({1.0, 2.0, 3.0, 4.0, 5.0});
   state2.backend().setData({5.0, 4.0, 3.0, 2.0, 1.0});
-  Increment inc1 = Increment::createFromEntity(state1);
-  Increment inc2 = Increment::createFromEntity(state2);
+
+  // Create increments from geometry and transfer state data
+  Increment inc1 = Increment::createFromGeometry(state1.geometry()->backend());
+  Increment inc2 = Increment::createFromGeometry(state2.geometry()->backend());
+  inc1.backend().transferFromState(state1.backend());
+  inc2.backend().transferFromState(state2.backend());
+
   double expected = 1.0 * 5.0 + 2.0 * 4.0 + 3.0 * 3.0 + 4.0 * 2.0 + 5.0 * 1.0;
   EXPECT_DOUBLE_EQ(inc1.dot(inc2), expected);
 }

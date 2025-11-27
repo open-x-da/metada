@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <iostream>
+#include <memory>
 #include <netcdf>
 #include <stdexcept>
 #include <string>
@@ -20,6 +22,7 @@
 #endif
 
 #include "Location.hpp"
+#include "WRFConfigBridge.hpp"
 #include "WRFGeometryIterator.hpp"
 
 /**
@@ -765,6 +768,149 @@ class WRFGeometry {
   ///@}
 
   ///@{ @name Grid Type Identification
+  ///@}
+
+  ///@{ @name WRF Configuration Access
+  /**
+   * @brief Get WRF configuration manager
+   *
+   * @details Provides access to WRF configuration parameters read from
+   * namelist.input, including dx, dy, map_proj, and projection parameters.
+   *
+   * @return const WRFConfigManager& Reference to configuration manager
+   * @throws std::runtime_error If configuration is not initialized
+   */
+  const WRFConfigManager& getConfigManager() const {
+    if (!config_manager_) {
+      throw std::runtime_error("WRF configuration not initialized");
+    }
+    return *config_manager_;
+  }
+
+  /**
+   * @brief Get pointer to WRF config_flags structure
+   *
+   * @return void* Opaque pointer to grid_config_rec_type structure
+   * @details Convenience method to get config_flags pointer for passing
+   * to WRF observation operators. Equivalent to calling
+   * getConfigManager().getConfigFlagsPtr().
+   *
+   * @throws std::runtime_error If configuration is not initialized
+   *
+   * @note This pointer can be passed directly to WRF Fortran observation
+   * operators
+   * @note The pointer is valid as long as this WRFGeometry instance exists
+   * @note Do not delete or free this pointer - it's managed by Fortran
+   *
+   * Example usage:
+   * @code
+   * WRFGeometry<Config> geometry(config);
+   * void* config_flags = geometry.getConfigFlagsPtr();
+   * void* grid = geometry.getGridPtr();
+   * call_wrf_observation_operator(grid, config_flags, ...);
+   * @endcode
+   */
+  void* getConfigFlagsPtr() const {
+    if (!config_manager_) {
+      throw std::runtime_error("WRF configuration not initialized");
+    }
+    return config_manager_->getConfigFlagsPtr();
+  }
+
+  /**
+   * @brief Get pointer to WRFDA's head_grid structure
+   *
+   * @return void* Pointer to head_grid from WRFConfigManager
+   * @details Returns the pointer to WRFDA's head_grid structure that was
+   * allocated via alloc_and_configure_domain(). This pointer can be passed
+   * to WRFDA observation operators and other WRFDA Fortran routines.
+   *
+   * @throws std::runtime_error If configuration is not initialized
+   *
+   * @note The pointer is valid as long as the domain exists
+   * @note Do not delete or free this pointer - it's managed by WRFDA
+   */
+  void* getGridPtr() const {
+    if (!config_manager_) {
+      throw std::runtime_error("WRFDA configuration not initialized");
+    }
+    return config_manager_->getGridPtr();
+  }
+
+  /**
+   * @brief Get WRF domain ID
+   *
+   * @return int Domain ID (1-based)
+   */
+  int getDomainId() const { return domain_id_; }
+
+  ///@{ @name Map Projection Accessors
+  /**
+   * @brief Get grid spacing in X direction
+   *
+   * @return float Grid spacing dx (meters)
+   * @note Retrieved from WRF domain structure (grid%dx)
+   */
+  float getDx() const { return wrf_get_grid_dx_(domain_id_); }
+
+  /**
+   * @brief Get grid spacing in Y direction
+   *
+   * @return float Grid spacing dy (meters)
+   * @note Retrieved from WRF domain structure (grid%dy)
+   */
+  float getDy() const { return wrf_get_grid_dy_(domain_id_); }
+
+  /**
+   * @brief Get map projection type
+   *
+   * @return int Map projection (0=Lat-Lon, 1=Lambert, 2=Polar, 3=Mercator,
+   * 6=Cassini)
+   * @note Retrieved from WRF domain structure (grid%map_proj)
+   */
+  int getMapProj() const { return wrf_get_grid_map_proj_(domain_id_); }
+
+  /**
+   * @brief Get center latitude
+   *
+   * @return float Center latitude (degrees)
+   * @note Retrieved from WRF config_flags structure
+   */
+  float getCenLat() const { return wrf_get_grid_cen_lat_(domain_id_); }
+
+  /**
+   * @brief Get center longitude
+   *
+   * @return float Center longitude (degrees)
+   * @note Retrieved from WRF config_flags structure
+   */
+  float getCenLon() const { return wrf_get_grid_cen_lon_(domain_id_); }
+
+  /**
+   * @brief Get first true latitude
+   *
+   * @return float First true latitude (degrees)
+   * @note Retrieved from WRF config_flags structure
+   */
+  float getTrueLat1() const { return wrf_get_grid_truelat1_(domain_id_); }
+
+  /**
+   * @brief Get second true latitude
+   *
+   * @return float Second true latitude (degrees)
+   * @note Retrieved from WRF config_flags structure
+   */
+  float getTrueLat2() const { return wrf_get_grid_truelat2_(domain_id_); }
+
+  /**
+   * @brief Get standard longitude
+   *
+   * @return float Standard longitude (degrees)
+   * @note Retrieved from WRF config_flags structure
+   */
+  float getStandLon() const { return wrf_get_grid_stand_lon_(domain_id_); }
+  ///@}
+
   /**
    * @brief Determine which grid type a linear index belongs to
    *
@@ -849,6 +995,25 @@ class WRFGeometry {
   std::string wrfFilename_;   ///< Path to source WRF NetCDF file
   bool initialized_ = false;  ///< Initialization status flag
   ///@}
+
+  ///@{ @name WRF Configuration
+  std::unique_ptr<WRFConfigManager>
+      config_manager_;  ///< WRF configuration manager
+  int domain_id_ = 1;   ///< WRF domain ID (default: 1 for outermost domain)
+  ///@}
+
+  ///@{ @name Map Projection Parameters
+  /// @details All projection parameters (dx, dy, map_proj, cen_lat, cen_lon,
+  /// truelat1, truelat2, stand_lon) are stored in WRF's native structures:
+  /// - grid%dx, grid%dy, grid%map_proj in domain structure
+  /// - config_flags_%cen_lat, config_flags_%cen_lon, etc. in config structure
+  ///
+  /// They are read from NetCDF file global attributes during loadGeometryData
+  /// and stored via wrf_set_grid_geometry. Access is through getter methods
+  /// that call WRF bridge functions.
+  ///
+  /// NO CACHING in C++ - single source of truth in WRF Fortran structures.
+  ///@}
 };
 
 // Move constructor implementation
@@ -859,13 +1024,16 @@ WRFGeometry<ConfigBackend>::WRFGeometry(WRFGeometry&& other) noexcept
       unstaggered_grid_(std::move(other.unstaggered_grid_)),
       u_staggered_grid_(std::move(other.u_staggered_grid_)),
       v_staggered_grid_(std::move(other.v_staggered_grid_)),
-      w_staggered_grid_(std::move(other.w_staggered_grid_)) {
+      w_staggered_grid_(std::move(other.w_staggered_grid_)),
+      config_manager_(std::move(other.config_manager_)),
+      domain_id_(other.domain_id_) {
   // Reset the moved-from object
   other.initialized_ = false;
   other.unstaggered_grid_.size = 0;
   other.u_staggered_grid_.size = 0;
   other.v_staggered_grid_.size = 0;
   other.w_staggered_grid_.size = 0;
+  other.domain_id_ = 1;
 }
 
 // Move assignment operator implementation
@@ -879,6 +1047,8 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
     u_staggered_grid_ = std::move(other.u_staggered_grid_);
     v_staggered_grid_ = std::move(other.v_staggered_grid_);
     w_staggered_grid_ = std::move(other.w_staggered_grid_);
+    config_manager_ = std::move(other.config_manager_);
+    domain_id_ = other.domain_id_;
 
     // Reset the moved-from object
     other.initialized_ = false;
@@ -886,6 +1056,7 @@ WRFGeometry<ConfigBackend>& WRFGeometry<ConfigBackend>::operator=(
     other.u_staggered_grid_.size = 0;
     other.v_staggered_grid_.size = 0;
     other.w_staggered_grid_.size = 0;
+    other.domain_id_ = 1;
   }
   return *this;
 }
@@ -909,7 +1080,19 @@ WRFGeometry<ConfigBackend>::WRFGeometry(const ConfigBackend& config)
         "WRF input file path not specified in configuration");
   }
 
-  // Load geometry data from WRF NetCDF file
+  // Get domain ID from configuration (default: 1)
+  if (config.HasKey("domain_id")) {
+    domain_id_ = config.Get("domain_id").asInt();
+  }
+
+  // STEP 1: Initialize WRF configuration system (reads namelist.input)
+  // This is mainly for WRF internal consistency; actual grid parameters
+  // come from the NetCDF file global attributes
+  config_manager_ = std::make_unique<WRFConfigManager>(domain_id_);
+
+  // STEP 2: Load geometry data from WRF NetCDF file
+  // This reads the authoritative grid geometry from NetCDF global attributes
+  std::cout << "Loading WRF geometry from: " << wrfFilename_ << std::endl;
   loadGeometryData(wrfFilename_);
   initialized_ = true;
 }
@@ -920,6 +1103,68 @@ void WRFGeometry<ConfigBackend>::loadGeometryData(const std::string& filename) {
   try {
     netCDF::NcFile wrf_file(filename, netCDF::NcFile::read);
     if (!wrf_file.isNull()) {
+      // Read global attributes from NetCDF file (these are the authoritative
+      // values for grid geometry)
+      float dx, dy, cen_lat, cen_lon, truelat1, truelat2, stand_lon;
+      int map_proj;
+
+      try {
+        wrf_file.getAtt("DX").getValues(&dx);
+        wrf_file.getAtt("DY").getValues(&dy);
+        wrf_file.getAtt("MAP_PROJ").getValues(&map_proj);
+        wrf_file.getAtt("CEN_LAT").getValues(&cen_lat);
+        wrf_file.getAtt("CEN_LON").getValues(&cen_lon);
+        wrf_file.getAtt("TRUELAT1").getValues(&truelat1);
+        wrf_file.getAtt("TRUELAT2").getValues(&truelat2);
+        wrf_file.getAtt("STAND_LON").getValues(&stand_lon);
+
+        // Grid geometry is already in WRFDA's model_config_rec from
+        // namelist.input Verify it matches the NetCDF file for consistency
+        std::cout << "\nVerifying grid geometry matches namelist.input..."
+                  << std::endl;
+
+        // Map projection name for readability
+        std::string proj_name;
+        switch (map_proj) {
+          case 0:
+            proj_name = "Lat-Lon (Cylindrical Equidistant)";
+            break;
+          case 1:
+            proj_name = "Lambert Conformal";
+            break;
+          case 2:
+            proj_name = "Polar Stereographic";
+            break;
+          case 3:
+            proj_name = "Mercator";
+            break;
+          case 6:
+            proj_name = "Cassini";
+            break;
+          default:
+            proj_name = "Unknown";
+        }
+
+        std::cout << "\nGrid Projection (stored in WRF structures):"
+                  << std::endl;
+        std::cout << "  Domain ID: " << domain_id_ << std::endl;
+        std::cout << "  Projection: " << proj_name << " (MAP_PROJ=" << map_proj
+                  << ")" << std::endl;
+        std::cout << "  Grid spacing: dx=" << dx << " m, dy=" << dy << " m"
+                  << std::endl;
+        std::cout << "  Center: (" << cen_lat << "°N, " << cen_lon << "°E)"
+                  << std::endl;
+        std::cout << "  True latitudes: " << truelat1 << "°, " << truelat2
+                  << "°" << std::endl;
+        std::cout << "  Standard longitude: " << stand_lon << "°" << std::endl;
+      } catch (const netCDF::exceptions::NcException& e) {
+        std::cerr << "Warning: Could not read all global attributes from "
+                     "NetCDF file: "
+                  << e.what() << std::endl;
+        std::cerr << "Some projection parameters may be unavailable."
+                  << std::endl;
+      }
+
       // Read dimension information
       auto dim_west_east = wrf_file.getDim("west_east");
       auto dim_south_north = wrf_file.getDim("south_north");

@@ -36,10 +36,6 @@ Testing/
 *.o
 *.obj
 
-# Precompiled Headers
-*.gch
-*.pch
-
 # Compiled Dynamic libraries
 *.so
 *.dylib
@@ -76,7 +72,25 @@ __pycache__/
 # Build directories
 build/ 
 
-#wrf test files
-wrfinput_d0*
-wrfbdy_d0*
-wrfout_d0*
+# wrf Model inputs/outputs
+wrfbdy_d*
+wrfinput_d*
+wrfout_d*
+*.nc
+rsl.out.*
+rsl.error.*
+*.log
+namelist.output.da
+
+# prepbufr files
+prepbufr*.nr
+
+# fortran files
+*.mod
+fort.*
+
+# index files
+*.idx
+metada.code-workspace
+src/backends/wrf/tutorial/namelist.input
+src/backends/wrf/tutorial/wrfinput_d01

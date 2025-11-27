@@ -7,7 +7,10 @@
 #include <numeric>
 #include <vector>
 
+#include "ControlVariable.hpp"
+#include "ControlVariableBackend.hpp"
 #include "CostFunction.hpp"
+#include "IdentityControlVariableBackend.hpp"
 #include "Increment.hpp"
 #include "Logger.hpp"
 #include "ObsOperator.hpp"
@@ -60,9 +63,12 @@ bool checkObsOperatorTLAD(
     return false;
   }
 
-  // 1. Create random state increment dx and obs increment dy
-  auto dx = Increment<BackendTag>::createFromEntity(state);
-  dx.randomize();
+  // 1. Create random control variable and obs increment dy
+  // Use identity backend for these checks (control = increment)
+  IdentityControlVariableBackend<BackendTag> identity_backend;
+  auto control_var =
+      identity_backend.createControlVariable(state.geometry()->backend());
+  control_var.randomize();
 
   // Create observation increments for all observations
   std::vector<std::vector<double>> dy_vectors;
@@ -75,16 +81,17 @@ bool checkObsOperatorTLAD(
   // 2. Apply tangent linear: H dx for all operators
   std::vector<std::vector<double>> Hdx_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto Hdx = obs_operators[i].applyTangentLinear(dx, state, observations[i]);
+    auto Hdx = obs_operators[i].applyTangentLinear(control_var, state,
+                                                   observations[i]);
     Hdx_vectors.push_back(std::move(Hdx));
   }
 
   // 3. Apply adjoint: H^T dy for all operators
-  std::vector<Increment<BackendTag>> HTdy_increments;
+  std::vector<ControlVariable<BackendTag>> HTdy_controls;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
     auto HTdy =
         obs_operators[i].applyAdjoint(dy_vectors[i], state, observations[i]);
-    HTdy_increments.push_back(std::move(HTdy));
+    HTdy_controls.push_back(std::move(HTdy));
   }
 
   // 4. Compute inner products for all operators
@@ -92,7 +99,7 @@ bool checkObsOperatorTLAD(
   for (size_t i = 0; i < obs_operators.size(); ++i) {
     double a = std::inner_product(Hdx_vectors[i].begin(), Hdx_vectors[i].end(),
                                   dy_vectors[i].begin(), 0.0);
-    double b = dx.dot(HTdy_increments[i]);
+    double b = control_var.dot(HTdy_controls[i]);
     total_a += a;
     total_b += b;
   }
@@ -163,15 +170,22 @@ bool checkObsOperatorTangentLinear(
   std::vector<double> used_epsilons;
   std::vector<double> convergence_rates;
 
-  // 1. Create random state increment
-  auto dx = Increment<BackendTag>::createFromEntity(state);
-  dx.randomize();
+  // 1. Create random control variable
+  // Use identity backend for these checks (control = increment)
+  IdentityControlVariableBackend<BackendTag> identity_backend;
+  auto control_var =
+      identity_backend.createControlVariable(state.geometry()->backend());
+  control_var.randomize();
+
+  // Also create increment for state perturbation
+  auto dx = identity_backend.createIncrement(state.geometry()->backend());
+  identity_backend.controlToIncrement(control_var, dx);
 
   // 2. Apply tangent linear: H dx for all operators
   std::vector<std::vector<double>> Hdx_tl_vectors;
   for (size_t i = 0; i < obs_operators.size(); ++i) {
-    auto Hdx_tl =
-        obs_operators[i].applyTangentLinear(dx, state, observations[i]);
+    auto Hdx_tl = obs_operators[i].applyTangentLinear(control_var, state,
+                                                      observations[i]);
     Hdx_tl_vectors.push_back(std::move(Hdx_tl));
   }
 
@@ -307,10 +321,12 @@ bool checkCostFunctionGradient(const CostFunction<BackendTag>& cost_func,
                                double tol = 1e-6, double epsilon = 1e-2) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
-  auto grad = Increment<BackendTag>::createFromEntity(state);
+  auto grad =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   cost_func.gradient(state, grad);
 
-  auto dx = Increment<BackendTag>::createFromEntity(state);
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   dx.randomize();
 
   auto state_perturbed = state.clone();
@@ -340,11 +356,13 @@ bool checkCostFunctionGradientImproved(
     double tol = 1e-6) {
   Logger<BackendTag>& logger = Logger<BackendTag>::Instance();
 
-  auto grad = Increment<BackendTag>::createFromEntity(state);
+  auto grad =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   cost_func.gradient(state, grad);
 
   // Create perturbation with variable-specific scaling
-  auto dx = Increment<BackendTag>::createFromEntity(state);
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   dx.randomize();
 
   // Scale perturbation by variable magnitudes for better numerical stability
@@ -393,11 +411,13 @@ bool checkCostFunctionGradientMultipleDirections(
   std::vector<double> analytic_values;
 
   for (size_t i = 0; i < num_directions; ++i) {
-    auto grad = Increment<BackendTag>::createFromEntity(state);
+    auto grad =
+        Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
     cost_func.gradient(state, grad);
 
     // Create perturbation with variable-specific scaling
-    auto dx = Increment<BackendTag>::createFromEntity(state);
+    auto dx =
+        Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
     dx.randomize();
 
     // Scale perturbation by variable magnitudes for better numerical stability
@@ -468,21 +488,29 @@ bool checkCostFunctionGradientUnitDirections(
 
   logger.Info() << "Testing gradient with unit vector directions...";
 
-  auto grad = Increment<BackendTag>::createFromEntity(state);
+  auto grad =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
   cost_func.gradient(state, grad);
 
   std::vector<double> rel_errors;
   size_t state_size = state.size();
 
-  // Create dx and data pointer once outside the loop
-  auto dx = Increment<BackendTag>::createFromEntity(state);
-  auto* data = dx.state().template getDataPtr<double>();
+  // Create dx and a temporary state for setting unit vectors
+  auto dx =
+      Increment<BackendTag>::createFromGeometry(state.geometry()->backend());
+  auto temp_state = state.clone();
+  temp_state.zero();
 
   // Test unit vectors along each dimension
   for (size_t i = 0; i < std::min(state_size, size_t(10));
        ++i) {  // Limit to first 10 dimensions
-    dx.zero();
-    data[i] = 1.0;  // Unit vector in direction i
+    // Create unit vector in direction i using temporary state
+    temp_state.zero();
+    auto* data = temp_state.template getDataPtr<double>();
+    data[i] = 1.0;
+
+    // Transfer to increment
+    dx.backend().transferFromState(temp_state.backend());
 
     // Scale the unit vector
     double state_norm = state.norm();

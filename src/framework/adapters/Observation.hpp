@@ -1,7 +1,6 @@
 #pragma once
 
-#include <memory>
-#include <stdexcept>
+#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -68,13 +67,32 @@ class Observation : private NonCopyable {
   ~Observation() = default;
 
   /**
-   * @brief Constructor that initializes observation with configuration
+   * @brief Constructor that initializes observation with configuration only
+   *
+   * @details This constructor creates an observation without geometry
+   * filtering. The backend will create its own geometry instance if needed.
    *
    * @param config Configuration object containing initialization parameters
    */
   explicit Observation(const Config<BackendTag>& config)
       : backend_(config.backend()), initialized_(true) {
-    logger_.Info() << "Observation constructed";
+    logger_.Info() << "Observation constructed (no geometry filtering)";
+  }
+
+  /**
+   * @brief Constructor that initializes observation with configuration and
+   * geometry
+   *
+   * @details This constructor creates an observation with geometry filtering.
+   * Only observations within the geometry domain will be included.
+   *
+   * @param config Configuration object containing initialization parameters
+   * @param geometry Geometry object for domain filtering
+   */
+  template <typename GeometryType>
+  Observation(const Config<BackendTag>& config, const GeometryType& geometry)
+      : backend_(config.backend(), geometry.backend()), initialized_(true) {
+    logger_.Info() << "Observation constructed (with geometry filtering)";
   }
 
   /**
@@ -166,6 +184,24 @@ class Observation : private NonCopyable {
   }
 
   /**
+   * @brief Get information about applied filters
+   *
+   * @details Returns a summary of what filtering was applied during observation
+   * loading, including data types, variables, and geographic bounds.
+   * Delegates to the concrete backend implementation when available.
+   *
+   * @return String containing filtering information
+   */
+  std::string getFilteringInfo() const {
+    // Use constexpr if to check if the backend has getFilteringInfo method
+    if constexpr (requires { backend_.getFilteringInfo(); }) {
+      return backend_.getFilteringInfo();
+    } else {
+      return "Filtering information not available from this backend";
+    }
+  }
+
+  /**
    * @brief Equality operator
    *
    * @details Compares this observation with another for equality by delegating
@@ -216,6 +252,14 @@ class Observation : private NonCopyable {
   template <typename T>
   T getData() const {
     return backend_.template getData<T>();
+  }
+
+  /**
+   * @brief Get all observation values as a flat vector
+   * @return Vector containing all observation values in order
+   */
+  std::vector<double> getObservationValues() const {
+    return backend_.getObservationValues();
   }
 
   /**
@@ -528,6 +572,78 @@ class Observation : private NonCopyable {
    * @return True if R is diagonal, false for full covariance matrix
    */
   bool isDiagonalCovariance() const { return backend_.isDiagonalCovariance(); }
+
+  /**
+   * @brief Stream insertion operator for observation summary
+   *
+   * @details Outputs a comprehensive summary of the observation data including:
+   * - Total number of observations
+   * - Summary for each observation type
+   * - Number of variables per type
+   * - Total observations per type
+   * - Coordinate system information
+   *
+   * @param os Output stream to write to
+   * @param obs Observation object to summarize
+   * @return Reference to the output stream
+   */
+  friend std::ostream& operator<<(std::ostream& os, const Observation& obs) {
+    os << "=== Observation Summary ===\n";
+    os << "Total observations: " << obs.size() << "\n";
+    os << "Initialized: " << (obs.isInitialized() ? "Yes" : "No") << "\n";
+    os << "Coordinate system: Geographic\n\n";
+
+    const auto& type_names = obs.getTypeNames();
+    if (type_names.empty()) {
+      os << "No observation types defined\n";
+    } else {
+      os << "Observation Types (" << type_names.size() << "):\n";
+      os << std::string(50, '-') << "\n";
+
+      for (const auto& type_name : type_names) {
+        const auto& var_names = obs.getVariableNames(type_name);
+        size_t total_obs_for_type = 0;
+
+        // Count total observations for this type across all variables
+        for (const auto& var_name : var_names) {
+          total_obs_for_type += obs.getSize(type_name, var_name);
+        }
+
+        os << "Type: " << std::setw(15) << std::left << type_name;
+        os << " | Variables: " << std::setw(3) << std::right
+           << var_names.size();
+        os << " | Total obs: " << std::setw(6) << std::right
+           << total_obs_for_type << "\n";
+
+        // Show variable details if there are any
+        if (!var_names.empty()) {
+          os << "  Variables: ";
+          for (size_t i = 0; i < var_names.size(); ++i) {
+            if (i > 0) os << ", ";
+            os << var_names[i] << "(" << obs.getSize(type_name, var_names[i])
+               << ")";
+          }
+          os << "\n";
+        }
+        os << "\n";
+      }
+    }
+
+    // Show covariance information
+    os << "Covariance Information:\n";
+    os << std::string(50, '-') << "\n";
+    os << "Diagonal: " << (obs.isDiagonalCovariance() ? "Yes" : "No") << "\n";
+
+    const auto& cov = obs.getCovariance();
+    if (!cov.empty()) {
+      double min_error = *std::min_element(cov.begin(), cov.end());
+      double max_error = *std::max_element(cov.begin(), cov.end());
+      os << "Error variance range: [" << min_error << ", " << max_error
+         << "]\n";
+    }
+
+    return os;
+  }
 
  private:
   /**

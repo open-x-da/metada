@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include "BackendTraits.hpp"
@@ -54,8 +53,12 @@ class BackgroundErrorCovariance : public NonCopyable {
   explicit BackgroundErrorCovariance(const Config<BackendTag>& config)
       : backend_(config.backend()),
         representation_(determineRepresentation(config)),
-        localization_enabled_(config.Get("localization_enabled").asBool()),
-        localization_radius_(config.Get("localization_radius").asFloat()) {
+        localization_enabled_(config.HasKey("localization_enabled")
+                                  ? config.Get("localization_enabled").asBool()
+                                  : false),
+        localization_radius_(config.HasKey("localization_radius")
+                                 ? config.Get("localization_radius").asFloat()
+                                 : 0.0) {
     logger_.Info() << "BackgroundErrorCovariance constructed with "
                    << getRepresentationName() << " representation";
 
@@ -84,8 +87,6 @@ class BackgroundErrorCovariance : public NonCopyable {
    * @return Quadratic form value
    */
   double quadraticForm(const Increment<BackendTag>& increment) const {
-    logger_.Debug() << "Computing quadratic form x^T B^-1 x";
-
     switch (representation_) {
       case Representation::Diagonal:
         return computeQuadraticFormDiagonal(increment);
@@ -109,8 +110,6 @@ class BackgroundErrorCovariance : public NonCopyable {
    */
   Increment<BackendTag> applyInverse(
       const Increment<BackendTag>& increment) const {
-    logger_.Debug() << "Applying B^-1";
-
     switch (representation_) {
       case Representation::Diagonal:
         return applyInverseDiagonal(increment);
@@ -218,6 +217,11 @@ class BackgroundErrorCovariance : public NonCopyable {
    * @brief Determine representation from configuration
    */
   Representation determineRepresentation(const Config<BackendTag>& config) {
+    if (!config.HasKey("background_covariance_type")) {
+      // Default to diagonal for simplicity
+      return Representation::Diagonal;
+    }
+
     std::string type = config.Get("background_covariance_type").asString();
     if (type == "diagonal") return Representation::Diagonal;
     if (type == "ensemble") return Representation::EnsembleBased;
@@ -233,33 +237,33 @@ class BackgroundErrorCovariance : public NonCopyable {
   double computeQuadraticFormDiagonal(
       const Increment<BackendTag>& increment) const {
     // For diagonal B: x^T B^-1 x = sum_i (x_i^2 / sigma_i^2)
-    return backend_.computeQuadraticFormDiagonal(increment.state().backend());
+    return backend_.computeQuadraticFormDiagonal(increment.backend());
   }
 
   Increment<BackendTag> applyInverseDiagonal(
       const Increment<BackendTag>& increment) const {
     // For diagonal B: B^-1 x = x_i / sigma_i^2
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyInverseDiagonal(increment.state().backend(),
-                                  result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyInverseDiagonal(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applyDiagonal(
       const Increment<BackendTag>& increment) const {
     // For diagonal B: B x = x_i * sigma_i^2
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyDiagonal(increment.state().backend(),
-                           result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyDiagonal(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applySquareRootDiagonal(
       const Increment<BackendTag>& increment) const {
     // For diagonal B: B^1/2 x = x_i * sigma_i
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applySquareRootDiagonal(increment.state().backend(),
-                                     result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applySquareRootDiagonal(increment.backend(), result.backend());
     return result;
   }
 
@@ -267,118 +271,120 @@ class BackgroundErrorCovariance : public NonCopyable {
   double computeQuadraticFormEnsemble(
       const Increment<BackendTag>& increment) const {
     // For ensemble B: x^T B^-1 x using ensemble perturbations
-    return backend_.computeQuadraticFormEnsemble(increment.state().backend());
+    return backend_.computeQuadraticFormEnsemble(increment.backend());
   }
 
   Increment<BackendTag> applyInverseEnsemble(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyInverseEnsemble(increment.state().backend(),
-                                  result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyInverseEnsemble(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applyEnsemble(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyEnsemble(increment.state().backend(),
-                           result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyEnsemble(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applySquareRootEnsemble(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applySquareRootEnsemble(increment.state().backend(),
-                                     result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applySquareRootEnsemble(increment.backend(), result.backend());
     return result;
   }
 
   // Parametric representation methods
   double computeQuadraticFormParametric(
       const Increment<BackendTag>& increment) const {
-    return backend_.computeQuadraticFormParametric(increment.state().backend());
+    return backend_.computeQuadraticFormParametric(increment.backend());
   }
 
   Increment<BackendTag> applyInverseParametric(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyInverseParametric(increment.state().backend(),
-                                    result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyInverseParametric(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applyParametric(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyParametric(increment.state().backend(),
-                             result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyParametric(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applySquareRootParametric(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applySquareRootParametric(increment.state().backend(),
-                                       result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applySquareRootParametric(increment.backend(), result.backend());
     return result;
   }
 
   // Hybrid representation methods
   double computeQuadraticFormHybrid(
       const Increment<BackendTag>& increment) const {
-    return backend_.computeQuadraticFormHybrid(increment.state().backend());
+    return backend_.computeQuadraticFormHybrid(increment.backend());
   }
 
   Increment<BackendTag> applyInverseHybrid(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyInverseHybrid(increment.state().backend(),
-                                result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyInverseHybrid(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applyHybrid(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyHybrid(increment.state().backend(), result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyHybrid(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applySquareRootHybrid(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applySquareRootHybrid(increment.state().backend(),
-                                   result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applySquareRootHybrid(increment.backend(), result.backend());
     return result;
   }
 
   // Full matrix representation methods
   double computeQuadraticFormFull(
       const Increment<BackendTag>& increment) const {
-    return backend_.computeQuadraticFormFull(increment.state().backend());
+    return backend_.computeQuadraticFormFull(increment.backend());
   }
 
   Increment<BackendTag> applyInverseFull(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyInverseFull(increment.state().backend(),
-                              result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyInverseFull(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applyFull(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applyFull(increment.state().backend(), result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applyFull(increment.backend(), result.backend());
     return result;
   }
 
   Increment<BackendTag> applySquareRootFull(
       const Increment<BackendTag>& increment) const {
-    auto result = Increment<BackendTag>::createFromEntity(increment.state());
-    backend_.applySquareRootFull(increment.state().backend(),
-                                 result.state().backend());
+    auto result =
+        Increment<BackendTag>::createFromGeometry(increment.geometry());
+    backend_.applySquareRootFull(increment.backend(), result.backend());
     return result;
   }
 
