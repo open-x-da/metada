@@ -23,21 +23,21 @@ contains
     type(c_ptr) :: ptr
     
     type(geometry_type), pointer :: geom
-    real(c_double) :: x_min_d, x_max_d, y_min_d, y_max_d, z_min_d, z_max_d
+    real :: x_min_f, x_max_f, y_min_f, y_max_f, z_min_f, z_max_f
     
     ! Allocate new geometry object
     allocate(geom)
     
-    ! Convert C float inputs to double
-    x_min_d = real(x_min, c_double)
-    x_max_d = real(x_max, c_double)
-    y_min_d = real(y_min, c_double)
-    y_max_d = real(y_max, c_double)
-    z_min_d = real(z_min, c_double)
-    z_max_d = real(z_max, c_double)
+    ! Convert C float inputs to Fortran real (single precision)
+    x_min_f = real(x_min)
+    x_max_f = real(x_max)
+    y_min_f = real(y_min)
+    y_max_f = real(y_max)
+    z_min_f = real(z_min)
+    z_max_f = real(z_max)
     
     ! Initialize with provided bounds
-    call geom%init(x_min_d, x_max_d, y_min_d, y_max_d, z_min_d, z_max_d)
+    call geom%init(x_min_f, x_max_f, y_min_f, y_max_f, z_min_f, z_max_f)
     
     ! Return pointer to C
     ptr = c_loc(geom)
@@ -82,17 +82,17 @@ contains
     real(c_float), intent(out) :: min_val, max_val
     
     type(geometry_type), pointer :: geom
-    real(c_double) :: min_val_d, max_val_d
+    real :: min_val_f, max_val_f
     
     ! Convert C pointer to Fortran pointer
     call c_f_pointer(geom_ptr, geom)
     
     ! Get the range
-    call geom%get_x_range(min_val_d, max_val_d)
+    call geom%get_x_range(min_val_f, max_val_f)
     
-    ! Convert double outputs to C float
-    min_val = real(min_val_d, c_float)
-    max_val = real(max_val_d, c_float)
+    ! Convert Fortran real outputs to C float
+    min_val = real(min_val_f, c_float)
+    max_val = real(max_val_f, c_float)
   end subroutine c_geometry_get_x_range
   
   !> Get the y-axis range
@@ -101,17 +101,17 @@ contains
     real(c_float), intent(out) :: min_val, max_val
     
     type(geometry_type), pointer :: geom
-    real(c_double) :: min_val_d, max_val_d
+    real :: min_val_f, max_val_f
     
     ! Convert C pointer to Fortran pointer
     call c_f_pointer(geom_ptr, geom)
     
     ! Get the range
-    call geom%get_y_range(min_val_d, max_val_d)
+    call geom%get_y_range(min_val_f, max_val_f)
     
-    ! Convert double outputs to C float
-    min_val = real(min_val_d, c_float)
-    max_val = real(max_val_d, c_float)
+    ! Convert Fortran real outputs to C float
+    min_val = real(min_val_f, c_float)
+    max_val = real(max_val_f, c_float)
   end subroutine c_geometry_get_y_range
   
   !> Get the z-axis range
@@ -120,17 +120,17 @@ contains
     real(c_float), intent(out) :: min_val, max_val
     
     type(geometry_type), pointer :: geom
-    real(c_double) :: min_val_d, max_val_d
+    real :: min_val_f, max_val_f
     
     ! Convert C pointer to Fortran pointer
     call c_f_pointer(geom_ptr, geom)
     
     ! Get the range
-    call geom%get_z_range(min_val_d, max_val_d)
+    call geom%get_z_range(min_val_f, max_val_f)
     
-    ! Convert double outputs to C float
-    min_val = real(min_val_d, c_float)
-    max_val = real(max_val_d, c_float)
+    ! Convert Fortran real outputs to C float
+    min_val = real(min_val_f, c_float)
+    max_val = real(max_val_f, c_float)
   end subroutine c_geometry_get_z_range
   
 end module geometry_c_bindings 
