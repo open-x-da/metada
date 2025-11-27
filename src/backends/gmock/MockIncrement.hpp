@@ -90,7 +90,22 @@ class MockIncrement {
   void transferFromState(const StateBackend& state_backend) {
     const double* state_data =
         static_cast<const double*>(state_backend.getData());
-    std::copy(state_data, state_data + data_.size(), data_.begin());
+    if (state_data == nullptr) {
+      // State has no data, zero out the increment
+      zero();
+      return;
+    }
+
+    // Get the actual size of the state data
+    size_t state_size = state_backend.size();
+
+    // Resize increment to match state size, or copy minimum if sizes differ
+    if (data_.size() != state_size) {
+      data_.resize(state_size);
+    }
+
+    // Copy only the available elements
+    std::copy(state_data, state_data + state_size, data_.begin());
   }
 
   // Stub methods for compatibility with WRFIncrement interface
