@@ -93,7 +93,7 @@ template <typename BackendTag>
 class State : private NonCopyable {
  public:
   using StateBackend = typename traits::BackendTraits<BackendTag>::StateBackend;
-  using Geometry = Geometry<BackendTag>;
+  using Geometry = metada::framework::Geometry<BackendTag>;
 
   // Constructors
   State() = delete;  // Disable default constructor since we need a backend
