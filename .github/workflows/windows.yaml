@@ -103,7 +103,7 @@ jobs:
     - name: Build
       run: |
         cd build
-        cmake --build . --verbose
+        cmake --build . # --verbose
 
     - name: Test
       run: |

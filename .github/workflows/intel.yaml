@@ -96,7 +96,7 @@ jobs:
       shell: bash
       run: |
         cd build
-        cmake --build . --verbose
+        cmake --build . # --verbose
 
     - name: Test
       shell: bash
