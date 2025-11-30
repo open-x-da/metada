@@ -65,6 +65,7 @@ jobs:
           mingw-w64-x86_64-compiler-rt
           mingw-w64-clang-x86_64-compiler-rt
           mingw-w64-x86_64-eigen3
+          mingw-w64-x86_64-ng-log
           
     - name: Install xtl and xtensor
       run: |
