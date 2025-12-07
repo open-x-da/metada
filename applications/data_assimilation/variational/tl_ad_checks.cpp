@@ -57,7 +57,8 @@ void printCheckResults(const std::vector<CheckResult>& results) {
 
   std::cout << std::left << std::setw(40) << "Test Name" << std::setw(10)
             << "Status" << std::setw(15) << "Rel Error" << std::setw(15)
-            << "Tolerance" << "\n";
+            << "Tolerance"
+            << "\n";
   std::cout << std::string(80, '-') << "\n";
 
   for (const auto& result : results) {

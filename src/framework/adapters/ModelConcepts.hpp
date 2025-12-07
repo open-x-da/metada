@@ -48,26 +48,33 @@ namespace metada::framework {
  * @see HasDeletedCopyAssignment
  */
 template <typename T, typename ConfigBackend, typename StateBackend>
-concept ModelBackendImpl =
-    requires(T& model, const T& const_model, const ConfigBackend& config,
-             const StateBackend& initialState, StateBackend& finalState,
-             const std::string& name, const std::string& value) {
-      // Construction and initialization
-      { T(config) } -> std::same_as<T>;
-      { model.initialize(config) } -> std::same_as<void>;
+concept ModelBackendImpl = requires(T& model, const T& const_model,
+                                    const ConfigBackend& config,
+                                    const StateBackend& initialState,
+                                    StateBackend& finalState,
+                                    const std::string& name,
+                                    const std::string& value) {
+  // Construction and initialization
+  { T(config) }
+  ->std::same_as<T>;
+  { model.initialize(config) }
+  ->std::same_as<void>;
 
-      // Lifecycle management
-      { model.reset() } -> std::same_as<void>;
-      { model.finalize() } -> std::same_as<void>;
+  // Lifecycle management
+  { model.reset() }
+  ->std::same_as<void>;
+  { model.finalize() }
+  ->std::same_as<void>;
 
-      // Model execution
-      { model.run(initialState, finalState) } -> std::same_as<void>;
+  // Model execution
+  { model.run(initialState, finalState) }
+  ->std::same_as<void>;
 
-      // Resource management constraints
-      requires HasDeletedDefaultConstructor<T>;
-      requires HasDeletedCopyConstructor<T>;
-      requires HasDeletedCopyAssignment<T>;
-    };
+  // Resource management constraints
+  requires HasDeletedDefaultConstructor<T>;
+  requires HasDeletedCopyConstructor<T>;
+  requires HasDeletedCopyAssignment<T>;
+};
 
 /**
  * @brief Concept that defines requirements for a model backend tag type
@@ -91,9 +98,9 @@ concept ModelBackendImpl =
  */
 template <typename T>
 concept ModelBackendType =
-    HasModelBackend<T> && HasConfigBackend<T> && HasStateBackend<T> &&
-    ModelBackendImpl<typename traits::BackendTraits<T>::ModelBackend,
-                     typename traits::BackendTraits<T>::ConfigBackend,
-                     typename traits::BackendTraits<T>::StateBackend>;
+    HasModelBackend<T>&& HasConfigBackend<T>&& HasStateBackend<T>&&
+        ModelBackendImpl<typename traits::BackendTraits<T>::ModelBackend,
+                         typename traits::BackendTraits<T>::ConfigBackend,
+                         typename traits::BackendTraits<T>::StateBackend>;
 
 }  // namespace metada::framework

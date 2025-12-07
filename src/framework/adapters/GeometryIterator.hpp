@@ -31,8 +31,7 @@ namespace metada::framework {
 
 // Forward declaration
 template <typename BackendTag>
-  requires ConfigBackendType<BackendTag>
-class Config;
+requires ConfigBackendType<BackendTag> class Config;
 
 /**
  * @brief Iterator class for traversing geometry grid points
@@ -64,8 +63,7 @@ class Config;
  * @see GeometryBackendType
  */
 template <typename BackendTag>
-  requires GeometryIteratorBackendType<BackendTag>
-class GeometryIterator {
+requires GeometryIteratorBackendType<BackendTag> class GeometryIterator {
  public:
   /** @brief Backend iterator type from traits */
   using GeometryIteratorBackend =

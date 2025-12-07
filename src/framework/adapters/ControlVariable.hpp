@@ -8,8 +8,7 @@ namespace metada::framework {
 
 // Forward declare Geometry to avoid circular dependency
 template <typename BackendTag>
-  requires GeometryBackendType<BackendTag>
-class Geometry;
+requires GeometryBackendType<BackendTag> class Geometry;
 
 /**
  * @brief Adapter class for control variables in incremental variational DA

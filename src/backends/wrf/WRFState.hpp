@@ -15,13 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#if defined(_WIN32) || defined(__APPLE__)
-#include <xtensor/containers/xadapt.hpp>
-#include <xtensor/containers/xarray.hpp>
-#else
-#include <xtensor/xadapt.hpp>
-#include <xtensor/xarray.hpp>
-#endif
+
 #include "WRFGridInfo.hpp"
 #include "wrfda/WRFDAStateTransforms.hpp"
 
@@ -269,40 +263,6 @@ class WRFState {
    */
   const void* getData(const std::string& variableName) const;
 
-  /**
-   * @brief Get mutable reference to variable array
-   *
-   * @details Returns a direct reference to the xtensor array for the specified
-   * variable, allowing full array operations and element access.
-   *
-   * @param[in] variableName Name of the variable to access
-   * @return xt::xarray<double>& Reference to the variable's data array
-   * @throws std::out_of_range If variable doesn't exist
-   */
-  xt::xarray<double> getVariable(const std::string& variableName) {
-    const auto& dims = dimensions_.at(variableName);
-    size_t offset = variable_offsets_.at(variableName);
-    // Create a view into the flattened data
-    return xt::adapt(flattened_data_.data() + offset, dims);
-  }
-
-  /**
-   * @brief Get const reference to variable array
-   *
-   * @details Returns a direct const reference to the xtensor array for the
-   * specified variable, allowing read-only array operations and element access.
-   *
-   * @param[in] variableName Name of the variable to access
-   * @return const xt::xarray<double>& Const reference to the variable's data
-   * array
-   * @throws std::out_of_range If variable doesn't exist
-   */
-  xt::xarray<double> getVariable(const std::string& variableName) const {
-    const auto& dims = dimensions_.at(variableName);
-    size_t offset = variable_offsets_.at(variableName);
-    // Create a view into the flattened data
-    return xt::adapt(flattened_data_.data() + offset, dims);
-  }
   ///@}
 
   ///@{ @name Variable Management

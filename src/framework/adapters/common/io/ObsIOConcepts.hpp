@@ -41,23 +41,26 @@ namespace metada::framework {
  * @tparam ConfigBackend The configuration backend type
  */
 template <typename T, typename ConfigBackend>
-concept ObsIOBackendImpl =
-    requires(T& t, const T& ct, const std::vector<ObsRecord>& records,
-             ConfigBackend&& config) {
-      // Constructor from Config
-      { T(std::move(config)) } -> std::same_as<T>;
+concept ObsIOBackendImpl = requires(T& t, const T& ct,
+                                    const std::vector<ObsRecord>& records,
+                                    ConfigBackend&& config) {
+  // Constructor from Config
+  { T(std::move(config)) }
+  ->std::same_as<T>;
 
-      // Reading method
-      { t.read() } -> std::same_as<std::vector<ObsRecord>>;
+  // Reading method
+  { t.read() }
+  ->std::same_as<std::vector<ObsRecord>>;
 
-      // Writing method
-      { t.write(records) } -> std::same_as<void>;
+  // Writing method
+  { t.write(records) }
+  ->std::same_as<void>;
 
-      // Proper implementation constraints
-      requires HasDeletedDefaultConstructor<T>;
-      requires HasDeletedCopyConstructor<T>;
-      requires HasDeletedCopyAssignment<T>;
-    };
+  // Proper implementation constraints
+  requires HasDeletedDefaultConstructor<T>;
+  requires HasDeletedCopyConstructor<T>;
+  requires HasDeletedCopyAssignment<T>;
+};
 
 /**
  * @brief Concept that defines requirements for an observation I/O backend tag
@@ -75,8 +78,7 @@ concept ObsIOBackendImpl =
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept ObsIOBackendType =
-    HasObsIOBackend<T> && HasConfigBackend<T> &&
+concept ObsIOBackendType = HasObsIOBackend<T>&& HasConfigBackend<T>&&
     ObsIOBackendImpl<typename traits::BackendTraits<T>::ObsIOBackend,
                      typename traits::BackendTraits<T>::ConfigBackend>;
 }  // namespace metada::framework

@@ -25,8 +25,7 @@ namespace metada::framework {
 
 // Forward declarations
 template <typename BackendTag>
-  requires ConfigBackendType<BackendTag>
-class Config;
+requires ConfigBackendType<BackendTag> class Config;
 
 /**
  * @brief Framework adapter for incremental minimization algorithms
@@ -45,8 +44,8 @@ class Config;
  * @tparam BackendTag The backend tag type
  */
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
-class IncrementalMinimization : public NonCopyable {
+requires StateBackendType<BackendTag> class IncrementalMinimization
+    : public NonCopyable {
  public:
   /**
    * @brief Cost function type definition for control-space formulation

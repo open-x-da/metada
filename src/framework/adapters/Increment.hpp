@@ -8,8 +8,7 @@ namespace metada::framework {
 
 // Forward declare Geometry to avoid circular dependency
 template <typename BackendTag>
-  requires GeometryBackendType<BackendTag>
-class Geometry;
+requires GeometryBackendType<BackendTag> class Geometry;
 
 template <typename BackendTag>
 class Increment {
@@ -106,9 +105,8 @@ Increment<BackendTag> operator*(double scalar,
 
 // Output operator
 template <typename BackendTag>
-  requires IncrementBackendType<BackendTag>
-inline std::ostream& operator<<(std::ostream& os,
-                                const Increment<BackendTag>& increment) {
+requires IncrementBackendType<BackendTag> inline std::ostream& operator<<(
+    std::ostream& os, const Increment<BackendTag>& increment) {
   os << "Increment(norm=" << increment.norm() << ")";
   return os;
 }

@@ -53,61 +53,76 @@ concept ObservationBackendImpl =
              double scalar, size_t index, double min_lat, double max_lat,
              double min_lon, double max_lon, double min_level, double max_level,
              double error, double missing_value) {
-      // Iteration capabilities
-      { ct.begin() } -> std::convertible_to<typename T::iterator_type>;
-      { ct.end() } -> std::convertible_to<typename T::iterator_type>;
-      { ct.size() } -> std::convertible_to<size_t>;
-      { ct[index] } -> std::convertible_to<const typename T::value_type&>;
+  // Iteration capabilities
+  { ct.begin() }
+  ->std::convertible_to<typename T::iterator_type>;
+  { ct.end() }
+  ->std::convertible_to<typename T::iterator_type>;
+  { ct.size() }
+  ->std::convertible_to<size_t>;
+  { ct[index] }
+  ->std::convertible_to<const typename T::value_type&>;
 
-      // Data access
-      { t.getData() } -> std::same_as<void*>;
-      { ct.getData() } -> std::same_as<const void*>;
+  // Data access
+  { t.getData() }
+  ->std::same_as<void*>;
+  { ct.getData() }
+  ->std::same_as<const void*>;
 
-      // Observation values access
-      { ct.getObservationValues() } -> std::convertible_to<std::vector<double>>;
+  // Observation values access
+  { ct.getObservationValues() }
+  ->std::convertible_to<std::vector<double>>;
 
-      // Variable information
-      { ct.getTypeNames() } -> std::convertible_to<std::vector<std::string>>;
-      {
-        ct.getVariableNames(typeName)
-      } -> std::convertible_to<std::vector<std::string>>;
+  // Variable information
+  { ct.getTypeNames() }
+  ->std::convertible_to<std::vector<std::string>>;
+  { ct.getVariableNames(typeName) }
+  ->std::convertible_to<std::vector<std::string>>;
 
-      // Covariance matrix
-      { ct.getCovariance() } -> std::convertible_to<std::vector<double>>;
+  // Covariance matrix
+  { ct.getCovariance() }
+  ->std::convertible_to<std::vector<double>>;
 
-      // Cloning
-      { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;
+  // Cloning
+  { ct.clone() }
+  ->std::convertible_to<std::unique_ptr<T>>;
 
-      // Vector arithmetic
-      { t.add(other) } -> std::same_as<void>;
-      { t.subtract(other) } -> std::same_as<void>;
-      { t.multiply(scalar) } -> std::same_as<void>;
+  // Vector arithmetic
+  { t.add(other) }
+  ->std::same_as<void>;
+  { t.subtract(other) }
+  ->std::same_as<void>;
+  { t.multiply(scalar) }
+  ->std::same_as<void>;
 
-      // Comparison
-      { ct.equals(other) } -> std::convertible_to<bool>;
+  // Comparison
+  { ct.equals(other) }
+  ->std::convertible_to<bool>;
 
-      // Lifecycle management
-      { t.initialize() } -> std::same_as<void>;
-      { t.applyQC() } -> std::same_as<void>;
+  // Lifecycle management
+  { t.initialize() }
+  ->std::same_as<void>;
+  { t.applyQC() }
+  ->std::same_as<void>;
 
-      // Filtering information (temporarily disabled due to C++20 concepts issue
-      // with GridObservation)
-      // TODO: Re-enable once GridObservation compilation issue is resolved
-      // { ct.getFilteringInfo() } -> std::convertible_to<std::string>;
+  // Filtering information (temporarily disabled due to C++20 concepts issue
+  // with GridObservation)
+  // TODO: Re-enable once GridObservation compilation issue is resolved
+  // { ct.getFilteringInfo() } -> std::convertible_to<std::string>;
 
-      // File I/O
-      //{ t.loadFromFile(filename, error, missing_value) } ->
-      // std::same_as<void>; { ct.saveToFile(filename) } -> std::same_as<void>;
+  // File I/O
+  //{ t.loadFromFile(filename, error, missing_value) } ->
+  // std::same_as<void>; { ct.saveToFile(filename) } -> std::same_as<void>;
 
-      // Geographic filtering
-      /*{
-        ct.getObservationsInBox(min_lat, max_lat, min_lon, max_lon)
-      } -> std::convertible_to<std::vector<typename T::value_type>>;
-      {
-        ct.getObservationsInVerticalRange(min_level, max_level)
-      } -> std::convertible_to<std::vector<typename T::value_type>>;
-      */
-    };
+  // Geographic filtering
+  /*{
+    ct.getObservationsInBox(min_lat, max_lat, min_lon, max_lon)
+  } -> std::convertible_to<std::vector<typename T::value_type>>;
+  {
+    ct.getObservationsInVerticalRange(min_level, max_level)
+  } -> std::convertible_to<std::vector<typename T::value_type>>;
+  */
+};
 
 /**
  * @brief Concept that defines requirements for an observation backend tag type
@@ -128,7 +143,6 @@ concept ObservationBackendImpl =
  */
 template <typename T>
 concept ObservationBackendType =
-    HasObservationBackend<T> && HasConfigBackend<T> &&
-    ObservationBackendImpl<
+    HasObservationBackend<T>&& HasConfigBackend<T>&& ObservationBackendImpl<
         typename traits::BackendTraits<T>::ObservationBackend>;
 }  // namespace metada::framework

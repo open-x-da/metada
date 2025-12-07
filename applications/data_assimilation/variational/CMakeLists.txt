@@ -35,6 +35,12 @@ if(WITH_WRFDA)
           metada::framework::algorithms
           metada::backends::wrf
     )
+    
+    # Link MPI libraries when MPI is enabled (required for WRFDA parallel operations)
+    if(METADA_USE_MPI)
+        target_link_libraries(tl_ad_checks PRIVATE MPI::MPI_CXX)
+        target_link_libraries(incremental_variational PRIVATE MPI::MPI_CXX)
+    endif()
 
     # If WRFDA is enabled and we have a complete build environment, use linker group to resolve circular deps
     # Only link WRFDA libraries if we're not using the stub implementation
@@ -47,6 +53,14 @@ if(WITH_WRFDA)
                 target_link_libraries(incremental_variational PRIVATE ${WRFDA_DA_CONTROL_OBJ})
             endif()
             
+            # Add module_quilt_outbuf_ops.o (required for quilt I/O operations)
+            # This provides retrieve_pieces_of_field, store_piece_of_field, add_to_bufsize_for_field
+            set(WRFDA_QUILT_OPS_OBJ "${WRFDA_MOD_DIR}/module_quilt_outbuf_ops.o")
+            if (EXISTS ${WRFDA_QUILT_OPS_OBJ})
+                target_link_libraries(tl_ad_checks PRIVATE ${WRFDA_QUILT_OPS_OBJ})
+                target_link_libraries(incremental_variational PRIVATE ${WRFDA_QUILT_OPS_OBJ})
+            endif()
+            
             # Link NetCDF Fortran library (required by WRFDA)
             find_library(NETCDF_FORTRAN_LIBRARY NAMES netcdff)
             if(NETCDF_FORTRAN_LIBRARY)
@@ -57,6 +71,12 @@ if(WITH_WRFDA)
             # Set CRTM library path (used by both executables)
             set(CRTM_LIBRARY_PATH "${WRFDA_MOD_DIR}/../external/crtm_2.3.0/libsrc/libCRTM.a")
             
+            # Set RSL library path (required for MPI parallel communication in WRFDA)
+            if(METADA_USE_MPI)
+                get_filename_component(WRF_ROOT_DIR "${WRFDA_MOD_DIR}/../.." ABSOLUTE)
+                set(RSL_LIBRARY_PATH "${WRF_ROOT_DIR}/external/RSL_LITE/librsl_lite.a")
+            endif()
+            
             # Configure tl_ad_checks linking
             # Use linker group to handle circular dependencies between WRFDA libraries
             # Note: Library order matters - dependencies must come after dependents
@@ -66,6 +86,10 @@ if(WITH_WRFDA)
             if(EXISTS ${CRTM_LIBRARY_PATH})
                 target_link_libraries(tl_ad_checks PRIVATE ${CRTM_LIBRARY_PATH})
             endif()
+            # Link RSL library when MPI is enabled (required for parallel communication)
+            if(METADA_USE_MPI AND EXISTS ${RSL_LIBRARY_PATH})
+                target_link_libraries(tl_ad_checks PRIVATE ${RSL_LIBRARY_PATH})
+            endif()
             target_link_options(tl_ad_checks PRIVATE -Wl,--end-group)
             
             # Configure incremental_variational linking
@@ -74,6 +98,10 @@ if(WITH_WRFDA)
             # Link CRTM library AFTER libwrfvar.a (since libwrfvar depends on CRTM)
             if(EXISTS ${CRTM_LIBRARY_PATH})
                 target_link_libraries(incremental_variational PRIVATE ${CRTM_LIBRARY_PATH})
+            endif()
+            # Link RSL library when MPI is enabled (required for parallel communication)
+            if(METADA_USE_MPI AND EXISTS ${RSL_LIBRARY_PATH})
+                target_link_libraries(incremental_variational PRIVATE ${RSL_LIBRARY_PATH})
             endif()
             target_link_options(incremental_variational PRIVATE -Wl,--end-group)
         endif()

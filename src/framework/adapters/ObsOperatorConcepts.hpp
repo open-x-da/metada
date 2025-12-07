@@ -38,20 +38,24 @@ concept ObsOperatorBackendImpl = requires(
     T& t, const T& ct, const ConfigBackend& config, const StateBackend& state,
     ObsBackend& obs, const ControlVarBackend& control_backend) {
   // Constructor: allow either (config) or (config, control_backend)
-  requires requires { T(config); } || requires { T(config, control_backend); };
+  requires requires { T(config); }
+  || requires { T(config, control_backend); };
 
   // Initialization
-  { t.initialize(config) } -> std::same_as<void>;
-  { t.isInitialized() } -> std::same_as<bool>;
+  { t.initialize(config) }
+  ->std::same_as<void>;
+  { t.isInitialized() }
+  ->std::same_as<bool>;
 
   // Apply method
-  { ct.apply(state, obs) } -> std::same_as<std::vector<double>>;
+  { ct.apply(state, obs) }
+  ->std::same_as<std::vector<double>>;
 
   // Required variables
-  {
-    ct.getRequiredStateVars()
-  } -> std::same_as<const std::vector<std::string>&>;
-  { ct.getRequiredObsVars() } -> std::same_as<const std::vector<std::string>&>;
+  { ct.getRequiredStateVars() }
+  ->std::same_as<const std::vector<std::string>&>;
+  { ct.getRequiredObsVars() }
+  ->std::same_as<const std::vector<std::string>&>;
 
   // Resource management constraints
   requires HasDeletedDefaultConstructor<T>;
@@ -77,14 +81,13 @@ concept ObsOperatorBackendImpl = requires(
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept ObsOperatorBackendType =
-    HasObsOperatorBackend<T> && HasConfigBackend<T> && HasStateBackend<T> &&
-    HasObservationBackend<T> && HasControlVariableBackend<T> &&
-    ObsOperatorBackendImpl<
-        typename traits::BackendTraits<T>::ObsOperatorBackend,
-        typename traits::BackendTraits<T>::ConfigBackend,
-        typename traits::BackendTraits<T>::StateBackend,
-        typename traits::BackendTraits<T>::ObservationBackend,
-        typename traits::BackendTraits<T>::ControlVariableBackend>;
+concept ObsOperatorBackendType = HasObsOperatorBackend<T>&&
+    HasConfigBackend<T>&& HasStateBackend<T>&& HasObservationBackend<T>&&
+        HasControlVariableBackend<T>&& ObsOperatorBackendImpl<
+            typename traits::BackendTraits<T>::ObsOperatorBackend,
+            typename traits::BackendTraits<T>::ConfigBackend,
+            typename traits::BackendTraits<T>::StateBackend,
+            typename traits::BackendTraits<T>::ObservationBackend,
+            typename traits::BackendTraits<T>::ControlVariableBackend>;
 
 }  // namespace metada::framework

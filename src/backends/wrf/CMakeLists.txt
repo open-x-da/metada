@@ -1,7 +1,14 @@
 # Find required dependencies
-metada_find_package(xtl CONFIG)
-metada_find_package(xtensor CONFIG)
 metada_find_package(netcdf-cxx4)
+
+# Find optional xtl/xtensor dependencies (controlled by WITH_XTL option)
+if(WITH_XTL)
+    metada_find_package(xtl CONFIG)
+    metada_find_package(xtensor CONFIG)
+    message(STATUS "WRF backend: xtl/xtensor support enabled")
+else()
+    message(STATUS "WRF backend: xtl/xtensor support disabled")
+endif()
 
 # WRF Configuration Bridge Library
 # This library provides C++ interface to WRF's Fortran configuration system
@@ -61,6 +68,11 @@ if(WITH_WRFDA AND WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
         "${WRF_ROOT_DIR}/external/esmf_time_f90/libesmf_time.a"
         "${WRF_ROOT_DIR}/var/build/libesmf_time.a"
     )
+    
+    # Add RSL library when MPI is enabled (required for parallel communication)
+    if(METADA_USE_MPI)
+        list(APPEND WRF_CONFIG_LIBRARIES "${WRF_ROOT_DIR}/external/RSL_LITE/librsl_lite.a")
+    endif()
     
     # Link WRF libraries to Fortran library
     foreach(LIB_PATH ${WRF_CONFIG_LIBRARIES})
@@ -157,10 +169,14 @@ target_link_libraries(wrf_backends
     INTERFACE
         metada::base
         NetCDF::CXX4
-        xtensor
         wrf_config_bridge
         wrfda_state_transforms
 )
+
+# Conditionally link xtensor if enabled
+if(WITH_XTL)
+    target_link_libraries(wrf_backends INTERFACE xtensor)
+endif()
 
 # Add format target
 AddFormatTarget(wrf_backends ${CMAKE_CURRENT_SOURCE_DIR}) 

@@ -61,7 +61,8 @@ inline std::ostream& operator<<(std::ostream& os, const ObsRecord& record) {
      << "Datetime    : " << s.datetime.iso8601() << "\n";
   os << "----------------------------------------\n";
   os << std::setw(12) << "Var" << std::setw(15) << "Value" << std::setw(10)
-     << "QC" << std::setw(10) << "Unit" << "\n";
+     << "QC" << std::setw(10) << "Unit"
+     << "\n";
   os << "----------------------------------------\n";
   for (const auto& level : record.levels) {
     for (const auto& rec : level) {

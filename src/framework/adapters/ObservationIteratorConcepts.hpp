@@ -47,7 +47,7 @@ concept ObservationIteratorBackendImpl = requires(T it, const T& const_it) {
   typename T::reference;
 
   // Default constructor
-  { T() };
+  {T()};
 
   // Dereference
   *it;
@@ -56,18 +56,23 @@ concept ObservationIteratorBackendImpl = requires(T it, const T& const_it) {
   const_it.operator->();
 
   // Pre-increment
-  { ++it } -> std::same_as<T&>;
+  { ++it }
+  ->std::same_as<T&>;
 
   // Post-increment (result type not checked, just that it exists)
   it++;
 
   // Equality comparison
-  { it == it } -> std::same_as<bool>;
-  { const_it == const_it } -> std::same_as<bool>;
+  { it == it }
+  ->std::same_as<bool>;
+  { const_it == const_it }
+  ->std::same_as<bool>;
 
   // Inequality comparison
-  { it != it } -> std::same_as<bool>;
-  { const_it != const_it } -> std::same_as<bool>;
+  { it != it }
+  ->std::same_as<bool>;
+  { const_it != const_it }
+  ->std::same_as<bool>;
 };
 
 /**
@@ -90,8 +95,7 @@ concept ObservationIteratorBackendImpl = requires(T it, const T& const_it) {
  */
 template <typename T>
 concept ObservationIteratorBackendType =
-    HasObservationIteratorBackend<T> &&
-    ObservationIteratorBackendImpl<
+    HasObservationIteratorBackend<T>&& ObservationIteratorBackendImpl<
         typename traits::BackendTraits<T>::ObservationIteratorBackend>;
 
 }  // namespace metada::framework

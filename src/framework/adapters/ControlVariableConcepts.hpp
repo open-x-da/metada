@@ -49,39 +49,53 @@ namespace metada::framework {
  * @tparam GeometryBackend The geometry backend type
  */
 template <typename T, typename GeometryBackend>
-concept ControlVariableBackendImpl =
-    requires(T& t, const T& ct, const T& other, double alpha,
-             const GeometryBackend& geometry) {
-      // Construction from geometry
-      { T(geometry) } -> std::same_as<T>;
+concept ControlVariableBackendImpl = requires(T& t, const T& ct, const T& other,
+                                              double alpha,
+                                              const GeometryBackend& geometry) {
+  // Construction from geometry
+  { T(geometry) }
+  ->std::same_as<T>;
 
-      // Vector space operations in control space
-      { t.zero() } -> std::same_as<void>;
-      { t.scale(alpha) } -> std::same_as<void>;
-      { t.axpy(alpha, other) } -> std::same_as<void>;
+  // Vector space operations in control space
+  { t.zero() }
+  ->std::same_as<void>;
+  { t.scale(alpha) }
+  ->std::same_as<void>;
+  { t.axpy(alpha, other) }
+  ->std::same_as<void>;
 
-      // Inner product operations in control space
-      { ct.dot(other) } -> std::convertible_to<double>;
-      { ct.norm() } -> std::convertible_to<double>;
+  // Inner product operations in control space
+  { ct.dot(other) }
+  ->std::convertible_to<double>;
+  { ct.norm() }
+  ->std::convertible_to<double>;
 
-      // Arithmetic operators in control space
-      { t += other } -> std::same_as<T&>;
-      { t -= other } -> std::same_as<T&>;
-      { t *= alpha } -> std::same_as<T&>;
-      { t /= alpha } -> std::same_as<T&>;
+  // Arithmetic operators in control space
+  { t += other }
+  ->std::same_as<T&>;
+  { t -= other }
+  ->std::same_as<T&>;
+  { t *= alpha }
+  ->std::same_as<T&>;
+  { t /= alpha }
+  ->std::same_as<T&>;
 
-      // Geometry access
-      { ct.geometry() } -> std::convertible_to<const GeometryBackend&>;
+  // Geometry access
+  { ct.geometry() }
+  ->std::convertible_to<const GeometryBackend&>;
 
-      // Generic data access for optimization algorithms
-      { ct.getData() } -> std::convertible_to<std::vector<double>>;
+  // Generic data access for optimization algorithms
+  { ct.getData() }
+  ->std::convertible_to<std::vector<double>>;
 
-      // Randomization for testing
-      { t.randomize() } -> std::same_as<void>;
+  // Randomization for testing
+  { t.randomize() }
+  ->std::same_as<void>;
 
-      // Set from vector (for initialization from optimization algorithm)
-      { t.setFromVector(std::vector<double>{}) } -> std::same_as<void>;
-    };
+  // Set from vector (for initialization from optimization algorithm)
+  { t.setFromVector(std::vector<double>{}) }
+  ->std::same_as<void>;
+};
 
 /**
  * @brief Concept that defines requirements for a control variable backend tag
@@ -103,9 +117,8 @@ concept ControlVariableBackendImpl =
  * @see HasGeometryBackend
  */
 template <typename T>
-concept ControlVariableBackendType =
-    HasControlVariableBackend<T> && HasGeometryBackend<T> &&
-    ControlVariableBackendImpl<
+concept ControlVariableBackendType = HasControlVariableBackend<T>&&
+    HasGeometryBackend<T>&& ControlVariableBackendImpl<
         typename traits::BackendTraits<T>::ControlVariableBackend,
         typename traits::BackendTraits<T>::GeometryBackend>;
 

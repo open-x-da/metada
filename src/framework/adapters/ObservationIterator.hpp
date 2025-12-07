@@ -31,8 +31,7 @@ namespace metada::framework {
 
 // Forward declaration
 template <typename BackendTag>
-  requires ConfigBackendType<BackendTag>
-class Config;
+requires ConfigBackendType<BackendTag> class Config;
 
 /**
  * @brief Iterator class for traversing observation data points
@@ -64,8 +63,7 @@ class Config;
  * @see ObservationBackendType
  */
 template <typename BackendTag>
-  requires ObservationIteratorBackendType<BackendTag>
-class ObservationIterator {
+requires ObservationIteratorBackendType<BackendTag> class ObservationIterator {
  public:
   /** @brief Backend iterator type from traits */
   using ObservationIteratorBackend =

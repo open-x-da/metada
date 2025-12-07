@@ -188,7 +188,8 @@ TEST_F(LoggerTest, ComplexStreamLogging) {
   EXPECT_CALL(logger->backend(),
               LogMessage(LogLevel::Info, "User 123 logged in from 192.168.1.1"))
       .Times(1);
-  logger->Info() << "User " << 123 << " logged in from " << "192.168.1.1";
+  logger->Info() << "User " << 123 << " logged in from "
+                 << "192.168.1.1";
 
   // Test with numeric types
   EXPECT_CALL(logger->backend(),

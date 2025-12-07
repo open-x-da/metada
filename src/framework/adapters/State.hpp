@@ -47,8 +47,7 @@ namespace metada::framework {
  * @brief Forward declaration of Config class
  */
 template <typename BackendTag>
-  requires ConfigBackendType<BackendTag>
-class Config;
+requires ConfigBackendType<BackendTag> class Config;
 
 /**
  * @brief Forward declaration of Increment class
@@ -410,9 +409,8 @@ State<BackendTag> operator+(const State<BackendTag>& state,
 
 // Output operator
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
-inline std::ostream& operator<<(std::ostream& os,
-                                const State<BackendTag>& state) {
+requires StateBackendType<BackendTag> inline std::ostream& operator<<(
+    std::ostream& os, const State<BackendTag>& state) {
   return os << state.backend();
 }
 

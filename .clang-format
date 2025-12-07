@@ -52,5 +52,4 @@ IncludeCategories:
 
 # Namespace formatting
 FixNamespaceComments: true
-ShortNamespaceLines: 1
 --- 

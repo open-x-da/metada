@@ -28,8 +28,7 @@ namespace metada::framework {
  * @brief Forward declaration of Config class
  */
 template <typename BackendTag>
-  requires ConfigBackendType<BackendTag>
-class Config;
+requires ConfigBackendType<BackendTag> class Config;
 
 /**
  * @brief Forward declaration of State class
@@ -53,8 +52,7 @@ class State;
  * BackendTraits
  */
 template <typename BackendTag>
-  requires ModelBackendType<BackendTag>
-class Model : private NonCopyable {
+requires ModelBackendType<BackendTag> class Model : private NonCopyable {
  public:
   using ModelBackend = typename traits::BackendTraits<BackendTag>::ModelBackend;
 

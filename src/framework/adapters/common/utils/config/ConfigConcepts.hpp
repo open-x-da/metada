@@ -46,27 +46,39 @@ namespace metada::framework {
  * @see HasDeletedCopyAssignment
  */
 template <typename T>
-concept ConfigBackendImpl = requires(
-    T& t, const T& ct, const std::string& key, const std::string& filename,
-    const ConfigValue& value, const ConfigMap& map) {
+concept ConfigBackendImpl = requires(T& t, const T& ct, const std::string& key,
+                                     const std::string& filename,
+                                     const ConfigValue& value,
+                                     const ConfigMap& map) {
   // File construction and loading
-  { T(filename) } -> std::same_as<T>;
-  { T(map) } -> std::same_as<T>;
-  { t.LoadFromFile(filename) } -> std::same_as<bool>;
-  { t.LoadFromString(filename) } -> std::same_as<bool>;
+  { T(filename) }
+  ->std::same_as<T>;
+  { T(map) }
+  ->std::same_as<T>;
+  { t.LoadFromFile(filename) }
+  ->std::same_as<bool>;
+  { t.LoadFromString(filename) }
+  ->std::same_as<bool>;
 
   // Value access
-  { t.Get(key) } -> std::same_as<ConfigValue>;
-  { t.Set(key, value) } -> std::same_as<void>;
-  { t.HasKey(key) } -> std::same_as<bool>;
+  { t.Get(key) }
+  ->std::same_as<ConfigValue>;
+  { t.Set(key, value) }
+  ->std::same_as<void>;
+  { t.HasKey(key) }
+  ->std::same_as<bool>;
 
   // Persistence
-  { t.SaveToFile(filename) } -> std::same_as<bool>;
-  { t.ToString() } -> std::same_as<std::string>;
+  { t.SaveToFile(filename) }
+  ->std::same_as<bool>;
+  { t.ToString() }
+  ->std::same_as<std::string>;
 
   // Structure management
-  { t.Clear() } -> std::same_as<void>;
-  { t.CreateSubsection(key) } -> std::same_as<T>;
+  { t.Clear() }
+  ->std::same_as<void>;
+  { t.CreateSubsection(key) }
+  ->std::same_as<T>;
 
   // Resource management constraints
   requires HasDeletedCopyConstructor<T>;
@@ -90,8 +102,7 @@ concept ConfigBackendImpl = requires(
  * @see ConfigBackendImpl
  */
 template <typename T>
-concept ConfigBackendType =
-    HasConfigBackend<T> &&
+concept ConfigBackendType = HasConfigBackend<T>&&
     ConfigBackendImpl<typename traits::BackendTraits<T>::ConfigBackend>;
 
 }  // namespace metada::framework

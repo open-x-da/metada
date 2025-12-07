@@ -17,8 +17,7 @@ namespace metada::framework {
 
 // Forward declarations
 template <typename BackendTag>
-  requires ConfigBackendType<BackendTag>
-class Config;
+requires ConfigBackendType<BackendTag> class Config;
 
 template <typename BackendTag>
 class Increment;
@@ -46,8 +45,7 @@ class Increment;
  * @tparam BackendTag The backend tag type
  */
 template <typename BackendTag>
-  requires StateBackendType<BackendTag>
-class CostFunction : public NonCopyable {
+requires StateBackendType<BackendTag> class CostFunction : public NonCopyable {
  public:
   /** @brief Default constructor is deleted */
   CostFunction() = delete;

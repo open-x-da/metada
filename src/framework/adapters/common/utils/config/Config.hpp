@@ -70,8 +70,7 @@ namespace metada::framework {
  * @see BackendTraits
  */
 template <typename BackendTag>
-  requires ConfigBackendType<BackendTag>
-class Config : public NonCopyable {
+requires ConfigBackendType<BackendTag> class Config : public NonCopyable {
  public:
   using ConfigBackend =
       typename traits::BackendTraits<BackendTag>::ConfigBackend;

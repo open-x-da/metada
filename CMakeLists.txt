@@ -35,6 +35,12 @@ metada_find_package(nlohmann_json OPTIONAL CONFIG QUIET)
 
 metada_find_package(ng-log OPTIONAL CONFIG QUIET)
 
+# Find xtl/xtensor libraries for array operations (optional)
+option(WITH_XTL "Enable xtl/xtensor support for WRF backend array operations" OFF)
+if(WITH_XTL)
+    add_compile_definitions(METADA_WITH_XTL)
+endif()
+
 # Find Arrow/Parquet libraries for observation data I/O (optional)
 option(WITH_ARROW "Enable Arrow/Parquet support for observation data I/O" OFF)
 if(WITH_ARROW)
@@ -52,6 +58,19 @@ endif()
 option(WITH_WRFDA "Enable WRFDA support for WRF backend" OFF)
 if(WITH_WRFDA)
     add_compile_definitions(METADA_WITH_WRFDA)
+endif()
+
+# Configure MPI support (optional)
+option(METADA_USE_MPI "Enable MPI support for parallel execution" OFF)
+if(METADA_USE_MPI)
+    find_package(MPI COMPONENTS CXX REQUIRED)
+    add_compile_definitions(METADA_USE_MPI)
+    message(STATUS "MPI support enabled")
+    message(STATUS "  MPI CXX compiler: ${MPI_CXX_COMPILER}")
+    message(STATUS "  MPI CXX include dirs: ${MPI_CXX_INCLUDE_DIRS}")
+    message(STATUS "  MPI CXX libraries: ${MPI_CXX_LIBRARIES}")
+else()
+    message(STATUS "MPI support disabled (serial execution only)")
 endif()
 
 # Configure CUDA support
