@@ -12,7 +12,8 @@ MPIContext::MPIContext()
       my_rank_(0),
       initialized_mpi_(false)
 #else
-    : owns_comm_(false),
+    : comm_(MPIContext::DummyComm{}),
+      owns_comm_(false),
       num_procs_(1),
       my_rank_(0),
       initialized_mpi_(false)
@@ -80,7 +81,8 @@ MPIContext::MPIContext(MPIContext&& other) noexcept
       my_rank_(other.my_rank_),
       initialized_mpi_(other.initialized_mpi_)
 #else
-    : owns_comm_(other.owns_comm_),
+    : comm_(other.comm_),
+      owns_comm_(other.owns_comm_),
       num_procs_(other.num_procs_),
       my_rank_(other.my_rank_),
       initialized_mpi_(other.initialized_mpi_)

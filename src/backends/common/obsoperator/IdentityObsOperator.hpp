@@ -257,18 +257,6 @@ class IdentityObsOperator {
                     state.at(state_var_name, std::declval<size_t>());
                   }) {
       return idw4InterpolationVariable(state, x, y, z, state_var_name);
-    } else if constexpr (requires {
-                           std::declval<StateBackend>().getVariable(
-                               state_var_name);
-                         }) {
-      auto var_data = state.getVariable(state_var_name);
-      size_t nx = static_cast<size_t>(state.geometry().x_dim());
-      size_t ny = static_cast<size_t>(state.geometry().y_dim());
-      size_t nz = 1;
-      if constexpr (requires { state.geometry().z_dim(); }) {
-        nz = state.geometry().z_dim();
-      }
-      return idw4InterpolationArray(var_data, x, y, z, nx, ny, nz);
     } else {
       size_t nx = static_cast<size_t>(state.geometry().x_dim());
       size_t ny = static_cast<size_t>(state.geometry().y_dim());
@@ -737,23 +725,6 @@ class IdentityObsOperator {
             "State backend does not support any recognized access methods for "
             "variable IDW.");
       }
-      weight_sum += w;
-    }
-    return weighted_sum / weight_sum;
-  }
-
-  /**
-   * @brief 4-point IDW interpolation for a specific variable (array-based)
-   */
-  double idw4InterpolationArray(const std::vector<double>& var_data, double x,
-                                double y, double z, size_t nx, size_t ny,
-                                size_t nz) const {
-    auto neighbors = find4NearestGridPoints(x, y, z, nx, ny, nz);
-    double weighted_sum = 0.0, weight_sum = 0.0;
-    for (const auto& [ii, jj, kk, dist] : neighbors) {
-      double w = (dist == 0.0) ? 1e12 : 1.0 / dist;
-      size_t linear_index = kk * (ny * nx) + jj * nx + ii;
-      weighted_sum += w * var_data[linear_index];
       weight_sum += w;
     }
     return weighted_sum / weight_sum;
