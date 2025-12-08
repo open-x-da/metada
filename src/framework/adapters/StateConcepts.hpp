@@ -45,55 +45,43 @@ namespace metada::framework {
  * @tparam GeometryBackend The geometry backend type
  */
 template <typename T, typename ConfigBackend, typename GeometryBackend>
-concept StateBackendImpl = requires(T& t, const T& ct, const T& other,
-                                    double scalar, const ConfigBackend& config,
-                                    const GeometryBackend& geometry,
-                                    const std::string& filename) {
-  // Data access
-  { t.getData() }
-  ->std::same_as<void*>;
-  { ct.getData() }
-  ->std::same_as<const void*>;
+concept StateBackendImpl =
+    requires(T& t, const T& ct, const T& other, double scalar,
+             const ConfigBackend& config, const GeometryBackend& geometry,
+             const std::string& filename) {
+      // Data access
+      { t.getData() } -> std::same_as<void*>;
+      { ct.getData() } -> std::same_as<const void*>;
 
-  // Variable information
-  { ct.getVariableNames() }
-  ->std::same_as<const std::vector<std::string>&>;
-  { ct.size() }
-  ->std::convertible_to<size_t>;
+      // Variable information
+      {
+        ct.getVariableNames()
+      } -> std::same_as<const std::vector<std::string>&>;
+      { ct.size() } -> std::convertible_to<size_t>;
 
-  // Construction and cloning
-  { T(config, geometry) }
-  ->std::same_as<T>;
-  { ct.clone() }
-  ->std::convertible_to<std::unique_ptr<T>>;
+      // Construction and cloning
+      { T(config, geometry) } -> std::same_as<T>;
+      { ct.clone() } -> std::convertible_to<std::unique_ptr<T>>;
 
-  // Vector arithmetic
-  { t.zero() }
-  ->std::same_as<void>;
-  { t.add(other) }
-  ->std::same_as<void>;
-  { t.subtract(other) }
-  ->std::same_as<void>;
-  { t.multiply(scalar) }
-  ->std::same_as<void>;
-  { ct.dot(other) }
-  ->std::convertible_to<double>;
-  { ct.norm() }
-  ->std::convertible_to<double>;
+      // Vector arithmetic
+      { t.zero() } -> std::same_as<void>;
+      { t.add(other) } -> std::same_as<void>;
+      { t.subtract(other) } -> std::same_as<void>;
+      { t.multiply(scalar) } -> std::same_as<void>;
+      { ct.dot(other) } -> std::convertible_to<double>;
+      { ct.norm() } -> std::convertible_to<double>;
 
-  // Comparison
-  { ct.equals(other) }
-  ->std::convertible_to<bool>;
+      // Comparison
+      { ct.equals(other) } -> std::convertible_to<bool>;
 
-  // File I/O operations
-  { ct.saveToFile(filename) }
-  ->std::same_as<void>;
+      // File I/O operations
+      { ct.saveToFile(filename) } -> std::same_as<void>;
 
-  // Resource management constraints
-  requires HasDeletedDefaultConstructor<T>;
-  requires HasDeletedCopyConstructor<T>;
-  requires HasDeletedCopyAssignment<T>;
-};
+      // Resource management constraints
+      requires HasDeletedDefaultConstructor<T>;
+      requires HasDeletedCopyConstructor<T>;
+      requires HasDeletedCopyAssignment<T>;
+    };
 
 /**
  * @brief Additional concept to check for increment addition support
@@ -107,8 +95,7 @@ concept StateBackendImpl = requires(T& t, const T& ct, const T& other,
  */
 template <typename T, typename IncrementBackend>
 concept HasAddIncrement = requires(T& t, const IncrementBackend& inc) {
-  { t.addIncrement(inc) }
-  ->std::same_as<void>;
+  { t.addIncrement(inc) } -> std::same_as<void>;
 };
 
 /**
@@ -132,9 +119,9 @@ concept HasAddIncrement = requires(T& t, const IncrementBackend& inc) {
  */
 template <typename T>
 concept StateBackendType =
-    HasStateBackend<T>&& HasConfigBackend<T>&& HasGeometryBackend<T>&&
-        StateBackendImpl<typename traits::BackendTraits<T>::StateBackend,
-                         typename traits::BackendTraits<T>::ConfigBackend,
-                         typename traits::BackendTraits<T>::GeometryBackend>;
+    HasStateBackend<T> && HasConfigBackend<T> && HasGeometryBackend<T> &&
+    StateBackendImpl<typename traits::BackendTraits<T>::StateBackend,
+                     typename traits::BackendTraits<T>::ConfigBackend,
+                     typename traits::BackendTraits<T>::GeometryBackend>;
 
 }  // namespace metada::framework

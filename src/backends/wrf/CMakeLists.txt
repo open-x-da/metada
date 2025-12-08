@@ -113,7 +113,27 @@ add_library(wrfda_state_transforms_bridge_fortran STATIC
 
 # Link WRFDA if available
 if(WITH_WRFDA AND WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
-    target_include_directories(wrfda_state_transforms_bridge_fortran PUBLIC ${WRFDA_MOD_DIR})
+    # Convert to absolute path if relative
+    get_filename_component(WRFDA_MOD_DIR_ABS "${WRFDA_MOD_DIR}" ABSOLUTE)
+    target_include_directories(wrfda_state_transforms_bridge_fortran PUBLIC ${WRFDA_MOD_DIR_ABS})
+    
+    # Get WRF root directory (reuse from config bridge if available, otherwise calculate)
+    if(NOT DEFINED WRF_ROOT_DIR)
+        get_filename_component(WRF_ROOT_DIR "${WRFDA_MOD_DIR_ABS}/../.." ABSOLUTE)
+        message(STATUS "WRFDA state transforms: calculated WRF root directory: ${WRF_ROOT_DIR}")
+    endif()
+    
+    # Add WRF source directories for .inc files (needed by wrfda_control_backend.F90)
+    # This allows includes like #include "da_dot.inc" instead of hardcoded paths
+    set(WRF_DA_MINIMISATION_DIR "${WRF_ROOT_DIR}/var/da/da_minimisation")
+    if(EXISTS ${WRF_DA_MINIMISATION_DIR})
+        message(STATUS "WRFDA state transforms: adding WRF da_minimisation include dir: ${WRF_DA_MINIMISATION_DIR}")
+        target_include_directories(wrfda_state_transforms_bridge_fortran PUBLIC ${WRF_DA_MINIMISATION_DIR})
+    else()
+        message(WARNING "WRFDA state transforms: WRF da_minimisation directory not found at ${WRF_DA_MINIMISATION_DIR}")
+        message(WARNING "WRFDA state transforms: WRFDA_MOD_DIR was: ${WRFDA_MOD_DIR}")
+        message(WARNING "WRFDA state transforms: WRF_ROOT_DIR calculated as: ${WRF_ROOT_DIR}")
+    endif()
     
     # Link same WRF libraries as config bridge
     foreach(LIB_PATH ${WRF_CONFIG_LIBRARIES})

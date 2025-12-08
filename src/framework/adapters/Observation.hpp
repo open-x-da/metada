@@ -20,7 +20,8 @@ namespace metada::framework {
  * concept
  */
 template <typename BackendTag>
-requires ConfigBackendType<BackendTag> class Config;
+  requires ConfigBackendType<BackendTag>
+class Config;
 
 /**
  * @brief Adapter class for observation implementations in data assimilation
@@ -52,8 +53,8 @@ requires ConfigBackendType<BackendTag> class Config;
  * @see NonCopyable
  */
 template <typename BackendTag>
-requires ObservationBackendType<BackendTag> class Observation
-    : private NonCopyable {
+  requires ObservationBackendType<BackendTag>
+class Observation : private NonCopyable {
  public:
   /** @brief Type alias for the backend implementation type */
   using ObservationBackend =

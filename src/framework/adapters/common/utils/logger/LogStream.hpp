@@ -32,7 +32,8 @@ namespace metada::framework {
  * @tparam ConfigBackend The configuration backend type required by the logger
  */
 template <typename LoggerBackend, typename ConfigBackend>
-requires LoggerBackendImpl<LoggerBackend, ConfigBackend> class LogStream {
+  requires LoggerBackendImpl<LoggerBackend, ConfigBackend>
+class LogStream {
  public:
   /**
    * @brief Constructor that associates the stream with a logger and level

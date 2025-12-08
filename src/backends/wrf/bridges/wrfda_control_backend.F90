@@ -463,12 +463,13 @@ contains
 
   ! Include da_dot.inc first (needed by da_dot_cv)
   ! This defines da_dot function
-  ! Path: from src/backends/wrf/bridges/ go up 5 levels to workspace root, then to WRF
-#include "../../../../../WRF/var/da/da_minimisation/da_dot.inc"
+  ! Note: WRF da_minimisation directory is added to include path via CMake
+  ! (see src/backends/wrf/CMakeLists.txt)
+#include "da_dot.inc"
   
   ! Include da_dot_cv.inc (the actual implementation)
   ! This defines da_dot_cv function
-#include "../../../../../WRF/var/da/da_minimisation/da_dot_cv.inc"
+#include "da_dot_cv.inc"
 
 end module wrfda_control_backend_bridge
 

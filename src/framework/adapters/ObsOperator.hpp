@@ -19,10 +19,12 @@ namespace metada::framework {
 
 // Forward declaration
 template <typename BackendTag>
-requires ConfigBackendType<BackendTag> class Config;
+  requires ConfigBackendType<BackendTag>
+class Config;
 
 template <typename BackendTag>
-requires ObservationBackendType<BackendTag> class Observation;
+  requires ObservationBackendType<BackendTag>
+class Observation;
 
 template <typename BackendTag>
 class State;
@@ -58,8 +60,8 @@ class ControlVariableBackend;
  * @see NonCopyable
  */
 template <typename BackendTag>
-requires ObsOperatorBackendType<BackendTag> class ObsOperator
-    : public NonCopyable {
+  requires ObsOperatorBackendType<BackendTag>
+class ObsOperator : public NonCopyable {
  public:
   /** @brief Type alias for the backend implementation type */
   using ObsOperatorBackend =
@@ -505,8 +507,8 @@ requires ObsOperatorBackendType<BackendTag> class ObsOperator
 
 // Implementation of applyAdjoint for ObsOperator
 template <typename BackendTag>
-requires ObsOperatorBackendType<BackendTag> ControlVariable<BackendTag>
-ObsOperator<BackendTag>::applyAdjoint(
+  requires ObsOperatorBackendType<BackendTag>
+ControlVariable<BackendTag> ObsOperator<BackendTag>::applyAdjoint(
     const std::vector<double>& obs_adjoint,
     const State<BackendTag>& reference_state,
     const Observation<BackendTag>& obs) const {

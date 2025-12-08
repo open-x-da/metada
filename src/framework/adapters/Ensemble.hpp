@@ -17,13 +17,15 @@ namespace metada::framework {
  * @brief Forward declaration of Config class
  */
 template <typename BackendTag>
-requires ConfigBackendType<BackendTag> class Config;
+  requires ConfigBackendType<BackendTag>
+class Config;
 
 /**
  * @brief Forward declaration of Geometry class
  */
 template <typename BackendTag>
-requires GeometryBackendType<BackendTag> class Geometry;
+  requires GeometryBackendType<BackendTag>
+class Geometry;
 
 /**
  * @brief Adapter class for ensemble of states in data assimilation systems
@@ -36,7 +38,8 @@ requires GeometryBackendType<BackendTag> class Geometry;
  * @tparam BackendTag The backend tag type that must satisfy StateBackendType
  */
 template <typename BackendTag>
-requires StateBackendType<BackendTag> class Ensemble : public NonCopyable {
+  requires StateBackendType<BackendTag>
+class Ensemble : public NonCopyable {
  public:
   using StateType = State<BackendTag>;
 

@@ -29,9 +29,8 @@ namespace metada::framework {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasConfigBackend = requires {
-  typename traits::BackendTraits<T>::ConfigBackend;
-};
+concept HasConfigBackend =
+    requires { typename traits::BackendTraits<T>::ConfigBackend; };
 
 /**
  * @brief Checks if a type provides a LoggerBackend type through BackendTraits
@@ -43,9 +42,8 @@ concept HasConfigBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasLoggerBackend = requires {
-  typename traits::BackendTraits<T>::LoggerBackend;
-};
+concept HasLoggerBackend =
+    requires { typename traits::BackendTraits<T>::LoggerBackend; };
 
 /**
  * @brief Checks if a type provides a GeometryBackend type through BackendTraits
@@ -61,9 +59,8 @@ concept HasLoggerBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasGeometryBackend = requires {
-  typename traits::BackendTraits<T>::GeometryBackend;
-};
+concept HasGeometryBackend =
+    requires { typename traits::BackendTraits<T>::GeometryBackend; };
 
 /**
  * @brief Checks if a type provides a GeometryIteratorBackend type through
@@ -77,9 +74,8 @@ concept HasGeometryBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasGeometryIteratorBackend = requires {
-  typename traits::BackendTraits<T>::GeometryIteratorBackend;
-};
+concept HasGeometryIteratorBackend =
+    requires { typename traits::BackendTraits<T>::GeometryIteratorBackend; };
 
 /**
  * @brief Checks if a type provides a StateBackend type through BackendTraits
@@ -92,9 +88,8 @@ concept HasGeometryIteratorBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasStateBackend = requires {
-  typename traits::BackendTraits<T>::StateBackend;
-};
+concept HasStateBackend =
+    requires { typename traits::BackendTraits<T>::StateBackend; };
 
 /**
  * @brief Checks if a type provides an IncrementBackend type through
@@ -108,9 +103,8 @@ concept HasStateBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasIncrementBackend = requires {
-  typename traits::BackendTraits<T>::IncrementBackend;
-};
+concept HasIncrementBackend =
+    requires { typename traits::BackendTraits<T>::IncrementBackend; };
 
 /**
  * @brief Checks if a type provides a ControlVariableBackend type through
@@ -126,9 +120,8 @@ concept HasIncrementBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasControlVariableBackend = requires {
-  typename traits::BackendTraits<T>::ControlVariableBackend;
-};
+concept HasControlVariableBackend =
+    requires { typename traits::BackendTraits<T>::ControlVariableBackend; };
 
 /**
  * @brief Checks if a type provides a ModelBackend type through BackendTraits
@@ -141,9 +134,8 @@ concept HasControlVariableBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasModelBackend = requires {
-  typename traits::BackendTraits<T>::ModelBackend;
-};
+concept HasModelBackend =
+    requires { typename traits::BackendTraits<T>::ModelBackend; };
 
 /**
  * @brief Checks if a type provides an ObservationBackend type through
@@ -157,9 +149,8 @@ concept HasModelBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasObservationBackend = requires {
-  typename traits::BackendTraits<T>::ObservationBackend;
-};
+concept HasObservationBackend =
+    requires { typename traits::BackendTraits<T>::ObservationBackend; };
 
 /**
  * @brief Checks if a type provides an ObsOperatorBackend type through
@@ -173,9 +164,8 @@ concept HasObservationBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasObsOperatorBackend = requires {
-  typename traits::BackendTraits<T>::ObsOperatorBackend;
-};
+concept HasObsOperatorBackend =
+    requires { typename traits::BackendTraits<T>::ObsOperatorBackend; };
 
 /**
  * @brief Checks if a type provides an ObservationIteratorBackend type through
@@ -189,9 +179,8 @@ concept HasObsOperatorBackend = requires {
  * @tparam T The backend tag type to check
  */
 template <typename T>
-concept HasObservationIteratorBackend = requires {
-  typename traits::BackendTraits<T>::ObservationIteratorBackend;
-};
+concept HasObservationIteratorBackend =
+    requires { typename traits::BackendTraits<T>::ObservationIteratorBackend; };
 
 /**
  * @brief Checks if a type provides an ObsIOBackend type through BackendTraits
@@ -201,9 +190,8 @@ concept HasObservationIteratorBackend = requires {
  * The ObsIOBackend is responsible for handling the observation I/O operations.
  */
 template <typename T>
-concept HasObsIOBackend = requires {
-  typename traits::BackendTraits<T>::ObsIOBackend;
-};
+concept HasObsIOBackend =
+    requires { typename traits::BackendTraits<T>::ObsIOBackend; };
 
 /**
  * @brief Concept that checks if a type has a constructor from a ConfigBackend
@@ -218,8 +206,9 @@ concept HasObsIOBackend = requires {
  */
 template <typename T, typename ConfigBackend>
 concept HasConfigConstructor = requires(const ConfigBackend& config) {
-  { T(config) }
-  ->std::same_as<T>;  // Check if T can be constructed from config
+  {
+    T(config)
+  } -> std::same_as<T>;  // Check if T can be constructed from config
 };
 
 /**
@@ -234,8 +223,7 @@ concept HasConfigConstructor = requires(const ConfigBackend& config) {
  */
 template <typename T>
 concept HasClone = requires(const T& t) {
-  { t.clone() }
-  ->std::convertible_to<std::unique_ptr<T>>;
+  { t.clone() } -> std::convertible_to<std::unique_ptr<T>>;
 };
 
 /**
@@ -289,8 +277,7 @@ concept HasDeletedCopyAssignment = !std::is_copy_assignable_v<T>;
  */
 template <typename T, typename ConfigBackend>
 concept HasInitialize = requires(T& component, const ConfigBackend& config) {
-  { component.initialize(config) }
-  ->std::same_as<void>;
+  { component.initialize(config) } -> std::same_as<void>;
 };
 
 }  // namespace metada::framework

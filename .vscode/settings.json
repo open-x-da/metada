@@ -1,41 +1,37 @@
 {
-    "cmake.cmakePath": "C:/msys64/mingw64/bin/cmake.exe",
+    "cmake.cmakePath": "/opt/homebrew/bin/cmake",
     "cmake.generator": "Ninja",
+    "cmake.environment": {
+        "PATH": "/opt/homebrew/bin:${env:PATH}"
+    },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "C:/msys64/mingw64/bin/gcc.exe",
-        "CMAKE_CXX_COMPILER": "C:/msys64/mingw64/bin/g++.exe"
+        "CMAKE_MAKE_PROGRAM": "/opt/homebrew/bin/ninja"
     },
     "cmake.configureArgs": [
         "-DCMAKE_VERBOSE_MAKEFILE=OFF",
-        "-DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe",
-        "-DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe",
         "-DLOGGER_BACKEND=NGLOG",
         "-DCONFIG_BACKEND=YAML",
         "-DWITH_WRFDA=ON",
-        "-DWRFDA_ROOT=D:/linux/metada_wrf",
-        "-DWRFDA_VAR_LIB=D:/linux/metada_wrf/var/build/libwrfvar.a",
-        "-DWRFDA_MOD_DIR=D:/linux/metada_wrf/var/build"
+        "-DWRFDA_ROOT=/Users/xinzhang/metada_wrf",
+        "-DWRFDA_VAR_LIB=/Users/xinzhang/metada_wrf/var/build/libwrfvar.a",
+        "-DWRFDA_MOD_DIR=/Users/xinzhang/metada_wrf/var/build",
+        "-DMETADA_USE_MPI=ON",
+        "-DMPI_CXX_COMPILER=/opt/homebrew/bin/mpicxx"
     ],
-    "terminal.integrated.defaultProfile.windows": "MSYS2 Bash",
-    "terminal.integrated.profiles.windows": {
-        "MSYS2 Bash": {
-            "path": "C:/msys64/usr/bin/bash.exe",
-            "args": ["--login", "-i"],
-            "env": {
-                "MSYSTEM": "MINGW64",
-                "CHERE_INVOKING": "1"
-            }
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.profiles.osx": {
+        "zsh": {
+            "path": "/bin/zsh"
+        },
+        "bash": {
+            "path": "/bin/bash"
         }
     },
-    "terminal.integrated.env.windows": {
-        "MSYSTEM": "MINGW64",
-        "CHERE_INVOKING": "1"
-    },
-    "fortran.fortls.path": "C:/msys64/usr/bin/fortls.exe",
+    "fortran.fortls.path": "fortls",
     "fortran.fortls.includePaths": [
-        "D:/linux/metada_wrf/frame",
-        "D:/linux/metada_wrf/var/da"
+        "${env:WRFDA_ROOT}/frame",
+        "${env:WRFDA_ROOT}/var/da"
     ],
     "cmake.buildDirectory": "${workspaceFolder}/build",
     "files.associations": {

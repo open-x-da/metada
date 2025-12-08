@@ -14,7 +14,8 @@ namespace metada::framework {
 
 // Forward declarations
 template <typename BackendTag>
-requires ConfigBackendType<BackendTag> class Config;
+  requires ConfigBackendType<BackendTag>
+class Config;
 
 /**
  * @brief Framework adapter for minimization algorithms
@@ -28,7 +29,8 @@ requires ConfigBackendType<BackendTag> class Config;
  * @tparam BackendTag The backend tag type
  */
 template <typename BackendTag>
-requires StateBackendType<BackendTag> class Minimization : public NonCopyable {
+  requires StateBackendType<BackendTag>
+class Minimization : public NonCopyable {
  public:
   /**
    * @brief Cost function type definition for framework types

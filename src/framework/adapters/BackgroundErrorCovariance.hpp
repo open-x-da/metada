@@ -13,7 +13,8 @@ namespace metada::framework {
 
 // Forward declarations
 template <typename BackendTag>
-requires ConfigBackendType<BackendTag> class Config;
+  requires ConfigBackendType<BackendTag>
+class Config;
 
 /**
  * @brief Background error covariance adapter for variational data assimilation

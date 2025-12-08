@@ -46,26 +46,22 @@ namespace metada::framework {
  * @see HasDeletedCopyAssignment
  */
 template <typename T, typename ConfigBackend>
-concept LoggerBackendImpl = requires(T& t, const ConfigBackend& config,
-                                     LogLevel level, const std::string& message,
-                                     const std::string& app_name) {
-  // Core logging functionality
-  { t.LogMessage(level, message) }
-  ->std::same_as<void>;
+concept LoggerBackendImpl =
+    requires(T& t, const ConfigBackend& config, LogLevel level,
+             const std::string& message, const std::string& app_name) {
+      // Core logging functionality
+      { t.LogMessage(level, message) } -> std::same_as<void>;
 
-  // Lifecycle management
-  { T::Init(app_name) }
-  ->std::same_as<void>;
-  { T::Shutdown() }
-  ->std::same_as<void>;
+      // Lifecycle management
+      { T::Init(app_name) } -> std::same_as<void>;
+      { T::Shutdown() } -> std::same_as<void>;
 
-  // Construction and resource management
-  { T(config) }
-  ->std::same_as<T>;
-  requires HasDeletedDefaultConstructor<T>;
-  requires HasDeletedCopyConstructor<T>;
-  requires HasDeletedCopyAssignment<T>;
-};
+      // Construction and resource management
+      { T(config) } -> std::same_as<T>;
+      requires HasDeletedDefaultConstructor<T>;
+      requires HasDeletedCopyConstructor<T>;
+      requires HasDeletedCopyAssignment<T>;
+    };
 
 /**
  * @brief Concept that defines requirements for a logger backend tag type
@@ -86,7 +82,8 @@ concept LoggerBackendImpl = requires(T& t, const ConfigBackend& config,
  * @see LoggerBackendImpl
  */
 template <typename T>
-concept LoggerBackendType = HasLoggerBackend<T>&& HasConfigBackend<T>&&
+concept LoggerBackendType =
+    HasLoggerBackend<T> && HasConfigBackend<T> &&
     LoggerBackendImpl<typename traits::BackendTraits<T>::LoggerBackend,
                       typename traits::BackendTraits<T>::ConfigBackend>;
 

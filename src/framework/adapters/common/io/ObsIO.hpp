@@ -48,7 +48,8 @@ namespace metada::framework {
  * @see NonCopyable
  */
 template <typename BackendTag>
-requires ObsIOBackendType<BackendTag> class ObsIO : public NonCopyable {
+  requires ObsIOBackendType<BackendTag>
+class ObsIO : public NonCopyable {
  public:
   /** @brief Type alias for the backend implementation type */
   using ObsIOBackend = typename traits::BackendTraits<BackendTag>::ObsIOBackend;

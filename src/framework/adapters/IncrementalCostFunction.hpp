@@ -17,7 +17,8 @@ namespace metada::framework {
 
 // Forward declarations
 template <typename BackendTag>
-requires ConfigBackendType<BackendTag> class Config;
+  requires ConfigBackendType<BackendTag>
+class Config;
 
 /**
  * @brief Incremental cost function for variational data assimilation
@@ -41,8 +42,8 @@ requires ConfigBackendType<BackendTag> class Config;
  * @tparam BackendTag The backend tag type
  */
 template <typename BackendTag>
-requires StateBackendType<BackendTag> class IncrementalCostFunction
-    : public NonCopyable {
+  requires StateBackendType<BackendTag>
+class IncrementalCostFunction : public NonCopyable {
  public:
   /** @brief Default constructor is deleted */
   IncrementalCostFunction() = delete;

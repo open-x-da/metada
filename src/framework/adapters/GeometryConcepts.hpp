@@ -41,70 +41,59 @@ namespace metada::framework {
  * @see HasDeletedCopyAssignment
  */
 template <typename T, typename ConfigBackend>
-concept GeometryBackendImpl = requires(T t, T& t_ref, const T& t_const,
-                                       const ConfigBackend& config) {
-  // Type aliases
-  typename T::value_type;
-  typename T::reference;
-  typename T::const_reference;
-  typename T::pointer;
-  typename T::const_pointer;
-  typename T::size_type;
-  typename T::difference_type;
-  typename T::iterator;
-  typename T::const_iterator;
+concept GeometryBackendImpl =
+    requires(T t, T& t_ref, const T& t_const, const ConfigBackend& config) {
+      // Type aliases
+      typename T::value_type;
+      typename T::reference;
+      typename T::const_reference;
+      typename T::pointer;
+      typename T::const_pointer;
+      typename T::size_type;
+      typename T::difference_type;
+      typename T::iterator;
+      typename T::const_iterator;
 
-  // Iteration
-  { t.begin() }
-  ->std::same_as<typename T::iterator>;
-  { t.end() }
-  ->std::same_as<typename T::iterator>;
-  { t_const.begin() }
-  ->std::same_as<typename T::const_iterator>;
-  { t_const.end() }
-  ->std::same_as<typename T::const_iterator>;
-  { t_const.cbegin() }
-  ->std::same_as<typename T::const_iterator>;
-  { t_const.cend() }
-  ->std::same_as<typename T::const_iterator>;
+      // Iteration
+      { t.begin() } -> std::same_as<typename T::iterator>;
+      { t.end() } -> std::same_as<typename T::iterator>;
+      { t_const.begin() } -> std::same_as<typename T::const_iterator>;
+      { t_const.end() } -> std::same_as<typename T::const_iterator>;
+      { t_const.cbegin() } -> std::same_as<typename T::const_iterator>;
+      { t_const.cend() } -> std::same_as<typename T::const_iterator>;
 
-  // Size information
-  { t.size() }
-  ->std::convertible_to<typename T::size_type>;
-  { t.empty() }
-  ->std::same_as<bool>;
-  { t.max_size() }
-  ->std::convertible_to<typename T::size_type>;
+      // Size information
+      { t.size() } -> std::convertible_to<typename T::size_type>;
+      { t.empty() } -> std::same_as<bool>;
+      { t.max_size() } -> std::convertible_to<typename T::size_type>;
 
-  // Element access
-  { t[std::declval<typename T::size_type>()] }
-  ->std::same_as<typename T::reference>;
-  { t_const[std::declval<typename T::size_type>()] }
-  ->std::same_as<typename T::const_reference>;
-  { t.at(std::declval<typename T::size_type>()) }
-  ->std::same_as<typename T::reference>;
-  { t_const.at(std::declval<typename T::size_type>()) }
-  ->std::same_as<typename T::const_reference>;
-  { t.front() }
-  ->std::same_as<typename T::reference>;
-  { t_const.front() }
-  ->std::same_as<typename T::const_reference>;
-  { t.back() }
-  ->std::same_as<typename T::reference>;
-  { t_const.back() }
-  ->std::same_as<typename T::const_reference>;
+      // Element access
+      {
+        t[std::declval<typename T::size_type>()]
+      } -> std::same_as<typename T::reference>;
+      {
+        t_const[std::declval<typename T::size_type>()]
+      } -> std::same_as<typename T::const_reference>;
+      {
+        t.at(std::declval<typename T::size_type>())
+      } -> std::same_as<typename T::reference>;
+      {
+        t_const.at(std::declval<typename T::size_type>())
+      } -> std::same_as<typename T::const_reference>;
+      { t.front() } -> std::same_as<typename T::reference>;
+      { t_const.front() } -> std::same_as<typename T::const_reference>;
+      { t.back() } -> std::same_as<typename T::reference>;
+      { t_const.back() } -> std::same_as<typename T::const_reference>;
 
-  // Cloning
-  { t_const.clone() }
-  ->std::same_as<T>;
+      // Cloning
+      { t_const.clone() } -> std::same_as<T>;
 
-  // Construction and resource management
-  { T(config) }
-  ->std::same_as<T>;
-  requires HasDeletedDefaultConstructor<T>;
-  requires HasDeletedCopyConstructor<T>;
-  requires HasDeletedCopyAssignment<T>;
-};
+      // Construction and resource management
+      { T(config) } -> std::same_as<T>;
+      requires HasDeletedDefaultConstructor<T>;
+      requires HasDeletedCopyConstructor<T>;
+      requires HasDeletedCopyAssignment<T>;
+    };
 
 /**
  * @brief Concept that defines requirements for a geometry backend tag type
@@ -126,7 +115,8 @@ concept GeometryBackendImpl = requires(T t, T& t_ref, const T& t_const,
  * @see GeometryBackendImpl
  */
 template <typename T>
-concept GeometryBackendType = HasGeometryBackend<T>&& HasConfigBackend<T>&&
+concept GeometryBackendType =
+    HasGeometryBackend<T> && HasConfigBackend<T> &&
     GeometryBackendImpl<typename traits::BackendTraits<T>::GeometryBackend,
                         typename traits::BackendTraits<T>::ConfigBackend>;
 

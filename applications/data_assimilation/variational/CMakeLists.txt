@@ -37,9 +37,10 @@ if(WITH_WRFDA)
     )
     
     # Link MPI libraries when MPI is enabled (required for WRFDA parallel operations)
+    # WRFDA requires both CXX and Fortran MPI bindings (Fortran for libwrfvar.a and librsl_lite.a)
     if(METADA_USE_MPI)
-        target_link_libraries(tl_ad_checks PRIVATE MPI::MPI_CXX)
-        target_link_libraries(incremental_variational PRIVATE MPI::MPI_CXX)
+        target_link_libraries(tl_ad_checks PRIVATE MPI::MPI_CXX MPI::MPI_Fortran)
+        target_link_libraries(incremental_variational PRIVATE MPI::MPI_CXX MPI::MPI_Fortran)
     endif()
 
     # If WRFDA is enabled and we have a complete build environment, use linker group to resolve circular deps
@@ -79,8 +80,10 @@ if(WITH_WRFDA)
             
             # Configure tl_ad_checks linking
             # Use linker group to handle circular dependencies between WRFDA libraries
-            # Note: Library order matters - dependencies must come after dependents
-            target_link_options(tl_ad_checks PRIVATE -Wl,--start-group)
+            # Note: --start-group/--end-group are GCC-specific; Clang on macOS handles this automatically
+            if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+                target_link_options(tl_ad_checks PRIVATE -Wl,--start-group)
+            endif()
             target_link_libraries(tl_ad_checks PRIVATE ${WRFDA_VAR_LIB})
             # Link CRTM library AFTER libwrfvar.a (since libwrfvar depends on CRTM)
             if(EXISTS ${CRTM_LIBRARY_PATH})
@@ -90,10 +93,14 @@ if(WITH_WRFDA)
             if(METADA_USE_MPI AND EXISTS ${RSL_LIBRARY_PATH})
                 target_link_libraries(tl_ad_checks PRIVATE ${RSL_LIBRARY_PATH})
             endif()
-            target_link_options(tl_ad_checks PRIVATE -Wl,--end-group)
+            if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+                target_link_options(tl_ad_checks PRIVATE -Wl,--end-group)
+            endif()
             
             # Configure incremental_variational linking
-            target_link_options(incremental_variational PRIVATE -Wl,--start-group)
+            if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+                target_link_options(incremental_variational PRIVATE -Wl,--start-group)
+            endif()
             target_link_libraries(incremental_variational PRIVATE ${WRFDA_VAR_LIB})
             # Link CRTM library AFTER libwrfvar.a (since libwrfvar depends on CRTM)
             if(EXISTS ${CRTM_LIBRARY_PATH})
@@ -103,7 +110,9 @@ if(WITH_WRFDA)
             if(METADA_USE_MPI AND EXISTS ${RSL_LIBRARY_PATH})
                 target_link_libraries(incremental_variational PRIVATE ${RSL_LIBRARY_PATH})
             endif()
-            target_link_options(incremental_variational PRIVATE -Wl,--end-group)
+            if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+                target_link_options(incremental_variational PRIVATE -Wl,--end-group)
+            endif()
         endif()
     elseif(WRFDA_VAR_LIB)
         message(STATUS "Variational application: Using WRFDA stub implementation (complete WRFDA environment not available)")

@@ -1,24 +1,25 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/msys64/mingw64/include/**",
-                "C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/*/include/**",
-                "C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/*/include/c++/**",
-                "C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/*/include/c++/x86_64-w64-mingw32/**"
+                "/opt/homebrew/include/**",
+                "/usr/local/include/**",
+                "/Library/Developer/CommandLineTools/usr/include/c++/v1/**",
+                "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/**"
             ],
             "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
+                "_DEBUG"
             ],
-            "compilerPath": "C:/msys64/mingw64/bin/g++.exe",
+            "compilerPath": "/usr/bin/clang++",
             "cStandard": "c17",
             "cppStandard": "c++20",
-            "intelliSenseMode": "gcc-x64",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "intelliSenseMode": "macos-clang-arm64",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "macFrameworkPath": [
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            ]
         }
     ],
     "version": 4

@@ -39,8 +39,9 @@ namespace metada::framework {
 
 // Forward declarations
 template <typename BackendTag>
-requires ConfigBackendType<BackendTag> class Config;  // Config adapter for
-                                                      // backend
+  requires ConfigBackendType<BackendTag>
+class Config;  // Config adapter for
+               // backend
 
 /**
  * @brief Main geometry class template providing a generic interface to geometry
@@ -85,7 +86,8 @@ requires ConfigBackendType<BackendTag> class Config;  // Config adapter for
  * @see GeometryIterator
  */
 template <typename BackendTag>
-requires GeometryBackendType<BackendTag> class Geometry : private NonCopyable {
+  requires GeometryBackendType<BackendTag>
+class Geometry : private NonCopyable {
  public:
   using GeometryBackend =
       typename traits::BackendTraits<BackendTag>::GeometryBackend;

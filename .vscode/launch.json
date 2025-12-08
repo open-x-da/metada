@@ -29,8 +29,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -71,8 +71,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -113,8 +113,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -155,8 +155,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -182,7 +182,7 @@
             "environment": [
                 {
                     "name": "PATH",
-                    "value": "C:/msys64/mingw64/bin;C:/msys64/usr/bin;${env:PATH}"
+                    "value": "/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
                 },
                 {
                     "name": "GLOG_logtostderr",
@@ -206,8 +206,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -253,8 +253,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -279,7 +279,7 @@
             "environment": [
                 {
                     "name": "PATH",
-                    "value": "C:/msys64/mingw64/bin;C:/msys64/usr/bin;${env:PATH}"
+                    "value": "/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
                 },
                 {
                     "name": "GLOG_logtostderr",
@@ -303,8 +303,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -345,8 +345,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -387,8 +387,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -429,8 +429,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -471,8 +471,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -513,8 +513,8 @@
                 }
             ],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
+            "MIMode": "lldb",
+            "miDebuggerPath": "/usr/bin/lldb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",

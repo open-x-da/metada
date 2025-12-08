@@ -15,7 +15,7 @@ target_include_directories(wrfda_bridge
 
 # WRFDA linking configuration
 # WITH_WRFDA is now defined globally in root CMakeLists.txt
-set(WRFDA_ROOT "" CACHE PATH "Path to WRF/var/da root directory (e.g., D:/linux/WRF/var/da)")
+set(WRFDA_ROOT "${WRFDA_ROOT}" CACHE PATH "Path to WRF/var/da root directory (e.g., D:/linux/WRF/var/da)")
 
 # Allow specifying the prebuilt WRFDA static library directly
 set(WRFDA_VAR_LIB "" CACHE FILEPATH "Path to prebuilt libwrfvar.a (e.g., D:/linux/WRF/var/da/build/libwrfvar.a)")
