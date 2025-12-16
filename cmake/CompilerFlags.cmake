@@ -4,11 +4,6 @@ function(configure_compiler_flags)
     set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ standard to use" FORCE)
     set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE BOOL "Require C++ standard to be supported" FORCE)
     set(CMAKE_CXX_EXTENSIONS OFF CACHE BOOL "Disable compiler-specific extensions" FORCE)
-       
-    # Add module support for C++20
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-fmodules-ts>")
-    endif()
     
     # Log C++ standard being used
     message(STATUS "Using C++ standard: C++20")
@@ -34,7 +29,7 @@ function(configure_compiler_flags)
             endif()
         endif()
         
-        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wall" 
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wall -ffree-line-length-none" 
             CACHE STRING "Fortran compiler flags" FORCE)
     endif()
     
