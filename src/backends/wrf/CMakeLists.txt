@@ -43,9 +43,16 @@ target_include_directories(wrf_config_bridge_fortran
 
 # WRF linking configuration (reuse WRFDA settings)
 # WITH_WRFDA is now defined globally in root CMakeLists.txt
-set(WRFDA_MOD_DIR "" CACHE PATH "Path to WRFDA build directory with .mod files")
+# Derive WRFDA_MOD_DIR from WRFDA_ROOT
+if(WITH_WRFDA)
+    if(WRFDA_ROOT)
+        set(WRFDA_MOD_DIR "${WRFDA_ROOT}/var/build")
+    else()
+        message(FATAL_ERROR "WRF backend: WRFDA_ROOT must be set when WITH_WRFDA=ON")
+    endif()
+endif()
 
-if(WITH_WRFDA AND WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
+if(WITH_WRFDA AND EXISTS ${WRFDA_MOD_DIR})
     message(STATUS "WRF config bridge: using WRFDA module dir ${WRFDA_MOD_DIR}")
     
     # Add WRFDA module directory for Fortran .mod files
@@ -116,7 +123,7 @@ add_library(wrfda_state_transforms_bridge_fortran STATIC
 )
 
 # Link WRFDA if available
-if(WITH_WRFDA AND WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
+if(WITH_WRFDA AND EXISTS ${WRFDA_MOD_DIR})
     # Convert to absolute path if relative
     get_filename_component(WRFDA_MOD_DIR_ABS "${WRFDA_MOD_DIR}" ABSOLUTE)
     target_include_directories(wrfda_state_transforms_bridge_fortran PUBLIC ${WRFDA_MOD_DIR_ABS})
@@ -135,7 +142,6 @@ if(WITH_WRFDA AND WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
         target_include_directories(wrfda_state_transforms_bridge_fortran PUBLIC ${WRF_DA_MINIMISATION_DIR})
     else()
         message(WARNING "WRFDA state transforms: WRF da_minimisation directory not found at ${WRF_DA_MINIMISATION_DIR}")
-        message(WARNING "WRFDA state transforms: WRFDA_MOD_DIR was: ${WRFDA_MOD_DIR}")
         message(WARNING "WRFDA state transforms: WRF_ROOT_DIR calculated as: ${WRF_ROOT_DIR}")
     endif()
     

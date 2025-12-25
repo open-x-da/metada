@@ -15,18 +15,22 @@ target_include_directories(wrfda_bridge
 
 # WRFDA linking configuration
 # WITH_WRFDA is now defined globally in root CMakeLists.txt
-set(WRFDA_ROOT "${WRFDA_ROOT}" CACHE PATH "Path to WRF/var/da root directory (e.g., D:/linux/WRF/var/da)")
-
-# Allow specifying the prebuilt WRFDA static library directly
-set(WRFDA_VAR_LIB "" CACHE FILEPATH "Path to prebuilt libwrfvar.a (e.g., D:/linux/WRF/var/da/build/libwrfvar.a)")
+set(WRFDA_ROOT "${WRFDA_ROOT}" CACHE PATH "Path to WRF root directory (e.g., /path/to/WRF)")
 
 if(WITH_WRFDA)
+    # Derive WRFDA_MOD_DIR and WRFDA_VAR_LIB from WRFDA_ROOT
+    if(WRFDA_ROOT)
+        set(WRFDA_MOD_DIR "${WRFDA_ROOT}/var/build")
+        set(WRFDA_VAR_LIB "${WRFDA_MOD_DIR}/libwrfvar.a")
+    else()
+        message(FATAL_ERROR "WRFDA bridge: WRFDA_ROOT must be set when WITH_WRFDA=ON")
+    endif()
+
     # Only link WRFDA libraries if we have a complete build environment
     # This will be determined later in the conditional build logic
 
     # Real wrapper sources require WRFDA modules (.mod) to be found
-    set(WRFDA_MOD_DIR "" CACHE PATH "Path to WRFDA build directory with .mod files (e.g., D:/linux/WRF/var/da/build)")
-    if(WRFDA_MOD_DIR AND EXISTS ${WRFDA_MOD_DIR})
+    if(EXISTS ${WRFDA_MOD_DIR})
         message(STATUS "WRFDA bridge: using module dir ${WRFDA_MOD_DIR}")
         target_include_directories(wrfda_bridge PUBLIC ${WRFDA_MOD_DIR})
         
@@ -205,10 +209,10 @@ if(WITH_WRFDA)
         endif()
         
     else()
-        # WRFDA module directory not provided - continue without WRFDA integration
-        message(STATUS "WRFDA bridge: WRFDA_MOD_DIR not set - skipping WRFDA integration")
-        message(STATUS "WRFDA bridge: To enable WRFDA integration, set WRFDA_MOD_DIR to the WRFDA build directory")
-        message(STATUS "WRFDA bridge: Example: -DWRFDA_MOD_DIR=/path/to/WRF/var/da/build")
+        # WRFDA module directory not found - continue without WRFDA integration
+        message(STATUS "WRFDA bridge: WRFDA build directory not found at ${WRFDA_MOD_DIR}")
+        message(STATUS "WRFDA bridge: To enable WRFDA integration, set WRFDA_ROOT to the WRF root directory")
+        message(STATUS "WRFDA bridge: Example: -DWRFDA_ROOT=/path/to/WRF")
         message(STATUS "WRFDA bridge: Building without WRFDA-specific features")
         # Add stub source file to ensure library can be created
         target_sources(wrfda_bridge PRIVATE

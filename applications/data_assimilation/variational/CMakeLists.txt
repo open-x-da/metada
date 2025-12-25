@@ -43,9 +43,17 @@ if(WITH_WRFDA)
         target_link_libraries(incremental_variational PRIVATE MPI::MPI_CXX MPI::MPI_Fortran)
     endif()
 
+    # Derive WRFDA_MOD_DIR and WRFDA_VAR_LIB from WRFDA_ROOT
+    if(WRFDA_ROOT)
+        set(WRFDA_MOD_DIR "${WRFDA_ROOT}/var/build")
+        set(WRFDA_VAR_LIB "${WRFDA_MOD_DIR}/libwrfvar.a")
+    else()
+        message(FATAL_ERROR "Variational applications: WRFDA_ROOT must be set when WITH_WRFDA=ON")
+    endif()
+
     # If WRFDA is enabled and we have a complete build environment, use linker group to resolve circular deps
     # Only link WRFDA libraries if we're not using the stub implementation
-    if(WRFDA_VAR_LIB AND WRFDA_COMPLETE_BUILD)
+    if(WRFDA_COMPLETE_BUILD)
         if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             # Explicitly add da_control.o if present and not archived in libwrfvar
             set(WRFDA_DA_CONTROL_OBJ "${WRFDA_MOD_DIR}/da_control.o")
@@ -118,7 +126,7 @@ if(WITH_WRFDA)
                 target_link_options(incremental_variational PRIVATE -Wl,--end-group)
             endif()
         endif()
-    elseif(WRFDA_VAR_LIB)
+    else()
         message(STATUS "Variational application: Using WRFDA stub implementation (complete WRFDA environment not available)")
     endif()
 
