@@ -44,7 +44,11 @@ if(WITH_WRFDA)
         if(EXISTS "${WRFDA_MOD_DIR}/libwrfvar.a" AND EXISTS "${WRFDA_MOD_DIR}/da_control.o")
             # Try to find required dependencies
             find_package(netcdf-cxx4 QUIET)
-            find_library(NETCDF_FORTRAN_LIBRARY NAMES netcdff)
+            # Use NETCDF_ROOT for all NetCDF libraries (C, CXX, Fortran)
+            if(NOT NETCDF_ROOT)
+                set(NETCDF_ROOT "$ENV{NETCDF_ROOT}")
+            endif()
+            find_library(NETCDF_FORTRAN_LIBRARY NAMES netcdff HINTS ${NETCDF_ROOT} PATH_SUFFIXES lib lib64)
             set(CRTM_LIBRARY_PATH "${WRFDA_MOD_DIR}/../external/crtm_2.3.0/libsrc/libCRTM.a")
             
             # Check for WRFDA libraries directly in WRF directory structure
@@ -152,13 +156,18 @@ if(WITH_WRFDA)
             # Link NetCDF libraries (still use find_package for system libraries)
             target_link_libraries(wrfda_bridge PUBLIC NetCDF::CXX4)
             
-            find_library(NETCDF_C_LIBRARY NAMES netcdf)
+            # Use NETCDF_ROOT for all NetCDF libraries (C, CXX, Fortran)
+            if(NOT NETCDF_ROOT)
+                set(NETCDF_ROOT "$ENV{NETCDF_ROOT}")
+            endif()
+            
+            find_library(NETCDF_C_LIBRARY NAMES netcdf HINTS ${NETCDF_ROOT} PATH_SUFFIXES lib lib64)
             if(NETCDF_C_LIBRARY)
                 target_link_libraries(wrfda_bridge PUBLIC ${NETCDF_C_LIBRARY})
             endif()
             
             # WRFDA requires NetCDF Fortran library for Fortran I/O operations
-            find_library(NETCDF_FORTRAN_LIBRARY NAMES netcdff)
+            find_library(NETCDF_FORTRAN_LIBRARY NAMES netcdff HINTS ${NETCDF_ROOT} PATH_SUFFIXES lib lib64)
             if(NETCDF_FORTRAN_LIBRARY)
                 message(STATUS "WRFDA bridge: linking NetCDF Fortran library: ${NETCDF_FORTRAN_LIBRARY}")
                 target_link_libraries(wrfda_bridge PUBLIC ${NETCDF_FORTRAN_LIBRARY})

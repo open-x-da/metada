@@ -11,16 +11,25 @@
 # and the following imported targets:
 #   NetCDF::CXX4             - The netCDF-C++ 4 library target
 
+# Allow users to specify a custom installation prefix via CMake variable or environment variable
+# NETCDF_ROOT is used for all NetCDF libraries (C, CXX, Fortran)
+if(NOT NETCDF_ROOT)
+    set(NETCDF_ROOT "$ENV{NETCDF_ROOT}")
+endif()
+
 # Find include directory
 find_path(NETCDF_CXX4_INCLUDE_DIR
   NAMES ncFile.h
-  PATH_SUFFIXES netcdf netcdf-cxx4 netcdf-cxx
+  HINTS ${NETCDF_ROOT}
+  PATH_SUFFIXES include netcdf netcdf-cxx4 netcdf-cxx
   DOC "netCDF-C++ 4 include directory")
 mark_as_advanced(NETCDF_CXX4_INCLUDE_DIR)
 
 # Find library
 find_library(NETCDF_CXX4_LIBRARY
   NAMES netcdf-cxx4 netcdf_c++4
+  HINTS ${NETCDF_ROOT}
+  PATH_SUFFIXES lib lib64
   DOC "netCDF-C++ 4 library")
 mark_as_advanced(NETCDF_CXX4_LIBRARY)
 

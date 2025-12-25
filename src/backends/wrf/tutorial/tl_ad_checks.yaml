@@ -45,19 +45,19 @@ preconditioning_enabled: false
 control_variable_backend: "wrfda-cv5" # identity (grid%xa), wrfda-cv5 (WRFDA control space)
 
 wrfda_control:
-  be_statistics: "D:/linux/metada/build/be.dat"
+  be_statistics: "be.dat"
   cv_options: 5  # Standard WRFDA CV5 control variables
 
 # Geometry configuration (WRF domain)
 # WRFGeometry automatically reads all grid information from the NetCDF file
 geometry:
-  file: "D:/linux/metada/build/wrfinput_d01"
-  namelist_path: "D:/linux/metada/build/namelist.input"
+  file: "wrfinput_d01"
+  namelist_path: "namelist.input"
   domain_id: 1
 
 # Background state configuration
 background:
-  file: "D:/linux/metada/build/wrfinput_d01"
+  file: "wrfinput_d01"
   # Analysis variables for 3DVAR
   variables:
     - U
@@ -69,12 +69,12 @@ background:
 # Observation configuration
 observation:
   # WRFDA observation file (ASCII format)
-  obs_file: "D:/linux/WRF/var/test/tutorial/ob.ascii"
+  obs_file: "ob.ascii"
   
   types:
     - adpsfc:
         if_use: true
-        file: "D:/linux/metada/applications/obs_processing/prepbufr.gdas.2000012412.wo40.nr"
+        file: "prepbufr.gdas.2000012412.wo40.nr"
         coordinate: "geographic"
         data_types: ["ADPSFC"]
         station_ids: [72405]

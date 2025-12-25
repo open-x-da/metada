@@ -2,22 +2,26 @@
     "cmake.cmakePath": "/opt/homebrew/bin/cmake",
     "cmake.generator": "Ninja",
     "cmake.environment": {
-        "PATH": "/opt/homebrew/bin:${env:PATH}"
+        "PATH": "/opt/homebrew/bin:${env:PATH}",
+        "CC": "/opt/homebrew/bin/gcc-15",
+        "CXX": "/opt/homebrew/bin/g++-15",
+        "NETCDF_ROOT": "/Volumes/workspace/opt"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_MAKE_PROGRAM": "/opt/homebrew/bin/ninja"
     },
     "cmake.configureArgs": [
+        "-DCMAKE_C_COMPILER=/opt/homebrew/bin/gcc-15",
+        "-DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++-15",
         "-DCMAKE_VERBOSE_MAKEFILE=OFF",
         "-DLOGGER_BACKEND=NGLOG",
         "-DCONFIG_BACKEND=YAML",
         "-DWITH_WRFDA=ON",
-        "-DWRFDA_ROOT=/Users/xinzhang/metada_wrf",
-        "-DWRFDA_VAR_LIB=/Users/xinzhang/metada_wrf/var/build/libwrfvar.a",
-        "-DWRFDA_MOD_DIR=/Users/xinzhang/metada_wrf/var/build",
-        "-DMETADA_USE_MPI=ON",
-        "-DMPI_CXX_COMPILER=/opt/homebrew/bin/mpicxx"
+        "-DWRFDA_ROOT=/Volumes/workspace/metada_wrf",
+        "-DWRFDA_VAR_LIB=/Volumes/workspace/metada_wrf/var/build/libwrfvar.a",
+        "-DWRFDA_MOD_DIR=/Volumes/workspace/metada_wrf/var/build",
+        "-DMETADA_USE_MPI=OFF"
     ],
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.profiles.osx": {
