@@ -19,6 +19,12 @@ add_library(wrf_config_bridge_fortran STATIC
     wrf_config_bridge.F90
 )
 
+# Enable Fortran preprocessing (required for #ifndef directives)
+# .F90 extension should enable this automatically, but we make it explicit
+set_source_files_properties(wrf_config_bridge.F90 PROPERTIES
+    Fortran_PREPROCESS ON
+)
+
 # Step 2: Build C++ wrapper that depends on Fortran module
 add_library(wrf_config_bridge STATIC
     WRFConfigBridge.cpp
@@ -62,6 +68,93 @@ if(WITH_WRFDA AND EXISTS ${WRFDA_MOD_DIR})
     # Get WRF root directory
     get_filename_component(WRF_ROOT_DIR "${WRFDA_MOD_DIR}/../.." ABSOLUTE)
     message(STATUS "WRF config bridge: WRF root directory: ${WRF_ROOT_DIR}")
+    
+    #============================================================================
+    # Detect WRFDA's MPI configuration (STUBMPI)
+    #============================================================================
+    # STUBMPI is set during WRFDA compilation. We need to detect it to properly
+    # compile METADA's Fortran code. We try multiple detection methods:
+    # 1. Check user-provided option WRFDA_HAS_STUBMPI (manual override)
+    # 2. Check WRFDA's configure.wrf file for STUBMPI flag (most reliable)
+    # 3. Check if module_dm.mod exists (if not, likely STUBMPI)
+    # 4. Use METADA_USE_MPI as a hint (but warn if mismatch)
+    
+    # Allow manual override via CMake option
+    # Check if WRFDA_HAS_STUBMPI was set via command line
+    if(DEFINED WRFDA_HAS_STUBMPI)
+        if(WRFDA_HAS_STUBMPI)
+            message(STATUS "WRF config bridge: WRFDA_HAS_STUBMPI manually set to TRUE")
+            set(WRFDA_HAS_STUBMPI "TRUE")
+        else()
+            message(STATUS "WRF config bridge: WRFDA_HAS_STUBMPI manually set to FALSE")
+            set(WRFDA_HAS_STUBMPI "FALSE")
+        endif()
+    else()
+        set(WRFDA_HAS_STUBMPI "UNKNOWN")
+        
+        # Method 1: Check configure.wrf for STUBMPI flag (most reliable)
+        set(WRF_CONFIGURE_FILE "${WRF_ROOT_DIR}/configure.wrf")
+        if(EXISTS ${WRF_CONFIGURE_FILE})
+            file(READ ${WRF_CONFIGURE_FILE} WRF_CONFIGURE_CONTENT)
+            if(WRF_CONFIGURE_CONTENT MATCHES "-DSTUBMPI")
+                message(STATUS "WRF config bridge: Found -DSTUBMPI in configure.wrf")
+                set(WRFDA_HAS_STUBMPI "TRUE")
+            else()
+                if(WRF_CONFIGURE_CONTENT MATCHES "STUBMPI" AND NOT WRF_CONFIGURE_CONTENT MATCHES "DM_PARALLEL")
+                    message(STATUS "WRF config bridge: Found STUBMPI (without DM_PARALLEL) in configure.wrf")
+                    set(WRFDA_HAS_STUBMPI "TRUE")
+                elseif(WRF_CONFIGURE_CONTENT MATCHES "DM_PARALLEL" AND NOT WRF_CONFIGURE_CONTENT MATCHES "STUBMPI")
+                    message(STATUS "WRF config bridge: Found DM_PARALLEL without STUBMPI in configure.wrf")
+                    set(WRFDA_HAS_STUBMPI "FALSE")
+                endif()
+            endif()
+        endif()
+        
+        # Method 2: If still unknown, use METADA_USE_MPI as the source of truth
+        # (METADA_USE_MPI is auto-detected from WRFDA configuration in root CMakeLists.txt)
+        if(WRFDA_HAS_STUBMPI STREQUAL "UNKNOWN")
+            if(METADA_USE_MPI)
+                # METADA_USE_MPI is ON, so WRFDA should have MPI (no STUBMPI)
+                message(STATUS "WRF config bridge: METADA_USE_MPI=ON, assuming WRFDA has MPI (no STUBMPI)")
+                set(WRFDA_HAS_STUBMPI "FALSE")
+            else()
+                # METADA_USE_MPI is OFF, so WRFDA should have STUBMPI
+                message(STATUS "WRF config bridge: METADA_USE_MPI=OFF, assuming WRFDA has STUBMPI")
+                set(WRFDA_HAS_STUBMPI "TRUE")
+            endif()
+        endif()
+    endif()
+    
+    # Set STUBMPI preprocessor definition for Fortran compilation
+    # Note: We need to set this BEFORE the source file is processed
+    # The error suggests WRFDA was built with STUBMPI (module_dm doesn't have real functions)
+    # So we need to set STUBMPI to exclude the use statement
+    # 
+    # However, if METADA_USE_MPI is ON (auto-detected), WRFDA should have MPI.
+    # The error might indicate a mismatch - let's be conservative and check the actual library
+    if(WRFDA_HAS_STUBMPI STREQUAL "TRUE")
+        # Set preprocessor definition for Fortran
+        # Use both methods to ensure preprocessor sees it
+        target_compile_definitions(wrf_config_bridge_fortran PRIVATE STUBMPI)
+        # Also add directly to compiler flags for Fortran preprocessor
+        target_compile_options(wrf_config_bridge_fortran PRIVATE "-DSTUBMPI")
+        message(STATUS "WRF config bridge: Setting STUBMPI for Fortran compilation (WRFDA built without MPI)")
+        message(STATUS "WRF config bridge: STUBMPI will be defined for Fortran preprocessor")
+    else()
+        # WRFDA should have MPI, but if we get a linking error, it might actually have STUBMPI
+        # For now, don't set STUBMPI, but add a note
+        message(STATUS "WRF config bridge: NOT setting STUBMPI (WRFDA built with MPI support)")
+        message(STATUS "WRF config bridge: If you get 'wrf_set_dm_communicator not found' error,")
+        message(STATUS "WRF config bridge: WRFDA might actually have STUBMPI. Set -DWRFDA_HAS_STUBMPI=TRUE to override.")
+        # Verify consistency with METADA_USE_MPI (should match since it's auto-detected)
+        if(NOT METADA_USE_MPI)
+            message(WARNING "WRF config bridge: Inconsistency detected - WRFDA has MPI but METADA_USE_MPI is OFF")
+            message(WARNING "WRF config bridge: This should not happen if auto-detection is working correctly")
+        endif()
+    endif()
+    
+    # Verify STUBMPI detection result
+    message(STATUS "WRF config bridge: WRFDA_HAS_STUBMPI detection result: ${WRFDA_HAS_STUBMPI}")
     
     # Define WRF library paths needed for module_configure
     # Note: Order matters for static linking - dependencies must come after dependents
@@ -108,6 +201,13 @@ if(WITH_WRFDA AND EXISTS ${WRFDA_MOD_DIR})
     
     # Link C++ library to Fortran library
     target_link_libraries(wrf_config_bridge PUBLIC wrf_config_bridge_fortran)
+    
+    # Link MPI if enabled (auto-detected from WRFDA configuration)
+    if(METADA_USE_MPI)
+        target_link_libraries(wrf_config_bridge PUBLIC MPI::MPI_CXX)
+        target_link_libraries(wrf_config_bridge_fortran PUBLIC MPI::MPI_Fortran)
+        message(STATUS "WRF config bridge: Linked to MPI libraries (auto-detected from WRFDA)")
+    endif()
 else()
     message(WARNING "WRF config bridge: WRFDA not configured, WRF configuration initialization will not be available")
 endif()

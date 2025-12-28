@@ -41,7 +41,8 @@ void wrfda_init_modules_(int phase);
 bool wrfda_is_initialized_();
 
 /**
- * @brief Initialize WRF configuration by reading namelist.input
+ * @brief Initialize WRF configuration by reading namelist.input (serial
+ * version)
  *
  * @details This function calls WRF's initial_config() subroutine which:
  * - Opens and reads namelist.input file
@@ -52,8 +53,29 @@ bool wrfda_is_initialized_();
  *
  * @note The namelist.input file must exist in the current working directory
  * @note This populates the module-level model_config_rec in module_configure
+ * @note For parallel MPI runs, use wrf_initial_config_parallel_() instead
  */
 void wrf_initial_config_();
+
+/**
+ * @brief Initialize WRF configuration with parallel support (following
+ * da_wrfvar_init1.inc)
+ *
+ * @details This function implements the parallel initialization sequence from
+ * WRFDA:
+ * - In parallel mode (DM_PARALLEL): calls initial_config only on rootproc,
+ *   then broadcasts config buffer to all processes using wrf_dm_bcast_bytes,
+ *   sets config from buffer on all processes, and initializes domain manager
+ * - In serial mode: calls initial_config on all processes
+ *
+ * This matches the exact sequence from WRFDA's da_wrfvar_init1.inc lines 75-85.
+ *
+ * @note The namelist.input file must exist in the current working directory
+ * @note This populates the module-level model_config_rec in module_configure
+ * @note This function should be used instead of wrf_initial_config_() when
+ * running with MPI support to ensure proper configuration synchronization
+ */
+void wrf_initial_config_parallel_();
 
 /**
  * @brief Copy namelist configuration from model_config_rec to da_control module
@@ -97,6 +119,16 @@ void validate_wrfda_config(int* error_code);
  * @return bool True when trace_use=.true. in namelist configuration
  */
 bool wrfda_trace_is_enabled(void);
+
+/**
+ * @brief Set WRF domain manager communicator from METADA's MPI communicator
+ * @param[in] mpi_comm MPI communicator (typically MPI_COMM_WORLD)
+ * @details This function passes the MPI communicator from METADA to WRF's
+ *          domain manager. It should be called after MPI is initialized
+ *          in METADA but before any WRFDA parallel operations.
+ * @note When MPI is disabled, this is a no-op
+ */
+void wrf_set_dm_communicator_from_metada_(int mpi_comm);
 
 /**
  * @brief Initialize WRFDA tracing subsystem if enabled
@@ -284,6 +316,15 @@ int wrfda_zero_xa(void* grid_ptr);
 }  // extern "C"
 
 namespace metada::backends::wrf {
+
+/**
+ * @brief Setup MPI communicator for WRF/WRFDA parallel operations
+ * @details This function passes the MPI communicator from METADA to WRF's
+ *          domain manager. It should be called after MPI is initialized
+ *          in METADA but before any WRFDA parallel operations.
+ * @note When MPI is disabled, this is a no-op
+ */
+void setupWRFMPICommunicator();
 
 /**
  * @brief RAII wrapper for WRFDA initialization and domain allocation

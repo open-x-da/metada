@@ -1,8 +1,50 @@
 #include "MPIContext.hpp"
 
+#include <iostream>
 #include <stdexcept>
 
 namespace metada::framework::parallel {
+
+void initializeMPI(int* argc, char*** argv) {
+#ifdef METADA_USE_MPI
+  int mpi_initialized = 0;
+  MPI_Initialized(&mpi_initialized);
+
+  if (!mpi_initialized) {
+    int provided;
+    MPI_Init_thread(argc, argv, MPI_THREAD_SINGLE, &provided);
+  }
+
+  int world_size = 1;
+  int world_rank = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  std::cout << "[MPIContext] MPI world size (number of procs): " << world_size
+            << ", my rank: " << world_rank << std::endl;
+#else
+  // Stub: do nothing when MPI is disabled
+  (void)argc;
+  (void)argv;
+#endif
+}
+
+void finalizeMPI() {
+#ifdef METADA_USE_MPI
+  int mpi_initialized = 0;
+  MPI_Initialized(&mpi_initialized);
+
+  if (mpi_initialized) {
+    int mpi_finalized = 0;
+    MPI_Finalized(&mpi_finalized);
+    if (!mpi_finalized) {
+      MPI_Finalize();
+    }
+  }
+#else
+  // Stub: do nothing when MPI is disabled
+#endif
+}
 
 MPIContext::MPIContext()
 #ifdef METADA_USE_MPI

@@ -21,7 +21,7 @@ using namespace metada::framework;
 
 int main(int argc, char** argv) {
   try {
-    // Initialize application context
+    // Initialize application context (MPI is initialized automatically)
     ApplicationContext<BackendTag> context(argc, argv);
 
     auto& logger = context.getLogger();

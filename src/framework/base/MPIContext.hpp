@@ -9,6 +9,28 @@
 namespace metada::framework::parallel {
 
 /**
+ * @brief Initialize MPI at program start
+ * @param argc Pointer to argument count (may be modified by MPI_Init)
+ * @param argv Pointer to argument vector (may be modified by MPI_Init)
+ * @details This function should be called at the beginning of main().
+ *          When MPI is enabled, it calls MPI_Init_thread.
+ *          When MPI is disabled, it's a no-op (stub).
+ * @note This function is safe to call multiple times - it checks if MPI is
+ *       already initialized before calling MPI_Init_thread.
+ */
+void initializeMPI(int* argc, char*** argv);
+
+/**
+ * @brief Finalize MPI at program end
+ * @details This function should be called at the end of main() before return.
+ *          When MPI is enabled, it calls MPI_Finalize if MPI was initialized.
+ *          When MPI is disabled, it's a no-op (stub).
+ * @note This function is safe to call multiple times - it checks if MPI is
+ *       already finalized before calling MPI_Finalize.
+ */
+void finalizeMPI();
+
+/**
  * @brief MPI context for managing MPI communicator and process information
  *
  * @details This class provides a RAII wrapper for MPI initialization and

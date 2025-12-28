@@ -6,11 +6,44 @@ module metada_wrf_config_bridge
   use iso_c_binding
   use module_configure, only: initial_config, model_to_grid_config_rec, &
                                grid_config_rec_type, model_config_rec, &
-                               model_config_rec_type
+                               model_config_rec_type, get_config_as_buffer, &
+                               set_config_as_buffer
   use module_domain, only: domain, head_grid, alloc_and_configure_domain
   use da_wrf_interfaces, only: set_scalar_indices_from_config, setup_timekeeping, &
                                 init_wrfio
+  ! Note: STUBMPI is a preprocessor macro that should be set by CMake based on
+  !       WRFDA's build configuration. If WRFDA was built with MPI support,
+  !       STUBMPI will NOT be defined and module_dm will have real MPI functions.
+  !       If WRFDA was built without MPI (serial build with STUBMPI), STUBMPI
+  !       will be defined and module_dm will have stub implementations.
+#ifdef STUBMPI
+  ! WRFDA was built with STUBMPI - module_dm has stub implementations
+  ! We don't need to use module_dm in this case
+#else
+  ! WRFDA was built with MPI support - module_dm has real MPI functions
+  ! Note: init_module_dm and split_communicator are module procedures and can be imported via USE
+  use module_dm, only: init_module_dm, split_communicator, wrf_dm_initialize, mytask
+#endif
   implicit none
+#ifndef STUBMPI
+  ! Declare wrf_set_dm_communicator as external (it's a standalone subroutine in module_dm.F,
+  ! defined after END MODULE, so it cannot be imported via USE)
+  interface
+    subroutine wrf_set_dm_communicator(communicator)
+      integer, intent(in) :: communicator
+    end subroutine wrf_set_dm_communicator
+  end interface
+  
+  ! Declare wrf_dm_bcast_bytes as external (it's a standalone subroutine in module_dm.F,
+  ! defined after END MODULE, so it cannot be imported via USE)
+  interface
+    subroutine wrf_dm_bcast_bytes(buf, size)
+      implicit none
+      integer, intent(in) :: size
+      integer, intent(inout) :: buf(*)
+    end subroutine wrf_dm_bcast_bytes
+  end interface
+#endif
 
   ! Module-level storage for config_flags (not C-interoperable, so kept in Fortran)
   ! This is ALWAYS derived from WRFDA's authoritative model_config_rec via model_to_grid_config_rec
@@ -26,6 +59,47 @@ module metada_wrf_config_bridge
 
 contains
 
+  !============================================================================
+  ! MPI Communicator Setup (for parallel WRF/WRFDA)
+  !============================================================================
+  
+  !> @brief Set WRF domain manager communicator from METADA's MPI communicator
+  !> @details This function passes the MPI communicator from METADA to WRF's
+  !>          domain manager. It should be called after MPI is initialized
+  !>          in METADA but before any WRFDA parallel operations.
+  !> @param[in] mpi_comm MPI communicator (typically MPI_COMM_WORLD)
+  !> @note When MPI is disabled (STUBMPI), this is a no-op
+  !> @note STUBMPI is a preprocessor macro that is set during WRF/WRFDA compilation.
+  !>       It is NOT set by METADA. If WRFDA was built in serial mode (without MPI),
+  !>       STUBMPI will be defined by WRFDA's build system. If WRFDA was built with
+  !>       MPI support, STUBMPI will NOT be defined. This code automatically adapts
+  !>       to WRFDA's build configuration.
+  subroutine wrf_set_dm_communicator_from_metada(mpi_comm) &
+      bind(C, name="wrf_set_dm_communicator_from_metada_")
+    implicit none
+    integer(c_int), intent(in), value :: mpi_comm
+    
+#ifndef STUBMPI
+    ! Set WRF's domain manager communicator
+    ! This allows WRFDA to use the same MPI communicator as METADA
+    ! Note: This code path is only compiled if WRFDA was built with MPI support
+    !       (i.e., STUBMPI is NOT defined during WRFDA compilation)
+    call wrf_set_dm_communicator(mpi_comm)
+    
+    ! Split communicator (following WRFDA's init_modules.F sequence)
+    ! This must be called before init_module_dm according to WRFDA da_wrfvar_init1
+    call split_communicator
+    
+    ! Initialize WRF domain manager module if needed
+    ! This ensures module_dm is properly set up for parallel operations
+    call init_module_dm()
+#else
+    ! Stub: do nothing when MPI is disabled
+    ! This code path is compiled when WRFDA was built in serial mode (STUBMPI defined)
+    ! Fortran doesn't need explicit void cast - just ignore the parameter
+#endif
+  end subroutine wrf_set_dm_communicator_from_metada
+  
   !============================================================================
   ! WRFDA Initialization Routines
   !============================================================================
@@ -80,6 +154,7 @@ contains
 
   ! C-callable wrapper for initial_config()
   ! Reads namelist.input and populates module-level model_config_rec
+  ! NOTE: This is the serial version - use wrf_initial_config_parallel() for MPI
   subroutine wrf_initial_config() bind(C, name="wrf_initial_config_")
     implicit none
     
@@ -88,6 +163,62 @@ contains
     call initial_config()
     
   end subroutine wrf_initial_config
+
+  !> @brief Initialize WRF configuration with parallel support (following da_wrfvar_init1.inc)
+  !> @details This function implements the parallel initialization sequence from WRFDA:
+  !>          - In parallel mode (DM_PARALLEL): calls initial_config only on rootproc,
+  !>            then broadcasts config buffer to all processes
+  !>          - In serial mode: calls initial_config on all processes
+  !> @note This matches the exact sequence from da_wrfvar_init1.inc lines 75-85
+  !> @note Buffer size matches WRFDA's approach: 4*CONFIG_BUF_LEN (CONFIG_BUF_LEN=65536)
+  subroutine wrf_initial_config_parallel() bind(C, name="wrf_initial_config_parallel_")
+    implicit none
+    ! Variable declarations must be at the beginning
+    ! Buffer size matches WRFDA's da_wrfvar_top.f90: 4*CONFIG_BUF_LEN where CONFIG_BUF_LEN=65536
+    integer, parameter :: configbuflen = 4 * 65536
+    integer :: configbuf(configbuflen)
+    integer :: nbytes
+    logical :: rootproc
+#ifndef STUBMPI
+    ! No need to declare comm, myproc, ierr - we use mytask from module_dm instead
+#endif
+    
+    ! Initialize variables
+    rootproc = .false.
+    
+#ifndef STUBMPI
+    ! Parallel mode: follow WRFDA's da_wrfvar_init1.inc sequence (lines 59-82)
+    ! Step 0: Determine rootproc using mytask from module_dm
+    ! Note: mytask is initialized by init_module_dm() which is called earlier
+    !       in wrf_set_dm_communicator_from_metada()
+    if (mytask == 0) then
+      rootproc = .true.
+    else
+      rootproc = .false.
+    end if
+    
+    ! Step 1: Call initial_config only on rootproc
+    if (rootproc) then
+      call initial_config()
+    end if
+    
+    ! Step 2: Get config as buffer (on rootproc, this gets the config; on others, buffer is uninitialized)
+    call get_config_as_buffer(configbuf, configbuflen, nbytes)
+    
+    ! Step 3: Broadcast config buffer to all processes
+    call wrf_dm_bcast_bytes(configbuf, nbytes)
+    
+    ! Step 4: Set config from buffer on all processes
+    call set_config_as_buffer(configbuf, configbuflen)
+    
+    ! Step 5: Initialize domain manager (must be called after config is set)
+    call wrf_dm_initialize
+#else
+    ! Serial mode: just call initial_config (no broadcasting needed)
+    call initial_config()
+#endif
+    
+  end subroutine wrf_initial_config_parallel
 
   ! C-callable wrapper for model_to_grid_config_rec()
   ! Extracts domain-specific configuration from WRFDA's authoritative model_config_rec

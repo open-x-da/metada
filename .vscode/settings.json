@@ -18,8 +18,7 @@
         "-DLOGGER_BACKEND=NGLOG",
         "-DCONFIG_BACKEND=YAML",
         "-DWITH_WRFDA=ON",
-        "-DWRFDA_ROOT=/Volumes/workspace/metada_wrf",
-        "-DMETADA_USE_MPI=OFF"
+        "-DWRFDA_ROOT=/Volumes/workspace/metada_wrf"
     ],
     "terminal.integrated.defaultProfile.osx": "zsh",
     "terminal.integrated.profiles.osx": {
